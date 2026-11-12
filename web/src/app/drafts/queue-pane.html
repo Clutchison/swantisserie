@@ -1,0 +1,285 @@
+<ng-template #names let-cards>
+  @for (card of cards; track card.poolCardId; let last = $last) {
+    <strong
+      ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name" /></strong
+    >{{ last ? '.' : ', ' }}
+  }
+</ng-template>
+<section class="pane" [attr.aria-labelledby]="headingId">
+  @if (collapsible()) {
+    <!-- The same button collapses the pane and, as its rail, expands it, so focus on it stays. -->
+    <button
+      #toggle
+      class="toggle"
+      type="button"
+      [attr.aria-expanded]="!collapsed()"
+      [attr.aria-controls]="bodyId"
+      [attr.aria-label]="toggleName()"
+      [title]="toggleName()"
+      (click)="toggleCollapsed()"
+    >
+      @if (collapsed()) {
+        <svg lucidePanelRightOpen size="16"></svg>
+        @if (size(); as size) {
+          <span class="rail-count" appQueueAddBump aria-hidden="true">{{ size.count }}</span>
+        }
+        @if (unseenNotice()) {
+          <span class="dot" aria-hidden="true"></span>
+        }
+      } @else {
+        <svg lucidePanelRightClose size="16"></svg>
+      }
+    </button>
+  }
+  <div class="body" [id]="bodyId" [hidden]="collapsed()">
+    <app-change-status />
+    <div class="header">
+      <!-- The count and picks left are outside the heading, so the pane's name stays "Queue". -->
+      <div class="title">
+        <h2 [id]="headingId">Queue</h2>
+        @if (size(); as size) {
+          <span class="count" appQueueAddBump
+            ><span aria-hidden="true">· </span>{{ size.count
+            }}<span class="visually-hidden"> {{ size.noun }}</span></span
+          >
+        }
+        <app-picks-left />
+      </div>
+      @if (!failed()) {
+        <div class="steal-behavior">
+          <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
+          <span [id]="descriptionId" class="visually-hidden">{{ stealBehaviorExplanation }}</span>
+          <button
+            class="button compact quiet pill"
+            type="button"
+            [attr.aria-label]="'Steal behavior: ' + stealBehaviorName()"
+            [attr.aria-describedby]="descriptionId"
+            [disabled]="readOnly() || loading()"
+            appSendsChange="steal behavior"
+            (click)="toggleStealBehavior()"
+          >
+            {{ stealBehaviorName() }}<svg lucideArrowLeftRight class="swap" size="16"></svg>
+          </button>
+        </div>
+        @if (offerHelp()) {
+          <button
+            class="icon info"
+            type="button"
+            aria-label="How this works"
+            title="How this works"
+            [attr.aria-expanded]="helpOpen()"
+            [attr.aria-controls]="helpId"
+            (click)="helpOpen.set(!helpOpen())"
+          >
+            <svg lucideInfo size="16"></svg>
+          </button>
+        }
+      }
+    </div>
+    @if (offerHelp()) {
+      <p class="detail help" [id]="helpId" [hidden]="!helpOpen()">
+        @if (draftState() === 'Closed') {
+          Cards are picked for you in this order if the draft reopens.
+        } @else if (coarsePointer()) {
+          Cards are picked for you in this order. Drag a card by its handle, or use its menu, to
+          reorder.
+        } @else {
+          Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.
+        }
+      </p>
+    }
+    @if (error(); as failure) {
+      @if (failure.place === 'stealBehavior') {
+        <p class="error" role="alert">{{ failure.message }}</p>
+      }
+    }
+    @if (failed()) {
+      <p class="error">Couldn't load your queue. Try reloading the page.</p>
+    } @else {
+      @if (hasNotice()) {
+        <div class="notice" role="status" aria-label="Queue notice">
+          <p>
+            @if (queue().lost.length > 0) {
+              Lost to other players:
+              <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().lost }" />
+            }
+            @if (queue().cleared.length > 0) {
+              Your queue was cleared:
+              <ng-container *ngTemplateOutlet="names; context: { $implicit: queue().cleared }" />
+            }
+            @if (showRestKept()) {
+              The rest of your queue is still queued.
+            }
+          </p>
+          @if (!readOnly()) {
+            <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
+              Dismiss
+            </button>
+          }
+        </div>
+      }
+      <!-- The Queue cutoff falls before the first card past the player's picks left. -->
+      @let cutoffAt = store.picksLeft();
+      <ol
+        class="queue card-rows"
+        [class.with-handles]="coarsePointer() && !readOnly()"
+        aria-label="Your queue"
+        cdkDropList
+        [cdkDropListDisabled]="changing() || readOnly()"
+        (cdkDropListDropped)="dropped($event)"
+      >
+        @for (
+          card of queue().cards;
+          track card.poolCardId;
+          let i = $index, first = $first, last = $last
+        ) {
+          @if (i === cutoffAt) {
+            <li class="cutoff">
+              <span class="visually-hidden"
+                >Queue cutoff: cards after this are past your picks left</span
+              >
+            </li>
+          }
+          <li
+            [class.past-cutoff]="store.pastQueueCutoff(i)"
+            [class.just-added]="card.poolCardId === justAdded()"
+            (animationend)="highlightPlayed($event)"
+            cdkDrag
+            [cdkDragData]="card.poolCardId"
+            cdkDragLockAxis="y"
+            [cdkDragStartDelay]="dragStartDelay"
+            cdkDragPreviewContainer="parent"
+            (pointerdown)="pressed()"
+            (cdkDragStarted)="dragStarted()"
+          >
+            <!-- With a mouse the whole row drags; on a touchscreen only its handle, so a swipe scrolls. -->
+            @if (coarsePointer() && !readOnly()) {
+              <span class="handle" cdkDragHandle aria-hidden="true">⠿</span>
+            }
+            <span class="number">{{ i + 1 }}</span>
+            <app-card-name
+              [card]="poolCardsById().get(card.poolCardId)"
+              [name]="card.name"
+              [opensDetail]="true"
+              (opened)="openDetail(card.poolCardId, $event)"
+            />
+            @if (card.poolCardId === justAdded()) {
+              <span class="visually-hidden">, just added</span>
+            }
+            @if (!readOnly()) {
+              @if (coarsePointer()) {
+                <!-- On a touchscreen, a menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
+                @let menuName = 'Move or remove ' + card.name;
+                <span class="move">
+                  <button
+                    #rowMenu
+                    class="icon"
+                    type="button"
+                    [attr.aria-label]="menuName"
+                    [title]="menuName"
+                    [cdkMenuTriggerFor]="moves"
+                    [appSendsChange]="'menu ' + card.poolCardId"
+                  >
+                    <svg lucideEllipsisVertical size="16"></svg>
+                  </button>
+                </span>
+                <ng-template #moves>
+                  <div cdkMenu [attr.aria-label]="menuName">
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      [cdkMenuItemDisabled]="first"
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, 0))"
+                    >
+                      Move to top
+                    </button>
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      [cdkMenuItemDisabled]="first"
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i - 1))"
+                    >
+                      Move up
+                    </button>
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      [cdkMenuItemDisabled]="last"
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i + 1))"
+                    >
+                      Move down
+                    </button>
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => remove(card.poolCardId))"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </ng-template>
+              } @else {
+                <span class="move">
+                  @let upName = 'Move ' + card.name + ' up';
+                  <button
+                    class="icon"
+                    type="button"
+                    [attr.aria-label]="upName"
+                    [title]="upName"
+                    (click)="move(i, i - 1)"
+                    [disabled]="first"
+                    [appSendsChange]="'up ' + card.poolCardId"
+                  >
+                    <svg lucideArrowUp size="16"></svg>
+                  </button>
+                  @let downName = 'Move ' + card.name + ' down';
+                  <button
+                    class="icon"
+                    type="button"
+                    [attr.aria-label]="downName"
+                    [title]="downName"
+                    (click)="move(i, i + 1)"
+                    [disabled]="last"
+                    [appSendsChange]="'down ' + card.poolCardId"
+                  >
+                    <svg lucideArrowDown size="16"></svg>
+                  </button>
+                  @let removeName = 'Remove ' + card.name;
+                  <button
+                    class="icon"
+                    type="button"
+                    [attr.aria-label]="removeName"
+                    [title]="removeName"
+                    (click)="remove(card.poolCardId)"
+                    [appSendsChange]="'remove ' + card.poolCardId"
+                  >
+                    <svg lucideTrash size="16"></svg>
+                  </button>
+                </span>
+              }
+            }
+          </li>
+        } @empty {
+          <li class="empty">
+            @if (loading()) {
+              <app-loading-animation size="tab">Loading your queue…</app-loading-animation>
+            } @else if (readOnly()) {
+              Your queue is empty.
+            } @else {
+              Your queue is empty. Add cards from the pool.
+            }
+          </li>
+        }
+      </ol>
+      @if (error(); as failure) {
+        @if (failure.place === 'queue') {
+          <p class="error" role="alert">{{ failure.message }}</p>
+        }
+      }
+    }
+  </div>
+</section>
+@if (collapsible()) {
+  <!-- Beside the tabs, open or collapsed; under the Queue sheet, the "next up" strip says it. -->
+  <app-queue-add-status />
+}

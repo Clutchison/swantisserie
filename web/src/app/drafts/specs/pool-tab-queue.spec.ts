@@ -23,19 +23,27 @@ import {
   queueOf,
   drafting,
   queued,
-  openQueue,
+  openQueueSheet,
   statusTexts,
   serverError,
+  accessibleName,
+  queuePane,
+  queuePaneToggle,
+  justAddedCards,
+  endJustAddedHighlight,
+  nextUpStrip,
+  queueSheet,
 } from './harness';
-import { openDialog } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
+import { viewOn } from './screen-harness';
+import { carol, openDialog, openDialogs, text } from '../../specs-harness';
+import { useTallScreen, shivan, brightclimb, openDetail, tiles, card } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
 
 describe('pool tab', () => {
   describe('queue', () => {
-    it('adds a card to your queue from its detail, and lists it on the Queue tab', async () => {
+    it('adds a card to your queue from its detail, and lists it in the Queue pane', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
       });
@@ -51,9 +59,9 @@ describe('pool tab', () => {
       expect(button(detail, 'Add to queue')).toBeUndefined();
       expect(button(detail, 'Remove from queue')).toBeDefined();
 
-      const queue = await openQueue(fixture, page);
+      const queue = await openQueueSheet(fixture, page);
       expect(queue.querySelector('h2')?.textContent).toContain('Queue');
-      expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent)).toEqual([
+      expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent?.trim())).toEqual([
         'Shivan Dragon',
       ]);
     });
@@ -72,9 +80,9 @@ describe('pool tab', () => {
       expect(button(detail, 'Remove from queue')).toBeUndefined();
     });
 
-    /** The names in the Queue tab's list, in order. */
+    /** The names in the Queue pane's list, in order. */
     const names = (queue: HTMLElement) =>
-      [...queue.querySelectorAll('li .name')].map((name) => name.textContent);
+      [...queue.querySelectorAll('li .name')].map((name) => name.textContent?.trim());
 
     it('removes a queued card from its detail, then offers to add it again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
@@ -92,7 +100,7 @@ describe('pool tab', () => {
       expect(statusTexts(detail).join(' ')).toContain('Removed from your queue.');
       expect(button(detail, 'Remove from queue')).toBeUndefined();
       expect(button(detail, 'Add to queue')).toBeDefined();
-      expect(names(await openQueue(fixture, page))).toEqual([
+      expect(names(await openQueueSheet(fixture, page))).toEqual([
         'Brightclimb Pathway // Grimclimb Pathway',
       ]);
     });
@@ -207,6 +215,172 @@ describe('pool tab', () => {
       );
 
       expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
+    });
+
+    describe('Queued badge', () => {
+      const ancestral = card({
+        id: 'ancestral-card',
+        scryfallId: 'ancestral-id',
+        name: 'Ancestral Recall',
+      });
+
+      /** Each tile's accessible name, in the grid's order. */
+      const tileNames = (page: HTMLElement) => tiles(page).map(accessibleName);
+
+      it('shows each queued card’s place in your queue, and nothing on an unqueued card', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [ancestral, brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        expect(tileNames(page)).toEqual([
+          'Ancestral Recall',
+          'Brightclimb Pathway // Grimclimb Pathway Queued second',
+          'Shivan Dragon Queued first',
+        ]);
+        expect(tiles(page)[1].textContent).toContain('#2');
+        expect(tiles(page)[0].textContent).not.toContain('#');
+      });
+
+      it('says a queued card past the Queue cutoff is past your picks left', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 2 }), {
+          cards: [ancestral, brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb), queued(ancestral)] }),
+        });
+
+        expect(tileNames(page)).toEqual([
+          'Ancestral Recall Queued third, past your picks left',
+          'Brightclimb Pathway // Grimclimb Pathway Queued second',
+          'Shivan Dragon Queued first',
+        ]);
+      });
+
+      it('follows a reorder of your queue', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        const queue = await openQueueSheet(fixture, page);
+        button(queue, `Move ${brightclimb.name} up`)!.click();
+        http
+          .expectOne('/api/drafts/draft-1/queue')
+          .flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon Queued second',
+        ]);
+      });
+
+      it('goes once a card is removed from your queue', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        button(await openDetail(fixture, page, 1), 'Remove from queue')!.click();
+        http
+          .expectOne('/api/drafts/draft-1/queue/shivan-card')
+          .flush(queueOf({ cards: [queued(brightclimb)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('follows the queue as it is re-read after another player’s pick', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 })),
+        });
+        await flushPicks([pickOf({ playerId: bob.id, poolCardId: 'shivan-card' })]);
+        await flushQueueAndPlan(queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon Picked by Bob',
+        ]);
+      });
+
+      it('shows a spectator none', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          user: carol,
+        });
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('shows a viewer who hasn’t joined none', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          { state: 'Lobby', turn: null },
+          { cards: [brightclimb, shivan], user: carol },
+        );
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('shows none once the draft is complete', async () => {
+        const { page } = await openDraft(
+          completeSnapshot,
+          drafting({ state: 'Complete', turn: null }),
+          {
+            cards: [brightclimb, shivan],
+            queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+          },
+        );
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('comes back when an undo puts the card back in your queue', async () => {
+        const { fixture, page } = await openDraft(
+          completeSnapshot,
+          drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+          {
+            cards: [brightclimb, shivan],
+            picks: [pickOf({ playerId: bob.id, poolCardId: 'shivan-card' })],
+            queue: queueOf({ cards: [queued(brightclimb)] }),
+          },
+        );
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon Picked by Bob',
+        ]);
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft(drafting({ version: 1 })),
+        });
+        await flushPicks([]);
+        await flushQueueAndPlan(queueOf({ cards: [queued(shivan), queued(brightclimb)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued second',
+          'Shivan Dragon Queued first',
+        ]);
+      });
     });
 
     describe('made from a Card detail since closed', () => {
@@ -531,6 +705,153 @@ describe('pool tab', () => {
         await fixture.whenStable();
 
         expect(button(detail, 'Remove from queue')).toBeDefined();
+      });
+    });
+
+    describe('after an add', () => {
+      afterEach(() => vi.unstubAllGlobals());
+
+      /** Adds Shivan Dragon to the queue from its Card detail, the queue answering with `cards`. */
+      async function addShivan(fixture: AppFixture, page: HTMLElement, cards = [queued(shivan)]) {
+        const detail = await openDetail(fixture, page, 1);
+        button(detail, 'Add to queue')!.click();
+        http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards }));
+        await vi.waitFor(() => expect(detail.textContent).toContain('Added to your queue.'));
+        await fixture.whenStable();
+        return detail;
+      }
+
+      it('says the queue’s new size beside the tabs, and opens nothing else', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(brightclimb)] }),
+        });
+        expect(statusTexts(page)).not.toContain('Queue, 1 card');
+
+        await addShivan(fixture, page, [queued(brightclimb), queued(shivan)]);
+
+        expect(statusTexts(page)).toContain('Queue, 2 cards');
+        expect(text(queuePane(page))).toContain('· 2 cards');
+        expect(openDialogs().map((dialog) => dialog.getAttribute('aria-label'))).toEqual([
+          shivan.name,
+        ]);
+      });
+
+      it('says it on the collapsed rail, too, which shows the new count', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+        queuePaneToggle(page).click();
+        await fixture.whenStable();
+
+        await addShivan(fixture, page);
+
+        expect(statusTexts(page)).toContain('Queue, 1 card');
+        expect(accessibleName(queuePaneToggle(page))).toBe('Expand queue, 1 card');
+        expect(queuePaneToggle(page).getAttribute('aria-expanded')).toBe('false');
+      });
+
+      it('says it on the "next up" strip below the desktop layout, opening no Queue sheet', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+
+        await addShivan(fixture, page);
+
+        expect(statusTexts(page)).toContain('Queue, 1 card');
+        expect(accessibleName(nextUpStrip(page))).toContain('Queue, 1 card');
+        expect(queueSheet()).toBeNull();
+      });
+
+      it('says nothing of the queue’s size until a card is added', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(brightclimb), queued(shivan)] }),
+        });
+        await fixture.whenStable();
+
+        expect(statusTexts(page).filter((status) => status.startsWith('Queue,'))).toEqual([]);
+      });
+
+      it('marks the added card in the open Queue pane once its Card detail closes', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(brightclimb)] }),
+        });
+
+        const detail = await addShivan(fixture, page, [queued(brightclimb), queued(shivan)]);
+        expect(justAddedCards(queuePane(page))).toEqual([]);
+
+        button(detail, 'Close')!.click();
+        await fixture.whenStable();
+        expect(justAddedCards(queuePane(page))).toEqual(['Shivan Dragon']);
+      });
+
+      it('marks a card whose add is answered after its Card detail has closed', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+
+        button(await openDetail(fixture, page, 1), 'Add to queue')!.click();
+        button(openDialog()!, 'Close')!.click();
+        await fixture.whenStable();
+        http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
+        await vi.waitFor(() => {
+          TestBed.tick();
+          expect(justAddedCards(queuePane(page))).toEqual(['Shivan Dragon']);
+        });
+      });
+
+      it('marks the card only until its highlight has played', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+        button(await addShivan(fixture, page), 'Close')!.click();
+        await fixture.whenStable();
+        expect(justAddedCards(queuePane(page))).toEqual(['Shivan Dragon']);
+
+        endJustAddedHighlight(queuePane(page));
+        await fixture.whenStable();
+
+        expect(justAddedCards(queuePane(page))).toEqual([]);
+      });
+
+      it('marks the card no more once the pane is collapsed, nor again as it is expanded', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+        button(await addShivan(fixture, page), 'Close')!.click();
+        await fixture.whenStable();
+
+        queuePaneToggle(page).click();
+        await fixture.whenStable();
+        queuePaneToggle(page).click();
+        await fixture.whenStable();
+
+        expect(justAddedCards(queuePane(page))).toEqual([]);
+      });
+
+      it('marks nothing in a collapsed pane, nor once it is expanded', async () => {
+        viewOn('desktop');
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+        });
+        queuePaneToggle(page).click();
+        await fixture.whenStable();
+
+        button(await addShivan(fixture, page), 'Close')!.click();
+        await fixture.whenStable();
+        queuePaneToggle(page).click();
+        await fixture.whenStable();
+
+        expect(justAddedCards(queuePane(page))).toEqual([]);
       });
     });
   });

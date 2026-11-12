@@ -19,6 +19,7 @@ import {
   tiles,
   searchFor,
 } from './pool-tab-harness';
+import { measuredAs } from './measure-harness';
 import { apiImage } from './plan-tab-harness';
 
 useDraftsApp();
@@ -80,37 +81,6 @@ describe('pool tab', () => {
 
   describe('once the grid is measured', () => {
     afterEach(() => vi.unstubAllGlobals());
-
-    /** Stands in for the browser's ResizeObserver, which reports only on the elements it observes. */
-    function measuredAs() {
-      const watchers: { callback: ResizeObserverCallback; observed: Element[] }[] = [];
-      vi.stubGlobal(
-        'ResizeObserver',
-        class {
-          private readonly watcher = { callback: null as never, observed: [] as Element[] };
-          constructor(callback: ResizeObserverCallback) {
-            this.watcher.callback = callback as never;
-            watchers.push(this.watcher);
-          }
-          observe(element: Element) {
-            this.watcher.observed.push(element);
-          }
-          disconnect() {
-            this.watcher.observed = [];
-          }
-        },
-      );
-      return (width: number) => {
-        for (const { callback, observed } of watchers) {
-          for (const target of observed) {
-            callback(
-              [{ target, contentRect: { width } } as unknown as ResizeObserverEntry],
-              {} as ResizeObserver,
-            );
-          }
-        }
-      };
-    }
 
     it('tells the browser how wide a tile is', async () => {
       const measure = measuredAs();
@@ -358,19 +328,7 @@ describe('pool tab', () => {
 
     it('still loads the buffer rows once a search removes a tile not yet measured', async () => {
       // The grid measures three tiles across, so all three share a row.
-      vi.stubGlobal(
-        'ResizeObserver',
-        class {
-          constructor(private readonly measured: ResizeObserverCallback) {}
-          observe() {
-            this.measured(
-              [{ contentRect: { width: 470 } } as ResizeObserverEntry],
-              this as unknown as ResizeObserver,
-            );
-          }
-          disconnect() {}
-        },
-      );
+      measuredAs(470);
       const { page } = await openPool([brightclimb, shivan, third]);
       const [onScreen, buffer] = tiles(page);
       report(onScreen, true);

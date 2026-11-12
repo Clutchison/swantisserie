@@ -28,14 +28,34 @@ export const DESKTOP_QUERY = '(min-width: 1024px)';
 export const WIDE_DESKTOP_QUERY = '(min-width: 1200px)';
 
 /**
- * The media query of the screens whose Deck tab has room for the wide stacks
- * layout, with the sideboard's stack beside the mainboard's; narrower, the
- * mainboard's stacks become a strip that scrolls sideways. Kept in step with
- * the container query in `plan-stacks-layout.scss`, 760px of stacks area, plus
- * the draft page's padding either side: `$wide-stacks` and
+ * The media query of a screen whose primary pointer is touch, where a queue
+ * row is dragged by its handle, and moved or removed from its row menu.
+ */
+export const COARSE_POINTER_QUERY = '(pointer: coarse)';
+
+/**
+ * How long, in ms, a card is held before a drag of it starts, as the CDK's
+ * `cdkDragStartDelay` takes it: on touch, long enough that a swipe scrolls.
+ */
+export const DRAG_START_DELAY = { touch: 200, mouse: 0 };
+
+/** Picks left at or below this highlight the count, so a viewer near the end of their picks notices. */
+export const HIGHLIGHT_PICKS_LEFT_AT = 10;
+
+/** A player's picks left as a viewer reads them: "12 picks left", or "1 pick left". */
+export const picksLeftText = (left: number) => `${left} ${left === 1 ? 'pick' : 'picks'} left`;
+
+/** The noun a viewer reads after a count of cards: "card" for one, else "cards". */
+export const cardsNoun = (count: number) => (count === 1 ? 'card' : 'cards');
+
+/**
+ * The width in px of the Deck tab's stacks area from which it has room for
+ * the wide stacks layout, with the sideboard's stack beside the mainboard's;
+ * narrower, the mainboard's stacks become a strip that scrolls sideways. The
+ * container query in `plan-stacks-layout.scss` breaks at it too:
  * `$wide-stacks-container` in `src/_breakpoints.scss`. Change them together.
  */
-export const WIDE_STACKS_QUERY = '(min-width: 792px)';
+export const WIDE_STACKS_WIDTH = 760;
 
 /**
  * Whether the media query `query` matches, as the window is resized. No

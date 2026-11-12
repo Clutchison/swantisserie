@@ -1,0 +1,19 @@
+/*
+ * A count of the queue briefly larger as an add changes it: an element
+ * with `appQueueAddBump`, which gives it the `bump` class. Include it at a
+ * stylesheet's top level.
+ */
+@mixin bump {
+  @media (prefers-reduced-motion: no-preference) {
+    .bump {
+      display: inline-block;
+      animation: queue-add-bump 300ms ease-out;
+    }
+  }
+
+  @keyframes queue-add-bump {
+    50% {
+      transform: scale(1.3);
+    }
+  }
+}

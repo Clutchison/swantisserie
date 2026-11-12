@@ -19,6 +19,8 @@ Assert what a viewer sees or can do: text shown, a control present, enabled or g
 
 When a breakpoint changes what a template shows, not just how it looks (a section open or closed, a control present or gone), give it a media-query constant beside the draft page's others and a screen in `viewOn` and `resizeTo` in `web/src/app/drafts/specs/screen-harness.ts`, so specs can put the page on each side of it. A breakpoint that only restyles stays in the SCSS breakpoint partial.
 
+A breakpoint on an element's own width, a container query, goes by that width measured, not the screen's: the Deck tab's wide stacks layout (`WIDE_STACKS_WIDTH`) and the Pool grid's columns. The component measures it with `onResize` (`web/src/app/drafts/resizes.ts`), and specs set it with `measuredAs` in `web/src/app/drafts/specs/measure-harness.ts`, which stands in for `ResizeObserver`: `measuredAs(width)` before opening the page, then the resize it returns to cross the breakpoint. Deck tab specs use `WIDE_STACKS_AREA` and `NARROW_STACKS_AREA` from `plan-tab-harness.ts`. A screen from `viewOn` sets no measured width, so a Deck tab spec on `'desktop'` still needs `measuredAs(WIDE_STACKS_AREA)` for the wide stacks layout.
+
 ## Flush requests by URL
 
 Answer each pending request by its URL with `http.expectOne(url)` or a URL-matching `http.match`, so a spec sends the shape each endpoint really returns and fails when an unexpected request appears.

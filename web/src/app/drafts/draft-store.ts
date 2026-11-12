@@ -30,7 +30,7 @@ import { MIN_MAINBOARD_CARDS } from 'contract';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
-import { EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
+import { cardsNoun, EMPTY_PLAN, EMPTY_QUEUE, isActive, isRefusal, NO_POWERS } from './drafts';
 import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
 
@@ -69,6 +69,15 @@ export interface DraftRead<T> {
  */
 export interface PickedCard extends PickView {
   card: PoolCardView;
+}
+
+/** A card the player added to their queue from a Card detail. */
+export interface QueueAdd {
+  /** Tells each add apart, later ones higher, so the same card added again is a new add. */
+  id: number;
+  poolCardId: string;
+  /** The queue's size as the add left it: its count, and the noun a viewer reads after it. */
+  size: { count: number; noun: string };
 }
 
 /**
@@ -258,6 +267,17 @@ export class DraftStore implements TournamentViewer {
   });
 
   /**
+   * Whether the queued card at `index` is past the Queue cutoff, so picks
+   * left won't reach it. The cutoff falls before the queued card whose index
+   * is the player's picks left, the first past them; none is past it while
+   * picks left is null.
+   */
+  pastQueueCutoff(index: number): boolean {
+    const left = this.picksLeft();
+    return left !== null && index >= left;
+  }
+
+  /**
    * Only players have a queue. It is read for the draft's version, and so
    * re-read whenever that changes, as a pick may have lost a card: a newer
    * version replaces a read in flight.
@@ -268,10 +288,84 @@ export class DraftStore implements TournamentViewer {
   });
   /** The signed-in player's queue. */
   readonly queue = keptRead(this.queueResource, EMPTY_QUEUE);
+  /**
+   * The signed-in player's queue's size: its count, and the noun a viewer
+   * reads after it. Null until it is known: while it loads, or if it couldn't.
+   */
+  readonly queueSize = computed(() => {
+    if (this.queue.loading() || this.queue.missing()) return null;
+    const count = this.queue.value().cards.length;
+    return { count, noun: cardsNoun(count) };
+  });
+
+  /**
+   * A name summing up the queue, as a screen reader reads it: `lead`, then
+   * the queue's size once it is known, then `details`, then whether the
+   * Queue notice notes a card the player hasn't seen.
+   */
+  queueSummary(lead: string, details: string[] = []): string {
+    const size = this.queueSize();
+    return [
+      lead,
+      ...(size ? [`${size.count} ${size.noun}`] : []),
+      ...details,
+      ...(this.unseenNotice() ? ['new notice'] : []),
+    ].join(', ');
+  }
+  /** How many cards the player has added to their queue from a Card detail, on this page. */
+  private queueAdds = 0;
+  private readonly latestQueueAddShown = signal<QueueAdd | null>(null);
+  /** The latest card the player added to their queue from a Card detail, on this page; null before one. */
+  readonly latestQueueAdd = this.latestQueueAddShown.asReadonly();
+
+  /**
+   * Notes a card the player has added to their queue from a Card detail,
+   * with the queue's size as it now stands. The add's answer has just been
+   * shown, so the size is known; should it not be, there is no size to say,
+   * and the add before stays the latest.
+   */
+  addedToQueue(poolCardId: string) {
+    const size = this.queueSize();
+    // Stryker disable next-line ConditionalExpression: a changed queue just shown is always loaded.
+    if (!size) return;
+    this.latestQueueAddShown.set({ id: ++this.queueAdds, poolCardId, size });
+  }
+
   /** The pool card ids of the cards in the signed-in player's queue. */
   readonly queued = computed(
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
   );
+
+  /** The Queue notice's entries, each its lost or cleared card, by a key of its own. */
+  private readonly noticeEntries = computed(() => {
+    const { lost, cleared } = this.queue.value();
+    return [
+      ...lost.map((card) => `lost ${card.poolCardId}`),
+      ...cleared.map((card) => `cleared ${card.poolCardId}`),
+    ];
+  });
+  /**
+   * The Queue notice's entries the player has seen, in an open Queue pane,
+   * on this page: those still in the notice, so an entry dismissed and
+   * then noted again is new again.
+   */
+  private readonly seenNoticeEntries = linkedSignal<string[], ReadonlySet<string>>({
+    source: this.noticeEntries,
+    computation: (entries, previous) =>
+      new Set(entries.filter((entry) => previous?.value.has(entry))),
+  });
+  /** Whether the Queue notice notes any lost or cleared card. */
+  readonly hasNotice = computed(() => this.noticeEntries().length > 0);
+  /** Whether the Queue notice notes a card the player hasn't yet seen it note. */
+  readonly unseenNotice = computed(() => {
+    const seen = this.seenNoticeEntries();
+    return this.noticeEntries().some((entry) => !seen.has(entry));
+  });
+
+  /** The player has seen the Queue notice as it stands, in an open Queue pane. */
+  noticeSeen() {
+    this.seenNoticeEntries.set(new Set(this.noticeEntries()));
+  }
 
   /**
    * Only players have a plan, read for the draft's version as the queue is:
@@ -369,11 +463,12 @@ export class DraftStore implements TournamentViewer {
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
-   * Whether the Queue tab is shown: until the draft is complete, as its queue
+   * Whether a player's queue is shown, in the Queue pane beside the tabs or,
+   * below the desktop layout, the Queue sheet: until the draft is complete, as the queue
    * can't change after. A closed draft keeps it, as it can reopen. Undefined
    * while the draft is loading.
    */
-  readonly showQueueTab = computed(() => {
+  readonly queueShown = computed(() => {
     const draft = this.draft.value();
     return draft ? !this.draftComplete() : undefined;
   });
@@ -464,7 +559,7 @@ export class DraftStore implements TournamentViewer {
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
    * Offering queue changes: to players, while the draft is active; adding to
-   * the queue is still not offered on the player's own turn. The Queue tab is
+   * the queue is still not offered on the player's own turn. The Queue pane is
    * read-only when this is false. The api refuses anyone else with
    * `not-a-player`, a Complete or Closed draft with `draft-complete` or
    * `draft-closed`, and adding on the player's own turn with `your-turn`.

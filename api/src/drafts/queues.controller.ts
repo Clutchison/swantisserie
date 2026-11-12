@@ -108,7 +108,7 @@ export class QueuesController {
     );
   }
 
-  /** Stops the Queue tab notice listing the lost and cleared cards. */
+  /** Stops the Queue notice listing the lost and cleared cards. */
   @Delete('notice')
   async dismissNotice(
     @CurrentUser() user: SessionUser,

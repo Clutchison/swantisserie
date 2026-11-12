@@ -1,0 +1,69 @@
+@use 'queue-add-bump';
+
+/*
+ * Fixed above the tab bar at the foot of the screen, on every tab. Its
+ * height and the tab bar's are set on `html` in styles.scss, which adds the
+ * strip's to the room the page leaves under its content.
+ */
+:host {
+  position: fixed;
+  right: 0;
+  bottom: var(--bottom-tab-bar-height);
+  left: 0;
+  /* Above the panels, as the tab bar is. */
+  z-index: 2;
+  height: var(--next-up-strip-height);
+}
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  padding: 0 var(--page-gutter);
+  border: 0;
+  border-top: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  cursor: pointer;
+
+  /* Inset, as the strip meets the screen's edges. */
+  &:focus-visible {
+    outline-offset: -2px;
+  }
+}
+
+.title {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-xs);
+  font-weight: 600;
+}
+
+.dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--color-accent);
+}
+
+/* The next card's name gives way first where the strip is narrow. */
+.next {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picks-left {
+  flex-shrink: 0;
+  color: var(--color-muted);
+}
+
+@include queue-add-bump.bump;

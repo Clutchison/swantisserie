@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { MIN_MAINBOARD_CARDS } from 'contract';
 import { DraftStore } from './draft-store';
+import { cardsNoun } from './drafts';
 
 /**
  * The reminder a joined player sees during registration, on the Play tab
@@ -19,10 +20,9 @@ import { DraftStore } from './draft-store';
       </p>
       @if (store.deckTooSmall()) {
         <p class="warning">
-          Your mainboard holds {{ store.mainboardCards() }}
-          {{ store.mainboardCards() === 1 ? 'card' : 'cards' }}. A tournament deck needs at least
-          {{ minimum }}: fill your deck before marking yourself ready, or leave the tournament if
-          you won’t play.
+          Your mainboard holds {{ store.mainboardCards() }} {{ cardsNoun(store.mainboardCards()) }}.
+          A tournament deck needs at least {{ minimum }}: fill your deck before marking yourself
+          ready, or leave the tournament if you won’t play.
         </p>
       }
     }
@@ -51,4 +51,5 @@ export class DeckLockReminder {
   protected readonly store = inject(DraftStore);
   /** The fewest mainboard cards Start accepts. */
   protected readonly minimum = MIN_MAINBOARD_CARDS;
+  protected readonly cardsNoun = cardsNoun;
 }

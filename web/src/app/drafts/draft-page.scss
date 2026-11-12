@@ -1,4 +1,5 @@
 @use '../../breakpoints' as bp;
+@use 'side-pane';
 
 /* A minor action, so it doesn't compete with the page's real controls. */
 .back-link {
@@ -14,16 +15,16 @@
   }
 }
 
-.players-panel,
+/* Above the tabs, or beside them; not in the Seat strip's popover. */
+main > .players-panel,
 .pool,
-.queue,
 .plan,
 .board {
   margin-top: var(--space-xl);
 }
 
 /*
- * The Pool, Queue and Deck headings, with the viewer's picks left beside
+ * The Pool and Deck headings, with the viewer's picks left beside
  * them: on a phone the count wraps onto its own line under the heading.
  */
 .panel-heading {
@@ -36,18 +37,6 @@
 
   h2 {
     margin: 0;
-  }
-}
-
-/* Secondary to the heading, until the viewer is near the end of their picks. */
-.picks-left {
-  color: var(--color-muted);
-  font-size: var(--font-size-sm);
-
-  /* The count alone, not the dash before it. On bg, where accent text meets AA. */
-  [data-highlighted='true'] {
-    color: var(--color-accent);
-    font-weight: 600;
   }
 }
 
@@ -125,6 +114,9 @@ main {
   /* Above the panels, which come after it, and the Pool's search bar. */
   z-index: 2;
   display: flex;
+  box-sizing: border-box;
+  /* Set, so the "next up" strip sits just above it. */
+  height: var(--bottom-tab-bar-height);
   border-top: 1px solid var(--color-divider);
   background: var(--color-surface);
 
@@ -191,25 +183,18 @@ main {
     }
   }
 
-  /* Pool and Board use the full width; the Queue tab reads better capped. */
-  .queue {
-    max-width: var(--capped-tab-width);
-  }
-}
-
-/*
- * From here the page is two columns: the tabs and their panels, with the
- * Players panel's own pane beside them. It stays in view as a tab scrolls,
- * and scrolls on its own when it's long.
- */
-@media (min-width: bp.$wide-desktop) {
-  main {
+  /*
+   * With the Queue pane, the page is two columns: the tabs and their panels,
+   * with the pane beside them. Like the tab bar, it stays in view as a tab
+   * scrolls, and scrolls on its own when it's long.
+   */
+  main.with-queue-pane {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 19rem;
+    grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-xl);
     align-items: start;
 
-    /* The header and the status strip span both columns. */
+    /* The header, the status strip and the Players panel span both columns. */
     > * {
       grid-column: 1 / -1;
     }
@@ -218,16 +203,55 @@ main {
       grid-column: 1;
     }
 
-    /* Placed after the tab column, so it shares its row; the reading order stays as written. */
-    > .players-panel {
-      position: sticky;
-      top: 0;
-      order: 1;
+    > .queue-pane {
+      @include side-pane.sticky;
+
       grid-column: 2;
-      box-sizing: border-box;
-      max-block-size: 100dvh;
-      overflow-y: auto;
-      padding-bottom: var(--space-md);
+      margin-top: var(--space-xl);
     }
+  }
+}
+
+/*
+ * From here a started draft has the Seat strip after the tabs and any Queue
+ * pane, until it is complete, when the Players panel is a pane there instead.
+ * Each stays in view as a tab scrolls. In the lobby the Players panel stays
+ * above the tabs.
+ */
+@media (min-width: bp.$wide-desktop) {
+  main.with-seat-strip,
+  main.with-players-pane {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-xl);
+    align-items: start;
+
+    /* The header and the status strip span every column. */
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > .tab-column {
+      grid-column: 1;
+    }
+  }
+
+  main.with-seat-strip.with-queue-pane {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+
+  /* The last column, after any Queue pane. */
+  main > .seat-strip {
+    grid-column: -2;
+    margin-top: var(--space-xl);
+  }
+
+  /* Placed after the tab column, so it shares its row; the reading order stays as written. */
+  main > .players-panel.in-pane {
+    @include side-pane.sticky;
+
+    order: 1;
+    grid-column: -2;
+    inline-size: side-pane.$width;
   }
 }

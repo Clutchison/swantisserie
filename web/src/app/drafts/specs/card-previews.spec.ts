@@ -7,6 +7,9 @@ import {
   openUrl,
   bob,
   alicePlayer,
+  nextUpStrip,
+  openQueueSheet,
+  queueSheet,
   tabButton,
   panel,
   flushPicks,
@@ -31,13 +34,22 @@ import {
   flushQueueAndPlan,
   cardName,
   cardNames,
+  queueList,
+  queueNotice,
   namedList,
   startDrag,
   button,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { image } from './pool-tab-harness';
-import { apiImage, defaultPrintings, detailOpener, openPlan } from './plan-tab-harness';
+import { measuredAs } from './measure-harness';
+import {
+  apiImage,
+  defaultPrintings,
+  detailOpener,
+  openPlan,
+  WIDE_STACKS_AREA,
+} from './plan-tab-harness';
 import {
   bolt,
   shock,
@@ -53,8 +65,8 @@ useDraftsApp();
 
 describe('card previews', () => {
   /**
-   * Opens the Queue tab with Bolt queued, the pool's GET left for the test to
-   * answer.
+   * Opens the Queue sheet with Bolt queued, the pool's GET left for the test to
+   * answer, and returns the sheet too.
    */
   async function openQueueUnanswered() {
     const { fixture, page } = await openUrl('/drafts/draft-1');
@@ -69,12 +81,14 @@ describe('card previews', () => {
     await flushPicks([]);
     await flushQueueAndPlan(queueOf({ cards: [queued(bolt)] }));
     const request = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'));
-    tabButton(page, 'Queue').click();
-    await vi.waitFor(() => {
+    nextUpStrip(page).click();
+    const sheet = await vi.waitFor(() => {
       TestBed.tick();
-      expect(cardName(panel(page), 'Lightning Bolt')).toBeDefined();
+      const shown = queueSheet()!;
+      expect(cardName(shown, 'Lightning Bolt')).toBeDefined();
+      return shown;
     });
-    return { fixture, page, request };
+    return { fixture, page, request, sheet };
   }
 
   afterEach(() => vi.useRealTimers());
@@ -351,25 +365,25 @@ describe('card previews', () => {
   });
 
   it('leaves a name out of the pool as plain text', async () => {
-    const { page } = await openQueueWithoutBolt();
+    const { sheet } = await openQueueWithoutBolt();
 
-    tap(cardName(panel(page), 'Lightning Bolt'));
-    hover(cardName(panel(page), 'Lightning Bolt'));
+    tap(cardName(sheet, 'Lightning Bolt'));
+    hover(cardName(sheet, 'Lightning Bolt'));
     wait(150);
 
     expect(previewImage()).toBeNull();
   });
 
   it('leaves names as plain text while the pool is loading or failed to load', async () => {
-    const { fixture, page, request } = await openQueueUnanswered();
+    const { fixture, request, sheet } = await openQueueUnanswered();
 
-    tap(cardName(panel(page), 'Lightning Bolt'));
+    tap(cardName(sheet, 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
 
     request.flush('', { status: 500, statusText: 'Server Error' });
     await fixture.whenStable();
 
-    tap(cardName(panel(page), 'Lightning Bolt'));
+    tap(cardName(sheet, 'Lightning Bolt'));
     expect(previewImage()).toBeNull();
   });
 
@@ -410,6 +424,7 @@ describe('card previews', () => {
 
     it('shows a horizontal card sideways from its image in stacks mode, which stays upright', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
       try {
         const { page, fixture } = await openPicked({
           cards: [fireIce],
@@ -459,13 +474,13 @@ describe('card previews', () => {
     });
 
     it('show once the pool card has loaded, the name alone until then', async () => {
-      const { fixture, page, request } = await openQueueUnanswered();
+      const { fixture, request, sheet } = await openQueueUnanswered();
 
-      expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual([]);
+      expect(costBefore(cardName(sheet, 'Lightning Bolt'))).toEqual([]);
 
       request.flush([bolt]);
       await fixture.whenStable();
-      expect(costBefore(cardName(panel(page), 'Lightning Bolt'))).toEqual(['one red mana']);
+      expect(costBefore(cardName(sheet, 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
     it('show before names in the pick log', async () => {
@@ -590,6 +605,7 @@ describe('card previews', () => {
 
     it('shows no mana costs on stacks’ card images', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
       try {
         const { page } = await openBoltPlan();
 
@@ -673,78 +689,87 @@ describe('card previews', () => {
       lost: [{ poolCardId: bolt.id, name: bolt.name }],
     });
 
+    /**
+     * The mouse rests on a queue row's name, which opens its Card detail when
+     * pressed, so shows its Card preview on hover alone.
+     */
+    function restOn(name: HTMLElement) {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      hover(name);
+      wait(150);
+      vi.useRealTimers();
+    }
+
+    /** Opens the Queue sheet, returning it and its list. */
     async function openQueue() {
       const opened = await openPicked({ queue });
-      tabButton(opened.page, 'Queue').click();
-      await opened.fixture.whenStable();
-      return opened;
+      const sheet = await openQueueSheet(opened.fixture, opened.page);
+      return { ...opened, sheet, list: queueList(sheet) };
     }
 
     it('shows on queue rows and the queue lost notice', async () => {
-      const { page } = await openQueue();
+      const { sheet, list } = await openQueue();
 
-      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      restOn(cardName(list, 'Shock'));
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+      unhover(cardName(list, 'Shock'));
 
-      tap(panel(page).querySelector<HTMLElement>('.notice strong .name')!);
+      tap(cardName(queueNotice(sheet)!, 'Lightning Bolt'));
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
     it('shows mana costs before queue rows’ names, and inline in the Queue notice', async () => {
-      const { page } = await openQueue();
+      const { sheet, list } = await openQueue();
 
-      expect(costBefore(panel(page).querySelector<HTMLElement>('.queue .name')!)).toEqual([
-        'one red mana',
-      ]);
-      const notice = panel(page).querySelector<HTMLElement>('.notice')!;
-      expect(costBefore(notice.querySelector<HTMLElement>('strong .name')!)).toEqual([
-        'one red mana',
-      ]);
-      expect(notice.querySelector('.card-rows')).toBeNull();
+      expect(costBefore(cardName(list, 'Shock'))).toEqual(['one red mana']);
+      const notice = queueNotice(sheet)!;
+      expect(costBefore(cardName(notice, 'Lightning Bolt'))).toEqual(['one red mana']);
+      expect(notice.querySelector('ul, ol, [role="list"]')).toBeNull();
     });
 
     it('closes when its name goes, as a queue row removed', async () => {
-      const { fixture, page } = await openQueue();
-      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      const { fixture, sheet, list } = await openQueue();
+      restOn(cardName(list, 'Shock'));
       expect(previewImage()).not.toBeNull();
 
-      button(panel(page), 'Remove Shock')!.click();
+      button(sheet, 'Remove Shock')!.click();
       http
         .expectOne('/api/drafts/draft-1/queue/shock-card')
         .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));
       await fixture.whenStable();
 
-      expect(panel(page).querySelector('li app-card-name')).toBeNull();
+      expect(cardNames(queueList(sheet))).toEqual([]);
       expect(previewImage()).toBeNull();
     });
 
     it('opens again once a drag is cancelled', async () => {
-      const { page } = await openQueue();
-      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
-      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
+      const { list } = await openQueue();
+      const name = cardName(list, 'Shock');
+      // With a mouse, the whole row drags.
+      pressHandle(name.closest('li')!);
 
       document.dispatchEvent(pointer('pointercancel', 'mouse'));
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
       TestBed.tick();
-      tap(name);
+      restOn(name);
 
       expect(previewImage()).not.toBeNull();
     });
 
     it('closes when a drag starts, and opens none until it is released', async () => {
-      const { page } = await openQueue();
-      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
-      tap(name);
+      const { list } = await openQueue();
+      const name = cardName(list, 'Shock');
+      restOn(name);
       expect(previewImage()).not.toBeNull();
 
-      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
+      // With a mouse, the whole row drags.
+      pressHandle(name.closest('li')!);
       expect(document.querySelector('.cdk-drag-preview')).not.toBeNull();
       expect(previewImage()).toBeNull();
 
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       hover(name);
       wait(150);
-      tap(name);
       expect(previewImage()).toBeNull();
 
       // A hover begun in the drag doesn't open once the drag is released.
@@ -756,7 +781,7 @@ describe('card previews', () => {
 
       vi.useRealTimers();
       TestBed.tick();
-      tap(name);
+      restOn(name);
       expect(previewImage()).not.toBeNull();
     });
   });

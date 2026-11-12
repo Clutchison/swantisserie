@@ -215,8 +215,16 @@ A player's setting, for one draft, for what a lost card does to the rest of thei
 _Avoid_: Loss setting, fallback, keep queue
 
 **Queue pane**:
-The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or over them where there isn't room. It is there until the draft is complete.
-_Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's)
+The part of a draft's page where a player sees and rearranges their queue, whichever tab is open: beside the tabs, or where there isn't room, over them in the **Queue sheet**, opened from the "next up" strip. It is there until the draft is complete.
+_Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), queue drawer, queue modal
+
+**"Next up" strip**:
+The bar above the tabs at the foot of a narrow screen that stands in for the Queue pane, on every tab: it shows the queue's size, the player's picks left, the card the queue picks next and whether the Queue notice has something unseen, and opens the Queue pane in the Queue sheet.
+_Avoid_: Queue bar, mini queue, Seat strip (that is the players' avatars)
+
+**Queue sheet**:
+The Queue pane where there isn't room for it beside the tabs, raised over them from the foot of the screen when the player opens the "next up" strip, and closed to go back to the tab they were on.
+_Avoid_: Queue drawer, queue modal, queue popup, Queue tab
 
 **Queued badge**:
 The mark on a card in the Pool tab that the viewer has queued, showing its place in their queue.
@@ -317,7 +325,7 @@ How stacks mode divides the mainboard into stacks: by mana value, by color or by
 _Avoid_: Sort, filter, view
 
 **Stack move**:
-A player putting a mainboard card into another of its stacks, or into a new stack of their own between two, to plan their curve as they count it, such as a 7-drop they mean to play as a 2-drop. It changes nothing in the deck, nothing anyone else sees and no export, and lasts only until they change the grouping or leave the page: switching tabs, switching to list mode or narrowing the window keeps it. A card that leaves the mainboard loses it.
+A player putting a mainboard card into another of its stacks, or into a new stack of their own between two, to plan their curve as they count it, such as a 7-drop they mean to play as a 2-drop. It changes nothing in the deck, nothing anyone else sees and no export, and lasts only until they change the grouping or leave the page: switching tabs, switching to list mode or the room for the stacks narrowing, as the window narrows or a pane opens beside the tabs, keeps it. A card that leaves the mainboard loses it.
 _Avoid_: Reorder, column move, override
 
 **Player-made stack**:

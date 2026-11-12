@@ -5,7 +5,12 @@
     Drafts
   </a>
 </ng-template>
-<main class="page-wide">
+<main
+  class="page-wide"
+  [class.with-queue-pane]="showQueuePane()"
+  [class.with-seat-strip]="showSeatStrip()"
+  [class.with-players-pane]="playersPane()"
+>
   @if (loading()) {
     <ng-container *ngTemplateOutlet="backLink" />
     <app-loading-animation size="page">Loading…</app-loading-animation>
@@ -18,15 +23,7 @@
     <ng-template #headingWithPicksLeft let-name>
       <div class="panel-heading">
         <h2>{{ name }}</h2>
-        @let left = picksLeft();
-        @if (left !== null) {
-          <span class="picks-left"
-            ><span aria-hidden="true">– </span
-            ><span [attr.data-highlighted]="left <= highlightPicksLeftAt ? 'true' : null"
-              >{{ left }} {{ left === 1 ? 'pick' : 'picks' }} left</span
-            ></span
-          >
-        }
+        <app-picks-left />
       </div>
     </ng-template>
     <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()">
@@ -56,10 +53,19 @@
       }
     </div>
 
-    <!-- Above the tabs; from the wide desktop breakpoint, a pane beside them. -->
-    <app-players-panel class="players-panel" (changeStarted)="clearErrors()" />
+    <!-- The Players panel: above the tabs, or on a wide desktop in a pane beside them once the draft is complete, and in the Seat strip's popover until then. -->
+    <ng-template #playersPanel>
+      <app-players-panel
+        class="players-panel"
+        [inPane]="playersInPane()"
+        (changeStarted)="clearErrors()"
+      />
+    </ng-template>
+    @if (!showSeatStrip()) {
+      <ng-container *ngTemplateOutlet="playersPanel" />
+    }
 
-    <!-- The tabs and their panels: the main column, beside the Players panel's pane. -->
+    <!-- The tabs and their panels: the main column, beside the Queue pane, and the Seat strip or the Players panel's pane. -->
     <div class="tab-column">
       <div class="tabs" appTabList aria-label="Draft">
         <button
@@ -71,19 +77,6 @@
         >
           Pool
         </button>
-        <!-- Only players have a queue, and a complete draft has no Queue tab. -->
-        @if (showQueueTab()) {
-          <button
-            id="queue-tab"
-            type="button"
-            [appTab]="selectedTab() === 'Queue'"
-            aria-controls="queue-panel"
-            (click)="selectedTab.select('Queue')"
-            [disabled]="!joined()"
-          >
-            Queue
-          </button>
-        }
         <button
           id="plan-tab"
           type="button"
@@ -208,27 +201,6 @@
         </ng-template>
       </section>
 
-      <!-- Only players have a queue, and a complete draft has no Queue tab. -->
-      @if (showQueueTab()) {
-        <section
-          id="queue-panel"
-          class="queue"
-          role="tabpanel"
-          aria-labelledby="queue-tab"
-          [hidden]="selectedTab() !== 'Queue'"
-        >
-          <ng-container *ngTemplateOutlet="headingWithPicksLeft; context: { $implicit: 'Queue' }" />
-          @if (queueFailed()) {
-            <p class="error">Couldn't load your queue. Try reloading the page.</p>
-          }
-          @if (joined() && !queueFailed()) {
-            <app-queue-tab />
-          } @else if (!joined()) {
-            <p class="empty">Only players have a queue.</p>
-          }
-        </section>
-      }
-
       <section
         id="plan-panel"
         class="plan"
@@ -288,5 +260,17 @@
         </section>
       }
     </div>
+
+    <!-- Beside the tabs from the desktop layout, whichever is open; below it, the "next up" strip opens it in a sheet. -->
+    @if (showQueuePane()) {
+      <app-queue-pane class="queue-pane" [collapsible]="true" />
+    } @else if (showNextUpStrip()) {
+      <app-next-up-strip />
+    }
+
+    <!-- After the Queue pane, on a wide desktop while the draft runs, whichever tab is open. -->
+    @if (showSeatStrip()) {
+      <app-seat-strip class="seat-strip" [playersPanel]="playersPanel" />
+    }
   }
 </main>

@@ -52,8 +52,8 @@
   /* A comfortable line of body text: about 66 characters of Inter at body size, measured in the browser. Inter's ch, its zero, is wider than its average letter, hence 52. */
   --width-measure: 52ch;
   /*
-   * The page frame's inline padding: 1rem on a phone and up to 792px, which the
-   * wide stacks breakpoint counts on (see _breakpoints.scss), growing to 3rem.
+   * The page frame's inline padding: 1rem on a phone and up to 800px, growing
+   * with the viewport to 3rem from 1440px.
    */
   --page-gutter: clamp(var(--space-lg), 5vw - 1.5rem, 3rem);
 }
@@ -315,6 +315,22 @@ textarea {
 }
 
 /*
+ * The Queue sheet's pane: the dialog shell's, with the sheet anchored to the
+ * foot of the screen at its full width. The pane is the screen's dynamic
+ * height, as a phone's browser bars come and go, less the strip of page left
+ * in view above, which caps the sheet's height as it caps any dialog's.
+ */
+.cdk-overlay-pane.dialog-pane:has(app-queue-sheet) {
+  --queue-sheet-gap: 4rem;
+
+  inset: auto 0 0;
+  box-sizing: border-box;
+  height: 100dvh;
+  align-items: flex-end;
+  padding: var(--queue-sheet-gap) 0 0;
+}
+
+/*
  * A CDK menu's panel and its items, such as the Deck tab's Export menu. It
  * opens in the overlay outside any component, so it is styled here.
  */
@@ -344,9 +360,15 @@ textarea {
   white-space: nowrap;
   cursor: pointer;
 
-  &:hover,
+  &:not([aria-disabled='true']):hover,
   &:focus-visible {
     background: var(--color-raised);
+  }
+
+  /* An unavailable item: still focusable, so it can be read, but it does nothing. */
+  &[aria-disabled='true'] {
+    opacity: 0.4;
+    cursor: default;
   }
 }
 
@@ -374,10 +396,19 @@ textarea {
  * they could cover keep clear of them with their own scroll margin.
  */
 html:has(app-draft-page) {
+  /* The fixed tab bar's height, which the "next up" strip sits just above. */
+  --bottom-tab-bar-height: 3rem;
+  /* The "next up" strip's height, above the tab bar while a player has a Queue pane. */
+  --next-up-strip-height: 3rem;
   /* Room for the fixed tab bar, a little taller than it; the draft page leaves it under its content too. */
-  --tab-bar-clearance: 4rem;
+  --tab-bar-clearance: calc(var(--bottom-tab-bar-height) + 1rem);
 
   scroll-padding-bottom: var(--tab-bar-clearance);
+
+  /* Room for the "next up" strip too, while it is there. */
+  &:has(app-next-up-strip) {
+    --tab-bar-clearance: calc(var(--bottom-tab-bar-height) + var(--next-up-strip-height) + 1rem);
+  }
 
   @media (min-width: bp.$desktop) {
     /* The sticky tab bar's height, which the Pool's search bar sticks just below. */

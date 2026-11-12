@@ -17,11 +17,9 @@ $narrow-menu: 36rem;
 $color-filter-row: 40rem;
 
 // The Deck tab's wide stacks layout, with the sideboard's stack beside the
-// mainboard's. `$wide-stacks` is the screen width, `WIDE_STACKS_QUERY` in
-// `app/drafts/drafts.ts`: the container query's 760px of stacks area plus the
-// draft page's 1rem inline padding either side, which the page frame's gutter
-// still is at that width. Change them together.
-$wide-stacks: 792px;
+// mainboard's, by its stacks area's width: `WIDE_STACKS_WIDTH` in
+// `app/drafts/drafts.ts`, which the Deck tab measures that area against.
+// Change them together.
 $wide-stacks-container: 760px;
 
 // The draft page's desktop layout, with the tabs at the top: `DESKTOP_QUERY`
@@ -32,5 +30,5 @@ $desktop: 1024px;
 // the tabs: `WIDE_DESKTOP_QUERY` in `app/drafts/drafts.ts`. Change them together.
 $wide-desktop: 1200px;
 
-// Narrower than this, the Deck and Queue tabs' lines drop their reorder buttons and Unpicked mark.
+// Narrower than this, the Deck tab's lines drop their reorder buttons and Unpicked mark.
 $tab-narrow: 26rem;

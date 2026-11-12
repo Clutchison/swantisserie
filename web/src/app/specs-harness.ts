@@ -121,6 +121,21 @@ export function pressPrevented(
   return event.defaultPrevented;
 }
 
+/** Clicks `element`, as a viewer does, and renders what came of it. */
+export function clickOn(element: HTMLElement) {
+  element.click();
+  TestBed.tick();
+}
+
+/**
+ * Presses a mouse button down on `element`, as a click starts, and renders
+ * what came of it. jsdom doesn't move focus for it: focus what it would focus.
+ */
+export function pressPointerOn(element: HTMLElement) {
+  element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+  TestBed.tick();
+}
+
 /** Presses Escape where focus is, or on the page when nothing has it, as the keyboard would. */
 export const pressEscape = () =>
   pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Escape');
@@ -172,6 +187,8 @@ export const button = (root: HTMLElement, label: string) => buttons(root, label)
 
 /** The dialog open over the page, if any: it shows outside the page, so this looks in the whole document. */
 export const openDialog = () => document.querySelector<HTMLElement>('[role="dialog"]');
+/** Every dialog open over the page, in the order they opened. */
+export const openDialogs = () => [...document.querySelectorAll<HTMLElement>('[role="dialog"]')];
 
 /**
  * The open dialog that asks `question`, once it shows: one named by the
@@ -250,6 +267,12 @@ const menuItemElements = (name: string) => [
 
 /** The open menu `name`'s items, by name, in order; none while it's closed. */
 export const menuItems = (name: string) => menuItemElements(name).map(accessibleName);
+
+/** The open menu `name`'s unavailable items, by name, in order: marked `aria-disabled`. */
+export const disabledMenuItems = (name: string) =>
+  menuItemElements(name)
+    .filter((element) => element.getAttribute('aria-disabled') === 'true')
+    .map(accessibleName);
 
 /** The open menu `name`'s item named `item`. */
 export const menuItem = (name: string, item: string) =>

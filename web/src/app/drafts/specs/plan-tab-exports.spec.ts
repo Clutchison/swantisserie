@@ -635,7 +635,7 @@ describe('Deck tab exports', () => {
         expect(announced(page)).toBe('');
       });
 
-      it.each(['Pool', 'Queue', 'Board'] as const)(
+      it.each(['Pool', 'Board'] as const)(
         'clears the confirmation when the %s tab closes the panel',
         async (tab) => {
           const { fixture, page } = await openPlanWithClock();

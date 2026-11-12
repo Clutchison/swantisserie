@@ -49,7 +49,9 @@ import {
   planned,
   planBoards,
   printingsRequest,
+  WIDE_STACKS_AREA,
 } from './plan-tab-harness';
+import { measuredAs } from './measure-harness';
 import { playing, withTournament } from './play-tab-harness';
 
 useDraftsApp();
@@ -108,7 +110,10 @@ describe('the Printing picker', () => {
     ...fields,
   });
 
-  beforeEach(() => viewOn('desktop'));
+  beforeEach(() => {
+    viewOn('desktop');
+    measuredAs(WIDE_STACKS_AREA);
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.clear();

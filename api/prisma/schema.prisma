@@ -362,7 +362,7 @@ model TakenOutQueuedCard {
   poolCard     PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Where it was in the queue, lowest first.
   position     Int
-  /// Whether the Queue tab notice has stopped listing it: it was dismissed, or the card was queued again. Always true for a player's own picked card, which the notice never lists: it was picked, not lost.
+  /// Whether the Queue notice has stopped listing it: it was dismissed, or the card was queued again. Always true for a player's own picked card, which the notice never lists: it was picked, not lost.
   noticeHidden Boolean  @default(false)
   /// Whether anything else stayed queued when this card was lost, as under pick next; false under clear queue, for a cleared card, and for the last card left in a queue. Always true for a player's own picked card, so that an undo puts it back in its old place.
   restKept     Boolean  @default(false)

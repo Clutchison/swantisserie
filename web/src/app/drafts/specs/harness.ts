@@ -1,8 +1,6 @@
-import { CdkDrag } from '@angular/cdk/drag-drop';
 import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import { By } from '@angular/platform-browser';
 import {
   GuardsCheckEnd,
   NavigationEnd,
@@ -56,6 +54,20 @@ import {
 
 export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
 export { resizeTo, viewOn } from './screen-harness';
+export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
+export {
+  endJustAddedHighlight,
+  findNextUpStrip,
+  findQueuePane,
+  justAddedCards,
+  nextUpStrip,
+  openQueueSheet,
+  queueList,
+  queueNotice,
+  queuePane,
+  queuePaneToggle,
+  queueSheet,
+} from './queue-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
 export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";
@@ -579,9 +591,6 @@ export const cardNames = (root: HTMLElement) => [
 export const cardName = (root: HTMLElement, name: string) =>
   cardNames(root).find((span) => span.textContent?.trim() === name)!;
 
-/** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
-export const queueList = (root: HTMLElement) => namedList(root, 'Your queue');
-
 /** The picks left count inside `root`, such as beside a panel's heading, found by its text. */
 export const picksLeftCount = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('*')].find((element) =>
@@ -820,28 +829,6 @@ export async function poll(fixture: AppFixture, snapshot: PoolSnapshotView) {
 }
 
 /**
- * Starts dragging the card that holds `element`, as the CDK says a drag has
- * started (jsdom can't drag), and renders what came of it.
- */
-export function startDrag(fixture: AppFixture, element: HTMLElement) {
-  dragHolding(fixture, element).triggerEventHandler('cdkDragStarted', {});
-  TestBed.tick();
-}
-
-/**
- * Whether the card that holds `element` can be dragged, as the CDK says
- * (jsdom can't drag): false where a swipe on it must always scroll.
- */
-export const draggable = (fixture: AppFixture, element: HTMLElement) =>
-  !dragHolding(fixture, element).injector.get(CdkDrag).disabled;
-
-/** The draggable card that holds `element`. */
-const dragHolding = (fixture: AppFixture, element: HTMLElement) =>
-  fixture.debugElement
-    .queryAll(By.directive(CdkDrag))
-    .find((drag) => drag.nativeElement.contains(element))!;
-
-/**
  * What `read` finds midway through each navigation from now on, once its
  * guards have run and before it lands, with the page rendered then; in order.
  */
@@ -878,10 +865,6 @@ export async function openTab(fixture: AppFixture, page: HTMLElement, name: stri
   await fixture.whenStable();
   return panel(page);
 }
-
-/** Opens the Queue tab and returns its panel. */
-export const openQueue = (fixture: AppFixture, page: HTMLElement) =>
-  openTab(fixture, page, 'Queue');
 
 /** The images of the Card previews open: one at most, outside the page. */
 export const previewImages = () => [

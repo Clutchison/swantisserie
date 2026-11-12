@@ -5,7 +5,6 @@ import {
   CdkVirtualScrollViewport,
 } from '@angular/cdk/scrolling';
 import {
-  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -35,8 +34,10 @@ import {
 } from './pool-search/pool-filters';
 import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { PlayerAvatar } from './player-avatar';
+import { onResize } from './resizes';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { ordinalWords } from '../record';
 
 /**
  * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
@@ -82,6 +83,25 @@ export class PoolTab {
   protected readonly failed = this.store.pool.missing;
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   protected readonly picked = this.store.picked;
+  /**
+   * Each queued card's Queued badge, by its pool card id: its 1-based place in
+   * the viewer's queue, and whether it is past the Queue cutoff. None for a
+   * viewer who isn't a player, or once the draft is complete and the queue
+   * can't fire.
+   */
+  protected readonly queuedBadges = computed(() => {
+    if (!this.store.joined() || this.store.draftComplete()) return new Map();
+    return new Map(
+      this.store.queue.value().cards.map((card, index) => [
+        card.poolCardId,
+        {
+          place: index + 1,
+          placeWords: ordinalWords(index + 1),
+          pastCutoff: this.store.pastQueueCutoff(index),
+        },
+      ]),
+    );
+  });
   /** Whether the pick log has never loaded, as its first read failed. */
   protected readonly picksMissing = this.store.picks.missing;
   /** Which actions the Card detail offers, by the draft's state and the viewer's part in it. */
@@ -185,24 +205,13 @@ export class PoolTab {
   private resting?: ReturnType<typeof setTimeout>;
 
   constructor() {
-    // Not in every test environment; the grid then lays out one column.
-    if (typeof ResizeObserver !== 'undefined') {
-      const destroyRef = inject(DestroyRef);
-      const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
-      observer.observe(this.host);
-      // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's width.
-      destroyRef.onDestroy(() => observer.disconnect());
-      // The search bar's height changes as it wraps, onto two or three lines on a phone.
-      afterNextRender(() => {
-        const searchBar = this.searchBar().nativeElement;
-        const barObserver = new ResizeObserver(() =>
-          this.searchBarHeight.set(searchBar.offsetHeight),
-        );
-        barObserver.observe(searchBar);
-        // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's height.
-        destroyRef.onDestroy(() => barObserver.disconnect());
-      });
-    }
+    // Without a ResizeObserver, as in some test environments, the grid lays out one column.
+    onResize(this.host, ({ width }) => this.width.set(width));
+    // The search bar's height changes as it wraps, onto two or three lines on a phone.
+    onResize(
+      () => this.searchBar().nativeElement,
+      () => this.searchBarHeight.set(this.searchBar().nativeElement.offsetHeight),
+    );
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
     effect((onCleanup) => {
       this.search();
