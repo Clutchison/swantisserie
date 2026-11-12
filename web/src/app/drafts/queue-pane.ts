@@ -68,8 +68,8 @@ const STEAL_BEHAVIORS: Record<
   },
 };
 
-/** Where a failed change is explained: by the steal behavior pill, or under the queue. */
-type ErrorPlace = 'stealBehavior' | 'queue';
+/** Where a failed change is explained: by the queue paused switch, by the steal behavior pill, or under the queue. */
+type ErrorPlace = 'paused' | 'stealBehavior' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
 let panes = 0;
@@ -165,6 +165,9 @@ export class QueuePane {
   protected readonly dragStartDelay = DRAG_START_DELAY;
   /** Whether the latest press on a row became a drag, so the click that ends it opens nothing. */
   private dragged = false;
+
+  /** The queue's state, as its switch names it. */
+  protected readonly pausedName = computed(() => pausedName(this.queue().paused));
 
   protected readonly stealBehaviorName = computed(
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
@@ -393,6 +396,26 @@ export class QueuePane {
     );
   }
 
+  /**
+   * Pauses the queue, or sets it picking, showing it at once. If that
+   * fails, the previous state shows again until the queue is re-read.
+   */
+  protected togglePaused() {
+    const previous = this.queue().paused;
+    const paused = !previous;
+    return this.change(
+      () => {
+        this.store.showQueue({ ...this.queue(), paused });
+        return this.queueApi.setPaused(this.draftId(), paused);
+      },
+      {
+        place: 'paused',
+        rollBack: () => this.store.showQueue({ ...this.queue(), paused: previous }),
+        status: pausedName(paused),
+      },
+    );
+  }
+
   /** Stops the notice listing the lost and cleared cards. */
   protected dismissNotice() {
     return this.change(() => this.queueApi.dismissNotice(this.draftId()));
@@ -424,6 +447,11 @@ export class QueuePane {
       }
     }, kept);
   }
+}
+
+/** A queue's state, as its switch names it. */
+function pausedName(paused: boolean): string {
+  return paused ? 'Queue paused' : 'Queue picking';
 }
 
 /**

@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import type {
   QueueOrderRequest,
+  QueuePausedRequest,
   QueueUnpickedRequest,
   QueueView,
   RequestProblem,
@@ -25,8 +26,10 @@ import {
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
+import { BotPlayers } from './bot-players.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
+import { DraftPublisher } from './draft-publisher.js';
 import { parseCard } from './parse-card.js';
 import { QueuesService } from './queues.service.js';
 
@@ -41,6 +44,8 @@ export class QueuesController {
   constructor(
     private readonly access: DraftAccess,
     private readonly queues: QueuesService,
+    private readonly publisher: DraftPublisher,
+    private readonly bots: BotPlayers,
   ) {}
 
   @Get()
@@ -108,6 +113,26 @@ export class QueuesController {
     );
   }
 
+  /**
+   * Pauses the queue, or sets it picking. Any picks setting it picking makes
+   * are published, as a cascade's are; nothing else is announced.
+   */
+  @Put('paused')
+  async setPaused(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Body() body: unknown,
+  ): Promise<QueueView> {
+    const paused = parsePaused(body);
+    await this.access.canSee(user, id);
+    const { queue, events } = await this.queues.setPaused(id, user.id, paused);
+    if (events.length > 0) {
+      await this.publisher.publish(id, events);
+      this.bots.scheduleNextPick(id, events);
+    }
+    return queue;
+  }
+
   /** Stops the Queue notice listing the lost and cleared cards. */
   @Delete('notice')
   async dismissNotice(
@@ -166,6 +191,18 @@ function parseIncludeSideboard(body: unknown): boolean {
     } satisfies RequestProblem);
   }
   return includeSideboard;
+}
+
+/** Whether to pause the queue, or a 400 if it isn't said. */
+function parsePaused(body: unknown): boolean {
+  const { paused } = bodyFields<QueuePausedRequest>(body);
+  if (typeof paused !== 'boolean') {
+    throw new BadRequestException({
+      error: 'invalid',
+      message: 'Say whether to pause the queue.',
+    } satisfies RequestProblem);
+  }
+  return paused;
 }
 
 /** The steal behavior to set, or a 400 if it isn't one. */

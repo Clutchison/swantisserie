@@ -15,6 +15,11 @@ interface QueueBase {
   cleared: QueuedCardView[];
   /** What a card lost from now on does to the rest of the queue. */
   stealBehavior: StealBehavior;
+  /**
+   * Whether the queue is paused, making no queued picks, rather than
+   * picking. Every queue starts picking.
+   */
+  paused: boolean;
 }
 
 /**
@@ -54,4 +59,9 @@ export interface QueueUnpickedRequest {
 /** The steal behavior a player sets for their queue. */
 export interface StealBehaviorRequest {
   stealBehavior: StealBehavior;
+}
+
+/** Whether a player sets their queue paused or picking. */
+export interface QueuePausedRequest {
+  paused: boolean;
 }

@@ -13,6 +13,8 @@ import {
   pick,
   pickLogLines,
   reorderQueue,
+  setQueuePaused,
+  undo,
 } from './harness.js';
 
 describeRaces('queue changes against a cascade', () => {
@@ -108,5 +110,73 @@ describeRaces('queue changes against a cascade', () => {
       queue: await queueOf(id, aliceCookie),
     });
     expect(picked.status).toBe(200);
+  });
+});
+
+describeRaces('setting a queue picking on the player’s turn', () => {
+  /**
+   * A started draft of Alice then Bob, two picks each, on Bob's first turn:
+   * Alice picked Shock, and Bob's queue, paused, holds Lava Spike then
+   * Skewer the Critics.
+   */
+  async function bobsTurnPaused() {
+    const draft = await aliceThenBob();
+    const { id, ids } = draft;
+    await setQueuePaused(id, true, bobCookie).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+    await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
+    await pick(id, ids.Shock).expect(200);
+    return draft;
+  }
+
+  it('picks from the queue, refusing a pick by hand then, or picks after the hand pick, on the turn it leaves', async () => {
+    const { id, ids } = await bobsTurnPaused();
+
+    const [picking, picked] = await race(
+      () => setQueuePaused(id, false, bobCookie),
+      () => pick(id, ids['Lightning Bolt'], bobCookie),
+    );
+
+    expect([
+      {
+        picked: '409 not-your-turn',
+        log: ['Alice: Shock', 'Bob: Lava Spike', 'Bob: Skewer the Critics'],
+      },
+      {
+        picked: 200,
+        log: ['Alice: Shock', 'Bob: Lightning Bolt', 'Bob: Lava Spike'],
+      },
+    ]).toContainEqual({
+      picked: answered(picked),
+      log: await pickLogLines(id),
+    });
+    expect(picking.status).toBe(200);
+  });
+
+  it('picks from the queue, refusing an undo of the pick before, or picks nothing once the undo has taken the turn back', async () => {
+    const { id } = await bobsTurnPaused();
+
+    const [picking, undone] = await race(
+      () => setQueuePaused(id, false, bobCookie),
+      () => undo(id, 1),
+    );
+
+    expect([
+      {
+        undone: '409 not-latest',
+        log: ['Alice: Shock', 'Bob: Lava Spike', 'Bob: Skewer the Critics'],
+        queue: { cards: [], lost: [] },
+      },
+      {
+        undone: 200,
+        log: [],
+        queue: { cards: ['Lava Spike', 'Skewer the Critics'], lost: [] },
+      },
+    ]).toContainEqual({
+      undone: answered(undone),
+      log: await pickLogLines(id),
+      queue: await queueOf(id, bobCookie),
+    });
+    expect(picking.status).toBe(200);
   });
 });

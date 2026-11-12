@@ -7,8 +7,9 @@ function picks(
   queues: Parameters<typeof cascade>[1],
   pool: Parameters<typeof cascade>[2],
   stealBehaviors: Parameters<typeof cascade>[3] = [],
+  paused: Parameters<typeof cascade>[5] = [],
 ) {
-  return cascade(draft, queues, pool, stealBehaviors, []).map(
+  return cascade(draft, queues, pool, stealBehaviors, [], paused).map(
     ({ pick }) => pick,
   );
 }
@@ -136,6 +137,30 @@ describe('cascade', () => {
     ]);
   });
 
+  it('stops at a seat whose queue is paused, as at an empty queue', () => {
+    expect(
+      picks(
+        { players: 3, picksPerPlayer: 2, picked: [] },
+        [['shock'], ['bolt'], ['spike']],
+        singles,
+        [],
+        [false, true, false],
+      ),
+    ).toEqual([{ seat: 0, card: 'shock' }]);
+  });
+
+  it('makes no pick when the seat whose turn it is has its queue paused', () => {
+    expect(
+      picks(
+        { players: 2, picksPerPlayer: 2, picked: [] },
+        [['shock'], ['bolt']],
+        singles,
+        [],
+        [true, false],
+      ),
+    ).toEqual([]);
+  });
+
   it('stops at a seat whose queued cards have all been picked', () => {
     expect(
       picks(
@@ -178,6 +203,7 @@ describe('cascade', () => {
           bolts,
           [],
           [],
+          [],
         ),
       ).toEqual([
         {
@@ -213,6 +239,7 @@ describe('cascade', () => {
         bolts,
         [],
         [['bolt-1'], ['bolt-1', 'shock']],
+        [],
       );
       expect(first.plans).toEqual([
         { plan: ['bolt-1'] },
@@ -229,6 +256,7 @@ describe('cascade', () => {
           bolts,
           [],
           [[], ['bolt-1']],
+          [],
         ).map(({ plans }) => plans),
       ).toEqual([
         [
@@ -246,6 +274,7 @@ describe('cascade', () => {
         bolts,
         [],
         [],
+        [],
       );
       expect(first.queues[1]).toEqual({
         queue: [],
@@ -260,6 +289,7 @@ describe('cascade', () => {
         [['shock'], ['shock', 'bolt-1']],
         bolts,
         ['ClearQueue', 'PickNext'],
+        [],
         [],
       );
       expect(first.queues[1]).toEqual({

@@ -168,7 +168,8 @@ export class TurnsService {
    * persists what the engine says each does to queues and plans. The caller
    * holds the draft row lock, and has moved the draft to Drafting; a draft
    * its last pick has just completed makes no picks. A cascade stops at a
-   * bot's turn: the bot picks on its own timer.
+   * bot's turn, as the bot picks on its own timer, and at a player whose
+   * queue is paused.
    */
   async cascade(draft: LockedDraft): Promise<DraftEvent[]> {
     return this.cascadeFrom(draft, await readTurnState(draft.tx, draft.id));
@@ -191,6 +192,7 @@ export class TurnsService {
       context.pool,
       context.stealBehaviors,
       state.plans,
+      players.map((player) => player.queuePaused),
     );
     const events: DraftEvent[] = [];
     for (const { pick, queues, plans } of picks) {

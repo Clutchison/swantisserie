@@ -198,6 +198,8 @@ model Player {
   tournamentEntry    TournamentEntry?
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
   stealBehavior      StealBehavior        @default(ClearQueue)
+  /// Whether the player's queue is paused, making no queued picks; every queue starts picking. Private to the player, like their queue.
+  queuePaused        Boolean              @default(false)
   /// The key of the player's latest departure from their queue, 0 before the first. Only ever goes up, so departures order by it, never by time.
   lastQueueDeparture Int                  @default(0)
 

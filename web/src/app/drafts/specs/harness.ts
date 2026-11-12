@@ -66,6 +66,7 @@ export {
   queueNotice,
   queuePane,
   queuePaneToggle,
+  queuePausedSwitch,
   queueSheet,
 } from './queue-harness';
 
@@ -350,11 +351,11 @@ export const queued = (card: NamedPoolCard): QueuedCardView => ({
 });
 
 /**
- * An empty queue, under Clear queue, with `fields` changed. Only a queue that
+ * An empty queue, picking, under Clear queue, with `fields` changed. Only a queue that
  * lost a card can say whether the rest was kept.
  */
 export const queueOf = (
-  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior'>> &
+  fields: Partial<Pick<QueueView, 'cards' | 'cleared' | 'stealBehavior' | 'paused'>> &
     (
       | { lost?: []; restKept?: false }
       | { lost: [QueuedCardView, ...QueuedCardView[]]; restKept?: boolean }
@@ -365,6 +366,7 @@ export const queueOf = (
   cleared: [],
   restKept: false,
   stealBehavior: 'ClearQueue',
+  paused: false,
   ...fields,
 });
 

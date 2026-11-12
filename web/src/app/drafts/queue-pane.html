@@ -46,6 +46,19 @@
         <app-picks-left />
       </div>
       @if (!failed()) {
+        <!-- Named for the state it is in, so a screen reader hears "Queue paused", not "Queue picking, off". -->
+        <button
+          class="queue-switch"
+          type="button"
+          role="switch"
+          [attr.aria-checked]="!queue().paused"
+          [disabled]="readOnly() || loading()"
+          appSendsChange="queue paused"
+          (click)="togglePaused()"
+        >
+          <span class="track" aria-hidden="true"><span class="thumb"></span></span>
+          {{ pausedName() }}
+        </button>
         <div class="steal-behavior">
           <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
           <span [id]="descriptionId" class="visually-hidden">{{ stealBehaviorExplanation }}</span>
@@ -89,7 +102,7 @@
       </p>
     }
     @if (error(); as failure) {
-      @if (failure.place === 'stealBehavior') {
+      @if (failure.place === 'paused' || failure.place === 'stealBehavior') {
         <p class="error" role="alert">{{ failure.message }}</p>
       }
     }
