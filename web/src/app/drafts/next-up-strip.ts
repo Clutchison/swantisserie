@@ -9,9 +9,10 @@ import { QueueSheet } from './queue-sheet';
 /**
  * The "next up" strip: below the desktop layout, a bar above the tab bar on
  * every tab with the player's queue's size, their picks left, the card it
- * picks next and a dot for an unseen Queue notice. It opens the Queue pane
- * in the Queue sheet, which closes with the strip, as when the page widens
- * to the desktop layout and the pane shows beside the tabs.
+ * picks next, or "Queue paused" in its place, and a dot for an unseen Queue
+ * notice. It opens the Queue pane in the Queue sheet, which closes with the
+ * strip, as when the page widens to the desktop layout and the pane shows
+ * beside the tabs.
  */
 @Component({
   selector: 'app-next-up-strip',
@@ -36,6 +37,8 @@ export class NextUpStrip {
   protected readonly next = computed(() =>
     this.size() ? (this.store.queue.value().cards[0]?.name ?? null) : null,
   );
+  /** Whether the queue is queue paused, said in place of the next card. */
+  protected readonly queuePaused = this.store.queuePaused;
   /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
   protected readonly unseenNotice = this.store.unseenNotice;
 
@@ -45,7 +48,7 @@ export class NextUpStrip {
     const next = this.next();
     return this.store.queueSummary('Queue', [
       ...(left ? [left] : []),
-      ...(next ? [`next up ${next}`] : []),
+      ...(this.queuePaused() ? ['queue paused'] : next ? [`next up ${next}`] : []),
     ]);
   });
 

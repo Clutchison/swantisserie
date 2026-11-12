@@ -305,6 +305,10 @@ export class DraftStore implements TournamentViewer {
     const count = this.queue.value().cards.length;
     return { count, noun: cardsNoun(count) };
   });
+  /** Whether the signed-in player's queue is queue paused, once it is known; false until then. */
+  readonly queuePaused = computed(
+    () => this.queueSize() !== null && this.queue.value().queuePaused,
+  );
 
   /**
    * A name summing up the queue, as a screen reader reads it: `lead`, then

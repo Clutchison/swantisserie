@@ -32,6 +32,7 @@ import {
   LucideInfo,
   LucidePanelRightClose,
   LucidePanelRightOpen,
+  LucidePause,
   LucideTrash,
 } from '@lucide/angular';
 import { afterCardDetailsClose, CardDetailRequests, CardDetails } from './card-detail';
@@ -99,6 +100,7 @@ let panes = 0;
     LucideInfo,
     LucidePanelRightClose,
     LucidePanelRightOpen,
+    LucidePause,
     LucideTrash,
     NgTemplateOutlet,
     PicksLeft,
@@ -196,9 +198,13 @@ export class QueuePane {
   protected readonly collapsed = computed(() => this.collapsible() && this.collapsedChoice());
   private readonly toggleButton = viewChild<ElementRef<HTMLButtonElement>>('toggle');
 
-  /** The collapse toggle's name: on the rail, with the queue's size and any unseen Queue notice. */
+  /** Whether the queue is queue paused, which the rail marks. */
+  protected readonly queuePaused = this.store.queuePaused;
+  /** The collapse toggle's name: on the rail, with the queue's size, whether it is queue paused and any unseen Queue notice. */
   protected readonly toggleName = computed(() =>
-    this.collapsed() ? this.store.queueSummary('Expand queue') : 'Collapse queue',
+    this.collapsed()
+      ? this.store.queueSummary('Expand queue', this.queuePaused() ? ['queue paused'] : [])
+      : 'Collapse queue',
   );
 
   /** The latest card added from a Card detail since the pane was made, if any. */

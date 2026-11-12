@@ -23,8 +23,13 @@ import {
   viewOn,
   openQueueSheet,
   accessibleName,
+  nextUpStrip,
+  queuePaneToggle,
+  updates,
+  flushQueueAndPlan,
 } from './harness';
-import { useTallScreen, shivan } from './pool-tab-harness';
+import { pressEscape } from '../../specs-harness';
+import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -163,5 +168,151 @@ describe('queue paused switch', () => {
     reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
     expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
+  });
+});
+
+describe('"next up" strip while the queue is paused', () => {
+  beforeEach(() => viewOn('mobile'));
+  afterEach(() => vi.unstubAllGlobals());
+
+  it('says "Queue paused" in place of the next card, keeping the size, picks left and unseen notice', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }), {
+      cards: [shivan, brightclimb],
+      queue: queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)], queuePaused: true }),
+    });
+    const strip = nextUpStrip(page);
+
+    expect(accessibleName(strip)).toBe('Queue, 1 card, 12 picks left, queue paused, new notice');
+    expect(strip.textContent).toContain('Queue paused');
+    expect(strip.textContent).not.toContain('Brightclimb');
+  });
+
+  it('shows the next card again as soon as the queue is set picking in the sheet, and "Queue paused" once paused', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)], queuePaused: true }),
+    });
+    const sheet = await openQueueSheet(fixture, page);
+
+    queuePausedSwitch(sheet).click();
+    await fixture.whenStable();
+    expect(accessibleName(nextUpStrip(page))).toBe(
+      'Queue, 1 card, 12 picks left, next up Shivan Dragon',
+    );
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(queueOf({ cards: [queued(shivan)] }));
+    await vi.waitFor(() => expect(queueStatuses(sheet)).toContain('Queue picking'));
+
+    queuePausedSwitch(sheet).click();
+    await fixture.whenStable();
+    expect(accessibleName(nextUpStrip(page))).toBe('Queue, 1 card, 12 picks left, queue paused');
+    http
+      .expectOne('/api/drafts/draft-1/queue/paused')
+      .flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
+    pressEscape();
+    await fixture.whenStable();
+    expect(nextUpStrip(page).textContent).toContain('Queue paused');
+  });
+
+  it('says "Queue paused" once a pick pauses the queue', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }), {
+      cards: [shivan, brightclimb],
+      queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+    });
+    expect(accessibleName(nextUpStrip(page))).toContain('next up Shivan Dragon');
+
+    updates.events.next({
+      type: 'changed',
+      draft: draft(
+        drafting({ picksPerPlayer: 12, turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 }),
+      ),
+    });
+    await flushPicks([]);
+    await flushQueueAndPlan(
+      queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)], queuePaused: true }),
+      EMPTY_PLAN,
+    );
+    await fixture.whenStable();
+
+    expect(accessibleName(nextUpStrip(page))).toBe(
+      'Queue, 1 card, 12 picks left, queue paused, new notice',
+    );
+  });
+});
+
+describe('collapsed Queue pane rail while the queue is paused', () => {
+  beforeEach(() => {
+    viewOn('desktop');
+    localStorage.setItem('queue-pane', 'collapsed');
+  });
+  afterEach(() => {
+    localStorage.removeItem('queue-pane');
+    vi.unstubAllGlobals();
+  });
+
+  it('says on the rail the queue is paused', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)], queuePaused: true }),
+    });
+    const rail = queuePaneToggle(page);
+
+    expect(accessibleName(rail)).toBe('Expand queue, 1 card, queue paused');
+  });
+
+  it('says nothing of pausing while the queue is picking', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    const rail = queuePaneToggle(page);
+
+    expect(accessibleName(rail)).toBe('Expand queue, 1 card');
+  });
+
+  it('says the queue is paused as soon as the player pauses it, and not once they set it picking', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    queuePaneToggle(page).click();
+    await fixture.whenStable();
+
+    queuePausedSwitch(queuePane(page)).click();
+    queuePaneToggle(page).click();
+    await fixture.whenStable();
+    expect(accessibleName(queuePaneToggle(page))).toBe('Expand queue, 1 card, queue paused');
+    http
+      .expectOne('/api/drafts/draft-1/queue/paused')
+      .flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
+
+    queuePaneToggle(page).click();
+    await fixture.whenStable();
+    queuePausedSwitch(queuePane(page)).click();
+    queuePaneToggle(page).click();
+    await fixture.whenStable();
+    expect(accessibleName(queuePaneToggle(page))).toBe('Expand queue, 1 card');
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(queueOf({ cards: [queued(shivan)] }));
+  });
+
+  it('says the queue is paused once a pick pauses it', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan, brightclimb],
+      queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+    });
+
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 })),
+    });
+    await flushPicks([]);
+    await flushQueueAndPlan(
+      queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)], queuePaused: true }),
+      EMPTY_PLAN,
+    );
+    await fixture.whenStable();
+
+    expect(accessibleName(queuePaneToggle(page))).toBe(
+      'Expand queue, 1 card, queue paused, new notice',
+    );
   });
 });
