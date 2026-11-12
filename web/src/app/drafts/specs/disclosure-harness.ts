@@ -2,12 +2,14 @@ import { text } from './harness';
 
 /**
  * A section inside `root` that opens on click, such as "How this works", by
- * its summary's text; null if there is none. Its `open` says whether it is open.
+ * its summary's text, or a pattern it matches; null if there is none. Its
+ * `open` says whether it is open.
  */
-export const disclosure = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll<HTMLDetailsElement>('details')].find(
-    (details) => text(details.querySelector(':scope > summary')) === name,
-  ) ?? null;
+export const disclosure = (root: HTMLElement, name: string | RegExp) =>
+  [...root.querySelectorAll<HTMLDetailsElement>('details')].find((details) => {
+    const summary = text(details.querySelector(':scope > summary'));
+    return typeof name === 'string' ? summary === name : name.test(summary);
+  }) ?? null;
 
 /** Opens or closes the disclosure inside `root` named `name`, as a click on its summary does. */
 export const toggleDisclosure = (root: HTMLElement, name: string) =>

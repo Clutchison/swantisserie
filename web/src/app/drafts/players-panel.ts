@@ -83,9 +83,14 @@ export class PlayersPanel {
    */
   protected readonly open = computed(() => this.wide() || this.inLobby());
   protected readonly playerCount = computed(() => this.draft().players.length);
+
+  /** On a wide desktop the panel stays open: a click on its summary doesn't close it. */
+  protected keepOpen(click: Event) {
+    if (this.wide()) click.preventDefault();
+  }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
-  protected readonly lobbyError = signal<string | null>(null);
+  protected readonly error = signal<string | null>(null);
 
   /**
    * What the latest file chosen for a pick import would do, with its text to
@@ -109,18 +114,20 @@ export class PlayersPanel {
 
   /** Forgets the latest change's failure, as another change to the draft is being sent. */
   clearError() {
-    this.lobbyError.set(null);
+    this.error.set(null);
   }
 
   protected randomizeSeats() {
-    return this.changeLobby(
+    return this.changePlayers(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/seats/randomize`, null),
     );
   }
 
   /** Adds a bot; should that fill the draft, focus goes to the control after Add bot. */
   protected addBot() {
-    return this.changeLobby(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/bots`, null));
+    return this.changePlayers(
+      this.http.post<DraftView>(`/api/drafts/${this.draft().id}/bots`, null),
+    );
   }
 
   /** Removes a bot; focus goes to the next bot's Remove, or else the one before. */
@@ -128,7 +135,7 @@ export class PlayersPanel {
     const bots = this.draft().players.filter((player) => player.isBot);
     const at = bots.findIndex((bot) => bot.id === userId);
     const neighbours = [bots[at + 1], bots[at - 1]].filter((bot) => bot !== undefined);
-    return this.changeLobby(
+    return this.changePlayers(
       this.http.delete<DraftView>(
         `/api/drafts/${this.draft().id}/bots/${encodeURIComponent(userId)}`,
       ),
@@ -146,7 +153,7 @@ export class PlayersPanel {
     const playerIds = players.map((player) => player.id);
     [playerIds[index], playerIds[index + by]] = [playerIds[index + by], playerIds[index]];
     const { id, name } = players[index];
-    return this.changeLobby(
+    return this.changePlayers(
       this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, {
         playerIds,
       } satisfies SeatOrderRequest),
@@ -172,7 +179,7 @@ export class PlayersPanel {
     // Stryker disable next-line ConditionalExpression: the input is emptied after every preview, so `change` never fires with no file chosen.
     if (!file) return;
     return this.changes.send(async () => {
-      this.lobbyError.set(null);
+      this.error.set(null);
       this.changeStarted.emit();
       this.clearPickImport();
       const failure = "Couldn't read the file. Try again in a moment.";
@@ -189,9 +196,9 @@ export class PlayersPanel {
           this.pickImportProblems.set(pickImportProblems(err));
         } else if (err instanceof HttpErrorResponse && err.status === 413) {
           // The API's own limit, or the body parser's, which doesn't say so as plainly.
-          this.lobbyError.set('That file is too large to be a sheet of picks.');
+          this.error.set('That file is too large to be a sheet of picks.');
         } else {
-          this.lobbyFailed(err, failure);
+          this.showFailure(err, failure);
         }
       } finally {
         // So choosing the same file again, perhaps fixed, is a change.
@@ -203,7 +210,7 @@ export class PlayersPanel {
   /** Imports the previewed file, which the API checks again; the draft starts paused. */
   protected confirmPickImport({ csv, seats }: PickImportPreview & { csv: string }) {
     return this.changes.send(async () => {
-      this.lobbyError.set(null);
+      this.error.set(null);
       this.changeStarted.emit();
       try {
         this.store.apply(
@@ -219,7 +226,7 @@ export class PlayersPanel {
           this.clearPickImport();
           this.pickImportProblems.set(pickImportProblems(err));
         } else {
-          this.lobbyFailed(err, "Couldn't import the picks. Try again in a moment.");
+          this.showFailure(err, "Couldn't import the picks. Try again in a moment.");
         }
       }
     });
@@ -230,14 +237,14 @@ export class PlayersPanel {
     this.pickImportProblems.set([]);
   }
 
-  private lobbyFailed(err: unknown, failure: string) {
+  private showFailure(err: unknown, failure: string) {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
       // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
-      this.lobbyError.set(err.error?.message ?? failure);
+      this.error.set(err.error?.message ?? failure);
       this.store.catchUp();
     } else {
-      this.lobbyError.set(failure);
+      this.error.set(failure);
     }
   }
 
@@ -247,17 +254,17 @@ export class PlayersPanel {
    * if it refused, and the store catches up with the draft.
    * Focus is kept as `Changes.send` keeps it, and a change made says `status`.
    */
-  private changeLobby(
+  private changePlayers(
     request: Observable<DraftView>,
     options: { keep?: string[]; status?: string } = {},
   ) {
     return sendDraftChange(this.changes, () => () => this.store.changeDraft(request), {
       failure: PLAYERS_CHANGE_FAILED,
       started: () => {
-        this.lobbyError.set(null);
+        this.error.set(null);
         this.changeStarted.emit();
       },
-      failed: (message) => this.lobbyError.set(message),
+      failed: (message) => this.error.set(message),
       ...options,
     });
   }

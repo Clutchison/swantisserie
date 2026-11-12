@@ -39,6 +39,7 @@ import { EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
 import { type DraftUpdate, DraftUpdates } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 export { resizeTo, viewOn } from './screen-harness';
+import { disclosure } from './disclosure-harness';
 import {
   alertIn,
   alice,
@@ -269,11 +270,12 @@ export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | nu
   return root.querySelector<HTMLAnchorElement>(`a[href="/drafts/${id}"]`);
 }
 
-/** The Players panel: the section that opens on click, summarised "Players · N". */
+/**
+ * The Players panel: the section that opens on click, summarised "Players · N",
+ * with the status and alerts it shows beside that section.
+ */
 export const playersPanel = (page: HTMLElement) =>
-  [...page.querySelectorAll<HTMLDetailsElement>('details')].find((details) =>
-    /^Players · \d+$/.test(text(details.querySelector(':scope > summary'))),
-  )!;
+  disclosure(page, /^Players · \d+$/)!.parentElement!;
 
 export function section(page: HTMLElement, heading: string): HTMLElement {
   const found = [...page.querySelectorAll('section')].find((s) =>

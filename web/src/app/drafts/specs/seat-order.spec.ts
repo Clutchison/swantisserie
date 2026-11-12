@@ -10,6 +10,7 @@ import {
   viewOn,
   resizeTo,
   drafting,
+  text,
 } from './harness';
 import { disclosure, toggleDisclosure } from './disclosure-harness';
 
@@ -38,6 +39,14 @@ describe('the Players panel', () => {
     const { page } = await openDraft(completeSnapshot, { players: [bob, alicePlayer] });
 
     expect(disclosure(page, 'Players · 2')).not.toBeNull();
+  });
+
+  it('is headed by its summary, so heading navigation finds it', async () => {
+    viewOn('mobile');
+    const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+    const heading = panel(page).querySelector('summary h2, summary [role="heading"]');
+    expect(text(heading)).toBe('Players · 1');
   });
 
   it('is still there in a complete draft, with the seat order', async () => {
@@ -75,13 +84,21 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(true);
     });
 
-    it('can be collapsed and expanded by hand', async () => {
+    it('stays open when its summary is clicked, keeping every seat in view', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       toggleDisclosure(page, 'Players · 1');
-      expect(panel(page).open).toBe(false);
-      toggleDisclosure(page, 'Players · 1');
+
       expect(panel(page).open).toBe(true);
+    });
+
+    it('can be collapsed by hand once the window narrows', async () => {
+      const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      resizeTo('desktop');
+      toggleDisclosure(page, 'Players · 1');
+
+      expect(panel(page).open).toBe(false);
     });
 
     it('collapses as the window narrows past the wide desktop, once the draft has started', async () => {

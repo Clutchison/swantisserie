@@ -26,6 +26,7 @@ import {
 } from './harness';
 import { moreButton, openMore } from './draft-header-harness';
 import { disclosure } from './disclosure-harness';
+import { comesBefore } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -121,6 +122,10 @@ describe('lobby', () => {
         'Add bot',
         'Import picks',
       ]);
+      // Before the seat order, which grows to a full draft's seats.
+      expect(
+        comesBefore(button(page, 'Import picks')!, playersPanel(page).querySelector('ol')!),
+      ).toBe(true);
     });
   }
 

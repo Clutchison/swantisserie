@@ -1,6 +1,81 @@
 <details [open]="open()">
-  <summary>Players · {{ playerCount() }}</summary>
-  <app-change-status />
+  <!-- From the wide desktop breakpoint the panel stays open: its summary is only a heading there. -->
+  <summary (click)="keepOpen($event)">
+    <h2>Players · {{ playerCount() }}</h2>
+  </summary>
+  <!-- The seating tools: randomizing seats, bots and pick import. -->
+  @if (inLobby() && (canOrganize() || canAddBots())) {
+    <div class="controls">
+      @if (canOrganize()) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="randomizeSeats()"
+          appSendsChange="randomize"
+        >
+          Randomize seats
+        </button>
+      }
+      @if (canAddBots()) {
+        <button
+          class="button secondary"
+          type="button"
+          (click)="addBot()"
+          [disabled]="draftFull()"
+          appSendsChange="add bot"
+        >
+          Add bot
+        </button>
+      }
+      @if (canOrganize()) {
+        <input
+          #pickImportFile
+          type="file"
+          accept=".csv,text/csv"
+          aria-label="Import picks"
+          hidden
+          (change)="previewPickImport(pickImportFile)"
+        />
+        <button
+          class="button secondary"
+          type="button"
+          (click)="choosePickImport(pickImportFile)"
+          [disabled]="!poolReady()"
+          appSendsChange="import picks"
+        >
+          Import picks
+        </button>
+      }
+    </div>
+  }
+  @if (pickImportPreview(); as preview) {
+    <div class="pick-import-preview" role="status">
+      <h3>Import picks</h3>
+      <ul>
+        @for (seat of preview.seats; track $index) {
+          <li>{{ seat.column }} → {{ seat.player }}</li>
+        }
+      </ul>
+      <p>
+        {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
+        {{ preview.next.pick }}, {{ preview.next.player }}.
+      </p>
+      <p class="detail">This is only a preview: nothing has been imported.</p>
+      <p class="pick-import-warning">
+        Importing is final and clears all queues. The draft starts paused until you resume it. It
+        can't be reversed: a wrong file means closing this draft and creating a new one.
+      </p>
+      <button
+        class="button"
+        type="button"
+        (click)="confirmPickImport(preview)"
+        appSendsChange="confirm pick import"
+      >
+        Import and start paused
+      </button>
+    </div>
+  }
+  <!-- After the seating tools: a full draft's seats run long. -->
   <ol>
     @for (
       player of draft().players;
@@ -64,89 +139,19 @@
       <li class="empty">Nobody has joined yet.</li>
     }
   </ol>
-  <!-- The seating tools: randomizing seats, bots and pick import. -->
-  @if (inLobby() && (canOrganize() || canAddBots())) {
-    <div class="controls">
-      @if (canOrganize()) {
-        <button
-          class="button secondary"
-          type="button"
-          (click)="randomizeSeats()"
-          appSendsChange="randomize"
-        >
-          Randomize seats
-        </button>
-      }
-      @if (canAddBots()) {
-        <button
-          class="button secondary"
-          type="button"
-          (click)="addBot()"
-          [disabled]="draftFull()"
-          appSendsChange="add bot"
-        >
-          Add bot
-        </button>
-      }
-      @if (canOrganize()) {
-        <input
-          #pickImportFile
-          type="file"
-          accept=".csv,text/csv"
-          aria-label="Import picks"
-          hidden
-          (change)="previewPickImport(pickImportFile)"
-        />
-        <button
-          class="button secondary"
-          type="button"
-          (click)="choosePickImport(pickImportFile)"
-          [disabled]="!poolReady()"
-          appSendsChange="import picks"
-        >
-          Import picks
-        </button>
-      }
-    </div>
-  }
-  @if (lobbyError(); as message) {
-    <p class="error" role="alert">{{ message }}</p>
-  }
-  @if (pickImportPreview(); as preview) {
-    <div class="pick-import-preview" role="status">
-      <h3>Import picks</h3>
-      <ul>
-        @for (seat of preview.seats; track $index) {
-          <li>{{ seat.column }} → {{ seat.player }}</li>
-        }
-      </ul>
-      <p>
-        {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
-        {{ preview.next.pick }}, {{ preview.next.player }}.
-      </p>
-      <p class="detail">This is only a preview: nothing has been imported.</p>
-      <p class="pick-import-warning">
-        Importing is final and clears all queues. The draft starts paused until you resume it. It
-        can't be reversed: a wrong file means closing this draft and creating a new one.
-      </p>
-      <button
-        class="button"
-        type="button"
-        (click)="confirmPickImport(preview)"
-        appSendsChange="confirm pick import"
-      >
-        Import and start paused
-      </button>
-    </div>
-  }
-  @if (pickImportProblems().length > 0) {
-    <div class="pick-import-problems error" role="alert">
-      <p>This file can't be imported:</p>
-      <ul aria-label="Problems with the file">
-        @for (problem of pickImportProblems(); track $index) {
-          <li>{{ problem }}</li>
-        }
-      </ul>
-    </div>
-  }
 </details>
+<!-- Outside the panel's disclosure, so they are announced even while it is closed. -->
+<app-change-status />
+@if (error(); as message) {
+  <p class="error" role="alert">{{ message }}</p>
+}
+@if (pickImportProblems().length > 0) {
+  <div class="pick-import-problems error" role="alert">
+    <p>This file can't be imported:</p>
+    <ul aria-label="Problems with the file">
+      @for (problem of pickImportProblems(); track $index) {
+        <li>{{ problem }}</li>
+      }
+    </ul>
+  </div>
+}
