@@ -5,7 +5,12 @@
     Drafts
   </a>
 </ng-template>
-<main class="page-wide" [class.with-queue-pane]="showQueuePane()">
+<main
+  class="page-wide"
+  [class.with-queue-pane]="showQueuePane()"
+  [class.with-seat-strip]="showSeatStrip()"
+  [class.with-players-pane]="playersPane()"
+>
   @if (loading()) {
     <ng-container *ngTemplateOutlet="backLink" />
     <app-loading-animation size="page">Loading…</app-loading-animation>
@@ -48,10 +53,19 @@
       }
     </div>
 
-    <!-- Above the tabs; from the wide desktop breakpoint, a pane beside them. -->
-    <app-players-panel class="players-panel" (changeStarted)="clearErrors()" />
+    <!-- The Players panel: above the tabs, or on a wide desktop in a pane beside them once the draft is complete, and in the Seat strip's popover until then. -->
+    <ng-template #playersPanel>
+      <app-players-panel
+        class="players-panel"
+        [inPane]="playersInPane()"
+        (changeStarted)="clearErrors()"
+      />
+    </ng-template>
+    @if (!showSeatStrip()) {
+      <ng-container *ngTemplateOutlet="playersPanel" />
+    }
 
-    <!-- The tabs and their panels: the main column, beside the Queue pane and the Players panel's pane. -->
+    <!-- The tabs and their panels: the main column, beside the Queue pane, and the Seat strip or the Players panel's pane. -->
     <div class="tab-column">
       <div class="tabs" appTabList aria-label="Draft">
         <button
@@ -281,6 +295,11 @@
     <!-- Beside the tabs from the desktop layout, whichever is open. -->
     @if (showQueuePane()) {
       <app-queue-pane class="queue-pane" [collapsible]="true" />
+    }
+
+    <!-- After the Queue pane, on a wide desktop while the draft runs, whichever tab is open. -->
+    @if (showSeatStrip()) {
+      <app-seat-strip class="seat-strip" [playersPanel]="playersPanel" />
     }
   }
 </main>

@@ -37,8 +37,9 @@ export function viewOn(screen: Screen, { pointer = 'fine' }: { pointer?: Pointer
   screenNow = screen;
   breakpointListeners = [];
   vi.stubGlobal('matchMedia', (query: string) => ({
+    // The screen it is on when asked: a component made after a resize sees the new one.
     matches:
-      SCREEN_QUERIES[screen].includes(query) ||
+      SCREEN_QUERIES[screenNow].includes(query) ||
       (query === COARSE_POINTER_QUERY && pointer === 'coarse'),
     // Only a 'change' listener hears a breakpoint crossed, as in a browser.
     addEventListener: (type: string, listener: (event: { matches: boolean }) => void) => {

@@ -121,6 +121,21 @@ export function pressPrevented(
   return event.defaultPrevented;
 }
 
+/** Clicks `element`, as a viewer does, and renders what came of it. */
+export function clickOn(element: HTMLElement) {
+  element.click();
+  TestBed.tick();
+}
+
+/**
+ * Presses a mouse button down on `element`, as a click starts, and renders
+ * what came of it. jsdom doesn't move focus for it: focus what it would focus.
+ */
+export function pressPointerOn(element: HTMLElement) {
+  element.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerType: 'mouse' }));
+  TestBed.tick();
+}
+
 /** Presses Escape where focus is, or on the page when nothing has it, as the keyboard would. */
 export const pressEscape = () =>
   pressKey((document.activeElement as HTMLElement | null) ?? document.body, 'Escape');
