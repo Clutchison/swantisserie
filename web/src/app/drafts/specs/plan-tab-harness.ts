@@ -64,10 +64,23 @@ export const sideboardNotice = (page: HTMLElement) =>
     text(status).startsWith('Your sideboard has'),
   );
 
-/** A copy button on the Deck tab, by the export it copies, whether it shows its label or its confirmation. */
-export const copyButton = (page: HTMLElement, target: ExportTarget = 'Arena') =>
+/** The Deck tab's Copy button, whether it shows its label or its confirmation. */
+export const copyButton = (page: HTMLElement) =>
   [...planPanel(page).querySelectorAll('button')].find((candidate) =>
-    candidate.textContent?.includes(`Copy for ${target}`),
+    ['Copy', 'Copied'].includes(accessibleName(candidate)),
+  );
+
+/** The Copy button's menu, open over the page; it shows outside the page, so this looks in the whole document. */
+export const copyMenu = () => byAriaLabel(document.body, '[role="menu"]', 'Copy');
+
+/** The open Copy menu's items, by name, in order. */
+export const copyMenuItems = () =>
+  [...(copyMenu()?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])].map(accessibleName);
+
+/** The open Copy menu's item for `target`. */
+export const copyMenuItem = (target: ExportTarget) =>
+  [...(copyMenu()?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? [])].find(
+    (item) => accessibleName(item) === target,
   );
 
 /** Opens the Deck tab and returns its panel. */

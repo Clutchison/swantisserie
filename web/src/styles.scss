@@ -261,6 +261,42 @@ textarea {
   }
 }
 
+/*
+ * A CDK menu's panel and its items, such as the Deck tab's Copy menu. It
+ * opens in the overlay outside any component, so it is styled here.
+ */
+.cdk-menu:not(.cdk-menu-inline) {
+  display: flex;
+  flex-direction: column;
+  min-width: 10rem;
+  margin-block: var(--space-xs);
+  padding: var(--space-xs);
+  border: 1px solid var(--color-divider);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  box-shadow: 0 0.25rem 0.75rem var(--color-shadow);
+}
+
+.cdk-menu-item {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-raised);
+  }
+}
+
 .visually-hidden {
   @include visually-hidden.visually-hidden;
 }

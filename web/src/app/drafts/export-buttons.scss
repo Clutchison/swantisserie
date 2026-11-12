@@ -1,4 +1,4 @@
-/* Sits at the end of the Deck tab's controls row, its buttons wrapping with the row's. */
+/* Sits at the end of the Deck tab's tools row, wrapping with the row. */
 :host {
   display: flex;
   flex-wrap: wrap;
@@ -6,7 +6,7 @@
   gap: var(--space-md);
 }
 
-/* A copy button's label and confirmation share one cell, so the label alone sets its width. */
+/* The Copy button's label and confirmation share one cell, so the label alone sets its width. */
 .copy {
   display: inline-grid;
   justify-items: center;
@@ -31,4 +31,11 @@
 .error {
   flex-basis: 100%;
   margin: 0;
+}
+
+/* The label and its chevron, which marks the button as opening a menu. */
+.label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
 }
