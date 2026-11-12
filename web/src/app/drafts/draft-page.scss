@@ -75,6 +75,27 @@
   color: var(--color-error);
 }
 
+/*
+ * The pool's card count with "About this pool" beside it; on a phone the
+ * section wraps under the count, and opens there.
+ */
+.pool-summary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-xs) var(--space-lg);
+  margin-block: 1em;
+
+  > p,
+  > .disclosure {
+    margin-block: 0;
+  }
+
+  > .disclosure {
+    flex: 1 1 16rem;
+  }
+}
+
 progress {
   display: block;
   width: 100%;
