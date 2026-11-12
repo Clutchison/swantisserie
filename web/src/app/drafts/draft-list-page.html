@@ -1,9 +1,13 @@
 <main>
-  <h1>Drafts</h1>
+  <div class="page-header">
+    <h1>Drafts</h1>
+    <div class="actions">
+      <a class="button" routerLink="/drafts/new">New draft</a>
+    </div>
+  </div>
   @if (notice; as notice) {
     <p class="notice" role="status">{{ notice }}</p>
   }
-  <a class="button" routerLink="/drafts/new">New draft</a>
   @if (loading()) {
     <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {
