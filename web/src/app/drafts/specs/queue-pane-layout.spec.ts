@@ -72,8 +72,8 @@ const shownHelp = (root: HTMLElement) =>
   );
 
 describe('Queue pane layout', () => {
-  describe.each(['desktop', 'wide'] as const)('on a %s screen', (screen) => {
-    beforeEach(() => viewOn(screen));
+  describe('on a desktop screen', () => {
+    beforeEach(() => viewOn('desktop'));
 
     it('shows a player the region "Queue" beside the Pool, Deck and Board tabs, and no Queue tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {

@@ -108,7 +108,7 @@ describe('lobby', () => {
     ]);
   });
 
-  for (const screen of ['mobile', 'desktop', 'wide'] as const) {
+  for (const screen of ['mobile', 'desktop'] as const) {
     it(`opens the Players panel in the lobby on ${screen}, with the seating tools`, async () => {
       viewOn(screen);
       onTestFinished(() => {

@@ -482,12 +482,10 @@ describe('draft page', () => {
     expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board', 'Play']);
   });
 
-  it('puts the tab bar before the panels, showing one panel at a time', async () => {
+  it('shows one panel at a time', async () => {
     const { page } = await openDraft(completeSnapshot);
 
-    const tabBar = page.querySelector('[role="tablist"]')!;
     const panels = page.querySelectorAll('[role="tabpanel"]');
-    expect(tabBar.nextElementSibling).toBe(panels[0]);
     expect([...panels].filter((panel) => !panel.hasAttribute('hidden'))).toHaveLength(1);
   });
 

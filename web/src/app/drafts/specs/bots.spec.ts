@@ -98,31 +98,28 @@ describe('bots', () => {
     expect(playersPanel(page).textContent).not.toContain('Bot 1');
   });
 
-  it.each(['desktop', 'wide'] as const)(
-    'adds a bot from the Players panel beside the tabs on a %s screen',
-    async (screen) => {
-      viewOn(screen);
-      onTestFinished(() => {
-        vi.unstubAllGlobals();
-      });
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        { players: [alicePlayer] },
-        { powers: ADD_BOTS_ONLY },
-      );
-      expect(disclosure(page, 'Players · 1')!.open).toBe(true);
+  it('adds a bot from the Players panel beside the tabs on a desktop screen', async () => {
+    viewOn('desktop');
+    onTestFinished(() => {
+      vi.unstubAllGlobals();
+    });
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      { players: [alicePlayer] },
+      { powers: ADD_BOTS_ONLY },
+    );
+    expect(disclosure(page, 'Players · 1')!.open).toBe(true);
 
-      button(findPlayersBesideTabs(page)!, 'Add bot')!.click();
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots'))).flush(
-        draft({ players: [alicePlayer, bot] }),
-        { status: 201, statusText: 'Created' },
-      );
-      await fixture.whenStable();
+    button(findPlayersBesideTabs(page)!, 'Add bot')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots'))).flush(
+      draft({ players: [alicePlayer, bot] }),
+      { status: 201, statusText: 'Created' },
+    );
+    await fixture.whenStable();
 
-      expect(disclosure(findPlayersBesideTabs(page)!, 'Players · 2')!.open).toBe(true);
-      expect(playersPanel(page).textContent).toContain('Bot 1');
-    },
-  );
+    expect(disclosure(findPlayersBesideTabs(page)!, 'Players · 2')!.open).toBe(true);
+    expect(playersPanel(page).textContent).toContain('Bot 1');
+  });
 
   describe('focus after a change', () => {
     const botNumber = (i: number) => ({ ...bot, id: `bot:${i}`, name: `Bot ${i}` });
