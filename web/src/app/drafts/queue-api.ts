@@ -43,13 +43,22 @@ export class QueueApi {
     } satisfies StealBehaviorRequest);
   }
 
-  /**
-   * Sets the queue to queue paused, or queue picking; set picking on the
-   * player's own turn, it picks straight away.
-   */
-  setQueuePaused(draftId: string, queuePaused: boolean): Observable<QueueView> {
+  /** Sets the queue to queue paused. */
+  pauseQueue(draftId: string): Observable<QueueView> {
     return this.http.put<QueueView>(`${url(draftId)}/paused`, {
-      queuePaused,
+      queuePaused: true,
+    } satisfies QueuePausedRequest);
+  }
+
+  /**
+   * Sets the queue to queue picking. On the player's own turn it picks
+   * straight away: `poolCardIds` are the cards the player confirmed it picks
+   * before the turn passes, which the api refuses if it would pick others.
+   */
+  setQueuePicking(draftId: string, poolCardIds: string[]): Observable<QueueView> {
+    return this.http.put<QueueView>(`${url(draftId)}/paused`, {
+      queuePaused: false,
+      poolCardIds,
     } satisfies QueuePausedRequest);
   }
 

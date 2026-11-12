@@ -416,6 +416,7 @@ export const poolCardOf = (
   fields: Partial<PoolCardView> = {},
 ): PoolCardView => ({
   id: `${id}-card`,
+  oracleId: `${id}-oracle`,
   scryfallId: `${id}-id`,
   name,
   set: 'ima',

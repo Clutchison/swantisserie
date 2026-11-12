@@ -12,8 +12,10 @@ import {
   fourCards,
   pick,
   pickLogLines,
+  queuePaused,
   reorderQueue,
   setQueuePaused,
+  setQueuePicking,
   undo,
 } from './harness.js';
 
@@ -129,35 +131,50 @@ describeRaces('setting a queue picking on the player’s turn', () => {
     return draft;
   }
 
-  it('picks from the queue, refusing a pick by hand then, or picks after the hand pick, on the turn it leaves', async () => {
+  it('picks the confirmed cards, refusing a pick by hand then, or is refused once the hand pick has changed what the queue would pick', async () => {
     const { id, ids } = await bobsTurnPaused();
 
     const [picking, picked] = await race(
-      () => setQueuePaused(id, false, bobCookie),
+      () =>
+        setQueuePicking(
+          id,
+          [ids['Lava Spike'], ids['Skewer the Critics']],
+          bobCookie,
+        ),
       () => pick(id, ids['Lightning Bolt'], bobCookie),
     );
 
     expect([
       {
+        picking: 200,
         picked: '409 not-your-turn',
         log: ['Alice: Shock', 'Bob: Lava Spike', 'Bob: Skewer the Critics'],
+        queuePaused: false,
       },
       {
+        picking: '409 queue-picks-changed',
         picked: 200,
-        log: ['Alice: Shock', 'Bob: Lightning Bolt', 'Bob: Lava Spike'],
+        log: ['Alice: Shock', 'Bob: Lightning Bolt'],
+        queuePaused: true,
       },
     ]).toContainEqual({
+      picking: answered(picking),
       picked: answered(picked),
       log: await pickLogLines(id),
+      queuePaused: await queuePaused(id, bobCookie),
     });
-    expect(picking.status).toBe(200);
   });
 
   it('picks from the queue, refusing an undo of the pick before, or picks nothing once the undo has taken the turn back', async () => {
-    const { id } = await bobsTurnPaused();
+    const { id, ids } = await bobsTurnPaused();
 
     const [picking, undone] = await race(
-      () => setQueuePaused(id, false, bobCookie),
+      () =>
+        setQueuePicking(
+          id,
+          [ids['Lava Spike'], ids['Skewer the Critics']],
+          bobCookie,
+        ),
       () => undo(id, 1),
     );
 
