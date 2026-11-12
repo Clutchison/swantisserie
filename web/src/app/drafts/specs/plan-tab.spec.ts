@@ -27,6 +27,7 @@ import {
   statusMessage,
   alertIn,
 } from './harness';
+import { disclosure, toggleDisclosure } from './disclosure-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -358,6 +359,41 @@ describe('plan tab', () => {
     expect(req.request.method).toBe('DELETE');
     req.flush(planOf({ mainboard: [planned(brightclimb)] }));
     await vi.waitFor(() => expect(plan.querySelector('.notice')).toBeNull());
+  });
+
+  it('keeps its help in a closed "How this works" section that opens to show it', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({ mainboard: [planned(brightclimb)] }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    const help = disclosure(plan, 'How this works')!;
+    expect(help.open).toBe(false);
+    toggleDisclosure(plan, 'How this works');
+    await fixture.whenStable();
+
+    expect(help.open).toBe(true);
+    expect(text(help)).toContain('Every pick lands on your mainboard.');
+  });
+
+  it('keeps the Deck notice and the Ready notice outside "How this works", always in view', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({
+        mainboard: [planned(brightclimb)],
+        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
+        readyNotice: true,
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    const help = disclosure(plan, 'How this works')!;
+    const notices = [...plan.querySelectorAll<HTMLElement>('[role="status"]')].filter((note) =>
+      /Lost to other players|no longer ready/.test(text(note)),
+    );
+    expect(notices).toHaveLength(2);
+    for (const note of notices) expect(help.contains(note)).toBe(false);
   });
 
   it('still notes a lost card whose picker is no longer among the players', async () => {

@@ -65,16 +65,19 @@
     </p>
   </div>
 }
-<p class="detail">
-  @if (deckLocked()) {
-    Your deck is locked until the tournament is complete or cancelled. Your exports still work.
-  } @else if (draftComplete()) {
-    Your deck holds your picks and basic lands. Only you can see your deck.
-  } @else {
-    Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
-    and no other copy is available. Only you can see your deck.
-  }
-</p>
+<details class="how-this-works">
+  <summary>How this works</summary>
+  <p class="detail">
+    @if (deckLocked()) {
+      Your deck is locked until the tournament is complete or cancelled. Your exports still work.
+    } @else if (draftComplete()) {
+      Your deck holds your picks and basic lands. Only you can see your deck.
+    } @else {
+      Every pick lands on your mainboard. An unpicked card you add is lost if another player picks
+      it and no other copy is available. Only you can see your deck.
+    }
+  </p>
+</details>
 <app-deck-lock-reminder />
 @if (offerQueueUnpicked()) {
   <div class="plan-actions">
