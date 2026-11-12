@@ -314,7 +314,7 @@ describe('the pool snapshot of a cube link', () => {
     ).toEqual(['Lightning Bolt', 'Wastes']);
   });
 
-  it('refuses a retry, keeping the pool as it was, because the pool is frozen', async () => {
+  it('refuses a retry, keeping the pool as it was, because the pool is fixed', async () => {
     cubesAre({ thepaupercube: pauper });
     onPlatform('Lightning Bolt', 'Deftblade Elite', 'Shock');
     const created = await createDraft({

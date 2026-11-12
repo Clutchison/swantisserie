@@ -38,7 +38,7 @@ The organizer picks one **pool source** when creating the draft: a **pool query*
   - type line, colors, mana value
   - for the pool search: oracle text, mana cost, color identity, keywords, rarity, power/toughness/loyalty, per face
   - image URLs (`small`/`normal`/`large`, per face for double-faced cards)
-- The pool is **frozen once its pool snapshot is complete**: no changes after that. The pool source never changes after creation.
+- The pool is **fixed once its pool snapshot is complete**: no changes after that. The pool source never changes after creation.
 - Starting the draft fails if `picks per player × players > pool size`. It is checked at start, not at creation, since a new draft has no players.
 - No local Scryfall bulk database.
 

@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TURN_STATES } from 'contract';
 import { currentTurn } from 'engine';
 import {
   CloseRefusedError,
@@ -88,7 +89,7 @@ export class DraftLifecycleService {
   async close(draftId: string): Promise<DraftEvent[]> {
     return this.lock.whileIn(
       draftId,
-      ['Drafting', 'Frozen'],
+      TURN_STATES,
       () =>
         new CloseRefusedError({
           error: 'not-closable',

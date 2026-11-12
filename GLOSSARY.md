@@ -47,7 +47,7 @@ One rotisserie event in a guild: a pool, its players, and the picks they make in
 _Avoid_: Game, league, room
 
 **Pool**:
-The fixed set of cards on the platform that a draft picks from, frozen once its pool snapshot is complete. It never holds a basic land, whatever its pool source names.
+The fixed set of cards on the platform that a draft picks from, which no longer changes once its pool snapshot is complete. It never holds a basic land, whatever its pool source names.
 _Avoid_: Card list, cube
 
 **Pool source**:
@@ -79,7 +79,7 @@ A smaller set that comes with a main set, such as a bonus sheet, its Alchemy car
 _Avoid_: Bonus sheet (for sublists in general), child set, subset
 
 **Pool snapshot**:
-The cards a pool source names, taken from Scryfall when a draft is created. It is running, failed or complete, and the pool is frozen once it is complete.
+The cards a pool source names, taken from Scryfall when a draft is created. It is running, failed or complete, and the pool no longer changes once it is complete.
 _Avoid_: Import, sync, card fetch
 
 **Pool card**:

@@ -73,7 +73,7 @@ model Draft {
   state          DraftState        @default(Lobby)
   organizerId    String
   organizer      User              @relation(fields: [organizerId], references: [id])
-  /// Progress of copying the pool from Scryfall. The pool is frozen once Complete.
+  /// Progress of copying the pool from Scryfall. The pool is fixed once Complete.
   snapshotState  PoolSnapshotState @default(Running)
   /// How many cards the pool will hold, as Scryfall or the cube says; null until it is known.
   poolTotal      Int?

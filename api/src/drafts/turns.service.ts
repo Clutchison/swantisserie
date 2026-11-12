@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { TURN_STATES } from 'contract';
 import {
   cascade,
   currentTurn,
@@ -309,7 +310,7 @@ export class TurnsService {
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {
     return this.lock.whileIn(
       draftId,
-      ['Drafting', 'Frozen'],
+      TURN_STATES,
       () =>
         new UndoRefusedError({
           error: 'not-drafting',

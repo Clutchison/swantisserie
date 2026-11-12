@@ -20,8 +20,11 @@ import {
   buttonOrder,
   pickOf,
   poolCardOf,
+  statusMessage,
 } from './harness';
 import { openMore } from './draft-header-harness';
+
+const FROZEN_NOTE = 'The draft is frozen. No picks until it is unfrozen.';
 
 useDraftsApp();
 
@@ -44,7 +47,7 @@ describe('freeze and unfreeze', () => {
     await flushQueueAndPlan();
     await fixture.whenStable();
 
-    expect(page.textContent).toContain('The draft is frozen. No picks until it is unfrozen.');
+    expect(statusMessage(page, FROZEN_NOTE)).toBeDefined();
     expect(button(page, 'Freeze draft')).toBeUndefined();
     expect(button(page, 'Unfreeze draft')).toBeDefined();
   });
@@ -60,7 +63,7 @@ describe('freeze and unfreeze', () => {
     await flushQueueAndPlan();
     await fixture.whenStable();
 
-    expect(page.textContent).not.toContain('The draft is frozen');
+    expect(statusMessage(page, FROZEN_NOTE)).toBeUndefined();
     expect(button(page, 'Freeze draft')).toBeDefined();
   });
 
@@ -96,7 +99,7 @@ describe('freeze and unfreeze', () => {
     await flushQueueAndPlan();
     await fixture.whenStable();
 
-    expect(page.querySelector('[role="alert"]')?.textContent).toContain(message);
+    expect(alertIn(page)?.textContent).toContain(message);
     expect(button(page, 'Unfreeze draft')).toBeDefined();
   });
 
@@ -130,7 +133,7 @@ describe('freeze and unfreeze', () => {
     });
 
     expect(button(page, 'Unfreeze draft')).toBeUndefined();
-    expect(page.textContent).toContain('The draft is frozen. No picks until it is unfrozen.');
+    expect(statusMessage(page, FROZEN_NOTE)).toBeDefined();
   });
 
   it('shows every viewer the draft freezing as it happens', async () => {
@@ -147,7 +150,7 @@ describe('freeze and unfreeze', () => {
     await flushQueueAndPlan();
     await fixture.whenStable();
 
-    expect(page.textContent).toContain('The draft is frozen. No picks until it is unfrozen.');
+    expect(statusMessage(page, FROZEN_NOTE)).toBeDefined();
   });
 
   it('moves focus from Freeze draft to Unfreeze draft, and back', async () => {
@@ -185,9 +188,7 @@ describe('freeze and unfreeze', () => {
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/freeze'))).flush(null, serverError);
     await fixture.whenStable();
 
-    await vi.waitFor(() =>
-      expect(page.querySelector('[role="alert"]')?.textContent).toContain("Couldn't freeze"),
-    );
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain("Couldn't freeze"));
     expect(document.activeElement).toBe(button(page, 'Freeze draft'));
   });
 });

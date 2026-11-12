@@ -8,6 +8,7 @@ import type {
   Rarity,
   TurnView,
 } from 'contract';
+import { isTurnState } from 'contract';
 import { currentTurn } from 'engine';
 import { avatarUrl } from '../auth/avatar-url.js';
 import type { PoolCard } from '../generated/prisma/client.js';
@@ -34,7 +35,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
       avatarUrl: avatarUrl(user),
       isBot: user.isBot,
     })),
-    ...(state === 'Drafting' || state === 'Frozen'
+    ...(isTurnState(state)
       ? { state, turn: toTurnView(draft) }
       : { state, turn: null }),
     // Built field by field, so nothing else about the webhook (its URL above

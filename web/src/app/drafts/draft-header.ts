@@ -10,7 +10,7 @@ import {
 } from '@angular/core';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import { MAX_PLAYERS } from 'engine';
-import type { DraftView, PickView } from 'contract';
+import { isTurnState, type DraftView, type PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
 import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
@@ -80,8 +80,7 @@ export class DraftHeader {
 
   /** The pick the organizer may undo: the latest, while the draft is drafting or frozen. */
   protected readonly undoable = computed(() => {
-    const state = this.draft().state;
-    if (!this.canOrganize() || (state !== 'Drafting' && state !== 'Frozen')) return null;
+    if (!this.canOrganize() || !isTurnState(this.draft().state)) return null;
     return this.picks().at(-1) ?? null;
   });
   /**
@@ -102,10 +101,9 @@ export class DraftHeader {
     () => this.canOrganize() && this.draft().state === 'Frozen',
   );
   /** The organizer may close a drafting or frozen draft and reopen a closed one. */
-  protected readonly offerClose = computed(() => {
-    const state = this.draft().state;
-    return this.canOrganize() && (state === 'Drafting' || state === 'Frozen');
-  });
+  protected readonly offerClose = computed(
+    () => this.canOrganize() && isTurnState(this.draft().state),
+  );
   protected readonly offerReopen = computed(
     () => this.canOrganize() && this.draft().state === 'Closed',
   );

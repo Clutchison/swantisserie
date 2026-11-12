@@ -11,7 +11,13 @@ export type DraftState =
   'Lobby' | 'Drafting' | 'Frozen' | 'Complete' | 'Closed';
 
 /** The states a draft has a turn in: a Closed one keeps none until reopened. */
-export type TurnState = 'Drafting' | 'Frozen';
+export const TURN_STATES = ['Drafting', 'Frozen'] as const;
+export type TurnState = (typeof TURN_STATES)[number];
+
+/** Whether a draft in `state` has a turn: whether it is Drafting or Frozen. */
+export function isTurnState(state: DraftState): state is TurnState {
+  return (TURN_STATES as readonly DraftState[]).includes(state);
+}
 
 /** The game a draft is played on, by its short name. */
 export type Platform = 'Arena' | 'MTGO';

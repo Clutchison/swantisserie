@@ -484,7 +484,7 @@ describe('pool snapshot', () => {
     });
   });
 
-  it('keeps the pool frozen once the snapshot is complete', async () => {
+  it('keeps the pool fixed once the snapshot is complete', async () => {
     allOnArena('t:dragon c:r');
     const created = await createDraft({
       name: 'Red dragons',
