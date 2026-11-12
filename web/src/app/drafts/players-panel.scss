@@ -105,19 +105,21 @@ summary {
   }
 }
 
-/* Where the seats run across: on a desktop, until the panel becomes a pane. */
-@media (#{bp.$desktop} <= width < #{bp.$wide-desktop}) {
-  .across {
-    display: inline-block;
-  }
+/* Where the seats run across: on a desktop, unless the panel is in a pane or the Seat strip's popover. */
+@media (min-width: bp.$desktop) {
+  :host(:not(.in-pane)) {
+    .across {
+      display: inline-block;
+    }
 
-  .stacked {
-    display: none;
+    .stacked {
+      display: none;
+    }
   }
 }
 
-/* In the Players panel's narrow pane the seats stack again, and the panel stays open. */
-@media (min-width: bp.$wide-desktop) {
+/* In a narrow pane, or the Seat strip's popover, the seats stack again, and the panel stays open. */
+:host(.in-pane) {
   ol {
     grid-template-columns: minmax(0, 1fr);
   }

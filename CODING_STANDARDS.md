@@ -51,12 +51,16 @@ Why: a full list shouldn't push the action a viewer came for out of view.
 ```html
 <!-- BAD: registration, before -->
 <h3>Joined players · 3 of 8 ready</h3>
-<ul>…every joined player…</ul>
+<ul>
+  …every joined player…
+</ul>
 <div class="actions">Leave · I’m ready · Cancel tournament · Start tournament</div>
 <!-- GOOD -->
 <h3>Joined players · 3 of 8 ready</h3>
 <div class="actions">Leave · I’m ready · Cancel tournament · Start tournament</div>
-<ul>…every joined player…</ul>
+<ul>
+  …every joined player…
+</ul>
 ```
 
 Origin: #654.
@@ -80,6 +84,8 @@ Origin: #654.
 ### A dialog scrolls only its body
 
 _Judgement._ A dialog uses the shared dialog style's heading, body and action row, so its heading and buttons stay in view and only its body scrolls. A dialog may set its own width, but never its own overflow or height. The Card detail is the exception: an image viewer with no heading or body, its image shrinks to fit the screen, so its buttons stay in view.
+
+A non-modal popover, such as the Seat strip's Players popover, isn't a dialog in this sense and scrolls as a whole. It has no action row to keep in view, and Escape, a click outside or moving focus away closes it.
 
 Why: Close and a dialog's confirm stay reachable however long its content grows, as they didn't in the Tournament summary with a long bracket.
 

@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  input,
   output,
   signal,
   untracked,
@@ -20,14 +21,7 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import {
-  hasTurn,
-  isRefusal,
-  matching,
-  PLAYERS_CHANGE_FAILED,
-  sendDraftChange,
-  WIDE_DESKTOP_QUERY,
-} from './drafts';
+import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
@@ -49,6 +43,7 @@ import { PlayerAvatar } from './player-avatar';
     SendsChange,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { '[class.in-pane]': 'inPane()' },
   templateUrl: './players-panel.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './players-panel.scss'],
 })
@@ -73,20 +68,21 @@ export class PlayersPanel {
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
   /**
-   * Whether the panel is a pane beside the tabs, as the window is resized:
-   * the layout in `draft-page.scss`. No `matchMedia` counts as a phone.
+   * Whether the panel is in a narrow pane beside the tabs, or the Seat strip's
+   * popover, where its seats stack and it stays open; the draft page says.
    */
-  private readonly wide = matching(WIDE_DESKTOP_QUERY);
+  readonly inPane = input(false);
   /**
-   * The panel stays open in its pane on a wide desktop; narrower, it is open
-   * in the lobby and collapses once the draft starts, out of the tabs' way.
+   * The panel is open in the lobby, wherever it is, and stays open in a pane
+   * or popover. Above the tabs it collapses once the draft starts, out of
+   * their way.
    */
-  protected readonly open = computed(() => this.wide() || this.inLobby());
+  protected readonly open = computed(() => this.inPane() || this.inLobby());
   protected readonly playerCount = computed(() => this.draft().players.length);
 
-  /** On a wide desktop the panel stays open: a click on its summary doesn't close it. */
+  /** In a pane or popover the panel stays open: a click on its summary doesn't close it. */
   protected keepOpen(click: Event) {
-    if (this.wide()) click.preventDefault();
+    if (this.inPane()) click.preventDefault();
   }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');

@@ -57,19 +57,15 @@ describe('seats and start', () => {
     expect(current?.querySelector('.name')?.textContent).toBe('Bob');
   });
 
-  for (const [screen, open] of [
-    ['mobile', false],
-    ['desktop', false],
-    ['wide', true],
-  ] as const) {
-    it(`keeps the seat order in the Players panel once started on ${screen}, ${open ? 'open' : 'closed'}`, async () => {
+  for (const screen of ['mobile', 'desktop'] as const) {
+    it(`keeps the seat order in the Players panel once started on ${screen}, closed`, async () => {
       viewOn(screen);
       onTestFinished(() => {
         vi.unstubAllGlobals();
       });
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob, alicePlayer] }));
 
-      expect(disclosure(page, 'Players · 2')!.open).toBe(open);
+      expect(disclosure(page, 'Players · 2')!.open).toBe(false);
       expect(seatNames(page)).toEqual(['Bob', 'Alice']);
     });
   }
