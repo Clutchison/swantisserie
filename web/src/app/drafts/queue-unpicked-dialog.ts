@@ -2,7 +2,7 @@ import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { PlannedCardView, PlanView } from 'contract';
 import { DraftStore } from './draft-store';
-import { changeFailure } from './drafts';
+import { cardsNoun, changeFailure } from './drafts';
 import { QueueApi } from './queue-api';
 
 const QUEUE_FAILED = "Couldn't add to your queue. Try again in a moment.";
@@ -56,7 +56,7 @@ export class QueueUnpickedDialog {
   );
   /** How many cards it adds, as it says it. */
   protected readonly queueCountText = computed(
-    () => `${this.queueCount()} ${this.queueCount() === 1 ? 'card' : 'cards'}`,
+    () => `${this.queueCount()} ${cardsNoun(this.queueCount())}`,
   );
 
   protected close() {

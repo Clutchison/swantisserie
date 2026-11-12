@@ -267,16 +267,14 @@ export class DraftStore implements TournamentViewer {
   });
 
   /**
-   * Where the Queue cutoff falls in the signed-in player's queue: before the
-   * queued card at this index, the first one past their picks left. When the
-   * queue fits in them, no card has that index. Null while picks left is.
+   * Whether the queued card at `index` is past the Queue cutoff, so picks
+   * left won't reach it. The cutoff falls before the queued card whose index
+   * is the player's picks left, the first past them; none is past it while
+   * picks left is null.
    */
-  readonly queueCutoff = this.picksLeft;
-
-  /** Whether the queued card at `index` is past the Queue cutoff, so picks left won't reach it. */
   pastQueueCutoff(index: number): boolean {
-    const cutoff = this.queueCutoff();
-    return cutoff !== null && index >= cutoff;
+    const left = this.picksLeft();
+    return left !== null && index >= left;
   }
 
   /**
@@ -299,6 +297,21 @@ export class DraftStore implements TournamentViewer {
     const count = this.queue.value().cards.length;
     return { count, noun: cardsNoun(count) };
   });
+
+  /**
+   * A name summing up the queue, as a screen reader reads it: `lead`, then
+   * the queue's size once it is known, then `details`, then whether the
+   * Queue notice notes a card the player hasn't seen.
+   */
+  queueSummary(lead: string, details: string[] = []): string {
+    const size = this.queueSize();
+    return [
+      lead,
+      ...(size ? [`${size.count} ${size.noun}`] : []),
+      ...details,
+      ...(this.unseenNotice() ? ['new notice'] : []),
+    ].join(', ');
+  }
   /** How many cards the player has added to their queue from a Card detail, on this page. */
   private queueAdds = 0;
   private readonly latestQueueAddShown = signal<QueueAdd | null>(null);
@@ -341,6 +354,8 @@ export class DraftStore implements TournamentViewer {
     computation: (entries, previous) =>
       new Set(entries.filter((entry) => previous?.value.has(entry))),
   });
+  /** Whether the Queue notice notes any lost or cleared card. */
+  readonly hasNotice = computed(() => this.noticeEntries().length > 0);
   /** Whether the Queue notice notes a card the player hasn't yet seen it note. */
   readonly unseenNotice = computed(() => {
     const seen = this.seenNoticeEntries();

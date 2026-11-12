@@ -119,7 +119,7 @@ export class QueuePane {
   private readonly queueApi = inject(QueueApi);
   protected readonly previews = inject(CardPreviews);
   private readonly changes = inject(Changes);
-  private readonly store = inject(DraftStore);
+  protected readonly store = inject(DraftStore);
   private readonly cardDetails = inject(CardDetails);
   private readonly injector = inject(Injector);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
@@ -151,14 +151,6 @@ export class QueuePane {
   /** The queue's size: its count, and the noun a viewer reads after it; null until it is known. */
   protected readonly size = this.store.queueSize;
 
-  /** Where the Queue cutoff is drawn: before the queued card at this index, if there is one. */
-  protected readonly cutoffIndex = this.store.queueCutoff;
-
-  /** Whether the queued card at `index` is past the Queue cutoff. */
-  protected pastCutoff(index: number): boolean {
-    return this.store.pastQueueCutoff(index);
-  }
-
   /** Unless queue changes are offered, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !this.store.offerQueue());
   protected readonly changing = this.changes.changing;
@@ -187,9 +179,7 @@ export class QueuePane {
   );
 
   /** Whether there are lost or cleared cards to note. */
-  protected readonly hasNotice = computed(
-    () => this.queue().lost.length > 0 || this.queue().cleared.length > 0,
-  );
+  protected readonly hasNotice = this.store.hasNotice;
   /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
   protected readonly unseenNotice = this.store.unseenNotice;
 
@@ -204,15 +194,9 @@ export class QueuePane {
   private readonly toggleButton = viewChild<ElementRef<HTMLButtonElement>>('toggle');
 
   /** The collapse toggle's name: on the rail, with the queue's size and any unseen Queue notice. */
-  protected readonly toggleName = computed(() => {
-    if (!this.collapsed()) return 'Collapse queue';
-    const size = this.size();
-    return [
-      'Expand queue',
-      ...(size ? [`${size.count} ${size.noun}`] : []),
-      ...(this.unseenNotice() ? ['new notice'] : []),
-    ].join(', ');
-  });
+  protected readonly toggleName = computed(() =>
+    this.collapsed() ? this.store.queueSummary('Expand queue') : 'Collapse queue',
+  );
 
   /** The latest card added from a Card detail since the pane was made, if any. */
   protected readonly added = queueAddsFromNow();

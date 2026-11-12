@@ -52,8 +52,8 @@
   /* A comfortable line of body text: about 66 characters of Inter at body size, measured in the browser. Inter's ch, its zero, is wider than its average letter, hence 52. */
   --width-measure: 52ch;
   /*
-   * The page frame's inline padding: 1rem on a phone and up to 792px, growing
-   * to 3rem.
+   * The page frame's inline padding: 1rem on a phone and up to 800px, growing
+   * with the viewport to 3rem from 1440px.
    */
   --page-gutter: clamp(var(--space-lg), 5vw - 1.5rem, 3rem);
 }

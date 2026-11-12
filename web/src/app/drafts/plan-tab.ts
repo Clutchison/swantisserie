@@ -38,6 +38,7 @@ import { CardName } from './card-name';
 import { CardPreviewName, CardPreviews } from './card-preview';
 import { NORMAL_IMAGE } from './card-sizes';
 import {
+  cardsNoun,
   changeFailure,
   DESKTOP_QUERY,
   DRAG_START_DELAY,
@@ -394,7 +395,7 @@ export class PlanTab {
         stacks.map(({ name, fullName, label, cards }) => ({
           name,
           label,
-          accessibleName: `${fullName}, ${cards.length} ${cards.length === 1 ? 'card' : 'cards'}`,
+          accessibleName: `${fullName}, ${cards.length} ${cardsNoun(cards.length)}`,
           setApart: oneStack === true,
         })),
       ),

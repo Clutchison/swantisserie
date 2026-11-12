@@ -367,9 +367,25 @@ describe('Queue pane layout', () => {
 
       expect(info.getAttribute('aria-expanded')).toBe('true');
       expect(shownHelp(pane)?.textContent).toContain(
-        'Cards are picked for you in this order. Drag to reorder.',
+        'Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.',
       );
       expect(document.getElementById(info.getAttribute('aria-controls')!)).toBe(shownHelp(pane));
+    });
+
+    it('says on a touchscreen that a card moves by its handle or its menu', async () => {
+      viewOn('desktop', { pointer: 'coarse' });
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+      const pane = queuePane(page);
+
+      button(pane, 'How this works').click();
+      await fixture.whenStable();
+
+      expect(shownHelp(pane)?.textContent?.replace(/\s+/g, ' ')).toContain(
+        'Drag a card by its handle, or use its menu, to reorder.',
+      );
     });
 
     it('says the queue couldn’t load, not that it is empty', async () => {

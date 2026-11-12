@@ -70,11 +70,12 @@ export class SeatStrip {
       player.name,
       ...(player.isBot ? ['bot'] : []),
       ...(own ? ['you'] : []),
-      ...(this.hasTurn(player) ? [own ? 'your turn' : 'their turn'] : []),
+      ...(this.hasTheTurn(player) ? [own ? 'your turn' : 'their turn'] : []),
     ].join(', ');
   }
 
-  protected hasTurn(player: PlayerView) {
+  /** Whether `player` has the turn. */
+  protected hasTheTurn(player: PlayerView) {
     return player.id === this.turnPlayerId();
   }
 

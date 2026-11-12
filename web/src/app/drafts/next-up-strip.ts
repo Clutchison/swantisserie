@@ -41,16 +41,12 @@ export class NextUpStrip {
 
   /** The strip's name: all it shows, in one phrase a screen reader reads at once. */
   protected readonly name = computed(() => {
-    const size = this.size();
     const left = this.picksLeft();
     const next = this.next();
-    return [
-      'Queue',
-      ...(size ? [`${size.count} ${size.noun}`] : []),
+    return this.store.queueSummary('Queue', [
       ...(left ? [left] : []),
       ...(next ? [`next up ${next}`] : []),
-      ...(this.unseenNotice() ? ['new notice'] : []),
-    ].join(', ');
+    ]);
   });
 
   /** Opens the Queue pane over the page, in the Queue sheet; focus comes back here as it closes. */

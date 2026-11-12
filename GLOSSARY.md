@@ -222,6 +222,10 @@ _Avoid_: Queue tab, queue page, Queue panel (a panel is the Players panel's), qu
 The bar above the tabs at the foot of a narrow screen that stands in for the Queue pane, on every tab: it shows the queue's size, the player's picks left, the card the queue picks next and whether the Queue notice has something unseen, and opens the Queue pane in the Queue sheet.
 _Avoid_: Queue bar, mini queue, Seat strip (that is the players' avatars)
 
+**Queue sheet**:
+The Queue pane where there isn't room for it beside the tabs, raised over them from the foot of the screen when the player opens the "next up" strip, and closed to go back to the tab they were on.
+_Avoid_: Queue drawer, queue modal, queue popup, Queue tab
+
 **Queued badge**:
 The mark on a card in the Pool tab that the viewer has queued, showing its place in their queue.
 _Avoid_: Queue badge, queued label, Picked badge (that is a picked card's)

@@ -245,7 +245,7 @@ describe('close and reopen', () => {
     expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
     expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
     expect(button(queue, 'Dismiss')).toBeUndefined();
-    expect(queue.textContent).not.toContain('Drag to reorder');
+    expect(queue.textContent).not.toContain('to reorder');
   });
 
   it.each([
@@ -263,6 +263,6 @@ describe('close and reopen', () => {
 
     const queue = await openQueueSheet(fixture, page);
     expect(queue.querySelector('button[aria-label="Remove Shivan Dragon"]')).not.toBeNull();
-    expect(queue.textContent).toContain('Drag to reorder');
+    expect(queue.textContent).toContain('Drag a card, or use its arrows, to reorder.');
   });
 });

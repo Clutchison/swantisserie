@@ -80,8 +80,11 @@
       <p class="detail help" [id]="helpId" [hidden]="!helpOpen()">
         @if (draftState() === 'Closed') {
           Cards are picked for you in this order if the draft reopens.
+        } @else if (coarsePointer()) {
+          Cards are picked for you in this order. Drag a card by its handle, or use its menu, to
+          reorder.
         } @else {
-          Cards are picked for you in this order. Drag to reorder.
+          Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.
         }
       </p>
     }
@@ -115,7 +118,8 @@
           }
         </div>
       }
-      @let cutoffAt = cutoffIndex();
+      <!-- The Queue cutoff falls before the first card past the player's picks left. -->
+      @let cutoffAt = store.picksLeft();
       <ol
         class="queue card-rows"
         [class.with-handles]="coarsePointer() && !readOnly()"
@@ -137,7 +141,7 @@
             </li>
           }
           <li
-            [class.past-cutoff]="pastCutoff(i)"
+            [class.past-cutoff]="store.pastQueueCutoff(i)"
             [class.just-added]="card.poolCardId === justAdded()"
             (animationend)="highlightPlayed($event)"
             cdkDrag
