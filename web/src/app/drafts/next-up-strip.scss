@@ -63,3 +63,17 @@
   flex-shrink: 0;
   color: var(--color-muted);
 }
+
+/* The count, briefly larger as an add changes it. */
+@media (prefers-reduced-motion: no-preference) {
+  .count.bump {
+    display: inline-block;
+    animation: count-bump 300ms ease-out;
+  }
+}
+
+@keyframes count-bump {
+  50% {
+    transform: scale(1.3);
+  }
+}

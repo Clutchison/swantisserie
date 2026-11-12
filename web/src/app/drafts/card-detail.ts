@@ -269,11 +269,22 @@ export class CardDetail {
     }
   }
 
+  /**
+   * Adds the card to the queue. Once it's added, the store notes the add,
+   * and when this Card detail closes, if it hasn't already, so an open
+   * Queue pane can mark the card.
+   */
   protected addToQueue() {
+    const poolCardId = this.card().id;
     return this.changeQueue(
-      this.queueApi.add(this.store.id(), this.card().id),
+      this.queueApi.add(this.store.id(), poolCardId),
       ADDED_TO_QUEUE,
       "Couldn't add the card to your queue. Try again in a moment.",
+      () => {
+        const detailClosed = this.destroyRef.destroyed;
+        const add = this.store.addedToQueue(poolCardId, { detailClosed });
+        if (!detailClosed) this.destroyRef.onDestroy(() => this.store.queueAddDetailClosed(add));
+      },
     );
   }
 
@@ -289,14 +300,20 @@ export class CardDetail {
    * Sends a change to the queue, noting `done` once it's made, unless the turn
    * has moved on meanwhile. If it fails, notes why (`failure`, unless the API
    * says); the store re-reads the queue, and the draft too if it was refused:
-   * a stale page may not know whose turn it is.
+   * a stale page may not know whose turn it is. `made` runs once it's made.
    */
-  private async changeQueue(request: Observable<QueueView>, done: string, failure: string) {
+  private async changeQueue(
+    request: Observable<QueueView>,
+    done: string,
+    failure: string,
+    made?: () => void,
+  ) {
     this.queueing.set(true);
     this.queueNote.set(null);
     const turnPick = this.turnPick();
     try {
       await this.store.changeQueue(request);
+      made?.();
       if (this.turnPick() === turnPick) this.queueNote.set(done);
     } catch (err) {
       this.queueNote.set(changeFailure(err, failure));

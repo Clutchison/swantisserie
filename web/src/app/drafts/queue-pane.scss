@@ -214,3 +214,29 @@ app-card-name {
     cursor: help;
   }
 }
+
+/* A card just added from its Card detail: a background that fades out. A colour, not motion, so it plays under reduced motion too. */
+.queue li.just-added {
+  animation: just-added 2s ease-out;
+}
+
+@keyframes just-added {
+  from {
+    background: var(--color-raised);
+  }
+}
+
+/* The count, briefly larger as an add changes it. */
+@media (prefers-reduced-motion: no-preference) {
+  .count.bump,
+  .rail-count.bump {
+    display: inline-block;
+    animation: count-bump 300ms ease-out;
+  }
+}
+
+@keyframes count-bump {
+  50% {
+    transform: scale(1.3);
+  }
+}

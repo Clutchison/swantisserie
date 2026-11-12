@@ -3,6 +3,7 @@ import { LucideChevronUp } from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
 import { picksLeftText } from './drafts';
+import { QueueAddStatus, queueAddsFromNow } from './queue-add-status';
 import { QueueSheet } from './queue-sheet';
 
 /**
@@ -14,7 +15,7 @@ import { QueueSheet } from './queue-sheet';
  */
 @Component({
   selector: 'app-next-up-strip',
-  imports: [LucideChevronUp],
+  imports: [LucideChevronUp, QueueAddStatus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './next-up-strip.html',
   styleUrl: './next-up-strip.scss',
@@ -26,6 +27,8 @@ export class NextUpStrip {
 
   /** The queue's size: its count and the noun after it; null until it is known. */
   protected readonly size = this.store.queueSize;
+  /** The latest card added from a Card detail since the strip was made, if any: its count bumps. */
+  protected readonly added = queueAddsFromNow();
   /** The viewer's picks left, as a viewer reads them; null while there is no count. */
   protected readonly picksLeft = computed(() => {
     const left = this.store.picksLeft();

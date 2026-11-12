@@ -9,7 +9,10 @@
   <span class="title" aria-hidden="true">
     Queue
     @if (size(); as size) {
-      · {{ size.count }}
+      <!-- Made again for each add, so its bump plays again. -->
+      @for (add of [added()]; track add?.id) {
+        <span class="count" [class.bump]="add">· {{ size.count }}</span>
+      }
     }
     @if (unseenNotice()) {
       <span class="dot"></span>
@@ -25,3 +28,4 @@
   }
   <svg lucideChevronUp size="16" aria-hidden="true"></svg>
 </button>
+<app-queue-add-status />

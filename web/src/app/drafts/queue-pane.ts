@@ -7,6 +7,7 @@ import {
 } from '@angular/cdk/drag-drop';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -37,6 +38,7 @@ import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
 import { changeFailure, COARSE_POINTER_QUERY, DRAG_START_DELAY, matching } from './drafts';
 import { PicksLeft } from './picks-left';
+import { QueueAddStatus, queueAddsFromNow } from './queue-add-status';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
@@ -99,6 +101,7 @@ let panes = 0;
     LucideTrash,
     NgTemplateOutlet,
     PicksLeft,
+    QueueAddStatus,
     SendsChange,
   ],
   providers: [Changes, CardDetailRequests, CardDetails],
@@ -206,6 +209,16 @@ export class QueuePane {
     ].join(', ');
   });
 
+  /** The latest card added from a Card detail since the pane was made, if any: its count bumps. */
+  protected readonly added = queueAddsFromNow();
+  /** The id of the add whose card is marked as just added. */
+  private readonly marked = signal<number | null>(null);
+  /** The card marked as just added: the latest add's, while no later add has been made. */
+  protected readonly justAdded = computed(() => {
+    const add = this.added();
+    return add && add.id === this.marked() ? add.poolCardId : null;
+  });
+
   constructor() {
     // The Queue notice shown in an open pane has been seen: the pane is on the
     // page only where it is in view, beside the tabs or in the Queue sheet.
@@ -213,6 +226,20 @@ export class QueuePane {
       if (!this.collapsed() && this.unseenNotice()) {
         untracked(() => this.store.noticeSeen());
       }
+    });
+    // Once the Card detail a card was added from closes, an open pane marks
+    // the card and scrolls it into view; a collapsed one, then or once expanded, doesn't.
+    effect(() => {
+      const add = this.added();
+      if (!add?.detailClosed || untracked(this.collapsed)) return;
+      this.marked.set(add.id);
+      afterNextRender(
+        () => {
+          const row = this.host.querySelector<HTMLElement>('li.just-added');
+          if (row) scrollIntoScroller(row);
+        },
+        { injector: this.injector },
+      );
     });
   }
 
@@ -394,6 +421,25 @@ export class QueuePane {
         return false;
       }
     }, kept);
+  }
+}
+
+/**
+ * Scrolls the scroller `row` is in just far enough to show it: the pane
+ * beside the tabs, or the Queue sheet's body. The page itself never scrolls.
+ */
+function scrollIntoScroller(row: HTMLElement) {
+  const page = row.ownerDocument.scrollingElement;
+  for (let scroller = row.parentElement; scroller && scroller !== page;) {
+    const { overflowY } = getComputedStyle(scroller);
+    if (overflowY === 'auto' || overflowY === 'scroll') {
+      const shown = scroller.getBoundingClientRect();
+      const { top, bottom } = row.getBoundingClientRect();
+      if (top < shown.top) scroller.scrollTop -= shown.top - top;
+      else if (bottom > shown.bottom) scroller.scrollTop += bottom - shown.bottom;
+      return;
+    }
+    scroller = scroller.parentElement;
   }
 }
 
