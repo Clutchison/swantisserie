@@ -6,8 +6,9 @@ type Screen = 'wide' | 'desktop' | 'tablet' | 'mobile';
 
 /**
  * The draft page's breakpoints each screen is past: a wide desktop has the
- * Seat strip beside the tabs while the draft runs, and a desktop's tabs sit at
- * the top, with the Queue pane or the Players panel's pane beside them. A
+ * Seat strip beside the tabs while the draft is drafting or paused, and a
+ * desktop's tabs sit at the top, with the Queue pane or the Players panel
+ * beside them. A
  * tablet, like a phone, is past neither. The Deck tab's wide stacks layout
  * goes by its stacks area's width, not the screen's: see `measuredAs` in
  * `measure-harness.ts`.

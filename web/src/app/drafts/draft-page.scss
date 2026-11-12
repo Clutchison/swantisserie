@@ -15,7 +15,7 @@
   }
 }
 
-/* Above the tabs; in its pane, the pane has the margin. */
+/* Above the tabs; beside them, its wrapper has the margin. */
 main > .players-panel,
 .pool,
 .plan,
@@ -184,13 +184,13 @@ main {
   }
 
   /*
-   * With the Queue pane, or the Players panel's pane while the draft isn't
-   * running, the page is two columns: the tabs and their panels, with the pane
-   * beside them. Like the tab bar, it stays in view as a tab scrolls, and
-   * scrolls on its own when it's long.
+   * With the Queue pane, or the Players panel in the lobby and once the draft
+   * is closed or complete, the page is two columns: the tabs and their panels,
+   * with the pane or the panel beside them. Like the tab bar, it stays in view
+   * as a tab scrolls, and scrolls on its own when it's long.
    */
   main.with-queue-pane,
-  main.with-players-pane {
+  main.with-players-beside-tabs {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
     column-gap: var(--space-xl);
@@ -206,14 +206,14 @@ main {
     }
 
     > .queue-pane,
-    > .players-pane {
+    > .players-beside-tabs {
       @include side-pane.sticky;
 
       grid-column: 2;
       margin-top: var(--space-xl);
     }
 
-    > .players-pane {
+    > .players-beside-tabs {
       inline-size: side-pane.$width;
     }
   }

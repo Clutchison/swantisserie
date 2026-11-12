@@ -750,7 +750,6 @@ describe('Queue pane list', () => {
     });
 
     it('offers no handle or menu once the queue is read-only', async () => {
-      // Closed, the queue is in the sheet: from the desktop layout the Players panel has its column.
       viewOn('mobile', { pointer: 'coarse' });
       const { fixture, page } = await openDraft(
         completeSnapshot,

@@ -162,7 +162,6 @@ describe('steal behavior', () => {
   });
 
   it('is shown but can’t be changed once the draft is closed', async () => {
-    // Closed, the queue is in the sheet: from the desktop layout the Players panel has its column.
     viewOn('mobile');
     const { fixture, page } = await openDraft(
       completeSnapshot,

@@ -15,8 +15,9 @@ import type { Changes } from './changes';
 
 /**
  * The media query of the draft page's desktop layout, where the tabs sit at
- * the top, with the Queue pane or the Players panel's pane beside them: `$desktop` in `src/_breakpoints.scss`, which the draft page's
- * stylesheets use. Change them together.
+ * the top, with the Queue pane or the Players panel beside them: `$desktop`
+ * in `src/_breakpoints.scss`, which the draft page's stylesheets use. Change
+ * them together.
  */
 export const DESKTOP_QUERY = '(min-width: 1024px)';
 

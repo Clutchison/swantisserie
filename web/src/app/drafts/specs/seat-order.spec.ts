@@ -10,7 +10,7 @@ import {
   viewOn,
   resizeTo,
   drafting,
-  findPlayersPane,
+  findPlayersBesideTabs,
   findQueuePane,
   text,
 } from './harness';
@@ -74,7 +74,7 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(true);
     });
 
-    it('stays open in its pane in the lobby when its summary is clicked', async () => {
+    it('stays open beside the tabs in the lobby when its summary is clicked', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
       toggleDisclosure(page, 'Players · 1');
@@ -181,6 +181,7 @@ describe('the Players panel', () => {
       });
     });
   }
+
   describe('where it sits', () => {
     const states: [string, ReturnType<typeof drafting>][] = [
       ['in the lobby', drafting({ players: [bob], state: 'Lobby', turn: null })],
@@ -191,19 +192,16 @@ describe('the Players panel', () => {
     describe.each(['wide', 'desktop'] as const)('on a %s screen', (screen) => {
       beforeEach(() => viewOn(screen));
 
-      it.each(states)(
-        'is the pane beside the tabs %s, open, with no Seat strip',
-        async (_, fields) => {
-          const { page } = await openDraft(completeSnapshot, fields);
+      it.each(states)('is beside the tabs %s, open, with no Seat strip', async (_, fields) => {
+        const { page } = await openDraft(completeSnapshot, fields);
 
-          const pane = findPlayersPane(page)!;
-          expect(panel(pane).open).toBe(true);
-          expect(panel(pane).textContent).toContain('Bob');
-          // The one Players panel on the page: none above the tabs as well.
-          expect(panel(page)).toBe(panel(pane));
-          expect(findSeatStrip(page)).toBeNull();
-        },
-      );
+        const besideTabs = findPlayersBesideTabs(page)!;
+        expect(panel(besideTabs).open).toBe(true);
+        expect(panel(besideTabs).textContent).toContain('Bob');
+        // The one Players panel on the page: none above the tabs as well.
+        expect(panel(page)).toBe(panel(besideTabs));
+        expect(findSeatStrip(page)).toBeNull();
+      });
 
       it('takes the Queue pane’s place in a closed draft', async () => {
         const { page } = await openDraft(
@@ -211,22 +209,22 @@ describe('the Players panel', () => {
           drafting({ state: 'Closed', turn: null }),
         );
 
-        expect(findPlayersPane(page)).not.toBeNull();
+        expect(findPlayersBesideTabs(page)).not.toBeNull();
         expect(findQueuePane(page)).toBeNull();
       });
 
-      it('isn’t a pane while the draft runs', async () => {
+      it('isn’t beside the tabs while the draft is drafting or paused', async () => {
         const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
-        expect(findPlayersPane(page)).toBeNull();
+        expect(findPlayersBesideTabs(page)).toBeNull();
       });
 
-      it('leaves the pane for the section above the tabs as the window narrows past the desktop', async () => {
+      it('moves above the tabs as the window narrows past the desktop', async () => {
         const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
         resizeTo('mobile');
 
-        expect(findPlayersPane(page)).toBeNull();
+        expect(findPlayersBesideTabs(page)).toBeNull();
         expect(panel(page).open).toBe(true);
       });
     });
@@ -234,24 +232,31 @@ describe('the Players panel', () => {
     describe('on a mobile screen', () => {
       beforeEach(() => viewOn('mobile'));
 
-      it.each(states)('is the "Players · N" section, not a pane, %s', async (where, fields) => {
+      it.each(states)('is the "Players · N" section above the tabs %s', async (where, fields) => {
         const { page } = await openDraft(completeSnapshot, fields);
 
-        expect(findPlayersPane(page)).toBeNull();
+        expect(findPlayersBesideTabs(page)).toBeNull();
         // Open in the lobby, where seats are arranged; collapsed after it.
         expect(panel(page).open).toBe(where === 'in the lobby');
       });
 
-      it('moves into the pane as the window widens past the desktop', async () => {
-        const { page } = await openDraft(
-          completeSnapshot,
-          drafting({ players: [bob], state: 'Closed', turn: null }),
-        );
+      it.each([
+        ['a closed draft', 'desktop', 'Closed'],
+        ['a complete draft', 'desktop', 'Complete'],
+        ['a complete draft', 'wide', 'Complete'],
+      ] as const)(
+        'moves beside the tabs in %s as the window widens to a %s screen',
+        async (_, screen, state) => {
+          const { page } = await openDraft(
+            completeSnapshot,
+            drafting({ players: [bob], state, turn: null }),
+          );
 
-        resizeTo('desktop');
+          resizeTo(screen);
 
-        expect(panel(findPlayersPane(page)!).open).toBe(true);
-      });
+          expect(panel(findPlayersBesideTabs(page)!).open).toBe(true);
+        },
+      );
     });
   });
 });

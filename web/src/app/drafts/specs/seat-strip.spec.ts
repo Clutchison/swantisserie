@@ -8,7 +8,7 @@ import {
   completeSnapshot,
   draft,
   drafting,
-  findPlayersPane,
+  findPlayersBesideTabs,
   findQueuePane,
   flushPicks,
   flushQueueAndPlan,
@@ -119,12 +119,12 @@ describe('the Seat strip', () => {
       ['in a closed draft', drafting({ state: 'Closed', turn: null })],
       ['in a complete draft', drafting({ state: 'Complete', turn: null })],
     ])(
-      'isn’t there %s: the Players panel is, open, in its pane, with no Queue pane',
+      'isn’t there %s: the Players panel is, open, beside the tabs, with no Queue pane',
       async (_, fields) => {
         const { page } = await openDraft(completeSnapshot, fields);
 
         expect(findSeatStrip(page)).toBeNull();
-        expect(playersDisclosure(findPlayersPane(page)!)!.open).toBe(true);
+        expect(playersDisclosure(findPlayersBesideTabs(page)!)!.open).toBe(true);
         expect(findQueuePane(page)).toBeNull();
       },
     );

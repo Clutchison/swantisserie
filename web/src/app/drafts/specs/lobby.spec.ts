@@ -22,7 +22,7 @@ import {
   ALL_POWERS,
   powersAnswer,
   RETRY_FAILED,
-  findPlayersPane,
+  findPlayersBesideTabs,
   viewOn,
 } from './harness';
 import { moreButton, openMore } from './draft-header-harness';
@@ -119,7 +119,7 @@ describe('lobby', () => {
 
       expect(disclosure(page, 'Players · 1')!.open).toBe(true);
       // In its pane beside the tabs from the desktop layout; above them on a phone.
-      expect(findPlayersPane(page)?.contains(playersPanel(page)) ?? false).toBe(
+      expect(findPlayersBesideTabs(page)?.contains(playersPanel(page)) ?? false).toBe(
         screen !== 'mobile',
       );
       expect(buttonOrder(playersPanel(page), 'Randomize seats')).toEqual([

@@ -88,7 +88,7 @@ export class DraftPage {
   protected readonly setListText = setListText;
 
   private readonly header = viewChild(DraftHeader);
-  /** The Players panel, above the tabs, in its pane beside them, or in the Seat strip's popover. */
+  /** The Players panel, above the tabs, beside them, or in the Seat strip's popover. */
   private readonly playersPanel = viewChild(PlayersPanel);
   private readonly planTab = viewChild(PlanTab);
 
@@ -137,7 +137,7 @@ export class DraftPage {
    * the Players panel has that column, as it does once the draft is closed.
    */
   protected readonly showQueuePane = computed(
-    () => this.desktop() && this.hasQueuePane() && !this.playersPane(),
+    () => this.desktop() && this.hasQueuePane() && !this.showPlayersBesideTabs(),
   );
   /**
    * Whether the "next up" strip is above the tab bar, opening the Queue pane
@@ -156,16 +156,18 @@ export class DraftPage {
     return this.wide() && !!draft && hasTurn(draft);
   });
   /**
-   * Whether the Players panel is a pane beside the tabs, in the Queue pane's
-   * column: from the desktop layout, while the draft isn't running (in the
-   * lobby, and once it is closed or complete).
+   * Whether the Players panel is beside the tabs, in the Queue pane's column:
+   * from the desktop layout, in the lobby and once the draft is closed or
+   * complete.
    */
-  protected readonly playersPane = computed(() => {
-    const state = this.draft()?.state;
-    return this.desktop() && (state === 'Lobby' || state === 'Closed' || state === 'Complete');
+  protected readonly showPlayersBesideTabs = computed(() => {
+    const draft = this.draft();
+    return this.desktop() && !!draft && !hasTurn(draft);
   });
-  /** Whether the Players panel is narrow and stays open: in its pane, or the Seat strip's popover. */
-  protected readonly playersInPane = computed(() => this.playersPane() || this.showSeatStrip());
+  /** Whether the Players panel is narrow and stays open: beside the tabs, or in the Seat strip's popover. */
+  protected readonly playersInPane = computed(
+    () => this.showPlayersBesideTabs() || this.showSeatStrip(),
+  );
 
   /**
    * The panels whose tabs come and go, each with whether it is shown now:

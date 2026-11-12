@@ -16,6 +16,7 @@ import {
   http,
   openDraft,
   findNextUpStrip,
+  findPlayersBesideTabs,
   nextUpStrip,
   openQueueSheet,
   queueNotice,
@@ -101,13 +102,19 @@ describe('Queue pane layout', () => {
         drafting({ state: 'Lobby', turn: null, players: [bob] }),
       ],
       ['a player in the lobby', drafting({ state: 'Lobby', turn: null })],
-      // The Players panel has its column until the draft reopens.
-      ['a player once the draft is closed', drafting({ state: 'Closed', turn: null })],
       ['a player once the draft is complete', drafting({ state: 'Complete', turn: null })],
     ])('shows none to %s', async (_, fields) => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(findQueuePane(page)).toBeNull();
+    });
+
+    it('shows a player no queue at all once the draft is closed: no Queue pane and no "next up" strip, as the Players panel has the column', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ state: 'Closed', turn: null }));
+
+      expect(findQueuePane(page)).toBeNull();
+      expect(findNextUpStrip(page)).toBeUndefined();
+      expect(findPlayersBesideTabs(page)).not.toBeNull();
     });
 
     it('shows it once the draft starts, without a reload', async () => {

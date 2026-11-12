@@ -291,11 +291,11 @@ export const playersPanel = (page: HTMLElement) =>
   disclosure(page, /^Players · \d+$/)!.parentElement!;
 
 /**
- * The Players panel's pane beside the tabs, from the desktop layout in the
+ * Where the Players panel sits beside the tabs, from the desktop layout in the
  * lobby and once the draft is closed or complete: the complementary region
  * "Players". Null if there is none.
  */
-export const findPlayersPane = (page: HTMLElement) =>
+export const findPlayersBesideTabs = (page: HTMLElement) =>
   byAriaLabel(page, 'aside, [role="complementary"]', 'Players');
 
 export function section(page: HTMLElement, heading: string): HTMLElement {

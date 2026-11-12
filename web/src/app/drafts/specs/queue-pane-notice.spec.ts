@@ -35,7 +35,12 @@ import { bolt } from './plan-tab-harness';
 useDraftsApp();
 useTallScreen();
 
-/** The Queue pane's Queue notice, Queue cutoff and read-only state, on a desktop screen. */
+/**
+ * The Queue pane's Queue notice, Queue cutoff and read-only state, on a desktop
+ * screen. A closed draft's queue is read in the Queue sheet on a phone: from the
+ * desktop layout the Players panel has the Queue pane's column, and there is no
+ * queue to read (see the Queue pane layout spec).
+ */
 describe('Queue pane notice, cutoff and read-only state', () => {
   beforeEach(() => viewOn('desktop'));
   afterEach(() => vi.unstubAllGlobals());
@@ -149,7 +154,6 @@ describe('Queue pane notice, cutoff and read-only state', () => {
   });
 
   it('is read-only once the draft is closed, as the api refuses every queue change with `draft-closed`', async () => {
-    // Closed, the queue is in the sheet: from the desktop layout the Players panel has its column.
     viewOn('mobile');
     const { fixture, page } = await openDraft(
       completeSnapshot,
@@ -268,21 +272,26 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       expect(rows(queue)).toEqual(['Shivan Dragon']);
     });
 
-    it.each(['Paused', 'Closed'] as const)(
-      'draws the queue cutoff while the draft is %s',
-      async (state) => {
-        // Closed, the queue is in the sheet: from the desktop layout the Players panel has its column.
-        if (state === 'Closed') viewOn('mobile');
-        const { fixture, page } = await openDraft(
-          completeSnapshot,
-          drafting({ state, picksPerPlayer: 1, turn: state === 'Paused' ? undefined : null }),
-          boltThenShivan,
-        );
+    it('draws the queue cutoff while the draft is paused', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Paused', picksPerPlayer: 1 }),
+        boltThenShivan,
+      );
 
-        const queue =
-          state === 'Closed' ? queuePane(await openQueueSheet(fixture, page)) : queuePane(page);
-        expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
-      },
-    );
+      expect(rows(queuePane(page))).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+    });
+
+    it('draws the queue cutoff in the Queue sheet once the draft is closed', async () => {
+      viewOn('mobile');
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        drafting({ state: 'Closed', picksPerPlayer: 1, turn: null }),
+        boltThenShivan,
+      );
+
+      const queue = queuePane(await openQueueSheet(fixture, page));
+      expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+    });
   });
 });
