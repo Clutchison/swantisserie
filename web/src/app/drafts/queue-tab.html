@@ -81,7 +81,7 @@
       </li>
     }
     <li
-      [class.past-cutoff]="cutoffAt !== null && i >= cutoffAt"
+      [class.past-cutoff]="pastCutoff(i)"
       cdkDrag
       [cdkDragData]="card.poolCardId"
       cdkDragLockAxis="y"

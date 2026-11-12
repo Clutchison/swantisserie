@@ -109,6 +109,15 @@
               <span class="visually-hidden">Picked by {{ picker.name }}</span>
             </span>
           }
+          @if (queuedBadges().get(card.id); as badge) {
+            <span class="queued-badge" [class.past-cutoff]="badge.pastCutoff">
+              <span aria-hidden="true">#{{ badge.place }}</span>
+              <span class="visually-hidden"
+                >Queued {{ badge.placeWords
+                }}{{ badge.pastCutoff ? ', past your picks left' : '' }}</span
+              >
+            </span>
+          }
         </button>
       </div>
     }

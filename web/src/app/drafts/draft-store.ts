@@ -258,6 +258,19 @@ export class DraftStore implements TournamentViewer {
   });
 
   /**
+   * Where the Queue cutoff falls in the signed-in player's queue: before the
+   * queued card at this index, the first one past their picks left. When the
+   * queue fits in them, no card has that index. Null while picks left is.
+   */
+  readonly queueCutoff = this.picksLeft;
+
+  /** Whether the queued card at `index` is past the Queue cutoff, so picks left won't reach it. */
+  pastQueueCutoff(index: number): boolean {
+    const cutoff = this.queueCutoff();
+    return cutoff !== null && index >= cutoff;
+  }
+
+  /**
    * Only players have a queue. It is read for the draft's version, and so
    * re-read whenever that changes, as a pick may have lost a card: a newer
    * version replaces a read in flight.

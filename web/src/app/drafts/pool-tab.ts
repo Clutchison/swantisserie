@@ -37,6 +37,7 @@ import { type PoolSearchResult, searchPool } from './pool-search/pool-search';
 import { PlayerAvatar } from './player-avatar';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
+import { ordinalWords } from '../record';
 
 /**
  * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
@@ -82,6 +83,25 @@ export class PoolTab {
   protected readonly failed = this.store.pool.missing;
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   protected readonly picked = this.store.picked;
+  /**
+   * Each queued card's Queued badge, by its pool card id: its 1-based place in
+   * the viewer's queue, and whether it is past the Queue cutoff. None for a
+   * viewer who isn't a player, or once the draft is complete and the queue
+   * can't fire.
+   */
+  protected readonly queuedBadges = computed(() => {
+    if (!this.store.joined() || this.store.draftComplete()) return new Map();
+    return new Map(
+      this.store.queue.value().cards.map((card, index) => [
+        card.poolCardId,
+        {
+          place: index + 1,
+          placeWords: ordinalWords(index + 1),
+          pastCutoff: this.store.pastQueueCutoff(index),
+        },
+      ]),
+    );
+  });
   /** Whether the pick log has never loaded, as its first read failed. */
   protected readonly picksMissing = this.store.picks.missing;
   /** Which actions the Card detail offers, by the draft's state and the viewer's part in it. */

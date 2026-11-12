@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { capitalised, percent, place, record } from './record';
+import { capitalised, ordinalWords, percent, place, record } from './record';
 
 describe('page formatting', () => {
   it('reads a record as won–lost–drawn', () => {
@@ -25,6 +25,18 @@ describe('page formatting', () => {
     expect(place({ rank: 22, shared: false })).toBe('22nd');
     expect(place({ rank: 103, shared: false })).toBe('103rd');
     expect(place({ rank: 111, shared: false })).toBe('111th');
+  });
+
+  it('reads a place in a list in words, then in digits past 99', () => {
+    expect(ordinalWords(1)).toBe('first');
+    expect(ordinalWords(3)).toBe('third');
+    expect(ordinalWords(12)).toBe('twelfth');
+    expect(ordinalWords(19)).toBe('nineteenth');
+    expect(ordinalWords(20)).toBe('twentieth');
+    expect(ordinalWords(23)).toBe('twenty-third');
+    expect(ordinalWords(40)).toBe('fortieth');
+    expect(ordinalWords(99)).toBe('ninety-ninth');
+    expect(ordinalWords(100)).toBe('100th');
   });
 
   it('capitalises a result to start a line with it', () => {

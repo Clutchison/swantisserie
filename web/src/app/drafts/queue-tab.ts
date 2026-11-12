@@ -82,15 +82,13 @@ export class QueueTab {
   /** The state of the draft this queue is in. */
   protected readonly draftState = computed(() => this.store.shown().state);
 
-  /** The viewer's picks left, which place the queue cutoff. A complete draft has no Queue tab. */
-  private readonly picksLeft = this.store.picksLeft;
+  /** Where the Queue cutoff is drawn: before the queued card at this index, if there is one. */
+  protected readonly cutoffIndex = this.store.queueCutoff;
 
-  /**
-   * Where the queue cutoff goes: before the queued card at this index, the
-   * first one past the picks left. When the queue fits in them, no card has
-   * that index, so none is drawn.
-   */
-  protected readonly cutoffIndex = this.picksLeft;
+  /** Whether the queued card at `index` is past the Queue cutoff. */
+  protected pastCutoff(index: number): boolean {
+    return this.store.pastQueueCutoff(index);
+  }
 
   /** Unless queue changes are offered, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !this.store.offerQueue());
