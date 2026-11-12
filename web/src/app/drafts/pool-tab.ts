@@ -174,30 +174,32 @@ export class PoolTab {
     return rows;
   });
 
-  /** The sticky search bar's height in px, gaps included, once it has been measured. */
+  /** The sticky search bar's height in px, its padding and border included, once it has been measured. */
   protected readonly searchBarHeight = signal(0);
 
   private readonly searchBox = viewChild.required<ElementRef<HTMLInputElement>>('searchBox');
-  private readonly searchBar = viewChild<ElementRef<HTMLElement>>('searchBar');
+  private readonly searchBar = viewChild.required<ElementRef<HTMLElement>>('searchBar');
   /** The countdown of the tile the mouse is resting on. */
   private resting?: ReturnType<typeof setTimeout>;
 
   constructor() {
     // Not in every test environment; the grid then lays out one column.
     if (typeof ResizeObserver !== 'undefined') {
-      const observer = new ResizeObserver((entries) => {
-        for (const entry of entries) {
-          const searchBar = this.searchBar()?.nativeElement;
-          if (searchBar && entry.target === searchBar) {
-            this.searchBarHeight.set(searchBar.offsetHeight);
-          } else this.width.set(entry.contentRect.width);
-        }
-      });
+      const destroyRef = inject(DestroyRef);
+      const observer = new ResizeObserver(([entry]) => this.width.set(entry.contentRect.width));
       observer.observe(this.host);
-      // Its height changes as it wraps, onto two or three lines on a phone.
-      afterNextRender(() => observer.observe(this.searchBar()!.nativeElement));
       // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's width.
-      inject(DestroyRef).onDestroy(() => observer.disconnect());
+      destroyRef.onDestroy(() => observer.disconnect());
+      // The search bar's height changes as it wraps, onto two or three lines on a phone.
+      afterNextRender(() => {
+        const searchBar = this.searchBar().nativeElement;
+        const barObserver = new ResizeObserver(() =>
+          this.searchBarHeight.set(searchBar.offsetHeight),
+        );
+        barObserver.observe(searchBar);
+        // Stryker disable next-line ArrowFunction,CallExpression: an observer left running after teardown only sets a destroyed component's height.
+        destroyRef.onDestroy(() => barObserver.disconnect());
+      });
     }
     // Whatever changes, the images not yet started are dropped at once, and the wait starts over.
     effect((onCleanup) => {
