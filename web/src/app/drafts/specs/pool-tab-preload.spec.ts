@@ -13,7 +13,6 @@ import {
   pickOf,
   button,
   router,
-  controlByLabel,
 } from './harness';
 import {
   brightclimb,
@@ -25,6 +24,7 @@ import {
   tiles,
   searchFor,
   useTallScreen,
+  hidePicked,
 } from './pool-tab-harness';
 
 useDraftsApp();
@@ -258,7 +258,7 @@ describe('preloading the first results', () => {
     const cards = numbered(2);
     const { page } = await openPool(cards, [picked(cards[0])]);
 
-    controlByLabel(page, 'checkbox', 'Hide picked')!.click();
+    hidePicked(page).click();
     TestBed.tick();
     wait(500);
 

@@ -17,9 +17,12 @@ $dimmed-card: brightness(0.35);
   background: var(--color-surface);
 }
 
-/* Capped, not a share of the screen, so longer searches still fit on a laptop. */
+/*
+ * Capped, not a share of the screen, so longer searches still fit on a laptop.
+ * Narrow enough at its smallest that Hide picked fits beside it on a 375px phone.
+ */
 .search-field {
-  flex: 1 1 12rem;
+  flex: 1 1 11rem;
   min-width: 0;
   max-width: 50rem;
 }
@@ -40,36 +43,56 @@ $dimmed-card: brightness(0.35);
   font-size: var(--font-size-md);
 }
 
-.hide-picked {
+/* The Pool filters' toggle buttons: 44px touch targets, ringed when pressed. */
+.hide-picked,
+.color-filter button {
   display: flex;
   align-items: center;
-  gap: var(--space-xs);
-  /* The search box's padding and border, so this centres on the box, not the label above it. */
-  padding-block: calc(0.5rem + 1px);
-  white-space: nowrap;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 44px;
+  border: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-raised);
+  }
+
+  &[aria-pressed='true'] {
+    border-color: var(--color-text);
+  }
 }
 
-/* 44px touch targets; six of them and their gaps fit a 320px screen's 288px of content. */
+/*
+ * Told apart by the ring, the text's strength and the check, not by color alone.
+ * Unpressed, its padding holds the check's room, so pressing it doesn't change its width.
+ */
+.hide-picked {
+  flex: none;
+  gap: var(--space-xs);
+  padding: 0 calc(var(--space-sm) + (16px + var(--space-xs)) / 2);
+  border-color: var(--color-raised);
+  border-radius: 22px;
+  color: var(--color-muted);
+  font: inherit;
+  white-space: nowrap;
+
+  &[aria-pressed='true'] {
+    padding-inline: var(--space-sm);
+    color: var(--color-text);
+  }
+}
+
+/* Six 44px buttons and their gaps fit a 320px screen's 288px of content. */
 .color-filter {
   display: flex;
   gap: var(--space-xs);
 
   button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
     width: 44px;
-    height: 44px;
     padding: 0;
-    border: 2px solid transparent;
     border-radius: 50%;
-    background: transparent;
-    cursor: pointer;
-
-    &:hover {
-      background: var(--color-raised);
-    }
   }
 
   img {
@@ -78,12 +101,23 @@ $dimmed-card: brightness(0.35);
   }
 
   /* Told apart by the ring as well as the symbol's strength, not by color alone. */
-  button[aria-pressed='true'] {
-    border-color: var(--color-text);
+  button[aria-pressed='true'] img {
+    opacity: 1;
+  }
+}
 
-    img {
-      opacity: 1;
-    }
+/*
+ * Forced colours may draw the unpressed buttons' transparent border too,
+ * so pressed draws a thicker ring, taking the extra width from the padding.
+ */
+@media (forced-colors: active) {
+  .hide-picked[aria-pressed='true'],
+  .color-filter button[aria-pressed='true'] {
+    border-width: 4px;
+  }
+
+  .hide-picked[aria-pressed='true'] {
+    padding-inline: calc(var(--space-sm) - 2px);
   }
 }
 

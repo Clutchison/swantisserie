@@ -21,7 +21,6 @@ import {
   inSidewaysBox,
   visible,
   text,
-  controlByLabel,
   alice,
 } from './harness';
 import {
@@ -33,6 +32,7 @@ import {
 } from '../../specs-harness';
 import {
   useTallScreen,
+  hidePicked,
   image,
   card,
   shivan,
@@ -189,7 +189,7 @@ describe('pool tab', () => {
         {},
         { cards: [brightclimb, shivan] },
       );
-      controlByLabel(page, 'checkbox', 'Hide picked')!.click();
+      hidePicked(page).click();
       await fixture.whenStable();
       tiles(page)[1].focus();
       await openDetail(fixture, page, 1);
