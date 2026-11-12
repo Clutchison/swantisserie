@@ -65,31 +65,36 @@
     </p>
   </div>
 }
-<p class="detail">
-  @if (deckLocked()) {
+@if (deckLocked()) {
+  <p class="detail">
     Your deck is locked until the tournament is complete or cancelled. Your exports still work.
-  } @else if (draftComplete()) {
-    Your deck holds your picks and basic lands. Only you can see your deck.
-  } @else {
-    Every pick lands on your mainboard. An unpicked card you add is lost if another player picks it
-    and no other copy is available. Only you can see your deck.
-  }
-</p>
+  </p>
+} @else {
+  <details class="how-this-works">
+    <summary>How this works</summary>
+    <p class="detail">
+      @if (draftComplete()) {
+        Your deck holds your picks and basic lands. Only you can see your deck.
+      } @else {
+        Every pick lands on your mainboard. An unpicked card you add is lost if another player picks
+        it and no other copy is available. Only you can see your deck.
+      }
+    </p>
+  </details>
+}
 <app-deck-lock-reminder />
-@if (offerQueueUnpicked()) {
-  <div class="plan-actions">
+<!-- The Deck tab's tools, in one row that wraps: Queue unpicked, Stacks or list, how the stacks group, Add basics and Copy. -->
+<div class="mode-controls">
+  @if (offerQueueUnpicked()) {
     <button
-      class="button secondary"
+      class="button compact secondary"
       type="button"
       (click)="openQueueing()"
       [disabled]="!anythingToQueue()"
     >
       Queue unpicked
     </button>
-  </div>
-}
-<!-- Stacks or list, and how the stacks group; then the Add basics button and the copy buttons. -->
-<div class="mode-controls">
+  }
   <div class="segmented" role="group" aria-label="Mode">
     <button
       class="button compact quiet"

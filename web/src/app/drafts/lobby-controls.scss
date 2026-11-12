@@ -1,3 +1,5 @@
+@use '../../breakpoints' as bp;
+
 /* Sits inside the draft page, which has the padding. */
 :host {
   padding: 0;
@@ -67,7 +69,7 @@ summary {
 }
 
 /* From here the seats spread out. */
-@media (min-width: 1024px) {
+@media (min-width: bp.$desktop) {
   ol {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));

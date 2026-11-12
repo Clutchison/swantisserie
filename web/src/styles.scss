@@ -1,3 +1,4 @@
+@use 'breakpoints' as bp;
 @use 'visually-hidden';
 
 /* You can add global styles to this file, and also import other style files */
@@ -43,6 +44,18 @@
   --space-md: 0.75rem;
   --space-lg: 1rem;
   --space-xl: 1.5rem;
+
+  /* The page frame's widths (see app/page.scss): forms and Sign in; most pages; a draft's page and the Trophy Hall. */
+  --width-narrow: 40rem;
+  --width-default: 48rem;
+  --width-wide: 80rem;
+  /* A comfortable line of body text: about 66 characters of Inter at body size, measured in the browser. Inter's ch, its zero, is wider than its average letter, hence 52. */
+  --width-measure: 52ch;
+  /*
+   * The page frame's inline padding: 1rem on a phone and up to 792px, which the
+   * wide stacks breakpoint counts on (see _breakpoints.scss), growing to 3rem.
+   */
+  --page-gutter: clamp(var(--space-lg), 5vw - 1.5rem, 3rem);
 }
 
 /* Every page has its own padding, and a phone has no width to spare. */
@@ -261,6 +274,42 @@ textarea {
   }
 }
 
+/*
+ * A CDK menu's panel and its items, such as the Deck tab's Copy menu. It
+ * opens in the overlay outside any component, so it is styled here.
+ */
+.cdk-menu:not(.cdk-menu-inline) {
+  display: flex;
+  flex-direction: column;
+  min-width: 10rem;
+  margin-block: var(--space-xs);
+  padding: var(--space-xs);
+  border: 1px solid var(--color-divider);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+  box-shadow: 0 0.25rem 0.75rem var(--color-shadow);
+}
+
+.cdk-menu-item {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 0;
+  border-radius: 0.25rem;
+  background: transparent;
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover,
+  &:focus-visible {
+    background: var(--color-raised);
+  }
+}
+
 .visually-hidden {
   @include visually-hidden.visually-hidden;
 }
@@ -290,7 +339,7 @@ html:has(app-draft-page) {
 
   scroll-padding-bottom: var(--tab-bar-clearance);
 
-  @media (min-width: 1024px) {
+  @media (min-width: bp.$desktop) {
     /* The sticky tab bar's height, which the Pool's search bar sticks just below. */
     --tab-bar-height: 2.75rem;
 

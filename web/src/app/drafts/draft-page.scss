@@ -1,3 +1,5 @@
+@use '../../breakpoints' as bp;
+
 h1 {
   margin-bottom: var(--space-xs);
 }
@@ -66,7 +68,7 @@ h1 {
 progress {
   display: block;
   width: 100%;
-  max-width: 40rem;
+  max-width: var(--width-narrow);
 }
 
 code {
@@ -121,11 +123,11 @@ main {
 }
 
 /* From here the tabs sit at the top of the page. */
-@media (min-width: 1024px) {
+@media (min-width: bp.$desktop) {
   /* The tab bar's height, --tab-bar-height, is set in styles.scss, which keeps a focused control clear of the bar. */
   main {
     /* The width of the capped tabs below; the Deck tab's List mode lines share it. */
-    --capped-tab-width: 48rem;
+    --capped-tab-width: var(--width-default);
 
     padding-bottom: var(--space-lg);
   }

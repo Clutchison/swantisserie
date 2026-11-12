@@ -10,6 +10,44 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * The page frame: a page's <main> is centred at one of the shared page widths,
+ * the default unless it has `page-narrow` or `page-wide`. Its contents stay
+ * left-aligned inside it. Only pages have a <main>, so a component that loads
+ * this stylesheet inside a page keeps its own padding.
+ */
+:host:has(> main) {
+  padding-inline: var(--page-gutter);
+}
+
+main {
+  max-inline-size: var(--width-default);
+  margin-inline: auto;
+
+  &.page-narrow {
+    max-inline-size: var(--width-narrow);
+  }
+
+  &.page-wide {
+    max-inline-size: var(--width-wide);
+  }
+}
+
+/* A page's title, with its actions beside it at the end of the row; they wrap under it when there isn't room. */
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm) var(--space-lg);
+  /* An h1's own margins, which it gives up to this. */
+  margin-block: calc(0.67 * var(--font-size-xl));
+
+  h1 {
+    margin: 0;
+  }
+}
+
 .error {
   color: var(--color-error);
 }
@@ -39,4 +77,24 @@ li {
   flex-basis: 100%;
   color: var(--color-muted);
   font-size: var(--font-size-sm);
+}
+
+/*
+ * "How this works": a tab's help, closed until a viewer opens it, so the tab's
+ * content comes first. Notices never go inside it.
+ */
+.how-this-works {
+  margin-block: var(--space-sm);
+
+  summary {
+    inline-size: fit-content;
+    color: var(--color-muted);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+  }
+
+  .detail {
+    max-inline-size: var(--width-measure);
+    margin-block: var(--space-xs) 0;
+  }
 }

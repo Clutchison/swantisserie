@@ -75,7 +75,9 @@ describe('sending feedback', () => {
   it('opens a labelled dialog with one plain-text field and focuses it', async () => {
     const opened = await open();
 
-    expect(opened.getAttribute('aria-label')).toBe('Send feedback');
+    expect(document.getElementById(opened.getAttribute('aria-labelledby')!)?.textContent).toBe(
+      'Send feedback',
+    );
     expect(opened.querySelectorAll('textarea, input')).toHaveLength(1);
     expect(field().maxLength).toBe(2000);
     await vi.waitFor(() => expect(document.activeElement).toBe(field()));
@@ -141,6 +143,14 @@ describe('sending feedback', () => {
     expect(dialog()!.querySelector('textarea')).toBeNull();
     expect(anyButton('Submit')).toBeUndefined();
     await vi.waitFor(() => expect(document.activeElement).toBe(anyButton('Close')));
+    // Focused on success, Close carries the thanks for a screen reader to read with it.
+    const describedBy = anyButton('Close')!.getAttribute('aria-describedby')!;
+    expect(document.getElementById(describedBy)?.textContent?.trim()).toBe(
+      'Thanks, your feedback was sent',
+    );
+    expect(document.getElementById(dialog()!.getAttribute('aria-labelledby')!)?.textContent).toBe(
+      'Send feedback',
+    );
 
     anyButton('Close')!.click();
     await fixture.whenStable();

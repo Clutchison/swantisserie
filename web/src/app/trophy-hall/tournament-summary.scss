@@ -3,15 +3,6 @@
   --dialog-width: 48rem;
 }
 
-.dialog {
-  max-height: calc(100dvh - 2 * var(--space-lg));
-  overflow-y: auto;
-}
-
-h2 {
-  margin: 0;
-}
-
 /* Each term beside its value. */
 .header {
   display: grid;
