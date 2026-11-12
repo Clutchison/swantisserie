@@ -4,6 +4,9 @@
 /* How far a card is darkened to set it apart: a picked card here, an unpicked one in the Deck tab's stacks. */
 $dimmed-card: brightness(0.35);
 
+/* The Picked badge's avatar size, PlayerAvatar's default, which the Queued badge's place matches. */
+$avatar-size: 32px;
+
 /* Stays in reach while the grid scrolls under it, below any tabs at the top of the page. */
 .search-bar {
   position: sticky;
@@ -209,29 +212,33 @@ $dimmed-card: brightness(0.35);
   /* Starting halfway across the tile leaves it half the width to fit in. */
   white-space: nowrap;
   transform: translate(-50%, -50%);
-}
 
-/*
- * A queued card's place in the viewer's queue: in the bottom corner, clear of
- * the name and mana cost, and in the accent, apart from the centred Picked badge.
- */
-.queued-badge {
-  position: absolute;
-  bottom: var(--space-xs);
-  right: var(--space-xs);
-  min-width: 1.75rem;
-  padding: 0.125rem var(--space-xs);
-  border-radius: 999px;
-  background: var(--color-accent);
-  color: var(--color-on-accent);
-  font-size: var(--font-size-sm);
-  font-weight: 700;
-  text-align: center;
+  /*
+   * The Queued badge: the Picked badge with the card's place in the viewer's
+   * queue where the picker's avatar goes, in an accent circle the avatar's size
+   * that widens into a pill for longer places. The card stays undimmed: it's
+   * still available.
+   */
+  &.queued .place {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: $avatar-size;
+    height: $avatar-size;
+    /* Enough that "#1" stays a circle and "#12" stretches it into a pill. */
+    padding: 0 var(--space-sm);
+    border-radius: $avatar-size * 0.5;
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+    font-weight: 700;
+  }
 
   /* Past the Queue cutoff: the viewer's picks left won't reach it. */
-  &.past-cutoff {
-    background: var(--color-overlay);
+  &.queued.past-cutoff .place {
+    background: transparent;
     color: var(--color-muted);
     outline: 1px dashed var(--color-divider);
+    outline-offset: -1px;
   }
 }

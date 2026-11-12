@@ -237,6 +237,13 @@ export const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').
 export const text = (element: Element | null | undefined) =>
   collapseWhitespace(element?.textContent ?? '');
 
+/** What a sighted viewer reads on `element`: its text, leaving out what's only for screen readers. */
+export function visibleText(element: Element): string {
+  const copy = element.cloneNode(true) as Element;
+  copy.querySelectorAll('.visually-hidden').forEach((hidden) => hidden.remove());
+  return text(copy);
+}
+
 /**
  * What a screen reader names `element`: its aria-label, or else its text and
  * images' alt text, leaving out what's hidden from assistive tech. A rough
