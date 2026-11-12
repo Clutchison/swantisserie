@@ -11,6 +11,13 @@ $focus-reach: $ring-width + $focus-width;
 $bar-height: 3px;
 $bar-gap: $focus-reach + 1px;
 $bar-reach: $bar-gap + $bar-height;
+/*
+ * The arrow between two seats is `ARROW_SIZE` in `seat-strip.ts`, read as
+ * `--arrow-size`. Lucide's chevron fills only the middle third of its box, so
+ * with this clearance its stroke stays outside a focused neighbour's outline,
+ * which reaches $focus-reach (6px) from the avatar.
+ */
+$arrow-clearance: 2px;
 /* How far in from a clipped edge the seats fade out. */
 $fade: 1.5rem;
 
@@ -50,8 +57,11 @@ section {
 
 ol {
   display: flex;
-  /* Wide enough that a focused seat's outline clears its neighbour's ring. */
-  gap: $focus-reach + $ring-width;
+  /*
+   * Wide enough for the arrow between seats, which a focused seat's
+   * outline clears, as it does its neighbour's ring.
+   */
+  gap: calc(var(--arrow-size) + #{2 * $arrow-clearance});
   min-inline-size: 0;
   margin: 0;
   /*
@@ -122,6 +132,22 @@ ol {
     --seats-fade-start: #{$fade};
     --seats-fade-end: 0px;
   }
+}
+
+/* A seat, and before it, from the second on, the arrow in the gap from the seat before. */
+li {
+  position: relative;
+}
+
+/* Pointing toward the next player to pick: centred in the gap before its seat. */
+.arrow {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + #{$arrow-clearance});
+  inline-size: var(--arrow-size);
+  block-size: var(--arrow-size);
+  color: var(--color-muted);
+  transform: translateY(-50%);
 }
 
 /* The avatar, `AVATAR_SIZE` in `seat-strip.ts`, with the player's initial behind it should the image be missing. */

@@ -20,7 +20,13 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { PlayerView } from 'contract';
-import { LucideUsers } from '@lucide/angular';
+import { nextTurn, roundRunsForward } from 'engine';
+import {
+  LucideChevronLeft,
+  LucideChevronRight,
+  LucideDynamicIcon,
+  LucideUsers,
+} from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
 import { PlayerAvatar } from './player-avatar';
@@ -39,21 +45,25 @@ type Pulse = 'pulse' | 'pulse-again';
 /** A seat's avatar's width and height, in CSS pixels; the strip's styles read it as `--avatar-size`. */
 const AVATAR_SIZE = 24;
 
+/** The arrow between two seats' width and height, in CSS pixels; the strip's styles read it as `--arrow-size`. */
+const ARROW_SIZE = 14;
+
 /**
  * The Seat strip: a drafting or paused draft's players as avatars in seat
  * order, in a row in the tab bar, marking whose turn it is and the viewer's
- * own seat. The turn's seat pulses briefly when the turn moves, and is
- * scrolled into view when the row is too long to show whole. Its Players
- * button opens `playersPanel`, the full Players panel, where `panelIn` says:
- * a non-modal popover under it, over the tab content, which Escape, a
- * pointer pressed outside or focus leaving closes; or the Players sheet.
- * `panelOpen` is whether the panel is open, in either: the page keeps it as
- * the strip moves between the tab bar and the row under the draft header,
- * so the panel opens in the other.
+ * own seat, with arrows between the seats pointing toward the next player
+ * to pick. The turn's seat pulses briefly when the turn changes, and it and
+ * the next seat are scrolled into view when the row is too long to show
+ * whole. Its Players button opens `playersPanel`, the full Players panel,
+ * where `panelIn` says: a non-modal popover under it, over the tab content,
+ * which Escape, a pointer pressed outside or focus leaving closes; or the
+ * Players sheet. `panelOpen` is whether the panel is open, in either: the
+ * page keeps it as the strip moves between the tab bar and the row under the
+ * draft header, so the panel opens in the other.
  */
 @Component({
   selector: 'app-seat-strip',
-  imports: [LucideUsers, NgTemplateOutlet, PlayerAvatar],
+  imports: [LucideDynamicIcon, LucideUsers, NgTemplateOutlet, PlayerAvatar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './seat-strip.html',
   styleUrl: './seat-strip.scss',
@@ -62,6 +72,7 @@ const AVATAR_SIZE = 24;
     '(document:keydown.escape)': 'closeOnEscape()',
     '(focusout)': 'closeOnFocusLeaving($event)',
     '[style.--avatar-size.px]': 'avatarSize',
+    '[style.--arrow-size.px]': 'arrowSize',
   },
 })
 export class SeatStrip {
@@ -79,9 +90,40 @@ export class SeatStrip {
   readonly panelOpen = model(false);
 
   protected readonly avatarSize = AVATAR_SIZE;
+  protected readonly arrowSize = ARROW_SIZE;
   protected readonly seats = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
   private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
+
+  /**
+   * The player who picks after the turn's player, by the snake order: the
+   * turn's player again at the end of a round. Null on the draft's last pick.
+   */
+  private readonly nextPlayer = computed(() => {
+    const turn = this.store.turn();
+    if (!turn) return null;
+    const seats = this.seats();
+    const size = { players: seats.length, picksPerPlayer: this.store.shown().picksPerPlayer };
+    const next = nextTurn(size, turn.pick);
+    return next ? (seats[next.seat] ?? null) : null;
+  });
+
+  /**
+   * The arrow between each pair of seats, toward the next player: the way
+   * the round of the current pick runs. Null when no one picks next.
+   */
+  protected readonly arrow = computed(() => {
+    const turn = this.store.turn();
+    if (!turn || !this.nextPlayer()) return null;
+    return roundRunsForward(turn.round) ? LucideChevronRight : LucideChevronLeft;
+  });
+
+  /** What a screen reader names the list of seats: who picks next, in place of the arrows. */
+  protected readonly seatListName = computed(() => {
+    const next = this.nextPlayer();
+    if (!next) return 'Seat order';
+    return this.isOwn(next) ? 'Seat order, you pick next' : `Seat order, ${next.name} picks next`;
+  });
 
   protected readonly popoverOpen = computed(() => this.panelOpen() && this.panelIn() === 'popover');
   protected readonly hint = signal<Hint | null>(null);
@@ -113,11 +155,16 @@ export class SeatStrip {
       }
       shownPick = pick;
     });
-    // Once the seats are laid out, and as the turn moves, the turn's seat scrolls into view.
+    // Once the seats are laid out, and as the turn changes, the turn's seat and the next one scroll into view.
     afterRenderEffect(() => {
-      const turnSeat = this.seatElements()[this.seats().findIndex((p) => this.hasTheTurn(p))];
+      const seatOf = (id: string | null) =>
+        this.seatElements()[this.seats().findIndex((p) => p.id === id)]?.nativeElement;
+      const turnSeat = seatOf(this.turnPlayerId());
+      const nextSeat = seatOf(this.nextPlayer()?.id ?? null);
       if (turnSeat) {
-        untracked(() => keepInView(this.seatList().nativeElement, [turnSeat.nativeElement]));
+        untracked(() =>
+          keepInView(this.seatList().nativeElement, nextSeat ? [turnSeat, nextSeat] : [turnSeat]),
+        );
       }
     });
   }
