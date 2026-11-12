@@ -30,14 +30,34 @@ import {
   removeFromQueue,
   setStealBehavior,
   queued,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
 
+/** Not in any draft here: an outsider to the queues. */
+const dave = { id: '80351110224678915', name: 'Dave' };
+
+/**
+ * Alice, Bob and Carol in a started draft of `fourCards`, one pick each,
+ * with Carol in the first seat: it's her turn, so Alice and Bob can queue.
+ */
+async function draftOnCarolsTurn() {
+  const bobCookie = await signIn(bob);
+  const carolCookie = await signIn(carol);
+  const id = await readyDraft(
+    [aliceCookie, bobCookie, carolCookie],
+    1,
+    fourCards,
+  );
+  await setSeats(id, [carol.id, alice.id, bob.id]).expect(200);
+  await start(id).expect(200);
+  return { id, ids: await poolCardIds(id), bobCookie };
+}
+
 describe('queue', () => {
   it('lets a player add cards to the end of their queue', async () => {
-    const id = await readyDraft([aliceCookie]);
-    const ids = await poolCardIds(id);
+    const { id, ids } = await draftOnCarolsTurn();
 
     await enqueue(id, ids['Lava Spike']).expect(200);
     const added = await enqueue(id, ids.Shock).expect(200);
@@ -62,9 +82,7 @@ describe('queue', () => {
   });
 
   it('keeps each queue private to its player', async () => {
-    const bobCookie = await signIn(bob);
-    const id = await readyDraft([aliceCookie, bobCookie]);
-    const ids = await poolCardIds(id);
+    const { id, ids, bobCookie } = await draftOnCarolsTurn();
     await enqueue(id, ids.Shock).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
 
@@ -72,21 +90,20 @@ describe('queue', () => {
     expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([
       spike,
     ]);
-    const carolCookie = await signIn(carol);
-    const refused = await queue(id, carolCookie).expect(403);
+    const daveCookie = await signIn(dave);
+    const refused = await queue(id, daveCookie).expect(403);
     expect(refused.body).toEqual({
       error: 'not-a-player',
       message: 'Only the draft’s players have queues.',
     });
-    await enqueue(id, ids.Shock, carolCookie).expect(403);
+    await enqueue(id, ids.Shock, daveCookie).expect(403);
     // Not in the draft as anyone sees it, either.
     const draft = JSON.stringify((await getDraft(id).expect(200)).body);
     expect(draft).not.toContain(ids.Shock);
   });
 
   it('adds a card already queued only once', async () => {
-    const id = await readyDraft([aliceCookie]);
-    const ids = await poolCardIds(id);
+    const { id, ids } = await draftOnCarolsTurn();
     await enqueue(id, ids.Shock).expect(200);
     await enqueue(id, ids['Lava Spike']).expect(200);
 
@@ -115,8 +132,7 @@ describe('queue', () => {
   });
 
   it('lets a player reorder their queue', async () => {
-    const id = await readyDraft([aliceCookie]);
-    const ids = await poolCardIds(id);
+    const { id, ids } = await draftOnCarolsTurn();
     for (const card of [shock, bolt, spike]) {
       await enqueue(id, ids[card.name]).expect(200);
     }
@@ -136,8 +152,7 @@ describe('queue', () => {
   });
 
   it('refuses an order that is not exactly the queued cards', async () => {
-    const id = await readyDraft([aliceCookie]);
-    const ids = await poolCardIds(id);
+    const { id, ids } = await draftOnCarolsTurn();
     await enqueue(id, ids.Shock).expect(200);
     await enqueue(id, ids['Lava Spike']).expect(200);
 
@@ -154,9 +169,7 @@ describe('queue', () => {
   });
 
   it('checks a reorder against the player’s own queue alone, leaving other queues as they were', async () => {
-    const bobCookie = await signIn(bob);
-    const id = await readyDraft([aliceCookie, bobCookie]);
-    const ids = await poolCardIds(id);
+    const { id, ids, bobCookie } = await draftOnCarolsTurn();
     await enqueue(id, ids.Shock).expect(200);
     await enqueue(id, ids['Lava Spike']).expect(200);
     await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
@@ -170,20 +183,54 @@ describe('queue', () => {
     expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([bolt]);
   });
 
-  it('lets the player in the first seat queue in the lobby once the seats are set', async () => {
-    const bobCookie = await signIn(bob);
-    const id = await readyDraft([aliceCookie, bobCookie]);
-    const ids = await poolCardIds(id);
-    await setSeats(id, [alice.id, bob.id]).expect(200);
+  describe('in the lobby', () => {
+    it('refuses adding to a queue until the draft starts, then allows it', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      const ids = await poolCardIds(id);
+      await setSeats(id, [alice.id, bob.id]).expect(200);
 
-    const added = await enqueue(id, ids.Shock).expect(200);
+      for (const cookie of [aliceCookie, bobCookie]) {
+        expect((await enqueue(id, ids.Shock, cookie).expect(409)).body).toEqual(
+          {
+            error: 'not-started',
+            message: 'You can queue once the draft starts.',
+          },
+        );
+      }
+      expect((await queue(id).expect(200)).body.cards).toEqual([]);
 
-    expect(added.body.cards).toEqual([shock]);
+      await start(id).expect(200);
+      // It's Alice's turn, so Bob queues.
+      const added = await enqueue(id, ids.Shock, bobCookie).expect(200);
+      expect(added.body.cards).toEqual([shock]);
+    });
+
+    it('still lets a player reorder and remove a queue filled there before queueing waited for the start', async () => {
+      const id = await readyDraft([aliceCookie, await signIn(bob)]);
+      const ids = await poolCardIds(id);
+      await queueInLobby(
+        id,
+        alice,
+        ids.Shock,
+        ids['Lightning Bolt'],
+        ids['Lava Spike'],
+      );
+
+      const reordered = await reorderQueue(id, [
+        ids['Lava Spike'],
+        ids.Shock,
+        ids['Lightning Bolt'],
+      ]).expect(200);
+      expect(reordered.body.cards).toEqual([spike, shock, bolt]);
+
+      const removed = await removeFromQueue(id, ids.Shock).expect(200);
+      expect(removed.body.cards).toEqual([spike, bolt]);
+    });
   });
 
   it('lets a player remove a card from their queue', async () => {
-    const id = await readyDraft([aliceCookie]);
-    const ids = await poolCardIds(id);
+    const { id, ids } = await draftOnCarolsTurn();
     for (const card of [shock, bolt, spike]) {
       await enqueue(id, ids[card.name]).expect(200);
     }
@@ -196,7 +243,7 @@ describe('queue', () => {
     // Removing it twice changes nothing.
     await removeFromQueue(id, ids['Lightning Bolt']).expect(200);
     expect((await queue(id).expect(200)).body.cards).toEqual([shock, spike]);
-    await removeFromQueue(id, ids.Shock, await signIn(carol)).expect(403);
+    await removeFromQueue(id, ids.Shock, await signIn(dave)).expect(403);
   });
 
   describe('when cards are picked', () => {
@@ -204,10 +251,10 @@ describe('queue', () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await enqueue(id, ids.Shock, bobCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
-      await start(id).expect(200);
 
       await pick(id, ids.Shock).expect(200);
 
@@ -226,8 +273,7 @@ describe('queue', () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
-      await enqueue(id, ids.Shock).expect(200);
-      await enqueue(id, ids['Lava Spike']).expect(200);
+      await queueInLobby(id, alice, ids.Shock, ids['Lava Spike']);
       await start(id).expect(200);
 
       // Queued by Alice, Shock is picked for her when the draft starts.
@@ -249,9 +295,9 @@ describe('queue', () => {
         fourCards,
       );
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
       await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
       await enqueue(id, ids['Skewer the Critics'], carolCookie).expect(200);
@@ -285,10 +331,10 @@ describe('queue', () => {
         fourCards,
       );
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
 
       const queuedAgain = await enqueue(id, ids.Shock, carolCookie);
@@ -310,9 +356,9 @@ describe('queue', () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, bobCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
 
       const refused = await enqueue(id, ids['Lava Spike'], bobCookie);
@@ -330,9 +376,9 @@ describe('queue', () => {
         fourCards,
       );
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, ids['Lightning Bolt'], carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids['Lightning Bolt']).expect(200);
 
       await pick(id, ids.Shock, bobCookie).expect(200);
@@ -350,9 +396,9 @@ describe('queue', () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, bobCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
       expect((await queue(id, bobCookie).expect(200)).body).toEqual({
         cards: [],
@@ -379,9 +425,9 @@ describe('queue', () => {
       const id = await readyDraft([aliceCookie, bobCookie, carolCookie]);
       await setSeats(id, [alice.id, bob.id, carol.id]).expect(200);
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, bobCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
 
       await dismissNotice(id, bobCookie).expect(200);
@@ -395,8 +441,8 @@ describe('queue', () => {
       const id = await readyDraft([aliceCookie], 1, ['Shock', 'Lava Spike']);
       const ids = await poolCardIds(id);
       await addBot(id, await signIn(carol)).expect(201);
-      await enqueue(id, ids.Shock).expect(200);
-      await enqueue(id, ids['Lava Spike']).expect(200);
+      // The bot picks at once at the start, so Alice queued in the lobby.
+      await queueInLobby(id, alice, ids.Shock, ids['Lava Spike']);
       // The bot picks first: the last card by name, Shock.
       vi.spyOn(Math, 'random').mockReturnValue(0.99);
       const draft = (await getDraft(id).expect(200)).body as DraftView;
@@ -439,10 +485,10 @@ describe('queue', () => {
         await signIn(bob),
         carolCookie,
       ]);
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, ids['Lava Spike'], carolCookie).expect(200);
-      await start(id).expect(200);
 
       await pick(id, first).expect(200);
 
@@ -467,9 +513,9 @@ describe('queue', () => {
         2,
         ['Skewer the Critics', 'Fireblast'],
       );
+      await start(id).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
       await enqueue(id, second, carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
       await pick(id, ids['Lava Spike'], bobCookie).expect(200);
       await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
@@ -488,7 +534,12 @@ describe('queue', () => {
     });
 
     it('lets a player queue several copies of a card, each its own entry', async () => {
-      const { id, first, second } = await readyDraftWithCopies([aliceCookie]);
+      const { id, first, second } = await readyDraftWithCopies([
+        await signIn(bob),
+        aliceCookie,
+      ]);
+      // Bob's turn first.
+      await start(id).expect(200);
 
       await enqueue(id, second).expect(200);
       const added = await enqueue(id, first).expect(200);
@@ -506,10 +557,10 @@ describe('queue', () => {
         await signIn(bob),
         carolCookie,
       ]);
+      await start(id).expect(200);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, second, carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
-      await start(id).expect(200);
 
       await pick(id, first).expect(200);
 
@@ -533,9 +584,9 @@ describe('queue', () => {
         bobCookie,
         carolCookie,
       ]);
+      await start(id).expect(200);
       await enqueue(id, first, carolCookie).expect(200);
       await enqueue(id, ids.Shock, carolCookie).expect(200);
-      await start(id).expect(200);
       await pick(id, second).expect(200);
 
       await pick(id, first, bobCookie).expect(200);
@@ -626,9 +677,13 @@ describe('queue', () => {
         fourCards,
       );
       const ids = await poolCardIds(id);
-      for (const card of [shock, bolt, spike]) {
-        await enqueue(id, ids[card.name]).expect(200);
-      }
+      await queueInLobby(
+        id,
+        alice,
+        ids.Shock,
+        ids['Lightning Bolt'],
+        ids['Lava Spike'],
+      );
       await start(id).expect(200);
       // Alice's turn came, so Shock was picked for her. Undoing it brings
       // her turn back with her whole queue, Shock included, waiting.
@@ -649,8 +704,7 @@ describe('queue', () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
       const ids = await poolCardIds(id);
-      await enqueue(id, ids.Shock).expect(200);
-      await enqueue(id, ids['Lava Spike']).expect(200);
+      await queueInLobby(id, alice, ids.Shock, ids['Lava Spike']);
       await start(id).expect(200);
 
       const undone = await undo(id, 1).expect(200);
@@ -699,12 +753,12 @@ describe('queue', () => {
         'Fireblast',
       ]);
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await setStealBehavior(id, 'PickNext', bobCookie).expect(200);
       for (const name of ['Shock', 'Lava Spike', 'Skewer the Critics']) {
         await enqueue(id, ids[name], bobCookie).expect(200);
       }
       await enqueue(id, ids.Fireblast, bobCookie).expect(200);
-      await start(id).expect(200);
       // Bob loses Shock, then his queue picks Lava Spike: the draft's last pick.
       await pick(id, ids.Shock).expect(200);
       const saved = (await queue(id, bobCookie).expect(200)).body;
@@ -739,9 +793,9 @@ describe('queue', () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
       const ids = await poolCardIds(id);
+      await start(id).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
       await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
-      await start(id).expect(200);
       await post(id, 'close').expect(200);
       const saved = (await queue(id, bobCookie).expect(200)).body;
       expect(saved).toMatchObject({ cards: [spike, skewer] });

@@ -16,6 +16,7 @@ import {
   post,
   fourCards,
   registerWebhook,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
@@ -55,10 +56,10 @@ describe('pause and resume', () => {
   it('makes the queued picks due on resume, cascading from whoever is up', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
+    await start(id).expect(200);
     await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics'], bobCookie).expect(200);
     await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
-    await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
     // Bob's cascade ran; undoing its last pick leaves his turn with Skewer
     // the Critics back in his queue, waiting.
@@ -125,8 +126,8 @@ describe('pause and resume', () => {
       await registerWebhook(),
     );
     const ids = await poolCardIds(id);
-    await enqueue(id, ids['Lava Spike']).expect(200);
-    await enqueue(id, ids.Shock).expect(200);
+    // A queue filled in the lobby, before queueing waited for the start.
+    await queueInLobby(id, alice, ids['Lava Spike'], ids.Shock);
     await start(id).expect(200);
     // Lava Spike was picked for Alice; undoing it brings back her turn, with
     // Lava Spike back in her queue.

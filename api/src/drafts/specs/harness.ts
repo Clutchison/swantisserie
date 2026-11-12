@@ -382,6 +382,35 @@ export function pick(id: string, poolCardId: unknown, cookie = aliceCookie) {
   return draftsRequest('post', `/${id}/picks`, cookie, { poolCardId });
 }
 
+/**
+ * Queues `poolCardIds` for `user`, in order after anything already queued,
+ * in a draft still in the lobby: a queue filled there before the lobby
+ * stopped allowing it (#683), which the api keeps and cascades at the
+ * start. The api now refuses this, so it is written straight to the
+ * database, as a bot's queue is.
+ */
+export async function queueInLobby(
+  id: string,
+  user: { id: string },
+  ...poolCardIds: string[]
+) {
+  const prisma = app.get(PrismaService);
+  const player = await prisma.player.findUniqueOrThrow({
+    where: { draftId_userId: { draftId: id, userId: user.id } },
+    select: { id: true },
+  });
+  const queuedSoFar = await prisma.queuedCard.count({
+    where: { playerId: player.id },
+  });
+  await prisma.queuedCard.createMany({
+    data: poolCardIds.map((poolCardId, offset) => ({
+      playerId: player.id,
+      poolCardId,
+      position: queuedSoFar + offset,
+    })),
+  });
+}
+
 /** Undoes the draft's pick `number`, by default as the organizer, Alice. */
 export function undo(
   id: string,

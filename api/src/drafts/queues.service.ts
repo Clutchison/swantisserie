@@ -48,15 +48,16 @@ export class QueuesService {
   /**
    * Sets the user's steal behavior in the draft, for cards lost from now on:
    * the queue and its notice stay as they are. It can be set on the player's
-   * own turn. Throws QueueRefusedError once the draft is closed or complete,
-   * and NotAPlayerError if the user isn't in the draft.
+   * own turn. Throws QueueRefusedError in the lobby and once the draft is
+   * closed or complete, and NotAPlayerError if the user isn't in the draft.
    */
   async setStealBehavior(
     draftId: string,
     userId: string,
     stealBehavior: StealBehavior,
   ): Promise<QueueView> {
-    return this.change(draftId, userId, async (tx, playerId) => {
+    return this.change(draftId, userId, async (tx, playerId, state) => {
+      checkStarted(state);
       await tx.player.update({
         where: { id: playerId },
         data: { stealBehavior },
@@ -67,8 +68,8 @@ export class QueuesService {
   /**
    * Adds the pool card `poolCardId` to the end of the user's queue, and
    * off its cleared list; a no-op if it is already queued. Throws QueueRefusedError if it can't be
-   * queued, as on the player's own turn, drafting or paused: they make that pick
-   * by hand. Throws NotAPlayerError if the user isn't in the draft.
+   * queued: in the lobby, or on the player's own turn, drafting or paused, when
+   * they make that pick by hand. Throws NotAPlayerError if the user isn't in the draft.
    */
   async add(
     draftId: string,
@@ -207,9 +208,9 @@ export class QueuesService {
   }
 
   /**
-   * Throws QueueRefusedError if the player can't add to their queue now: on
-   * their own turn, drafting or paused, when they make that pick by hand.
-   * `change` refuses a closed or complete draft.
+   * Throws QueueRefusedError if the player can't add to their queue now: in
+   * the lobby, or on their own turn, drafting or paused, when they make that
+   * pick by hand. `change` refuses a closed or complete draft.
    */
   private async checkCanAdd(
     tx: Transaction,
@@ -217,10 +218,8 @@ export class QueuesService {
     playerId: string,
     state: DraftState,
   ): Promise<void> {
-    if (
-      state !== 'Lobby' &&
-      (await this.isPlayersTurn(tx, draftId, playerId))
-    ) {
+    checkStarted(state);
+    if (await this.isPlayersTurn(tx, draftId, playerId)) {
       throw new QueueRefusedError({
         error: 'your-turn',
         message: 'You can’t add to your queue on your turn.',
@@ -368,6 +367,20 @@ export class QueuesService {
       cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
       stealBehavior,
     };
+  }
+}
+
+/**
+ * Throws QueueRefusedError in the lobby, where adding to a queue and setting
+ * steal behavior wait for the draft to start. Queues filled in the lobby
+ * before that rule are kept, and cascade at the start.
+ */
+function checkStarted(state: DraftState): void {
+  if (state === 'Lobby') {
+    throw new QueueRefusedError({
+      error: 'not-started',
+      message: 'You can queue once the draft starts.',
+    });
   }
 }
 

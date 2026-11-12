@@ -23,6 +23,7 @@ import {
   copyIds,
   importPicks,
   alice,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
@@ -35,12 +36,16 @@ describe('queueing a plan’s unpicked cards', () => {
   });
 
   /**
-   * A draft in the lobby where Carol's plan holds both copies of Lightning
-   * Bolt and Shock on her mainboard, and Lava Spike on her sideboard; her
-   * queue already holds the second Bolt.
+   * A started draft, on Bob's turn, where Carol's plan holds both copies of
+   * Lightning Bolt and Shock on her mainboard, and Lava Spike on her
+   * sideboard; her queue already holds the second Bolt.
    */
   async function plannedDraft() {
-    const draft = await readyDraftWithCopies([carolCookie, aliceCookie], 2);
+    const draft = await readyDraftWithCopies([
+      await signIn(bob),
+      carolCookie,
+      aliceCookie,
+    ]);
     const { id, ids, first, second } = draft;
     for (const card of [ids.Shock, first, second, ids['Lava Spike']]) {
       await addToPlan(id, card, carolCookie).expect(200);
@@ -48,6 +53,7 @@ describe('queueing a plan’s unpicked cards', () => {
     await movePlanned(id, ids['Lava Spike'], 'Sideboard', carolCookie).expect(
       200,
     );
+    await start(id).expect(200);
     await enqueue(id, second, carolCookie).expect(200);
     return draft;
   }
@@ -76,7 +82,7 @@ describe('queueing a plan’s unpicked cards', () => {
   });
 
   it('queues by mana value, then name', async () => {
-    const id = await readyDraft([carolCookie], 2, [
+    const id = await readyDraft([aliceCookie, carolCookie], 2, [
       card('Fireblast', { cmc: 6 }),
       card('Shock', { cmc: 1 }),
       card('Lava Axe', { cmc: 5 }),
@@ -86,6 +92,8 @@ describe('queueing a plan’s unpicked cards', () => {
     for (const name of ['Fireblast', 'Shock', 'Lava Axe', 'Burst Lightning']) {
       await addToPlan(id, ids[name], carolCookie).expect(200);
     }
+    // Alice has the first turn.
+    await start(id).expect(200);
 
     const queued = await queueUnpicked(
       id,
@@ -143,12 +151,23 @@ describe('queueing a plan’s unpicked cards', () => {
     ]);
   });
 
-  it('refuses on the player’s own turn, and once the draft is closed', async () => {
+  it('refuses in the lobby, on the player’s own turn, and once the draft is closed', async () => {
     const { id, first } = await readyDraftWithCopies(
       [carolCookie, aliceCookie],
       2,
     );
     await addToPlan(id, first, carolCookie).expect(200);
+    for (const cookie of [carolCookie, aliceCookie]) {
+      const inLobby = await queueUnpicked(
+        id,
+        { includeSideboard: false },
+        cookie,
+      ).expect(409);
+      expect(inLobby.body).toEqual({
+        error: 'not-started',
+        message: 'You can queue once the draft starts.',
+      });
+    }
     await start(id).expect(200);
 
     // Carol has the first turn, with nothing queued to pick for her.
@@ -332,7 +351,7 @@ describe('queueing a plan’s unpicked cards', () => {
     });
 
     it('remembers where a card sat when the player took it out of their queue', async () => {
-      const { id, ids } = await plannedLobby(
+      const { id, ids } = await startedDraft(
         'Fireblast',
         'Shock',
         'Skewer the Critics',
@@ -357,7 +376,9 @@ describe('queueing a plan’s unpicked cards', () => {
         'Shock',
         'Skewer the Critics',
       );
-      await carolQueues(id, ids, 'Skewer the Critics', 'Shock');
+      // A pick import can only follow a queue filled in the lobby before
+      // queueing waited for the start.
+      await queueInLobby(id, carol, ids['Skewer the Critics'], ids.Shock);
       const csv = [
         ',Cal,Ann,Ben,',
         '->,Searing Spear,Lava Spike,Burst Lightning,',
@@ -376,7 +397,7 @@ describe('queueing a plan’s unpicked cards', () => {
     it('takes only the player’s own queued cards in a pick import’s departure, not another player’s', async () => {
       const { id, ids } = await plannedLobby('Fireblast', 'Lava Axe');
       // Carol never queued Lava Axe, so it must stay after Fireblast.
-      await enqueue(id, ids['Lava Axe'], bobCookie).expect(200);
+      await queueInLobby(id, bob, ids['Lava Axe']);
       const csv = [
         ',Cal,Ann,Ben,',
         '->,Searing Spear,Lava Spike,Burst Lightning,',
@@ -456,7 +477,7 @@ describe('queueing a plan’s unpicked cards', () => {
     });
 
     it('doesn’t take a card’s order from another copy that left the queue', async () => {
-      const { id, second } = await plannedLobby(
+      const { id, second } = await startedDraft(
         'Burst Lightning',
         'Lightning Bolt',
       );
@@ -470,7 +491,7 @@ describe('queueing a plan’s unpicked cards', () => {
     });
 
     it('forgets the order of a card taken out of the plan and added back', async () => {
-      const { id, ids } = await plannedLobby('Fireblast', 'Skewer the Critics');
+      const { id, ids } = await startedDraft('Fireblast', 'Skewer the Critics');
       const skewer = ids['Skewer the Critics'];
       await carolQueues(id, ids, 'Skewer the Critics');
       await removeFromQueue(id, skewer, carolCookie).expect(200);
@@ -486,7 +507,7 @@ describe('queueing a plan’s unpicked cards', () => {
     it('puts a sideboard card with an order ahead of mainboard cards without one, when the sideboard is included', async () => {
       /** Carol's plan with Skewer the Critics, then Lava Axe, out of her queue. */
       async function departedDraft() {
-        const draft = await plannedLobby(
+        const draft = await startedDraft(
           'Fireblast',
           'Lava Axe',
           'Skewer the Critics',

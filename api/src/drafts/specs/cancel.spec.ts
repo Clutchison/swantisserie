@@ -23,12 +23,12 @@ import {
   readyDraft,
   start,
   poolCardIds,
-  enqueue,
   addBot,
   addToPlan,
   registerWebhook,
   cancelDraft,
   announcementsSettled,
+  queueInLobby,
 } from './harness.js';
 
 useDraftsApp();
@@ -46,7 +46,8 @@ describe('cancel', () => {
   it('leaves nothing belonging to the draft, including its bots', async () => {
     const id = await readyDraft([aliceCookie]);
     const ids = await poolCardIds(id);
-    await enqueue(id, ids.Shock).expect(200);
+    // A queue filled in the lobby, before queueing waited for the start.
+    await queueInLobby(id, alice, ids.Shock);
     await addToPlan(id, ids['Lightning Bolt'], aliceCookie).expect(200);
     await addBot(id, await signIn(carol)).expect(201);
 
