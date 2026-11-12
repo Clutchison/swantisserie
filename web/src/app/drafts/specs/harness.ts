@@ -879,9 +879,29 @@ export async function openTab(fixture: AppFixture, page: HTMLElement, name: stri
   return panel(page);
 }
 
-/** Opens the Queue tab and returns its panel. */
+/** Opens the Queue tab, below the desktop layout, and returns its panel. */
 export const openQueue = (fixture: AppFixture, page: HTMLElement) =>
   openTab(fixture, page, 'Queue');
+
+/**
+ * The Queue pane: the region named "Queue", beside the tabs from the desktop
+ * layout. Null if there is none.
+ */
+export const findQueuePane = (page: HTMLElement) =>
+  byName(page, 'section:not([role="tabpanel"])', 'Queue');
+/** The Queue notice inside `root`, naming lost and cleared cards: a status by its name. Null if there is none. */
+export const queueNotice = (root: HTMLElement) =>
+  byAriaLabel(root, '[role="status"]', 'Queue notice');
+/** The Queue pane, which is there. */
+export const queuePane = (page: HTMLElement) => findQueuePane(page)!;
+/**
+ * The Queue pane's collapse toggle, which as its rail expands it again:
+ * the button that controls the pane's body.
+ */
+export const queuePaneToggle = (page: HTMLElement) =>
+  [...queuePane(page).querySelectorAll<HTMLButtonElement>('button[aria-controls]')].find((toggle) =>
+    /^(Collapse|Expand) queue\b/.test(accessibleName(toggle)),
+  )!;
 
 /** The images of the Card previews open: one at most, outside the page. */
 export const previewImages = () => [

@@ -164,7 +164,8 @@ describe('card previews', () => {
       const { page, fixture } = opened;
       tabButton(page, 'Queue').click();
       await fixture.whenStable();
-      const name = ownTabStop(panel(page), 'Shock')!;
+      // A button, as it opens its Card detail.
+      const name = button(panel(page), 'Shock')!;
 
       tabTo(name);
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));

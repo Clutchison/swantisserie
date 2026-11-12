@@ -24,18 +24,30 @@ import {
   picksLeftCount,
   picksLeftTexts,
   highlightedPicksLeft,
+  queuePane,
+  viewOn,
   type AppFixture,
 } from './harness';
 
 useDraftsApp();
 
-/** The panels whose headings show the viewer's picks left. */
+/** The panels whose headings show the viewer's picks left: the Pool and Deck tabs', and the Queue pane's. */
 const PANELS = ['Pool', 'Queue', 'Deck'] as const;
 
 describe('picks left beside the panel headings', () => {
-  /** Opens the tab named `name` and returns its panel; Pool is open already. */
+  beforeEach(() => viewOn('desktop'));
+  afterEach(() => vi.unstubAllGlobals());
+
+  /**
+   * Opens the tab named `name` and returns its panel, or for Queue the Queue
+   * pane beside the tabs; Pool is open already.
+   */
   const open = (fixture: AppFixture, page: HTMLElement, name: string) =>
-    name === 'Pool' ? Promise.resolve(panel(page)) : openTab(fixture, page, name);
+    name === 'Queue'
+      ? Promise.resolve(queuePane(page))
+      : name === 'Pool'
+        ? Promise.resolve(panel(page))
+        : openTab(fixture, page, name);
 
   it.each(PANELS)(
     'shows the count beside the %s heading, which keeps the panel name as its name',
@@ -61,7 +73,7 @@ describe('picks left beside the panel headings', () => {
   it('leaves the tab buttons and the other panels without the count', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 12 }));
 
-    expect(tabLabels(page)).toEqual(['Pool', 'Queue', 'Deck', 'Board']);
+    expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     expect(tabs(page).flatMap(picksLeftTexts)).toEqual([]);
     expect(picksLeftTexts(tabPanel(page, 'Board'))).toEqual([]);
   });

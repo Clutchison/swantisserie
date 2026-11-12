@@ -31,6 +31,8 @@ import {
   flushQueueAndPlan,
   cardName,
   cardNames,
+  queueList,
+  queueNotice,
   namedList,
   startDrag,
   button,
@@ -682,6 +684,17 @@ describe('card previews', () => {
       lost: [{ poolCardId: bolt.id, name: bolt.name }],
     });
 
+    /**
+     * The mouse rests on a queue row's name, which opens its Card detail when
+     * pressed, so shows its Card preview on hover alone.
+     */
+    function restOn(name: HTMLElement) {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      hover(name);
+      wait(150);
+      vi.useRealTimers();
+    }
+
     async function openQueue() {
       const opened = await openPicked({ queue });
       tabButton(opened.page, 'Queue').click();
@@ -692,29 +705,26 @@ describe('card previews', () => {
     it('shows on queue rows and the queue lost notice', async () => {
       const { page } = await openQueue();
 
-      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      restOn(cardName(queueList(panel(page)), 'Shock'));
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+      unhover(cardName(queueList(panel(page)), 'Shock'));
 
-      tap(panel(page).querySelector<HTMLElement>('.notice strong .name')!);
+      tap(cardName(queueNotice(panel(page))!, 'Lightning Bolt'));
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
     it('shows mana costs before queue rows’ names, and inline in the Queue notice', async () => {
       const { page } = await openQueue();
 
-      expect(costBefore(panel(page).querySelector<HTMLElement>('.queue .name')!)).toEqual([
-        'one red mana',
-      ]);
-      const notice = panel(page).querySelector<HTMLElement>('.notice')!;
-      expect(costBefore(notice.querySelector<HTMLElement>('strong .name')!)).toEqual([
-        'one red mana',
-      ]);
-      expect(notice.querySelector('.card-rows')).toBeNull();
+      expect(costBefore(cardName(queueList(panel(page)), 'Shock'))).toEqual(['one red mana']);
+      const notice = queueNotice(panel(page))!;
+      expect(costBefore(cardName(notice, 'Lightning Bolt'))).toEqual(['one red mana']);
+      expect(notice.querySelector('ul, ol, [role="list"]')).toBeNull();
     });
 
     it('closes when its name goes, as a queue row removed', async () => {
       const { fixture, page } = await openQueue();
-      tap(panel(page).querySelector<HTMLElement>('li app-card-name .name')!);
+      restOn(cardName(queueList(panel(page)), 'Shock'));
       expect(previewImage()).not.toBeNull();
 
       button(panel(page), 'Remove Shock')!.click();
@@ -723,37 +733,38 @@ describe('card previews', () => {
         .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));
       await fixture.whenStable();
 
-      expect(panel(page).querySelector('li app-card-name')).toBeNull();
+      expect(cardNames(queueList(panel(page)))).toEqual([]);
       expect(previewImage()).toBeNull();
     });
 
     it('opens again once a drag is cancelled', async () => {
       const { page } = await openQueue();
-      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
-      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
+      const name = cardName(queueList(panel(page)), 'Shock');
+      // With a mouse, the whole row drags.
+      pressHandle(name.closest('li')!);
 
       document.dispatchEvent(pointer('pointercancel', 'mouse'));
       document.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
       TestBed.tick();
-      tap(name);
+      restOn(name);
 
       expect(previewImage()).not.toBeNull();
     });
 
     it('closes when a drag starts, and opens none until it is released', async () => {
       const { page } = await openQueue();
-      const name = panel(page).querySelector<HTMLElement>('li app-card-name .name')!;
-      tap(name);
+      const name = cardName(queueList(panel(page)), 'Shock');
+      restOn(name);
       expect(previewImage()).not.toBeNull();
 
-      pressHandle(panel(page).querySelector<HTMLElement>('.handle')!);
+      // With a mouse, the whole row drags.
+      pressHandle(name.closest('li')!);
       expect(document.querySelector('.cdk-drag-preview')).not.toBeNull();
       expect(previewImage()).toBeNull();
 
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       hover(name);
       wait(150);
-      tap(name);
       expect(previewImage()).toBeNull();
 
       // A hover begun in the drag doesn't open once the drag is released.
@@ -765,7 +776,7 @@ describe('card previews', () => {
 
       vi.useRealTimers();
       TestBed.tick();
-      tap(name);
+      restOn(name);
       expect(previewImage()).not.toBeNull();
     });
   });

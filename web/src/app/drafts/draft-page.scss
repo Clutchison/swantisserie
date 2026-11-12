@@ -1,4 +1,5 @@
 @use '../../breakpoints' as bp;
+@use 'side-pane';
 
 /* A minor action, so it doesn't compete with the page's real controls. */
 .back-link {
@@ -23,7 +24,7 @@
 }
 
 /*
- * The Pool, Queue and Deck headings, with the viewer's picks left beside
+ * The Pool and Deck headings, with the viewer's picks left beside
  * them: on a phone the count wraps onto its own line under the heading.
  */
 .panel-heading {
@@ -36,18 +37,6 @@
 
   h2 {
     margin: 0;
-  }
-}
-
-/* Secondary to the heading, until the viewer is near the end of their picks. */
-.picks-left {
-  color: var(--color-muted);
-  font-size: var(--font-size-sm);
-
-  /* The count alone, not the dash before it. On bg, where accent text meets AA. */
-  [data-highlighted='true'] {
-    color: var(--color-accent);
-    font-weight: 600;
   }
 }
 
@@ -191,25 +180,48 @@ main {
     }
   }
 
-  /* Pool and Board use the full width; the Queue tab reads better capped. */
-  .queue {
-    max-width: var(--capped-tab-width);
+  /*
+   * With the Queue pane, the page is two columns: the tabs and their panels,
+   * with the pane beside them. Like the tab bar, it stays in view as a tab
+   * scrolls, and scrolls on its own when it's long.
+   */
+  main.with-queue-pane {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: var(--space-xl);
+    align-items: start;
+
+    /* The header, the status strip and the Players panel span both columns. */
+    > * {
+      grid-column: 1 / -1;
+    }
+
+    > .tab-column {
+      grid-column: 1;
+    }
+
+    > .queue-pane {
+      @include side-pane.sticky;
+
+      grid-column: 2;
+      margin-top: var(--space-xl);
+    }
   }
 }
 
 /*
  * From here the page is two columns: the tabs and their panels, with the
- * Players panel's own pane beside them. It stays in view as a tab scrolls,
- * and scrolls on its own when it's long.
+ * Players panel's own pane beside them, after any Queue pane. It stays in
+ * view as a tab scrolls, and scrolls on its own when it's long.
  */
 @media (min-width: bp.$wide-desktop) {
   main {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 19rem;
+    grid-template-columns: minmax(0, 1fr) side-pane.$width;
     column-gap: var(--space-xl);
     align-items: start;
 
-    /* The header and the status strip span both columns. */
+    /* The header and the status strip span every column. */
     > * {
       grid-column: 1 / -1;
     }
@@ -220,14 +232,15 @@ main {
 
     /* Placed after the tab column, so it shares its row; the reading order stays as written. */
     > .players-panel {
-      position: sticky;
-      top: 0;
+      @include side-pane.sticky;
+
       order: 1;
-      grid-column: 2;
-      box-sizing: border-box;
-      max-block-size: 100dvh;
-      overflow-y: auto;
-      padding-bottom: var(--space-md);
+      /* The last column, after any Queue pane. */
+      grid-column: -2;
     }
+  }
+
+  main.with-queue-pane {
+    grid-template-columns: minmax(0, 1fr) auto side-pane.$width;
   }
 }

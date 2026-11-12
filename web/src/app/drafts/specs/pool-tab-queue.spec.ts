@@ -54,7 +54,7 @@ describe('pool tab', () => {
 
       const queue = await openQueue(fixture, page);
       expect(queue.querySelector('h2')?.textContent).toContain('Queue');
-      expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent)).toEqual([
+      expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent?.trim())).toEqual([
         'Shivan Dragon',
       ]);
     });
@@ -75,7 +75,7 @@ describe('pool tab', () => {
 
     /** The names in the Queue tab's list, in order. */
     const names = (queue: HTMLElement) =>
-      [...queue.querySelectorAll('li .name')].map((name) => name.textContent);
+      [...queue.querySelectorAll('li .name')].map((name) => name.textContent?.trim());
 
     it('removes a queued card from its detail, then offers to add it again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {

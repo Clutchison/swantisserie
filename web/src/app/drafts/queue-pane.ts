@@ -5,20 +5,46 @@ import {
   CdkDropList,
   moveItemInArray,
 } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  ElementRef,
+  inject,
+  Injector,
+  input,
+  signal,
+  untracked,
+  viewChild,
+} from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { QueueView, StealBehavior } from 'contract';
 import type { Observable } from 'rxjs';
-import { LucideArrowDown, LucideArrowLeftRight, LucideArrowUp, LucideTrash } from '@lucide/angular';
+import {
+  LucideArrowDown,
+  LucideArrowLeftRight,
+  LucideArrowUp,
+  LucideInfo,
+  LucidePanelRightClose,
+  LucidePanelRightOpen,
+  LucideTrash,
+} from '@lucide/angular';
+import { CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
 import { CardPreviews } from './card-preview';
-import { changeFailure } from './drafts';
+import { changeFailure, COARSE_POINTER_QUERY, matching } from './drafts';
+import { PicksLeft } from './picks-left';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 const CHANGE_FAILED = "Couldn't change your queue. Try again in a moment.";
+
+/** Where whether the viewer left the Queue pane collapsed is kept, in browser storage. */
+const COLLAPSED_KEY = 'queue-pane';
+const COLLAPSED = 'collapsed';
 
 /** Each steal behavior: what it's called, what it does, and the one the pill switches to. */
 const STEAL_BEHAVIORS: Record<
@@ -40,12 +66,17 @@ const STEAL_BEHAVIORS: Record<
 /** Where a failed change is explained: by the steal behavior pill, or under the queue. */
 type ErrorPlace = 'stealBehavior' | 'queue';
 
+/** Tells each Queue pane's ids apart, should two ever be on the page. */
+let panes = 0;
+
 /**
- * The draft view's Queue tab: the signed-in player's queue, which they
- * reorder and prune, and their steal behavior.
+ * The Queue pane: the signed-in player's queue, which they reorder and
+ * prune, under a header with its size, their picks left and their steal
+ * behavior. Beside the tabs it can collapse to a rail (`collapsible`), as
+ * the viewer last left it.
  */
 @Component({
-  selector: 'app-queue-tab',
+  selector: 'app-queue-pane',
   imports: [
     CardName,
     ChangeStatus,
@@ -56,31 +87,62 @@ type ErrorPlace = 'stealBehavior' | 'queue';
     LucideArrowDown,
     LucideArrowLeftRight,
     LucideArrowUp,
+    LucideInfo,
+    LucidePanelRightClose,
+    LucidePanelRightOpen,
     LucideTrash,
     NgTemplateOutlet,
+    PicksLeft,
     SendsChange,
   ],
-  providers: [Changes],
+  providers: [Changes, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  templateUrl: './queue-tab.html',
-  styleUrls: ['../page.scss', './drafts.scss', './queue-tab.scss'],
+  templateUrl: './queue-pane.html',
+  styleUrls: ['../page.scss', './drafts.scss', './queue-pane.scss'],
+  host: {
+    '[class.collapsible]': 'collapsible()',
+    '[class.collapsed]': 'collapsed()',
+  },
 })
-export class QueueTab {
+export class QueuePane {
   private readonly queueApi = inject(QueueApi);
   protected readonly previews = inject(CardPreviews);
   private readonly changes = inject(Changes);
   private readonly store = inject(DraftStore);
+  private readonly cardDetails = inject(CardDetails);
+  private readonly injector = inject(Injector);
+  private readonly host = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+
+  /** Whether the pane collapses to a rail: beside the tabs, not where it is all the viewer sees. */
+  readonly collapsible = input(false);
+  /** Whether the pane is in view: not on a hidden tab. */
+  // Stryker disable next-line BooleanLiteral: the draft page binds [visible] wherever the pane can be hidden.
+  readonly visible = input(true);
+
+  private readonly id = ++panes;
+  protected readonly headingId = `queue-pane-heading-${this.id}`;
+  protected readonly bodyId = `queue-pane-body-${this.id}`;
+  protected readonly helpId = `queue-pane-help-${this.id}`;
+  protected readonly descriptionId = `steal-behavior-description-${this.id}`;
 
   /** A draft the signed-in user is playing in. */
   private readonly draftId = this.store.id;
   /** The signed-in player's queue. */
   protected readonly queue = this.store.queue.value;
-  /** The pool's cards by id, for the Card previews of the names here. */
+  /** The pool's cards by id, for the Card previews and Card details of the names here. */
   protected readonly poolCardsById = this.store.poolCardsById;
   /** Whether the queue is still on its way, so `queue` says nothing yet. */
   protected readonly loading = this.store.queue.loading;
+  /** Whether the queue couldn't be loaded. A failed re-read keeps the last one loaded. */
+  protected readonly failed = this.store.queue.missing;
   /** The state of the draft this queue is in. */
   protected readonly draftState = computed(() => this.store.shown().state);
+  /** The queue's size: its count, and the noun a viewer reads after it; null until it is known. */
+  protected readonly size = computed(() => {
+    if (this.loading() || this.failed()) return null;
+    const count = this.queue().cards.length;
+    return { count, noun: count === 1 ? 'card' : 'cards' };
+  });
 
   /** Where the Queue cutoff is drawn: before the queued card at this index, if there is one. */
   protected readonly cutoffIndex = this.store.queueCutoff;
@@ -94,6 +156,14 @@ export class QueueTab {
   protected readonly readOnly = computed(() => !this.store.offerQueue());
   protected readonly changing = this.changes.changing;
   protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
+
+  /**
+   * Whether rows are dragged by a handle, where the primary pointer is touch
+   * and a swipe elsewhere on a row must scroll; with a mouse, the whole row drags.
+   */
+  protected readonly coarsePointer = matching(COARSE_POINTER_QUERY);
+  /** Whether the latest press on a row became a drag, so the click that ends it opens nothing. */
+  private dragged = false;
 
   protected readonly stealBehaviorName = computed(
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
@@ -111,6 +181,94 @@ export class QueueTab {
   protected readonly hasNotice = computed(
     () => this.queue().lost.length > 0 || this.queue().cleared.length > 0,
   );
+  /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
+  protected readonly unseenNotice = this.store.unseenNotice;
+
+  /** Whether "How this works" is offered: while the queue can change, or could once a closed draft reopens. */
+  protected readonly offerHelp = computed(() => this.draftState() === 'Closed' || !this.readOnly());
+  /** Whether "How this works" is open. */
+  protected readonly helpOpen = signal(false);
+
+  /** Whether the pane is collapsed to its rail: only where it is collapsible, and as the viewer left it. */
+  private readonly collapsedChoice = signal(rememberedCollapsed());
+  protected readonly collapsed = computed(() => this.collapsible() && this.collapsedChoice());
+  private readonly toggleButton = viewChild<ElementRef<HTMLButtonElement>>('toggle');
+
+  /** The collapse toggle's name: on the rail, with the queue's size and any unseen Queue notice. */
+  protected readonly toggleName = computed(() => {
+    if (!this.collapsed()) return 'Collapse queue';
+    const size = this.size();
+    return [
+      'Expand queue',
+      ...(size ? [`${size.count} ${size.noun}`] : []),
+      ...(this.unseenNotice() ? ['new notice'] : []),
+    ].join(', ');
+  });
+
+  constructor() {
+    // The Queue notice shown in an open pane in view has been seen.
+    effect(() => {
+      if (this.visible() && !this.collapsed() && this.unseenNotice()) {
+        untracked(() => this.store.noticeSeen());
+      }
+    });
+  }
+
+  /**
+   * Collapses the pane to its rail, or expands it again, remembering which
+   * for the viewer's next visit. Focus inside a pane collapsing goes to the
+   * toggle, as nothing else in it stays.
+   */
+  protected toggleCollapsed() {
+    const collapsing = !this.collapsedChoice();
+    this.collapsedChoice.set(collapsing);
+    try {
+      localStorage.setItem(COLLAPSED_KEY, collapsing ? COLLAPSED : 'open');
+    } catch {
+      // Storage may be full or refused, as in a private window: the choice holds for this page.
+    }
+    if (collapsing && this.host.contains(document.activeElement)) {
+      this.toggleButton()?.nativeElement.focus();
+    }
+  }
+
+  /** A row pressed: a drag it starts is told apart from a click. */
+  protected pressed() {
+    this.dragged = false;
+  }
+
+  /** A row's drag started: no Card preview shows during it, and the click ending it opens nothing. */
+  protected dragStarted() {
+    this.dragged = true;
+    this.previews.dragStarted();
+  }
+
+  /**
+   * A queued card's name pressed: opens its Card detail, unless the click
+   * ends a drag. It offers what the Pool tab's does. Focus then goes back to
+   * the name, or else, should the card have left the queue, to the first
+   * name that opens one.
+   */
+  protected openDetail(poolCardId: string, event: MouseEvent) {
+    if (this.dragged && event.detail > 0) return;
+    const card = this.poolCardsById().get(poolCardId);
+    // Stryker disable next-line ConditionalExpression: a name opens a detail only once its pool card has loaded.
+    if (!card) return;
+    this.cardDetails.open({
+      card,
+      actions: computed(() => ({
+        pick: this.store.offerPick(),
+        queue: this.store.offerQueue(),
+        addToPlan: this.store.offerAddToPlan(),
+        removeFromPlan: this.store.offerRemoveFromPlan(),
+      })),
+      tilePlaceholder: null,
+      injector: this.injector,
+      returnFocus: (_, opener) =>
+        (opener?.isConnected ? opener : null) ??
+        this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),
+    });
+  }
 
   /**
    * A card dragged to a new place in the queue. It's found by id, as the
@@ -127,7 +285,7 @@ export class QueueTab {
    * Moves the card at `from` to `to`, showing the new order at once, and
    * the old one again if that fails, until the queue is re-read. Focus
    * stays on the button pressed, or on the card's other move button if it
-   * has reached the end, and a status message says where the card went.
+   * has reached the end, and a status message says where the card went, from where.
    */
   protected move(from: number, to: number) {
     if (from === to) return;
@@ -152,7 +310,7 @@ export class QueueTab {
           // Stryker disable next-line StringLiteral: the card's other move button is always there when the pressed one goes, so the Remove fallback is never reached.
           `remove ${poolCardId}`,
         ],
-        status: `${name} moved to position ${to + 1} in your queue`,
+        status: `${name} moved from position ${from + 1} to ${to + 1} in your queue`,
         // Put the card back, so focus can go back to the button pressed.
         rollBack: () => this.store.showQueue({ ...this.queue(), cards: before }),
       },
@@ -221,5 +379,15 @@ export class QueueTab {
         return false;
       }
     }, kept);
+  }
+}
+
+/** Whether the viewer left the Queue pane collapsed; open, as for a new viewer, if storage can't say. */
+function rememberedCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === COLLAPSED;
+  } catch {
+    // Storage may be refused, as in a private window.
+    return false;
   }
 }

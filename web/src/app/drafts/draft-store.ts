@@ -286,6 +286,35 @@ export class DraftStore implements TournamentViewer {
     () => new Set(this.queue.value().cards.map((card) => card.poolCardId)),
   );
 
+  /** The Queue notice's entries, each its lost or cleared card, by a key of its own. */
+  private readonly noticeEntries = computed(() => {
+    const { lost, cleared } = this.queue.value();
+    return [
+      ...lost.map((card) => `lost ${card.poolCardId}`),
+      ...cleared.map((card) => `cleared ${card.poolCardId}`),
+    ];
+  });
+  /**
+   * The Queue notice's entries the player has seen, in an open Queue pane,
+   * on this page: those still in the notice, so an entry dismissed and
+   * then noted again is new again.
+   */
+  private readonly seenNoticeEntries = linkedSignal<string[], ReadonlySet<string>>({
+    source: this.noticeEntries,
+    computation: (entries, previous) =>
+      new Set(entries.filter((entry) => previous?.value.has(entry))),
+  });
+  /** Whether the Queue notice notes a card the player hasn't yet seen it note. */
+  readonly unseenNotice = computed(() => {
+    const seen = this.seenNoticeEntries();
+    return this.noticeEntries().some((entry) => !seen.has(entry));
+  });
+
+  /** The player has seen the Queue notice as it stands, in an open Queue pane. */
+  noticeSeen() {
+    this.seenNoticeEntries.set(new Set(this.noticeEntries()));
+  }
+
   /**
    * Only players have a plan, read for the draft's version as the queue is:
    * a pick may have landed on the mainboard, lost a card, or been undone.
@@ -382,11 +411,12 @@ export class DraftStore implements TournamentViewer {
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
   readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
-   * Whether the Queue tab is shown: until the draft is complete, as its queue
+   * Whether a player's queue is shown, in the Queue pane or, below the
+   * desktop layout, the Queue tab: until the draft is complete, as the queue
    * can't change after. A closed draft keeps it, as it can reopen. Undefined
    * while the draft is loading.
    */
-  readonly showQueueTab = computed(() => {
+  readonly queueShown = computed(() => {
     const draft = this.draft.value();
     return draft ? !this.draftComplete() : undefined;
   });
@@ -477,7 +507,7 @@ export class DraftStore implements TournamentViewer {
   readonly offerPick = computed(() => this.joined() && this.draft.value()?.state === 'Drafting');
   /**
    * Offering queue changes: to players, while the draft is active; adding to
-   * the queue is still not offered on the player's own turn. The Queue tab is
+   * the queue is still not offered on the player's own turn. The Queue pane is
    * read-only when this is false. The api refuses anyone else with
    * `not-a-player`, a Complete or Closed draft with `draft-complete` or
    * `draft-closed`, and adding on the player's own turn with `your-turn`.

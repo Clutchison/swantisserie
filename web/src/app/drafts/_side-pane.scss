@@ -1,0 +1,17 @@
+/*
+ * A pane beside the draft page's tabs, from the desktop layout: the Queue
+ * pane, and from the wide desktop layout the Players panel's.
+ */
+
+/* An open pane's width. */
+$width: 19rem;
+
+/* It stays in view as a tab scrolls, and scrolls on its own when it's long. */
+@mixin sticky {
+  position: sticky;
+  top: 0;
+  box-sizing: border-box;
+  max-block-size: 100dvh;
+  overflow-y: auto;
+  padding-bottom: var(--space-md);
+}
