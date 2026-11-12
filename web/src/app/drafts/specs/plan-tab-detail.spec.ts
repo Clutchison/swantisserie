@@ -57,7 +57,10 @@ import {
   answerPrintingsRequest,
   openPrintingPicker,
   useOnsPrinting,
+  WIDE_STACKS_AREA,
+  NARROW_STACKS_AREA,
 } from './plan-tab-harness';
+import { measuredAs } from './measure-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -258,7 +261,10 @@ describe('plan tab', () => {
   });
 
   describe('in stacks mode', () => {
-    beforeEach(() => viewOn('desktop'));
+    beforeEach(() => {
+      viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
+    });
     afterEach(() => {
       vi.unstubAllGlobals();
       localStorage.clear();
@@ -310,6 +316,7 @@ describe('plan tab', () => {
 
     it('moves a card in the strip from its Card detail on a phone, which stays open', async () => {
       viewOn('mobile');
+      measuredAs(NARROW_STACKS_AREA);
       localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,

@@ -28,14 +28,13 @@ export const DESKTOP_QUERY = '(min-width: 1024px)';
 export const WIDE_DESKTOP_QUERY = '(min-width: 1200px)';
 
 /**
- * The media query of the screens whose Deck tab has room for the wide stacks
- * layout, with the sideboard's stack beside the mainboard's; narrower, the
- * mainboard's stacks become a strip that scrolls sideways. Kept in step with
- * the container query in `plan-stacks-layout.scss`, 760px of stacks area, plus
- * the draft page's padding either side: `$wide-stacks` and
+ * The width in px of the Deck tab's stacks area from which it has room for
+ * the wide stacks layout, with the sideboard's stack beside the mainboard's;
+ * narrower, the mainboard's stacks become a strip that scrolls sideways. The
+ * container query in `plan-stacks-layout.scss` breaks at it too:
  * `$wide-stacks-container` in `src/_breakpoints.scss`. Change them together.
  */
-export const WIDE_STACKS_QUERY = '(min-width: 792px)';
+export const WIDE_STACKS_WIDTH = 760;
 
 /**
  * Whether the media query `query` matches, as the window is resized. No

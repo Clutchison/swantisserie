@@ -23,6 +23,10 @@ import { card, shivan, brightclimb } from './pool-tab-harness';
 
 /** Bob's turn, on the draft's third pick. */
 export const bobsTurn = { pick: 3, round: 2, playerId: bob.id };
+/** A width in px of the Deck tab's stacks area with room for the wide stacks layout, as a desktop's has. */
+export const WIDE_STACKS_AREA = 800;
+/** A width in px of the stacks area too narrow for the wide stacks layout, as a phone's is. */
+export const NARROW_STACKS_AREA = 360;
 export const bolt = card({
   id: 'bolt-card',
   name: 'Lightning Bolt',

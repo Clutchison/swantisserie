@@ -9,7 +9,6 @@ import {
   button,
   heading,
   draggable,
-  resizeTo,
   tabButton,
   namedList,
   updates,
@@ -41,7 +40,10 @@ import {
   drop,
   dropped,
   openPrintingPicker,
+  WIDE_STACKS_AREA,
+  NARROW_STACKS_AREA,
 } from './plan-tab-harness';
+import { measuredAs } from './measure-harness';
 import { playing, withTournament } from './play-tab-harness';
 
 useDraftsApp();
@@ -58,7 +60,11 @@ async function stackMoved(fixture: AppFixture, name: string, from: string, onto:
 }
 
 describe('Deck tab stack moves', () => {
-  beforeEach(() => viewOn('desktop'));
+  let resizeStacksArea: (width: number) => void;
+  beforeEach(() => {
+    viewOn('desktop');
+    resizeStacksArea = measuredAs(WIDE_STACKS_AREA);
+  });
   afterEach(() => {
     vi.unstubAllGlobals();
     localStorage.clear();
@@ -130,7 +136,7 @@ describe('Deck tab stack moves', () => {
     );
   });
 
-  it('keeps stack moves through a tab switch, list mode and a narrow window, showing the grouping’s stacks in the strip, which offers no drag', async () => {
+  it('keeps stack moves through a tab switch, list mode and a narrow stacks area, showing the grouping’s stacks in the strip, which offers no drag', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
@@ -153,7 +159,7 @@ describe('Deck tab stack moves', () => {
     await fixture.whenStable();
     expect(stacksOf(plan)[0]).toEqual(moved);
 
-    resizeTo('mobile');
+    resizeStacksArea(NARROW_STACKS_AREA);
     await fixture.whenStable();
     expect(stacksOf(plan)[0]).toEqual([
       '1: Lightning Bolt, Lightning Bolt',
@@ -163,7 +169,7 @@ describe('Deck tab stack moves', () => {
     expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(false);
     expect(dropListNamed(fixture, 'New stack, after 1')).toBeUndefined();
 
-    resizeTo('desktop');
+    resizeStacksArea(WIDE_STACKS_AREA);
     await fixture.whenStable();
     expect(stacksOf(plan)[0]).toEqual(moved);
   });
@@ -419,7 +425,7 @@ describe('Deck tab stack moves', () => {
     expect(heading(plan, 'Mainboard 4 (4 picked)')).toBeDefined();
     expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Lightning Bolt']);
 
-    resizeTo('mobile');
+    resizeStacksArea(NARROW_STACKS_AREA);
     await fixture.whenStable();
     expect(heading(plan, '1 2')).toBeDefined();
   });

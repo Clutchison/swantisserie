@@ -136,6 +136,7 @@
 </div>
 <!-- A card dragged onto the other plan board moves there: in the wide stacks layout, or the list on desktop. In the wide stacks layout, one dragged onto another mainboard stack is a stack move into it. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
+  #stacksArea
   class="plan-boards-area"
   [class.stacks-mode]="showingStacks()"
   [style.--mainboard-stacks]="mainboardStackCount()"

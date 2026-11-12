@@ -43,7 +43,9 @@ import {
   dropped,
   answerPrintingsRequest,
   detailOpener,
+  WIDE_STACKS_AREA,
 } from './plan-tab-harness';
+import { measuredAs } from './measure-harness';
 import { playing, withTournament } from './play-tab-harness';
 
 useDraftsApp();
@@ -90,6 +92,7 @@ describe('basic lands on the plan tab', () => {
   // First in the file: Stryker credits module-level code, such as the default printings, only to each spec file's first test.
   it('shows each basic land’s default printing in the Lands stack, offering its small and normal images', async () => {
     viewOn('desktop');
+    measuredAs(WIDE_STACKS_AREA);
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
@@ -286,6 +289,7 @@ describe('basic lands on the plan tab', () => {
 
   it('shows basics in the Lands stack on desktop, with their card images', async () => {
     viewOn('desktop');
+    measuredAs(WIDE_STACKS_AREA);
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
@@ -303,6 +307,7 @@ describe('basic lands on the plan tab', () => {
 
   it('falls back to Scryfall’s API image of a basic land’s default printing when its image fails in the stacks', async () => {
     viewOn('desktop');
+    measuredAs(WIDE_STACKS_AREA);
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
@@ -425,6 +430,7 @@ describe('basic lands on the plan tab', () => {
 
   it('shows no Wastes among the basic lands, in the Lands stack or in the list', async () => {
     viewOn('desktop');
+    measuredAs(WIDE_STACKS_AREA);
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
@@ -455,6 +461,7 @@ describe('basic lands on the plan tab', () => {
 
   it('offers the mode, the grouping in stacks mode, and the Add basics button on desktop', async () => {
     viewOn('desktop');
+    measuredAs(WIDE_STACKS_AREA);
     onTestFinished(() => {
       vi.unstubAllGlobals();
     });
@@ -737,6 +744,8 @@ describe('basic lands on the plan tab', () => {
 
     it('drags a basic land’s copy from its line onto the other plan board on desktop', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
+      measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
       });
@@ -758,6 +767,8 @@ describe('basic lands on the plan tab', () => {
 
     it('moves a stacked copy by its move button, focus following it, and by a drag, the sideboard’s basics in its one stack after its other cards', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
+      measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
       });
@@ -804,6 +815,8 @@ describe('basic lands on the plan tab', () => {
 
     it('shows every copy of a basic land in the same printing on both plan boards', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
+      measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
       });
@@ -828,6 +841,8 @@ describe('basic lands on the plan tab', () => {
 
     it('offers no move button for a basic land on a locked deck, and moves none dropped on the other plan board, in either mode', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
+      measuredAs(WIDE_STACKS_AREA);
       onTestFinished(() => {
         vi.unstubAllGlobals();
       });

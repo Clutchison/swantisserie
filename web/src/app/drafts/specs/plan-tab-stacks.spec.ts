@@ -6,7 +6,6 @@ import {
   completeSnapshot,
   button,
   viewOn,
-  resizeTo,
   wait,
   previewImage,
   pointer,
@@ -25,6 +24,7 @@ import {
   alice,
   bob,
 } from './harness';
+import { measuredAs } from './measure-harness';
 import { card, useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -48,6 +48,8 @@ import {
   dragOf,
   drop,
   dropped,
+  WIDE_STACKS_AREA,
+  NARROW_STACKS_AREA,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -55,7 +57,11 @@ useTallScreen();
 
 describe('plan tab', () => {
   describe('on desktop', () => {
-    beforeEach(() => viewOn('desktop'));
+    let resizeStacksArea: (width: number) => void;
+    beforeEach(() => {
+      viewOn('desktop');
+      resizeStacksArea = measuredAs(WIDE_STACKS_AREA);
+    });
     afterEach(() => {
       vi.unstubAllGlobals();
       localStorage.clear();
@@ -244,7 +250,7 @@ describe('plan tab', () => {
       http.expectNone('/api/drafts/draft-1/plan/bolt-card');
     });
 
-    it('keeps the chosen mode and grouping as the window narrows to a tablet or a phone, and widens again', async () => {
+    it('keeps the chosen mode and grouping as the stacks area narrows past the wide layout, and widens again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf(),
@@ -253,8 +259,8 @@ describe('plan tab', () => {
       button(plan, 'Color')!.click();
       await fixture.whenStable();
 
-      for (const screen of ['tablet', 'mobile', 'desktop'] as const) {
-        resizeTo(screen);
+      for (const width of [NARROW_STACKS_AREA, WIDE_STACKS_AREA]) {
+        resizeStacksArea(width);
         expect(pressed(plan, 'Stacks')).toBe('true');
         expect(pressed(plan, 'Color')).toBe('true');
         expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
@@ -262,7 +268,7 @@ describe('plan tab', () => {
 
       button(plan, 'List')!.click();
       await fixture.whenStable();
-      resizeTo('mobile');
+      resizeStacksArea(NARROW_STACKS_AREA);
       expect(pressed(plan, 'List')).toBe('true');
       expect(planBoards(plan)[0].lines).toHaveLength(3);
     });
@@ -362,7 +368,11 @@ describe('plan tab', () => {
   });
 
   describe('on a phone', () => {
-    beforeEach(() => viewOn('mobile'));
+    let resizeStacksArea: (width: number) => void;
+    beforeEach(() => {
+      viewOn('mobile');
+      resizeStacksArea = measuredAs(NARROW_STACKS_AREA);
+    });
     afterEach(() => {
       vi.unstubAllGlobals();
       localStorage.clear();
@@ -407,7 +417,7 @@ describe('plan tab', () => {
       expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
     });
 
-    it('offers no drag between plan boards, so a swipe always scrolls, until the window widens to a tablet', async () => {
+    it('offers no drag between plan boards, so a swipe always scrolls, until the stacks area widens to the wide layout', async () => {
       localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -418,7 +428,7 @@ describe('plan tab', () => {
       expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(false);
       expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(false);
 
-      resizeTo('tablet');
+      resizeStacksArea(WIDE_STACKS_AREA);
       expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
       expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(true);
     });
@@ -745,7 +755,7 @@ describe('plan tab', () => {
         ]);
       });
 
-      it('keep marking one current once the grouping changes, and once the window widens to a tablet and narrows again', async () => {
+      it('keep marking one current once the grouping changes, and once the stacks area widens to the wide layout and narrows again', async () => {
         const scrolling = stubScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
@@ -762,14 +772,14 @@ describe('plan tab', () => {
         scrolling.showStacks({ R: 0.3, Lands: 1 });
         expect(stackHeaders(plan)).toEqual(['Red, 3 cards', 'Lands, 1 card (current)']);
 
-        resizeTo('tablet');
-        resizeTo('mobile');
+        resizeStacksArea(WIDE_STACKS_AREA);
+        resizeStacksArea(NARROW_STACKS_AREA);
         expect(stackHeaders(plan)).toEqual(['Red, 3 cards (current)', 'Lands, 1 card']);
         scrolling.showStacks({ R: 0.3, Lands: 1 });
         expect(stackHeaders(plan)).toEqual(['Red, 3 cards', 'Lands, 1 card (current)']);
       });
 
-      it('show only with the strip: not in list mode, nor once the window widens to a tablet or desktop', async () => {
+      it('show only with the strip: not in list mode, nor once the stacks area widens to the wide layout', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
@@ -784,22 +794,21 @@ describe('plan tab', () => {
         await fixture.whenStable();
         expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
 
-        resizeTo('tablet');
-        expect(stackHeaders(plan)).toBeNull();
-        resizeTo('desktop');
+        resizeStacksArea(WIDE_STACKS_AREA);
         expect(stackHeaders(plan)).toBeNull();
       });
     });
   });
 
-  describe('on a tablet', () => {
-    beforeEach(() => viewOn('tablet'));
+  describe('laid out by the width its stacks area has, whatever the screen', () => {
     afterEach(() => {
       vi.unstubAllGlobals();
       localStorage.clear();
     });
 
-    it('opens in stacks mode, a card dragged between plan boards as on desktop', async () => {
+    it('opens a new viewer in stacks mode, a card dragged between plan boards, where the stacks area has room for the wide layout', async () => {
+      viewOn('mobile');
+      measuredAs(760);
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }),
@@ -809,11 +818,56 @@ describe('plan tab', () => {
       expect(pressed(plan, 'Stacks')).toBe('true');
       expect(pressed(plan, 'Mana value')).toBe('true');
       expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], ['Sideboard: Shivan Dragon']]);
+      expect(stackHeaders(plan)).toBeNull();
       expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
       expect(draggable(fixture, detailOpener(plan, 'Shivan Dragon')!)).toBe(true);
+    });
 
-      resizeTo('mobile');
+    it('opens a new viewer in list mode where the stacks area is narrower', async () => {
+      viewOn('wide');
+      measuredAs(759);
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      expect(pressed(plan, 'List')).toBe('true');
+      expect(stacksOf(plan)).toEqual([[], []]);
+    });
+
+    it('opens a new viewer by the width the stacks area has once shown, not the none it has while hidden on another tab', async () => {
+      viewOn('wide');
+      const resizeStacksArea = measuredAs(0);
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf(),
+      });
+      const plan = await openPlan(fixture, page);
+
+      resizeStacksArea(WIDE_STACKS_AREA);
+
+      expect(pressed(plan, 'Stacks')).toBe('true');
+    });
+
+    it('shows the strip, offering no drag, as the stacks area narrows past the wide layout, and the wide layout as it widens again', async () => {
+      viewOn('wide');
+      localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
+      const resizeStacksArea = measuredAs(800);
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      expect(stackHeaders(plan)).toBeNull();
+
+      resizeStacksArea(759);
+      expect(stackHeaders(plan)).toEqual(['1, 1 card (current)', 'Sideboard, 1 card']);
       expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(false);
+
+      resizeStacksArea(760);
+      expect(stackHeaders(plan)).toBeNull();
+      expect(draggable(fixture, detailOpener(plan, 'Lightning Bolt')!)).toBe(true);
     });
   });
 });

@@ -1,18 +1,20 @@
 import { TestBed } from '@angular/core/testing';
-import { DESKTOP_QUERY, WIDE_DESKTOP_QUERY, WIDE_STACKS_QUERY } from '../drafts';
+import { DESKTOP_QUERY, WIDE_DESKTOP_QUERY } from '../drafts';
 
 /** A screen the page can be shown on, by the media queries it answers. */
 type Screen = 'wide' | 'desktop' | 'tablet' | 'mobile';
 
 /**
  * The draft page's breakpoints each screen is past: a wide desktop has the
- * Players panel beside the tabs, a desktop's tabs sit at the top, and a
- * tablet, like a desktop, has room for the wide stacks layout.
+ * Players panel beside the tabs, and a desktop's tabs sit at the top. A
+ * tablet, like a phone, is past neither. The Deck tab's wide stacks layout
+ * goes by its stacks area's width, not the screen's: see `measuredAs` in
+ * `measure-harness.ts`.
  */
 const SCREEN_QUERIES: Record<Screen, readonly string[]> = {
-  wide: [WIDE_DESKTOP_QUERY, DESKTOP_QUERY, WIDE_STACKS_QUERY],
-  desktop: [DESKTOP_QUERY, WIDE_STACKS_QUERY],
-  tablet: [WIDE_STACKS_QUERY],
+  wide: [WIDE_DESKTOP_QUERY, DESKTOP_QUERY],
+  desktop: [DESKTOP_QUERY],
+  tablet: [],
   mobile: [],
 };
 

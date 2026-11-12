@@ -36,7 +36,7 @@ $fade: 2rem;
 
 /*
  * In stacks mode, the plan boards lay out by the room they have: the wide layout from 760px of
- * width, else the strip. `WIDE_STACKS_QUERY` in drafts.ts is kept in step, for the drag.
+ * width, else the strip. `WIDE_STACKS_WIDTH` in drafts.ts is kept in step, for the template.
  * Every stack, the sideboard's one included, is as wide as the others. Each layout's rules
  * nest in here, so they match its base rules' specificity and, coming later, win.
  */

@@ -37,7 +37,14 @@ import {
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { image } from './pool-tab-harness';
-import { apiImage, defaultPrintings, detailOpener, openPlan } from './plan-tab-harness';
+import { measuredAs } from './measure-harness';
+import {
+  apiImage,
+  defaultPrintings,
+  detailOpener,
+  openPlan,
+  WIDE_STACKS_AREA,
+} from './plan-tab-harness';
 import {
   bolt,
   shock,
@@ -410,6 +417,7 @@ describe('card previews', () => {
 
     it('shows a horizontal card sideways from its image in stacks mode, which stays upright', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
       try {
         const { page, fixture } = await openPicked({
           cards: [fireIce],
@@ -590,6 +598,7 @@ describe('card previews', () => {
 
     it('shows no mana costs on stacks’ card images', async () => {
       viewOn('desktop');
+      measuredAs(WIDE_STACKS_AREA);
       try {
         const { page } = await openBoltPlan();
 
