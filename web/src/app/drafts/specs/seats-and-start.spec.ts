@@ -60,7 +60,6 @@ describe('seats and start', () => {
   for (const [screen, open] of [
     ['mobile', false],
     ['desktop', false],
-    ['wide', true],
   ] as const) {
     it(`keeps the seat order in the Players panel once started on ${screen}, ${open ? 'open' : 'closed'}`, async () => {
       viewOn(screen);

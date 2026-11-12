@@ -1,0 +1,56 @@
+<section aria-label="Seats">
+  <button
+    #toggle
+    class="players-button"
+    type="button"
+    aria-label="Players"
+    title="Players"
+    aria-haspopup="dialog"
+    aria-controls="players-popover"
+    [attr.aria-expanded]="popoverOpen()"
+    (click)="togglePopover()"
+  >
+    <svg lucideUsers size="20"></svg>
+  </button>
+  <!-- Scrolls on its own if the seats outgrow the strip. -->
+  <ol aria-label="Seat order">
+    @for (player of seats(); track player.id) {
+      <li>
+        <!-- Focusable, so a keyboard user can bring up the player's name as a mouse user does. -->
+        <span
+          #seat
+          class="seat"
+          role="img"
+          tabindex="0"
+          [class.own]="isOwn(player)"
+          [class.turn]="hasTurn(player)"
+          [attr.aria-label]="seatName(player)"
+          [attr.aria-current]="hasTurn(player) ? 'true' : null"
+          (mouseenter)="showHint(player, seat)"
+          (mouseleave)="hideHint()"
+          (focus)="showHint(player, seat)"
+          (blur)="hideHint()"
+        >
+          <span class="initial">{{ initial(player) }}</span>
+          <app-player-avatar [src]="player.avatarUrl" />
+        </span>
+      </li>
+    }
+  </ol>
+</section>
+<!-- Outside the seats' scroller, so it isn't clipped; the seat's name is its accessible name already. -->
+@if (hint(); as hint) {
+  <span class="hint" aria-hidden="true" [style.top.px]="hint.top">{{ hint.name }}</span>
+}
+@if (popoverOpen()) {
+  <div
+    #popover
+    id="players-popover"
+    class="popover"
+    role="dialog"
+    aria-label="Players"
+    tabindex="-1"
+  >
+    <ng-container *ngTemplateOutlet="players()" />
+  </div>
+}

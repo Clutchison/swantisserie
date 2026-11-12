@@ -190,6 +190,7 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
   - **Plan:** your mainboard and sideboard, in stacks (by mana value, color or type, then the sideboard's one stack; a strip that scrolls sideways on a phone, and the default from tablet width) or list mode (the default on a phone), the basic lands control, the Plan notice and Queue unpicked
   - **Board:** every player's picks and the pick log
   - **Export:** your picks and export buttons
+  - **Players:** the Players panel, above the tabs. From 1200px, once the draft has started and until it is complete, the **Seat strip** takes its place on the right: avatars in seat order, marking whose turn it is and ringing your own, with a button that opens the full Players panel as a popover. A complete draft's Players panel is a pane on the right.
 
 ## Monthly cost
 

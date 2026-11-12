@@ -13,6 +13,7 @@ import {
   text,
 } from './harness';
 import { disclosure, toggleDisclosure } from './disclosure-harness';
+import { clickOn, findSeatStrip, playersButton, playersPopover } from './seat-strip-harness';
 
 useDraftsApp();
 
@@ -70,22 +71,37 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(true);
     });
 
-    it('stays open once the draft has started, showing every seat', async () => {
+    it('can be collapsed by hand in the lobby, where it sits above the tabs', async () => {
+      const { page } = await openDraft(completeSnapshot, { players: [bob] });
+
+      toggleDisclosure(page, 'Players · 1');
+
+      expect(panel(page).open).toBe(false);
+    });
+
+    it('is open, showing every seat, in the Seat strip’s popover once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+
+      clickOn(playersButton(page));
+
+      expect(panel(playersPopover(page)!).open).toBe(true);
+    });
+
+    it('stays open in the popover when its summary is clicked, keeping every seat in view', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+      clickOn(playersButton(page));
+
+      toggleDisclosure(playersPopover(page)!, 'Players · 1');
 
       expect(panel(page).open).toBe(true);
     });
 
-    it('stays open when the draft starts while the page is open', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, { players: [bob] });
-
-      await startLive(fixture);
-
-      expect(panel(page).open).toBe(true);
-    });
-
-    it('stays open when its summary is clicked, keeping every seat in view', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
+    it('stays open in a complete draft when its summary is clicked', async () => {
+      const { page } = await openDraft(completeSnapshot, {
+        ...drafting({ players: [bob] }),
+        state: 'Complete',
+        turn: null,
+      });
 
       toggleDisclosure(page, 'Players · 1');
 
@@ -101,7 +117,7 @@ describe('the Players panel', () => {
       expect(panel(page).open).toBe(false);
     });
 
-    it('collapses as the window narrows past the wide desktop, once the draft has started', async () => {
+    it('shows, collapsed, in place of the Seat strip as the window narrows past the wide desktop, once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       resizeTo('desktop');
@@ -143,12 +159,13 @@ describe('the Players panel', () => {
         expect(panel(page).open).toBe(false);
       });
 
-      it('opens as the window widens past the wide desktop, once the draft has started', async () => {
+      it('gives way to the Seat strip as the window widens past the wide desktop, once the draft has started', async () => {
         const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
         resizeTo('wide');
 
-        expect(panel(page).open).toBe(true);
+        expect(disclosure(page, 'Players · 1')).toBeNull();
+        expect(findSeatStrip(page)).not.toBeNull();
       });
 
       it('stays open in the lobby as the window widens and narrows again', async () => {

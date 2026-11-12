@@ -73,20 +73,26 @@ export class PlayersPanel {
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
   /**
-   * Whether the panel is a pane beside the tabs, as the window is resized:
-   * the layout in `draft-page.scss`. No `matchMedia` counts as a phone.
+   * Whether the page is at the wide desktop layout, as the window is resized,
+   * where a started draft's panel is in the Seat strip's popover and a complete
+   * one's in a pane beside the tabs: the layout in `draft-page.scss`. No
+   * `matchMedia` counts as a phone.
    */
   private readonly wide = matching(WIDE_DESKTOP_QUERY);
   /**
-   * The panel stays open in its pane on a wide desktop; narrower, it is open
-   * in the lobby and collapses once the draft starts, out of the tabs' way.
+   * The panel is open in the lobby, wherever it is, and stays open in its pane
+   * or popover on a wide desktop. Narrower, it collapses once the draft
+   * starts, out of the tabs' way.
    */
   protected readonly open = computed(() => this.wide() || this.inLobby());
   protected readonly playerCount = computed(() => this.draft().players.length);
 
-  /** On a wide desktop the panel stays open: a click on its summary doesn't close it. */
+  /**
+   * In its pane or popover on a wide desktop the panel stays open: a click on
+   * its summary doesn't close it. Above the tabs in the lobby, it can be closed.
+   */
   protected keepOpen(click: Event) {
-    if (this.wide()) click.preventDefault();
+    if (this.wide() && !this.inLobby()) click.preventDefault();
   }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');

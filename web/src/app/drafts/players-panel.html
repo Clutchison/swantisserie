@@ -1,5 +1,5 @@
 <details [open]="open()">
-  <!-- From the wide desktop breakpoint the panel stays open: its summary is only a heading there. -->
+  <!-- In its pane or popover on a wide desktop the panel stays open: its summary is only a heading there. -->
   <summary (click)="keepOpen($event)">
     <h2>Players · {{ playerCount() }}</h2>
   </summary>

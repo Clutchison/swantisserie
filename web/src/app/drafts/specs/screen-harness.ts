@@ -30,7 +30,8 @@ export function viewOn(screen: Screen) {
   screenNow = screen;
   breakpointListeners = [];
   vi.stubGlobal('matchMedia', (query: string) => ({
-    matches: SCREEN_QUERIES[screen].includes(query),
+    // The screen it is on when asked: a component made after a resize sees the new one.
+    matches: SCREEN_QUERIES[screenNow].includes(query),
     // Only a 'change' listener hears a breakpoint crossed, as in a browser.
     addEventListener: (type: string, listener: (event: { matches: boolean }) => void) => {
       if (type === 'change') breakpointListeners.push({ query, listener });
