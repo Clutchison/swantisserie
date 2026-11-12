@@ -18,6 +18,7 @@ import { ChangeDetectionStrategy, Component, input, linkedSignal, output } from 
         alt=""
         [width]="size()"
         [height]="size()"
+        (load)="loaded.emit()"
         (error)="failed.set(true); failedToLoad.emit()"
       />
     }
@@ -38,6 +39,8 @@ export class PlayerAvatar {
   readonly src = input.required<string>();
   /** Its width and height, in CSS pixels. */
   readonly size = input(32);
+  /** Says this avatar's image has loaded, for a host that shows something in its place until then. */
+  readonly loaded = output();
   /** Says this avatar failed to load, for a host that shows something else in its place. */
   readonly failedToLoad = output();
   /** Whether this avatar failed to load; another player's gets its own try. */

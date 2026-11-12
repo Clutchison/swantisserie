@@ -151,7 +151,12 @@ li {
   transform: translateY(-50%);
 }
 
-/* The avatar, `AVATAR_SIZE` in `seat-strip.ts`, with the player's initial behind it should the image be missing. */
+/*
+ * The avatar, `AVATAR_SIZE` in `seat-strip.ts`, filling the seat once it has
+ * loaded; until then, or if it fails or is missing, a disc with the player's
+ * initial. The avatar's host lays out as its image alone, so the image is the
+ * seat's only grid item, with the initial laid over the seat out of the grid.
+ */
 .seat {
   position: relative;
   display: grid;
@@ -162,8 +167,8 @@ li {
   border-radius: 50%;
   background: var(--color-raised);
 
-  > * {
-    grid-area: 1 / 1;
+  &.avatar-shown {
+    background: none;
   }
 
   /*
@@ -177,9 +182,17 @@ li {
 }
 
 .initial {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
   color: var(--color-muted);
   font-size: var(--font-size-xs);
   font-weight: 600;
+
+  .avatar-shown > & {
+    visibility: hidden;
+  }
 }
 
 /* The viewer's own seat: a ring. */

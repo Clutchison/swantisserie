@@ -128,6 +128,8 @@ export class SeatStrip {
 
   protected readonly popoverOpen = computed(() => this.panelOpen() && this.panelIn() === 'popover');
   protected readonly hint = signal<Hint | null>(null);
+  /** The avatar images that have loaded, by URL: a seat shows its player's in place of the disc and initial. */
+  private readonly loadedAvatars = signal<ReadonlySet<string>>(new Set());
   /**
    * Which of the two copies of the pulse the turn's seat plays, alternating
    * so that each turn change starts it afresh, even on the same seat; null
@@ -196,6 +198,16 @@ export class SeatStrip {
   protected initial(player: PlayerView) {
     const [first] = new Intl.Segmenter().segment(player.name);
     return first?.segment.toUpperCase() ?? '';
+  }
+
+  /** Whether `player`'s seat shows their avatar, loaded, in place of the disc and initial. */
+  protected avatarShown(player: PlayerView) {
+    return this.loadedAvatars().has(player.avatarUrl);
+  }
+
+  /** Notes that `player`'s avatar has loaded, so their seat shows it from now on. */
+  protected avatarLoaded(player: PlayerView) {
+    this.loadedAvatars.update((urls) => new Set(urls).add(player.avatarUrl));
   }
 
   /**
