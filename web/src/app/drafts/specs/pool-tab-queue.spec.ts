@@ -26,9 +26,10 @@ import {
   openQueue,
   statusTexts,
   serverError,
+  accessibleName,
 } from './harness';
-import { openDialog } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
+import { carol, openDialog } from '../../specs-harness';
+import { useTallScreen, shivan, brightclimb, openDetail, tiles, card } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -207,6 +208,114 @@ describe('pool tab', () => {
       );
 
       expect(button(await openDetail(fixture, page, 0), 'Add to queue')).toBeUndefined();
+    });
+
+    describe('Queued badge', () => {
+      const ancestral = card({
+        id: 'ancestral-card',
+        scryfallId: 'ancestral-id',
+        name: 'Ancestral Recall',
+      });
+
+      /** Each tile's accessible name, in the grid's order. */
+      const tileNames = (page: HTMLElement) => tiles(page).map(accessibleName);
+
+      it('shows each queued card’s place in your queue, and nothing on an unqueued card', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [ancestral, brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        expect(tileNames(page)).toEqual([
+          'Ancestral Recall',
+          'Brightclimb Pathway // Grimclimb Pathway Queued second',
+          'Shivan Dragon Queued first',
+        ]);
+        expect(tiles(page)[1].textContent).toContain('#2');
+        expect(tiles(page)[0].textContent).not.toContain('#');
+      });
+
+      it('says a queued card past the Queue cutoff is past your picks left', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 2 }), {
+          cards: [ancestral, brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb), queued(ancestral)] }),
+        });
+
+        expect(tileNames(page)).toEqual([
+          'Ancestral Recall Queued third, past your picks left',
+          'Brightclimb Pathway // Grimclimb Pathway Queued second',
+          'Shivan Dragon Queued first',
+        ]);
+      });
+
+      it('follows a reorder on the Queue tab', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        const queue = await openQueue(fixture, page);
+        button(queue, `Move ${brightclimb.name} up`)!.click();
+        http
+          .expectOne('/api/drafts/draft-1/queue')
+          .flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon Queued second',
+        ]);
+      });
+
+      it('goes once a card is removed from your queue', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        button(await openDetail(fixture, page, 1), 'Remove from queue')!.click();
+        http
+          .expectOne('/api/drafts/draft-1/queue/shivan-card')
+          .flush(queueOf({ cards: [queued(brightclimb)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon',
+        ]);
+      });
+
+      it('follows the queue as it is re-read after another player’s pick', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+        });
+
+        updates.events.next({
+          type: 'changed',
+          draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: alice.id }, version: 1 })),
+        });
+        await flushPicks([pickOf({ playerId: bob.id, poolCardId: 'shivan-card' })]);
+        await flushQueueAndPlan(queueOf({ cards: [queued(brightclimb)], lost: [queued(shivan)] }));
+        await fixture.whenStable();
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway Queued first',
+          'Shivan Dragon Picked by Bob',
+        ]);
+      });
+
+      it('shows a spectator none', async () => {
+        const { page } = await openDraft(completeSnapshot, drafting(), {
+          cards: [brightclimb, shivan],
+          user: carol,
+        });
+
+        expect(tileNames(page)).toEqual([
+          'Brightclimb Pathway // Grimclimb Pathway',
+          'Shivan Dragon',
+        ]);
+      });
     });
 
     describe('made from a Card detail since closed', () => {

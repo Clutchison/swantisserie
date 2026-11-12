@@ -21,6 +21,53 @@ export function place({ rank, shared }: PlaceView): string {
   return `${shared ? '=' : ''}${rank}${suffix}`;
 }
 
+/**
+ * A place in a list in words, as a screen reader should hear it: "first",
+ * "twenty-third". Past 99 it reads as digits, such as 100th.
+ */
+export function ordinalWords(position: number): string {
+  if (position >= 1 && position < 20) return FIRST_TO_NINETEENTH[position - 1];
+  if (position >= 20 && position < 100) {
+    const tens = Math.floor(position / 10) - 2;
+    const ones = position % 10;
+    return ones === 0 ? TENS_ORDINAL[tens] : `${TENS[tens]}-${FIRST_TO_NINETEENTH[ones - 1]}`;
+  }
+  return place({ rank: position, shared: false });
+}
+
+const FIRST_TO_NINETEENTH = [
+  'first',
+  'second',
+  'third',
+  'fourth',
+  'fifth',
+  'sixth',
+  'seventh',
+  'eighth',
+  'ninth',
+  'tenth',
+  'eleventh',
+  'twelfth',
+  'thirteenth',
+  'fourteenth',
+  'fifteenth',
+  'sixteenth',
+  'seventeenth',
+  'eighteenth',
+  'nineteenth',
+];
+const TENS = ['twenty', 'thirty', 'forty', 'fifty', 'sixty', 'seventy', 'eighty', 'ninety'];
+const TENS_ORDINAL = [
+  'twentieth',
+  'thirtieth',
+  'fortieth',
+  'fiftieth',
+  'sixtieth',
+  'seventieth',
+  'eightieth',
+  'ninetieth',
+];
+
 /** Words, such as a result ("won") or a format's name, as a line starts with them: "Won". */
 export function capitalised(words: string): string {
   return words.charAt(0).toUpperCase() + words.slice(1);
