@@ -172,11 +172,3 @@ button.preview-target {
     cursor: default;
   }
 }
-
-/* Actions on the whole plan, under its description. */
-.plan-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-sm);
-  margin-bottom: var(--space-md);
-}
