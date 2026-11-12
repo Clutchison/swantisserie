@@ -1,0 +1,50 @@
+name: Delete merged branches
+
+# When a PR merges into main, delete every branch it brought in: the PR's own
+# branch and any ticket branch merged into it first, such as the ST-<ticket>
+# branches of an /implement-spec integration branch.
+#
+# A branch is deleted when its tip is in the merged PR but was not already on
+# main. So a branch just cut from main, with nothing committed yet, is kept, and
+# so is a ticket branch that gained commits after it was merged in.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    if: github.event.pull_request.merged
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Delete the branches this PR merged
+        env:
+          MERGE: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          # A squash or rebase merge leaves no ancestry to follow. The repo's
+          # "Automatically delete head branches" setting still deletes the PR's
+          # own branch.
+          if [ "$(git rev-list --parents -n 1 "$MERGE" | wc -w)" -ne 3 ]; then
+            echo "Not a merge commit; leaving branches to GitHub's head-branch deletion."
+            exit 0
+          fi
+          before="$MERGE^1" # main just before the merge
+          merged="$MERGE^2" # the PR's head
+          git for-each-ref --format='%(refname:lstrip=3) %(objectname)' refs/remotes/origin |
+            while read -r branch tip; do
+              case "$branch" in main | HEAD) continue ;; esac
+              if git merge-base --is-ancestor "$tip" "$merged" &&
+                ! git merge-base --is-ancestor "$tip" "$before"; then
+                echo "Deleting $branch"
+                # GitHub may have deleted the PR's own branch already.
+                git push origin --delete "$branch" || echo "  already gone"
+              fi
+            done
