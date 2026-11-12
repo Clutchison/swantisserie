@@ -157,95 +157,97 @@
               [opensDetail]="true"
               (opened)="openDetail(card.poolCardId, $event)"
             />
-            @if (coarsePointer() && !readOnly()) {
-              <!-- On a touchscreen, a menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
-              @let menuName = 'Move or remove ' + card.name;
-              <span class="move">
-                <button
-                  #rowMenu
-                  class="icon"
-                  type="button"
-                  [attr.aria-label]="menuName"
-                  [title]="menuName"
-                  [cdkMenuTriggerFor]="moves"
-                  [appFocusKey]="'menu ' + card.poolCardId"
-                >
-                  <svg lucideEllipsisVertical size="16"></svg>
-                </button>
-              </span>
-              <ng-template #moves>
-                <div cdkMenu [attr.aria-label]="menuName">
+            @if (!readOnly()) {
+              @if (coarsePointer()) {
+                <!-- On a touchscreen, a menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
+                @let menuName = 'Move or remove ' + card.name;
+                <span class="move">
                   <button
+                    #rowMenu
+                    class="icon"
                     type="button"
-                    cdkMenuItem
-                    [cdkMenuItemDisabled]="first"
-                    (cdkMenuItemTriggered)="rowMenu.focus(); move(i, 0)"
+                    [attr.aria-label]="menuName"
+                    [title]="menuName"
+                    [cdkMenuTriggerFor]="moves"
+                    [appSendsChange]="'menu ' + card.poolCardId"
                   >
-                    Move to top
+                    <svg lucideEllipsisVertical size="16"></svg>
                   </button>
+                </span>
+                <ng-template #moves>
+                  <div cdkMenu [attr.aria-label]="menuName">
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      [cdkMenuItemDisabled]="first"
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, 0))"
+                    >
+                      Move to top
+                    </button>
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      [cdkMenuItemDisabled]="first"
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i - 1))"
+                    >
+                      Move up
+                    </button>
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      [cdkMenuItemDisabled]="last"
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i + 1))"
+                    >
+                      Move down
+                    </button>
+                    <button
+                      type="button"
+                      cdkMenuItem
+                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => remove(card.poolCardId))"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </ng-template>
+              } @else {
+                <span class="move">
+                  @let upName = 'Move ' + card.name + ' up';
                   <button
+                    class="icon"
                     type="button"
-                    cdkMenuItem
-                    [cdkMenuItemDisabled]="first"
-                    (cdkMenuItemTriggered)="rowMenu.focus(); move(i, i - 1)"
+                    [attr.aria-label]="upName"
+                    [title]="upName"
+                    (click)="move(i, i - 1)"
+                    [disabled]="first"
+                    [appSendsChange]="'up ' + card.poolCardId"
                   >
-                    Move up
+                    <svg lucideArrowUp size="16"></svg>
                   </button>
+                  @let downName = 'Move ' + card.name + ' down';
                   <button
+                    class="icon"
                     type="button"
-                    cdkMenuItem
-                    [cdkMenuItemDisabled]="last"
-                    (cdkMenuItemTriggered)="rowMenu.focus(); move(i, i + 1)"
+                    [attr.aria-label]="downName"
+                    [title]="downName"
+                    (click)="move(i, i + 1)"
+                    [disabled]="last"
+                    [appSendsChange]="'down ' + card.poolCardId"
                   >
-                    Move down
+                    <svg lucideArrowDown size="16"></svg>
                   </button>
+                  @let removeName = 'Remove ' + card.name;
                   <button
+                    class="icon"
                     type="button"
-                    cdkMenuItem
-                    (cdkMenuItemTriggered)="rowMenu.focus(); remove(card.poolCardId)"
+                    [attr.aria-label]="removeName"
+                    [title]="removeName"
+                    (click)="remove(card.poolCardId)"
+                    [appSendsChange]="'remove ' + card.poolCardId"
                   >
-                    Remove
+                    <svg lucideTrash size="16"></svg>
                   </button>
-                </div>
-              </ng-template>
-            } @else if (!readOnly()) {
-              <span class="move">
-                @let upName = 'Move ' + card.name + ' up';
-                <button
-                  class="icon"
-                  type="button"
-                  [attr.aria-label]="upName"
-                  [title]="upName"
-                  (click)="move(i, i - 1)"
-                  [disabled]="first"
-                  [appSendsChange]="'up ' + card.poolCardId"
-                >
-                  <svg lucideArrowUp size="16"></svg>
-                </button>
-                @let downName = 'Move ' + card.name + ' down';
-                <button
-                  class="icon"
-                  type="button"
-                  [attr.aria-label]="downName"
-                  [title]="downName"
-                  (click)="move(i, i + 1)"
-                  [disabled]="last"
-                  [appSendsChange]="'down ' + card.poolCardId"
-                >
-                  <svg lucideArrowDown size="16"></svg>
-                </button>
-                @let removeName = 'Remove ' + card.name;
-                <button
-                  class="icon"
-                  type="button"
-                  [attr.aria-label]="removeName"
-                  [title]="removeName"
-                  (click)="remove(card.poolCardId)"
-                  [appSendsChange]="'remove ' + card.poolCardId"
-                >
-                  <svg lucideTrash size="16"></svg>
-                </button>
-              </span>
+                </span>
+              }
             }
           </li>
         } @empty {

@@ -38,7 +38,7 @@ import { CardPreviews } from './card-preview';
 import { changeFailure, COARSE_POINTER_QUERY, DRAG_START_DELAY, matching } from './drafts';
 import { PicksLeft } from './picks-left';
 import { DraftStore } from './draft-store';
-import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
+import { Changes, ChangeStatus, SendsChange } from './changes';
 import { QueueApi } from './queue-api';
 import { LoadingAnimation } from '../loading/loading-animation';
 
@@ -88,7 +88,6 @@ let panes = 0;
     CdkMenu,
     CdkMenuItem,
     CdkMenuTrigger,
-    FocusKey,
     LoadingAnimation,
     LucideArrowDown,
     LucideArrowLeftRight,
@@ -277,6 +276,15 @@ export class QueuePane {
         (opener?.isConnected ? opener : null) ??
         this.host.querySelector<HTMLElement>('[aria-haspopup="dialog"]'),
     });
+  }
+
+  /**
+   * A row menu's item chosen: focus goes back to the menu's button first, as
+   * the menu it leaves closes, so the change keeps it there as a button's would.
+   */
+  protected fromRowMenu(trigger: HTMLElement, change: () => unknown) {
+    trigger.focus();
+    return change();
   }
 
   /**

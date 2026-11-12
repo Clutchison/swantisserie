@@ -36,7 +36,14 @@ import {
   namedImages,
   accessibleName,
 } from './harness';
-import { menu, menuItem, menuItems, openDialog, openMenu, pressEscape } from '../../specs-harness';
+import {
+  disabledMenuItems,
+  menu,
+  menuItem,
+  openDialog,
+  openMenu,
+  pressEscape,
+} from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
 
@@ -618,10 +625,7 @@ describe('Queue pane list', () => {
         queue: threeQueued(),
       });
       const queue = queuePane(page);
-      const unavailable = (card: string) =>
-        menuItems(rowMenuName(card)).filter(
-          (item) => menuItem(rowMenuName(card), item)!.getAttribute('aria-disabled') === 'true',
-        );
+      const unavailable = (card: string) => disabledMenuItems(rowMenuName(card));
 
       expect(openRowMenu(queue, 'Shivan Dragon')).toEqual([
         'Move to top',
@@ -670,15 +674,20 @@ describe('Queue pane list', () => {
       await vi.waitFor(() => expect(document.activeElement).toBe(button(queue, rowMenuName(card))));
     });
 
-    it('moves a card up or down from its menu', async () => {
+    it('moves a card up or down from its menu, keeping focus on its menu', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [bolt, brightclimb, shivan],
         queue: threeQueued(),
       });
       const queue = queuePane(page);
+      const shivanMenu = () => button(queue, rowMenuName('Shivan Dragon'));
 
       openRowMenu(queue, 'Shivan Dragon');
       choose('Shivan Dragon', 'Move down');
+      await fixture.whenStable();
+      // Shown at once and still in flight: the menu is busy, but keeps focus.
+      expect(shivanMenu()!.getAttribute('aria-disabled')).toBe('true');
+      expect(document.activeElement).toBe(shivanMenu());
       const down = http.expectOne('/api/drafts/draft-1/queue');
       expect(down.request.body).toEqual({
         poolCardIds: ['bolt-card', 'brightclimb-card', 'shivan-card'],
@@ -690,6 +699,8 @@ describe('Queue pane list', () => {
           'Shivan Dragon moved from position 2 to 3 in your queue',
         ]),
       );
+      await vi.waitFor(() => expect(document.activeElement).toBe(shivanMenu()));
+      expect(shivanMenu()!.getAttribute('aria-disabled')).toBeNull();
 
       openRowMenu(queue, 'Shivan Dragon');
       choose('Shivan Dragon', 'Move up');
@@ -699,6 +710,8 @@ describe('Queue pane list', () => {
       });
       up.flush(threeQueued());
       await fixture.whenStable();
+      await vi.waitFor(() => expect(names(queue)[1]).toBe('Shivan Dragon'));
+      await vi.waitFor(() => expect(document.activeElement).toBe(shivanMenu()));
     });
 
     it('removes a card from its menu, moving focus to the next card’s menu', async () => {
