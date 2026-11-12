@@ -45,11 +45,12 @@ section {
 ol {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xs);
+  /* Wide enough that a focused seat's outline clears its neighbour's ring. */
+  gap: var(--space-md);
   min-block-size: 0;
   margin: 0;
-  /* Room for each seat's ring and turn mark, which the scroller would clip. */
-  padding: var(--space-xs);
+  /* Room for each seat's focus outline, ring and turn mark, which the scroller would clip. */
+  padding: var(--space-sm);
   overflow-y: auto;
   list-style: none;
 }
@@ -80,6 +81,15 @@ ol {
   box-shadow:
     0 0 0 2px var(--color-bg),
     0 0 0 4px var(--color-accent);
+}
+
+/*
+ * Focus: an outline in the text colour, not the site's accent one, which
+ * looks like the own seat's ring. Outside that ring, so it still shows.
+ */
+.seat:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 4px;
 }
 
 /* Whose turn it is: a mark to the seat's left, apart from the ring. */
