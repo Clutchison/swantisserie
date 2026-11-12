@@ -13,7 +13,7 @@ import { MAX_PLAYERS } from 'engine';
 import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
-import { changeFailure, hasTurn, isRefusal } from './drafts';
+import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
 import { Changes, FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import { Questions } from '../question-dialog';
@@ -114,7 +114,7 @@ export class DraftHeader {
   /** Joins the draft; focus goes to Leave, which takes Join's place. */
   protected join() {
     return this.send(this.http.post<DraftView>(`/api/drafts/${this.draft().id}/players`, null), {
-      failure: "Couldn't update the players. Try again in a moment.",
+      failure: PLAYERS_CHANGE_FAILED,
       keep: ['leave'],
     });
   }
@@ -122,7 +122,7 @@ export class DraftHeader {
   /** Leaves the draft; focus goes to Join, which takes Leave's place. */
   protected leave() {
     return this.send(this.http.delete<DraftView>(`/api/drafts/${this.draft().id}/players/me`), {
-      failure: "Couldn't update the players. Try again in a moment.",
+      failure: PLAYERS_CHANGE_FAILED,
       keep: ['join'],
     });
   }
@@ -213,7 +213,8 @@ export class DraftHeader {
    */
   protected cancel(more: HTMLElement) {
     more.focus();
-    return this.changes.send(
+    return sendDraftChange(
+      this.changes,
       async () => {
         const { id, name } = this.draft();
         const goAhead = await this.questions.ask(
@@ -226,49 +227,58 @@ export class DraftHeader {
           this.injector,
         );
         if (!goAhead) return;
-        this.error.set(null);
-        this.changeStarted.emit();
-        try {
-          await firstValueFrom(this.http.delete<void>(`/api/drafts/${id}`));
+        return async () => {
+          try {
+            await firstValueFrom(this.http.delete<void>(`/api/drafts/${id}`));
+          } catch (err) {
+            // The draft has moved on: catch up with it.
+            if (isRefusal(err)) this.store.catchUp();
+            throw err;
+          }
           this.cancelled.emit();
-          return true;
-        } catch (err) {
-          this.error.set(changeFailure(err, "Couldn't cancel the draft. Try again in a moment."));
-          if (isRefusal(err)) this.store.catchUp();
-          return false;
-        }
+        };
       },
-      // Stays busy once cancelled: the page is leaving.
-      { busyOnceMade: true },
+      {
+        failure: "Couldn't cancel the draft. Try again in a moment.",
+        started: () => this.started(),
+        failed: (message) => this.error.set(message),
+        // Stays busy once cancelled: the page is leaving.
+        busyOnceMade: true,
+      },
     );
   }
 
   /**
    * Sends a change to the draft, the request `request` makes (none if the
-   * organizer thinks better of it), and shows the draft it answers with,
-   * unless another change to it is in flight, from here or the lobby controls. `failure` is shown if it fails, or
-   * the API's reason if it refused, and the store catches up with the
-   * draft. Focus is kept as `Changes.send` keeps it.
+   * organizer thinks better of it), and shows the draft it answers with, as
+   * `sendDraftChange` sends it; the store catches up with a draft that has
+   * moved on. Focus is kept as `Changes.send` keeps it.
    */
   private send(
     request: Observable<DraftView> | (() => Promise<Observable<DraftView> | undefined>),
     { failure, keep }: { failure: string; keep?: string[] },
   ) {
-    return this.changes.send(
-      async () => {
-        const sending = typeof request === 'function' ? await request() : request;
-        if (!sending) return;
-        this.error.set(null);
-        this.changeStarted.emit();
-        try {
-          await this.store.changeDraft(sending);
-          return true;
-        } catch (err) {
-          this.error.set(changeFailure(err, failure));
-          return false;
-        }
+    return sendDraftChange(
+      this.changes,
+      () => {
+        const send = (sending: Observable<DraftView>) => () => this.store.changeDraft(sending);
+        // A plain request is sent at once; one that asks first, once answered.
+        return typeof request === 'function'
+          ? request().then((sending) => sending && send(sending))
+          : send(request);
       },
-      { keep },
+      {
+        failure,
+        started: () => this.started(),
+        failed: (message) => this.error.set(message),
+        keep,
+      },
     );
+  }
+
+  /** A change is about to be sent: earlier failures no longer stand. */
+  private started() {
+    this.error.set(null);
+    this.changeStarted.emit();
   }
 }

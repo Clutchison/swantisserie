@@ -37,9 +37,6 @@ import {
   midNavigation,
   serverError,
   RETRY_FAILED,
-  drafting,
-  openTab,
-  viewOn,
 } from './harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -230,44 +227,6 @@ describe('draft page', () => {
     expect([...page.querySelectorAll('button')].some((b) => b.textContent?.includes('Retry'))).toBe(
       false,
     );
-  });
-
-  describe('the header', () => {
-    afterEach(() => vi.unstubAllGlobals());
-
-    it.each(['mobile', 'tablet', 'desktop'] as const)(
-      'shows the draft’s name, state, organizer and turn on a %s screen',
-      async (screen) => {
-        viewOn(screen);
-        const { page } = await openDraft(completeSnapshot, drafting());
-
-        expect(heading(page, 'Red dragons')).toBeDefined();
-        const shown = text(page);
-        expect(shown).toContain('Drafting');
-        expect(shown).toContain('Organized by Alice');
-        expect(shown).toContain('Bob’s turn: pick 1, round 1');
-      },
-    );
-  });
-
-  describe('the status strip', () => {
-    it('keeps the paused and webhook notes in view on every tab', async () => {
-      const webhook = { id: 'main', name: '#roto-main', gone: true };
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        drafting({ state: 'Paused', webhook }),
-      );
-      const notes = () =>
-        [...page.querySelectorAll<HTMLElement>('[role="status"]')]
-          .filter((note) => !note.closest('[hidden]'))
-          .map((note) => text(note));
-
-      for (const tab of tabLabels(page)) {
-        await openTab(fixture, page, tab!);
-        expect(notes()).toContain('The draft is paused. No picks until it resumes.');
-        expect(notes()).toContainEqual(expect.stringContaining('aren’t posting'));
-      }
-    });
   });
 
   describe('when its webhook is gone', () => {

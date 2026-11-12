@@ -19,6 +19,7 @@ import {
   ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
+  buttonOrder,
 } from './harness';
 import {
   chooseFromMore,
@@ -26,6 +27,7 @@ import {
   moreMenu,
   moreMenuItem,
   offeredInMore,
+  openMore,
 } from './draft-header-harness';
 
 useDraftsApp();
@@ -66,6 +68,13 @@ describe('close and reopen', () => {
     expect(button(page, 'Pause draft')).toBeUndefined();
     expect(button(page, 'Reopen draft')).toBeDefined();
     await vi.waitFor(() => expect(document.activeElement).toBe(button(page, 'Reopen draft')));
+  });
+
+  it('offers More, then Pause draft, in the header before the first pick, with Close draft in More', async () => {
+    const { page } = await openDraft(completeSnapshot, underway);
+
+    expect(buttonOrder(page, 'Pause draft')).toEqual(['More', 'Pause draft']);
+    expect(openMore(page)).toEqual(['Close draft']);
   });
 
   it('offers closing a paused draft', async () => {

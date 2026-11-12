@@ -20,7 +20,13 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import { changeFailure, DESKTOP_QUERY, hasTurn, isRefusal } from './drafts';
+import {
+  DESKTOP_QUERY,
+  hasTurn,
+  isRefusal,
+  PLAYERS_CHANGE_FAILED,
+  sendDraftChange,
+} from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
@@ -238,20 +244,17 @@ export class LobbyControls {
    */
   private changeLobby(
     request: Observable<DraftView>,
-    kept: { keep?: string[]; status?: string } = {},
+    options: { keep?: string[]; status?: string } = {},
   ) {
-    const failure = "Couldn't update the players. Try again in a moment.";
-    return this.changes.send(async () => {
-      this.lobbyError.set(null);
-      this.changeStarted.emit();
-      try {
-        await this.store.changeDraft(request);
-        return true;
-      } catch (err) {
-        this.lobbyError.set(changeFailure(err, failure));
-        return false;
-      }
-    }, kept);
+    return sendDraftChange(this.changes, () => () => this.store.changeDraft(request), {
+      failure: PLAYERS_CHANGE_FAILED,
+      started: () => {
+        this.lobbyError.set(null);
+        this.changeStarted.emit();
+      },
+      failed: (message) => this.lobbyError.set(message),
+      ...options,
+    });
   }
 }
 

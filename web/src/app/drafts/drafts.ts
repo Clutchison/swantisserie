@@ -11,6 +11,7 @@ import type {
   SetListEntryView,
   TurnState,
 } from 'contract';
+import type { Changes } from './changes';
 
 /**
  * The media query of the draft page's desktop layout, where the tabs sit at
@@ -113,6 +114,53 @@ export function isRefusal(err: unknown): err is RefusalResponse {
 export function changeFailure(err: unknown, fallback: string): string {
   // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
   return (isRefusal(err) && err.error?.message) || fallback;
+}
+
+/** What a failed change to the players or seats says when the api gives no reason. */
+export const PLAYERS_CHANGE_FAILED = "Couldn't update the players. Try again in a moment.";
+
+/** What sends a change to the draft; undefined when the viewer thought better of it. */
+type Sending = (() => Promise<unknown>) | undefined;
+
+/**
+ * Sends one change to the draft through `changes`, which keeps focus and
+ * sends one change at a time, and answers whether it was made. `go` asks
+ * the viewer whatever it must, then answers what sends the change, or
+ * nothing if they thought better of it. Before it is sent, `started` runs;
+ * if it fails, `failed` hears why: the api's reason if it refused, else
+ * `failure`. `options` are `Changes.send`'s.
+ */
+export function sendDraftChange(
+  changes: Changes,
+  go: () => Sending | Promise<Sending>,
+  {
+    failure,
+    started,
+    failed,
+    ...options
+  }: {
+    failure: string;
+    started: () => void;
+    failed: (message: string) => void;
+    keep?: string[];
+    status?: string;
+    busyOnceMade?: boolean;
+  },
+): Promise<boolean> {
+  return changes.send(async () => {
+    // Not awaited when `go` asks nothing, so the change is sent at once, as pressed.
+    const made = go();
+    const sending = made instanceof Promise ? await made : made;
+    if (!sending) return;
+    started();
+    try {
+      await sending();
+      return true;
+    } catch (err) {
+      failed(changeFailure(err, failure));
+      return false;
+    }
+  }, options);
 }
 
 /** What a failed change to the plan says when the api gives no reason. */

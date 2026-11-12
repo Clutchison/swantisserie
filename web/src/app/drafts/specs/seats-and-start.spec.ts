@@ -27,6 +27,7 @@ import {
   type AppFixture,
   ORGANIZE_ONLY,
   powersAnswer,
+  buttonOrder,
   ALL_POWERS,
 } from './harness';
 
@@ -73,6 +74,16 @@ describe('seats and start', () => {
     expect(page.textContent?.replace(/\s+/g, ' ')).toContain(
       'Another player’s turn: pick 1, round 1',
     );
+  });
+
+  it('offers a joined organizer Leave, More, then Start draft in the header, and Randomize seats then Import picks beside the seats', async () => {
+    const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+    expect(buttonOrder(page, 'Start draft')).toEqual(['Leave', 'More', 'Start draft']);
+    expect(buttonOrder(section(page, 'Players'), 'Randomize seats')).toEqual([
+      'Randomize seats',
+      'Import picks',
+    ]);
   });
 
   it('lets the organizer randomize the seats', async () => {

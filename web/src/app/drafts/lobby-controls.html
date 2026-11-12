@@ -65,8 +65,8 @@
     }
   </ol>
 </details>
-@if (inLobby()) {
-  <!-- The seating tools: randomizing seats, bots and pick import. -->
+<!-- The seating tools: randomizing seats, bots and pick import. -->
+@if (inLobby() && (canOrganize() || canAddBots())) {
   <div class="controls">
     @if (canOrganize()) {
       <button
