@@ -65,6 +65,22 @@ body {
   color: var(--color-text);
   font-family: var(--font-family);
   font-size: var(--font-size-md);
+  /* A comfortable rhythm for reading. Headings, controls and dense grids set a tighter one of their own. */
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  line-height: 1.25;
+}
+
+/* A table is a dense grid of figures: standings, results, stats. */
+table {
+  line-height: 1.25;
 }
 
 h1 {
@@ -82,12 +98,22 @@ h6 {
   font-size: var(--font-size-md);
 }
 
-/* Form controls otherwise keep the browser's own font. */
+/*
+ * Form controls otherwise keep the browser's own font. A control's label is a
+ * line, not a paragraph, so it keeps a tight line height; a textarea is a paragraph.
+ */
 button,
 input,
 select,
 textarea {
   font: inherit;
+}
+
+button,
+input,
+select,
+.button {
+  line-height: 1.25;
 }
 
 /*

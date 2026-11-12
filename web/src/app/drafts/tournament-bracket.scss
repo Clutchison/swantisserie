@@ -9,7 +9,9 @@
 }
 
 // The rounds scroll sideways inside their own region, so the page never does.
+// Their match boxes are a dense grid of names, so they keep a tight line height.
 .rounds {
+  line-height: 1.25;
   display: flex;
   gap: var(--space-md);
   overflow-x: auto;
