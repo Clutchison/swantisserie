@@ -71,6 +71,7 @@ describe('steal behavior', () => {
           cleared: [],
           restKept: false,
           stealBehavior: 'PickNext',
+          queuePaused: false,
         },
       );
       expect(await stealBehavior(id)).toBe('PickNext');
@@ -179,6 +180,7 @@ describe('steal behavior', () => {
         cleared: [shock, spike],
         restKept: false,
         stealBehavior: 'PickNext',
+        queuePaused: false,
       });
     });
   });
@@ -199,6 +201,7 @@ describe('steal behavior', () => {
         cleared: [],
         restKept: true,
         stealBehavior: 'PickNext',
+        queuePaused: false,
       });
     });
 
@@ -240,6 +243,7 @@ describe('steal behavior', () => {
         cleared: [],
         restKept: true,
         stealBehavior: 'PickNext',
+        queuePaused: false,
       });
     });
 
@@ -265,6 +269,7 @@ describe('steal behavior', () => {
         cleared: [shock],
         restKept: false,
         stealBehavior: 'ClearQueue',
+        queuePaused: false,
       });
     });
   });
@@ -287,6 +292,7 @@ describe('steal behavior', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'PickNext',
+        queuePaused: false,
       });
     });
 

@@ -44,6 +44,14 @@ export const findQueuePane = (page: HTMLElement) =>
 /** The Queue notice inside `root`, naming lost and cleared cards: a status by its name. Null if there is none. */
 export const queueNotice = (root: HTMLElement) =>
   byAriaLabel(root, '[role="status"]', 'Queue notice');
+/** The switch inside `root` that pauses the queue or sets it picking, named for the state it is in. */
+export const queuePausedSwitch = (root: HTMLElement) =>
+  root.querySelector<HTMLButtonElement>('button[role="switch"]')!;
+/** What the statuses inside `root` say to screen readers, such as what a change just made did. */
+export const queueStatuses = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('[role="status"]')].map((status) =>
+    status.textContent?.trim(),
+  );
 /** The Queue pane, which is there. */
 export const queuePane = (page: HTMLElement) => findQueuePane(page)!;
 /**

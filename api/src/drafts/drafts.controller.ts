@@ -67,7 +67,7 @@ import {
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
 import { toDraftView, toPickView, toPoolCardView } from './draft-view.js';
-import { BotPlayers } from './bot-players.js';
+import { DraftChanges } from './draft-changes.js';
 import { isPlatform, PLATFORMS } from './platform.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { isPoolSourceKind } from './pool-source.js';
@@ -92,7 +92,7 @@ export class DraftsController {
     private readonly turns: TurnsService,
     private readonly lifecycle: DraftLifecycleService,
     private readonly publisher: DraftPublisher,
-    private readonly bots: BotPlayers,
+    private readonly changes: DraftChanges,
     private readonly badges: TournamentBadges,
   ) {}
 
@@ -380,10 +380,8 @@ export class DraftsController {
     id: string,
     change: () => Promise<DraftEvent[] | void>,
   ): Promise<DraftView> {
-    const events = await change();
-    const draft = await this.publisher.publish(id, events ?? []);
+    const draft = await this.changes.committed(id, (await change()) ?? []);
     if (!draft) throw new NotFoundException();
-    if (events) this.bots.scheduleNextPick(id, events);
     return draft;
   }
 

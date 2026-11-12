@@ -68,8 +68,8 @@ const STEAL_BEHAVIORS: Record<
   },
 };
 
-/** Where a failed change is explained: by the steal behavior pill, or under the queue. */
-type ErrorPlace = 'stealBehavior' | 'queue';
+/** Where a failed change is explained: by the queue paused switch, by the steal behavior pill, or under the queue. */
+type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
 let panes = 0;
@@ -165,6 +165,9 @@ export class QueuePane {
   protected readonly dragStartDelay = DRAG_START_DELAY;
   /** Whether the latest press on a row became a drag, so the click that ends it opens nothing. */
   private dragged = false;
+
+  /** The queue's state, as its switch names it. */
+  protected readonly queueStateName = computed(() => queueStateName(this.queue().queuePaused));
 
   protected readonly stealBehaviorName = computed(
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
@@ -393,6 +396,26 @@ export class QueuePane {
     );
   }
 
+  /**
+   * Sets the queue to queue paused, or queue picking, showing it at once. If that
+   * fails, the previous state shows again until the queue is re-read.
+   */
+  protected toggleQueuePaused() {
+    const previous = this.queue().queuePaused;
+    const queuePaused = !previous;
+    return this.change(
+      () => {
+        this.store.showQueue({ ...this.queue(), queuePaused });
+        return this.queueApi.setQueuePaused(this.draftId(), queuePaused);
+      },
+      {
+        place: 'queuePaused',
+        rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: previous }),
+        status: queueStateName(queuePaused),
+      },
+    );
+  }
+
   /** Stops the notice listing the lost and cleared cards. */
   protected dismissNotice() {
     return this.change(() => this.queueApi.dismissNotice(this.draftId()));
@@ -424,6 +447,11 @@ export class QueuePane {
       }
     }, kept);
   }
+}
+
+/** A queue's state, as its switch names it. */
+function queueStateName(queuePaused: boolean): string {
+  return queuePaused ? 'Queue paused' : 'Queue picking';
 }
 
 /**

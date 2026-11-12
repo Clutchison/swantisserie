@@ -142,6 +142,7 @@ describe('undo', () => {
       cleared: [],
       restKept: false,
       stealBehavior: 'ClearQueue',
+      queuePaused: false,
     });
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
@@ -221,6 +222,7 @@ describe('undo', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
+        queuePaused: false,
       });
       expect(undone.body.turn.playerId).toBe(alice.id);
       expect(await pickLogLines(id)).toEqual([]);
@@ -312,6 +314,7 @@ describe('undo', () => {
         cleared: [shock],
         restKept: false,
         stealBehavior: 'ClearQueue',
+        queuePaused: false,
       });
 
       await undo(id, 1).expect(200);
@@ -322,6 +325,7 @@ describe('undo', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
+        queuePaused: false,
       });
     });
   });
@@ -350,6 +354,7 @@ describe('undo', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
+        queuePaused: false,
       });
       // The picked copy is back in the pool.
       await pick(id, first).expect(200);
@@ -382,6 +387,7 @@ describe('undo', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'PickNext',
+        queuePaused: false,
       });
     });
 
@@ -410,6 +416,7 @@ describe('undo', () => {
         cleared: [],
         restKept: false,
         stealBehavior: 'ClearQueue',
+        queuePaused: false,
       });
     });
   });

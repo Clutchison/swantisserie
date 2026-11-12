@@ -1,16 +1,45 @@
 import { describe, expect, it } from 'vitest';
-import { cascade } from './cascade.js';
+import { cascade, type CascadeSeat } from './cascade.js';
+import type { StealBehavior } from './queue.js';
+
+/**
+ * A cascade's seats, one per queue in `queues`: on clear queue, with an
+ * empty plan and the queue picking, unless `stealBehaviors`, `plans` or
+ * `queuesPaused` say otherwise for that seat.
+ */
+function seatsOf(
+  queues: readonly (readonly string[])[],
+  {
+    stealBehaviors = [],
+    plans = [],
+    queuesPaused = [],
+  }: {
+    stealBehaviors?: readonly StealBehavior[];
+    plans?: readonly (readonly string[])[];
+    queuesPaused?: readonly boolean[];
+  } = {},
+): CascadeSeat[] {
+  return queues.map((queue, seat) => ({
+    queue,
+    stealBehavior: stealBehaviors[seat] ?? 'ClearQueue',
+    plan: plans[seat] ?? [],
+    queuePaused: queuesPaused[seat] ?? false,
+  }));
+}
 
 /** The picks a cascade makes with no plans, without their effects. */
 function picks(
   draft: Parameters<typeof cascade>[0],
-  queues: Parameters<typeof cascade>[1],
+  queues: readonly (readonly string[])[],
   pool: Parameters<typeof cascade>[2],
-  stealBehaviors: Parameters<typeof cascade>[3] = [],
+  stealBehaviors: readonly StealBehavior[] = [],
+  queuesPaused: readonly boolean[] = [],
 ) {
-  return cascade(draft, queues, pool, stealBehaviors, []).map(
-    ({ pick }) => pick,
-  );
+  return cascade(
+    draft,
+    seatsOf(queues, { stealBehaviors, queuesPaused }),
+    pool,
+  ).map(({ pick }) => pick);
 }
 
 // A pool holding one copy of each card.
@@ -136,6 +165,30 @@ describe('cascade', () => {
     ]);
   });
 
+  it('stops at a seat whose queue is paused, as at an empty queue', () => {
+    expect(
+      picks(
+        { players: 3, picksPerPlayer: 2, picked: [] },
+        [['shock'], ['bolt'], ['spike']],
+        singles,
+        [],
+        [false, true, false],
+      ),
+    ).toEqual([{ seat: 0, card: 'shock' }]);
+  });
+
+  it('makes no pick when the seat whose turn it is has its queue paused', () => {
+    expect(
+      picks(
+        { players: 2, picksPerPlayer: 2, picked: [] },
+        [['shock'], ['bolt']],
+        singles,
+        [],
+        [true, false],
+      ),
+    ).toEqual([]);
+  });
+
   it('stops at a seat whose queued cards have all been picked', () => {
     expect(
       picks(
@@ -174,10 +227,8 @@ describe('cascade', () => {
       expect(
         cascade(
           { players: 3, picksPerPlayer: 1, picked: [] },
-          [['bolt-1'], ['bolt-1', 'shock'], []],
+          seatsOf([['bolt-1'], ['bolt-1', 'shock'], []]),
           bolts,
-          [],
-          [],
         ),
       ).toEqual([
         {
@@ -191,7 +242,7 @@ describe('cascade', () => {
             },
             { queue: [], cleared: [] },
           ],
-          plans: [],
+          plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
@@ -200,7 +251,7 @@ describe('cascade', () => {
             { queue: ['shock'], cleared: [] },
             { queue: [], cleared: [] },
           ],
-          plans: [],
+          plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
       ]);
     });
@@ -209,10 +260,8 @@ describe('cascade', () => {
       // Seat 1's plan holds Shock unpicked, the only copy, which seat 0 takes.
       const [first] = cascade(
         { players: 2, picksPerPlayer: 1, picked: [] },
-        [['shock'], []],
+        seatsOf([['shock'], []], { plans: [['bolt-1'], ['bolt-1', 'shock']] }),
         bolts,
-        [],
-        [['bolt-1'], ['bolt-1', 'shock']],
       );
       expect(first.plans).toEqual([
         { plan: ['bolt-1'] },
@@ -225,10 +274,8 @@ describe('cascade', () => {
       expect(
         cascade(
           { players: 2, picksPerPlayer: 1, picked: [] },
-          [['bolt-1'], ['bolt-2']],
+          seatsOf([['bolt-1'], ['bolt-2']], { plans: [[], ['bolt-1']] }),
           bolts,
-          [],
-          [[], ['bolt-1']],
         ).map(({ plans }) => plans),
       ).toEqual([
         [
@@ -242,10 +289,8 @@ describe('cascade', () => {
     it('gives a queue that loses a card under clear queue its cleared cards', () => {
       const [first] = cascade(
         { players: 2, picksPerPlayer: 2, picked: [] },
-        [['shock'], ['shock', 'bolt-1']],
+        seatsOf([['shock'], ['shock', 'bolt-1']]),
         bolts,
-        [],
-        [],
       );
       expect(first.queues[1]).toEqual({
         queue: [],
@@ -257,10 +302,10 @@ describe('cascade', () => {
     it('gives a queue that loses a card under pick next the rest it keeps', () => {
       const [first] = cascade(
         { players: 2, picksPerPlayer: 2, picked: [] },
-        [['shock'], ['shock', 'bolt-1']],
+        seatsOf([['shock'], ['shock', 'bolt-1']], {
+          stealBehaviors: ['ClearQueue', 'PickNext'],
+        }),
         bolts,
-        ['ClearQueue', 'PickNext'],
-        [],
       );
       expect(first.queues[1]).toEqual({
         queue: ['bolt-1'],

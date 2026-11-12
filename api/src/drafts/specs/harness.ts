@@ -666,6 +666,20 @@ export function setStealBehavior(
   });
 }
 
+/** Sets the player's queue to queue paused, or queue picking if `queuePaused` is false. */
+export function setQueuePaused(
+  id: string,
+  queuePaused: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('put', `/${id}/queue/paused`, cookie, { queuePaused });
+}
+
+/** Whether the player's queue is queue paused, as their queue gives it. */
+export async function queuePaused(id: string, cookie = aliceCookie) {
+  return (await queue(id, cookie).expect(200)).body.queuePaused as boolean;
+}
+
 /** The player's plan in the draft. */
 export function plan(id: string, cookie: string) {
   return draftsRequest('get', `/${id}/plan`, cookie);

@@ -1,10 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  QueuedCardView,
-  QueueRefusal,
-  QueueView,
-  StealBehavior,
-} from 'contract';
+import type { QueuedCardView, QueueView, StealBehavior } from 'contract';
 import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
@@ -13,17 +8,16 @@ import { lockPlayer } from './draft-lock.js';
 import { draftSize, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
+import {
+  checkQueueChangeable,
+  checkStarted,
+  QueueRefusedError,
+} from './queue-refusals.js';
 
 /** Thrown when a new order doesn't list exactly the queued cards. */
 export class QueueChangedError extends Error {
   constructor() {
     super('Your queue has changed. Reload and try again.');
-  }
-}
-
-export class QueueRefusedError extends Error {
-  constructor(readonly refusal: QueueRefusal) {
-    super(refusal.message);
   }
 }
 
@@ -275,18 +269,7 @@ export class QueuesService {
       const locked = await lockPlayer(tx, draftId, userId);
       if (!locked) throw new NotAPlayerError('queues');
       const { playerId, state } = locked;
-      if (state === 'Closed') {
-        throw new QueueRefusedError({
-          error: 'draft-closed',
-          message: 'This draft is closed.',
-        });
-      }
-      if (state === 'Complete') {
-        throw new QueueRefusedError({
-          error: 'draft-complete',
-          message: 'This draft is complete.',
-        });
-      }
+      checkQueueChangeable(state);
       await apply(tx, playerId, state);
       return this.read(tx, playerId);
     });
@@ -319,9 +302,9 @@ export class QueuesService {
   }
 
   private async read(tx: Transaction, playerId: string): Promise<QueueView> {
-    const { stealBehavior } = await tx.player.findUniqueOrThrow({
+    const { stealBehavior, queuePaused } = await tx.player.findUniqueOrThrow({
       where: { id: playerId },
-      select: { stealBehavior: true },
+      select: { stealBehavior: true, queuePaused: true },
     });
     const cards = await tx.queuedCard.findMany({
       where: { playerId },
@@ -366,21 +349,8 @@ export class QueuesService {
         : { lost: [first, ...more], restKept: lost[lost.length - 1].restKept }),
       cleared: listed.filter((card) => !isLost(card)).map(toQueuedCardView),
       stealBehavior,
+      queuePaused,
     };
-  }
-}
-
-/**
- * Throws QueueRefusedError in the lobby, where adding to a queue and setting
- * steal behavior wait for the draft to start. A queue already filled in the
- * lobby is kept, and cascades at the start.
- */
-function checkStarted(state: DraftState): void {
-  if (state === 'Lobby') {
-    throw new QueueRefusedError({
-      error: 'not-started',
-      message: 'You can queue once the draft starts.',
-    });
   }
 }
 

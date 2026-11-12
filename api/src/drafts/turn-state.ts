@@ -13,10 +13,11 @@ const TURN_PLAYER = {
   id: true,
   userId: true,
   stealBehavior: true,
+  queuePaused: true,
   ...EVENT_PLAYER,
 } satisfies Prisma.PlayerSelect;
 
-/** A player as a turn reads them: who they are, and their steal behavior. */
+/** A player as a turn reads them: who they are, their steal behavior, and whether their queue is queue paused. */
 export type TurnPlayer = Prisma.PlayerGetPayload<{
   select: typeof TURN_PLAYER;
 }>;
@@ -102,12 +103,15 @@ export async function readTurnState(
     },
   });
   return {
-    players: players.map(({ id, userId, stealBehavior, user }) => ({
-      id,
-      userId,
-      stealBehavior,
-      user,
-    })),
+    players: players.map(
+      ({ id, userId, stealBehavior, queuePaused, user }) => ({
+        id,
+        userId,
+        stealBehavior,
+        queuePaused,
+        user,
+      }),
+    ),
     queues: players.map((player) => player.queue),
     plans: players.map((player) =>
       player.plan.map((planned) => planned.poolCardId),
