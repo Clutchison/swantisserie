@@ -25,7 +25,8 @@ export const DESKTOP_QUERY = '(min-width: 1024px)';
 
 /**
  * The media query of a screen whose primary pointer is touch, where a queue
- * row is dragged by its handle, and moved or removed from its row menu.
+ * row's menu button is also its drag handle: a tap opens the row menu, and a
+ * held press drags the row.
  */
 export const COARSE_POINTER_QUERY = '(pointer: coarse)';
 

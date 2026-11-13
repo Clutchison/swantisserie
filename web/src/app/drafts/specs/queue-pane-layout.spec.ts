@@ -415,7 +415,7 @@ describe('Queue pane layout', () => {
       await fixture.whenStable();
 
       expect(shownHelp(pane)?.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Tap a card’s menu button for its menu, or hold it to drag the card.',
+        'Tap a card’s menu button, or hold it to drag the card and reorder.',
       );
     });
 

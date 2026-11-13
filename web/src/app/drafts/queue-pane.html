@@ -90,8 +90,8 @@
         @if (draftState() === 'Closed') {
           Cards are picked for you in this order if the draft reopens.
         } @else if (coarsePointer()) {
-          Cards are picked for you in this order. Tap a card’s menu button for its menu, or hold it
-          to drag the card.
+          Cards are picked for you in this order. Tap a card’s menu button, or hold it to drag the
+          card and reorder.
         } @else {
           Cards are picked for you in this order. Drag a card, or use its menu, to reorder.
         }
@@ -176,7 +176,8 @@
                 With a mouse the whole row drags, so its menu button is no handle: a row
                 with any handle drags only by it. On a touchscreen the menu button is the
                 row's one handle, so a swipe on the rest of the row scrolls; a tap opens
-                the menu and a held press drags.
+                the menu and a held press drags. The two buttons differ only by
+                cdkDragHandle and its class: any other attribute change goes in both.
               -->
               @if (coarsePointer()) {
                 <button
@@ -206,7 +207,10 @@
                   <svg lucideEllipsisVertical size="16"></svg>
                 </button>
               }
-              <!-- The menu's button, which its items give focus back to. -->
+              <!--
+                The menu's button, which its items give focus back to, comes in as the
+                trigger's data (let-rowMenu): a #rowMenu inside the @if isn't visible here.
+              -->
               <ng-template #moves let-rowMenu>
                 <div cdkMenu [attr.aria-label]="menuName">
                   <button

@@ -126,7 +126,7 @@
     background: var(--color-bg);
   }
 
-  /* With a mouse, the whole row drags. */
+  /* A row with no handle, as with a mouse, drags as a whole. */
   li:not(.empty, .cutoff):not(:has(.handle)) {
     cursor: grab;
   }

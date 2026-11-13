@@ -238,7 +238,7 @@ export class QueuePane {
         if (
           this.dragged &&
           event.detail > 0 &&
-          (event.target as Element).closest('.cdk-drag-handle')
+          (event.target as Element).closest('.handle')
         ) {
           event.stopPropagation();
         }
