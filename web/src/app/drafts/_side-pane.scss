@@ -5,7 +5,7 @@
  * popover takes the same width.
  */
 
-@use 'hidden-scrollbar';
+@use 'scrollbar';
 
 /* The column's width. */
 $width: 19rem;
@@ -15,7 +15,7 @@ $width: 19rem;
  * with no scrollbar to narrow the card names in a long queue.
  */
 @mixin sticky {
-  @include hidden-scrollbar.hide;
+  @include scrollbar.hide-scrollbar;
 
   position: sticky;
   top: 0;

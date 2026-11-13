@@ -1,6 +1,6 @@
-@use 'hidden-scrollbar';
+@use 'scrollbar';
 
 /* The Queue sheet's body, the Queue pane, scrolls with no scrollbar, as the pane beside the tabs does. */
 .dialog-body {
-  @include hidden-scrollbar.hide;
+  @include scrollbar.hide-scrollbar;
 }

@@ -1,10 +1,11 @@
 /*
  * A scroller that shows no scrollbar, so a classic scrollbar never takes its
  * width from what's inside, nor takes it only once the content grows long
- * enough to scroll. It still scrolls by wheel, trackpad, touch and keyboard,
- * and drag and drop still scrolls it near its edges. No fade marks more below.
+ * enough to scroll. It still scrolls by wheel, trackpad, touch and keyboard.
+ * It adds no fade to show there is more to scroll; a caller that needs one
+ * adds it.
  */
-@mixin hide {
+@mixin hide-scrollbar {
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
