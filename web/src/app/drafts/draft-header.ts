@@ -58,15 +58,25 @@ export class DraftHeader {
   /** The organizer cancelled the draft. */
   readonly cancelled = output<void>();
 
-  /** Whose turn it is, as the page puts it: "Your turn" for the signed-in user. */
+  /**
+   * Whose turn it is, as the page puts it: "Your turn" for the signed-in
+   * user, and on a double turn the picks left on it.
+   */
   protected readonly turn = computed(() => {
     const turn = this.store.turn();
     if (!turn) return null;
     // A player no longer in the draft is the fallback, capitalized to start the sentence.
     const player = this.store.findPlayer(turn.playerId);
     const whose = this.store.yourTurn() ? 'Your' : `${player?.name ?? 'Another player'}’s`;
+    // A double turn says the picks left on it; a single turn, which has one, doesn't.
+    const double =
+      turn.picksBeforeTurnPasses === 2
+        ? ' · 2 picks'
+        : this.store.turnStartPick() !== turn.pick
+          ? ' · 1 more pick'
+          : '';
     return {
-      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}`,
+      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}${double}`,
       isBot: !!player?.isBot,
     };
   });

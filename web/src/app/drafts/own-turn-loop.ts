@@ -12,7 +12,11 @@ import { DraftStore } from './draft-store';
 /** The events that count as the viewer pressing: a pointer press or a key press, not a move, scroll or focus. */
 const PRESSES = ['pointerdown', 'keydown'] as const;
 
-/** Where the draft's turn stands for the viewer: which pick, whether it is drafting, and whether it is theirs. */
+/**
+ * Where the draft's turn stands for the viewer: the pick that started it,
+ * which a double turn's second pick shares, whether it is drafting, and
+ * whether it is theirs.
+ */
 interface TurnState {
   readonly pick: number | null;
   readonly drafting: boolean;
@@ -32,7 +36,7 @@ export class OwnTurnLoop {
 
   private readonly turnState = computed<TurnState>(
     () => ({
-      pick: this.store.turn()?.pick ?? null,
+      pick: this.store.turnStartPick(),
       drafting: this.store.draft.value()?.state === 'Drafting',
       own: this.store.yourTurn(),
     }),
@@ -42,8 +46,8 @@ export class OwnTurnLoop {
   );
 
   /**
-   * The pick of the turn on which the viewer pressed, stopping the loop; null
-   * while they haven't. Each new turn, and each return to drafting, clears
+   * The start pick of the turn on which the viewer pressed, stopping the
+   * loop; null while they haven't. Each new turn, and each return to drafting, clears
    * it, except at the turnaround: a pick they pressed to make by hand that
    * leaves the turn with them doesn't start the loop again.
    */

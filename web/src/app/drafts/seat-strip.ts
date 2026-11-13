@@ -55,8 +55,8 @@ const ARROW_SIZE = 14;
  * order, in a row in the tab bar from the desktop layout and under the draft
  * header below it, ringing the seat whose turn it is, with arrows between
  * the seats pointing toward the next player to pick. The turn's ring pulses
- * three times when the turn changes to another player. The viewer's own ring
- * pulses on through their turn, as `OwnTurnLoop` says, until they press a
+ * three times when the turn changes, though not for a double turn's second
+ * pick. The viewer's own ring pulses on through their turn, as `OwnTurnLoop` says, until they press a
  * pointer or a key, then finishes its beat and rests. The turn's seat and the
  * next seat are scrolled into view when the row is too long to show whole. Its
  * Players button opens `playersPanel`, the full Players panel, where
@@ -102,14 +102,16 @@ export class SeatStrip {
   private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
 
   /**
-   * The player who picks after the turn's player, by the snake order: the
-   * turn's player again at the end of a round. Null on the draft's last pick.
+   * The player who picks after the turn passes, by the snake order: the
+   * turn's player again at the end of a round. Null on the draft's last turn.
    */
   private readonly nextPlayer = computed(() => {
     const turn = this.store.turn();
     if (!turn) return null;
     const seats = this.seats();
-    const next = nextTurn(draftSize(this.store.shown(), seats.length), turn.pick);
+    // The turn's last pick: the next on a double turn's first.
+    const lastPick = turn.pick + turn.picksBeforeTurnPasses - 1;
+    const next = nextTurn(draftSize(this.store.shown(), seats.length), lastPick);
     return next ? (seats[next.seat] ?? null) : null;
   });
 
@@ -154,10 +156,11 @@ export class SeatStrip {
       else this.popover()?.nativeElement.focus();
     });
     // A turn change pulses the turn's seat three times; the turn the strip
-    // first shows doesn't. The viewer's own ring, looping, plays the loop instead.
+    // first shows doesn't, nor a double turn's second pick. The viewer's own
+    // ring, looping, plays the loop instead.
     let shownPick: number | undefined;
     effect(() => {
-      const pick = this.store.turn()?.pick;
+      const pick = this.store.turnStartPick() ?? undefined;
       if (shownPick !== undefined && pick !== undefined && pick !== shownPick) {
         untracked(() =>
           this.pulse.update((copy) =>

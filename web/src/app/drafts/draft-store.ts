@@ -44,6 +44,7 @@ import {
   isRefusal,
   NO_POWERS,
   queueStateName,
+  turnStartPick,
 } from './drafts';
 import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
 import { planBoardCount } from './plan-boards';
@@ -192,6 +193,14 @@ export class DraftStore implements TournamentViewer {
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   readonly turn = computed(() => this.draft.value()?.turn ?? null);
   readonly yourTurn = computed(() => this.turn()?.playerId === this.user()?.id);
+  /**
+   * The pick that started the turn, which both picks of a double turn share,
+   * so a change to it is the turn passing; null with no turn.
+   */
+  readonly turnStartPick = computed(() => {
+    const turn = this.turn();
+    return turn && turnStartPick(draftSize(this.shown(), this.players().length), turn);
+  });
 
   /** The pool's cards wait for the snapshot. */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.

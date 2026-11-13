@@ -10,9 +10,10 @@ import type {
   QueueView,
   SetListEntryView,
   TurnState,
+  TurnView,
 } from 'contract';
 import { isTurnState } from 'contract';
-import type { DraftSize } from 'engine';
+import { currentTurn, type DraftSize } from 'engine';
 import type { Changes } from './changes';
 
 /** The engine's size of `draft`, with `players` players, as the api works it out. */
@@ -21,6 +22,19 @@ export function draftSize(
   players: number,
 ): DraftSize {
   return { players, picksPerPlayer, doublePicks };
+}
+
+/**
+ * The 1-based pick that started `turn`, which every pick of the turn shares:
+ * the pick before on the second pick of a double turn, else its own.
+ */
+export function turnStartPick(
+  size: DraftSize,
+  { pick, picksBeforeTurnPasses }: Pick<TurnView, 'pick' | 'picksBeforeTurnPasses'>,
+): number {
+  if (picksBeforeTurnPasses === 2 || pick === 1) return pick;
+  // The pick before started a double turn, so this is its second.
+  return currentTurn(size, pick - 2)?.picksBeforeTurnPasses === 2 ? pick - 1 : pick;
 }
 
 /**
