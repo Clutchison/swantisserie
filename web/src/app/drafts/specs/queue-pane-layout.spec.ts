@@ -403,7 +403,7 @@ describe('Queue pane layout', () => {
       expect(document.getElementById(info.getAttribute('aria-controls')!)).toBe(shownHelp(pane));
     });
 
-    it('says on a touchscreen that a card moves by its handle or its menu', async () => {
+    it('says on a touchscreen that a card’s menu opens with a tap and drags when held', async () => {
       viewOn('desktop', { pointer: 'coarse' });
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
@@ -415,7 +415,7 @@ describe('Queue pane layout', () => {
       await fixture.whenStable();
 
       expect(shownHelp(pane)?.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Drag a card by its handle, or use its menu, to reorder.',
+        'Tap a card’s menu button, or hold it to drag the card and reorder.',
       );
     });
 

@@ -113,16 +113,12 @@
   }
 }
 
-/* The position, cost, name and row menu; on a touchscreen, the handle first. */
+/* The position, cost, name and row menu, which on a touchscreen is also the row's drag handle. */
 .queue {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
   margin: 0;
   padding: 0;
   list-style: none;
-
-  &.with-handles {
-    --card-row-columns: auto auto [cost] max-content [name] minmax(0, 1fr) auto;
-  }
 
   li {
     gap: var(--space-sm);
@@ -130,8 +126,8 @@
     background: var(--color-bg);
   }
 
-  /* With a mouse, the whole row drags. */
-  &:not(.with-handles) li:not(.empty, .cutoff) {
+  /* A row with no handle, as with a mouse, drags as a whole. */
+  li:not(.empty, .cutoff):not(:has(.handle)) {
     cursor: grab;
   }
 
@@ -151,22 +147,6 @@
   li.past-cutoff {
     opacity: 0.5;
   }
-}
-
-/* Finger-sized, and a long press on it starts no text selection or callout. */
-.handle {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  color: var(--color-muted);
-  font-size: var(--font-size-lg);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-touch-callout: none;
 }
 
 .number {
@@ -196,6 +176,15 @@ app-card-name {
     opacity: 0.4;
     cursor: default;
   }
+}
+
+/* The row menu as a touchscreen's drag handle: finger-sized, and a long press on it starts no text selection or callout. */
+.icon.handle {
+  width: 2.75rem;
+  height: 2.75rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* CDK drag-drop: the cards making way for the one being dragged. */

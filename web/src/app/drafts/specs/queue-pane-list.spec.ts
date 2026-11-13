@@ -33,6 +33,8 @@ import {
   draggable,
   dragHandle,
   touchDrag,
+  startDrag,
+  pointer,
   namedImages,
   accessibleName,
   chooseInOpenRowMenu,
@@ -41,7 +43,14 @@ import {
   rowMenuName,
   rowMenu,
 } from './harness';
-import { disabledMenuItems, menu, openDialog, openMenu, pressEscape } from '../../specs-harness';
+import {
+  disabledMenuItems,
+  menu,
+  menuItems,
+  openDialog,
+  openMenu,
+  pressEscape,
+} from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
 
@@ -575,7 +584,7 @@ describe('Queue pane list', () => {
   describe('on a touchscreen', () => {
     beforeEach(() => viewOn('desktop', { pointer: 'coarse' }));
 
-    it('gives each row a drag handle', async () => {
+    it('makes each row’s menu its drag handle, one control named for its card', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
@@ -583,20 +592,46 @@ describe('Queue pane list', () => {
       const queue = queuePane(page);
 
       for (const card of ['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']) {
-        expect(dragHandle(fixture, cardName(queue, card))).toBeDefined();
+        expect(dragHandle(fixture, cardName(queue, card))).toBe(rowMenu(queue, card));
       }
     });
 
-    it('starts a drag from the handle only once a press has been held, so a swipe scrolls', async () => {
+    it('starts a drag from a row’s menu only once a press has been held, so a swipe scrolls', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
       });
-      const handle = dragHandle(fixture, cardName(queuePane(page), 'Shivan Dragon'))!;
+      const control = rowMenu(queuePane(page), 'Shivan Dragon')!;
 
-      expect(touchDrag(fixture, handle, 0)).toBe(false);
-      expect(touchDrag(fixture, handle, 500)).toBe(true);
+      expect(touchDrag(fixture, control, 0)).toBe(false);
+      expect(touchDrag(fixture, control, 500)).toBe(true);
       await fixture.whenStable();
+    });
+
+    it('opens a row’s menu on a tap, but not as a drag from it ends', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const control = rowMenu(queuePane(page), 'Shivan Dragon')!;
+      const lift = () => {
+        control.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+        TestBed.tick();
+      };
+
+      control.dispatchEvent(pointer('pointerdown', 'touch'));
+      startDrag(fixture, control);
+      lift();
+      expect(menu(rowMenuName('Shivan Dragon'))).toBeNull();
+
+      control.dispatchEvent(pointer('pointerdown', 'touch'));
+      lift();
+      expect(menuItems(rowMenuName('Shivan Dragon'))).toEqual([
+        'Move to top',
+        'Move up',
+        'Move down',
+        'Remove',
+      ]);
     });
 
     it('offers no handle or menu once the queue is read-only', async () => {
