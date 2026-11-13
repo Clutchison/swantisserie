@@ -38,6 +38,18 @@ describe('draft header', () => {
         expect(shown).toContain('Bob’s turn: pick 1, round 1');
       },
     );
+
+    it('shows the draft’s double picks', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ doublePicks: 20 }));
+
+      expect(text(page)).toContain('Double picks: last 20');
+    });
+
+    it('says nothing of double picks for a draft without them', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting());
+
+      expect(text(page)).not.toContain('Double picks');
+    });
   });
 
   describe('the Announcements button', () => {

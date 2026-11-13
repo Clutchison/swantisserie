@@ -108,7 +108,8 @@ export class SeatStrip {
     const turn = this.store.turn();
     if (!turn) return null;
     const seats = this.seats();
-    const size = { players: seats.length, picksPerPlayer: this.store.shown().picksPerPlayer };
+    const { picksPerPlayer, doublePicks } = this.store.shown();
+    const size = { players: seats.length, picksPerPlayer, doublePicks };
     const next = nextTurn(size, turn.pick);
     return next ? (seats[next.seat] ?? null) : null;
   });

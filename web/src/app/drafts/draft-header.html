@@ -9,6 +9,9 @@
     <p class="facts">
       <span class="state">{{ shown.state }}</span>
       <span class="detail">Organized by {{ shown.organizer.name }}</span>
+      @if (shown.doublePicks > 0) {
+        <span class="detail">Double picks: last {{ shown.doublePicks }}</span>
+      }
       @if (turn(); as turn) {
         <span class="turn">
           {{ turn.text }}

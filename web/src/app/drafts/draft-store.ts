@@ -320,6 +320,7 @@ export class DraftStore implements TournamentViewer {
       {
         players: this.players().length,
         picksPerPlayer: draft.picksPerPlayer,
+        doublePicks: draft.doublePicks,
         picked: this.picks.value().map((pick) => pick.poolCardId),
       },
       seat,

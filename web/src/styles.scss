@@ -239,6 +239,49 @@ button {
 }
 
 /*
+ * An on/off setting as an aria-pressed button with a fixed label, such as the
+ * Pool tab's Hide picked: a 44px touch target, told apart by the ring, the
+ * text's strength and a check, not by color alone. Unpressed, its padding
+ * holds the check's room, so pressing it doesn't change its width.
+ */
+.toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  box-sizing: border-box;
+  height: 44px;
+  padding: 0 calc(var(--space-sm) + (16px + var(--space-xs)) / 2);
+  border: 2px solid var(--color-raised);
+  border-radius: 22px;
+  background: transparent;
+  color: var(--color-muted);
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-raised);
+  }
+
+  &[aria-pressed='true'] {
+    padding-inline: var(--space-sm);
+    border-color: var(--color-text);
+    color: var(--color-text);
+  }
+}
+
+/*
+ * Forced colours may draw the unpressed border too, so pressed draws a
+ * thicker ring, taking the extra width from the padding.
+ */
+@media (forced-colors: active) {
+  .toggle-button[aria-pressed='true'] {
+    padding-inline: calc(var(--space-sm) - 2px);
+    border-width: 4px;
+  }
+}
+
+/*
  * Not the raised background, as accent text on raised fails AA.
  * No specificity, so a component's own hover wins.
  */

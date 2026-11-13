@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { DraftView, QueueRefusal } from 'contract';
+import type { QueueRefusal } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -35,6 +35,7 @@ import {
   queueSheet,
   startDraft,
   chooseInRowMenu,
+  type FixtureTurn,
 } from './harness';
 import { viewOn } from './screen-harness';
 import { carol, openDialog, openDialogs, text, visibleText } from '../../specs-harness';
@@ -585,7 +586,7 @@ describe('pool tab', () => {
       });
 
       /** Pushes a change of turn to the page, and answers the re-reads it causes. */
-      async function turnChanges(fixture: AppFixture, turn: DraftView['turn'], version = 1) {
+      async function turnChanges(fixture: AppFixture, turn: FixtureTurn, version = 1) {
         updates.events.next({
           type: 'changed',
           draft: draft(drafting({ turn, version })),

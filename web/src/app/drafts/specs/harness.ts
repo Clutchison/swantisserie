@@ -91,7 +91,11 @@ export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 54
  * so partial fixtures spread into each other type-check; `draft` checks they
  * match instead.
  */
-export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: TurnView | null };
+export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: FixtureTurn | null };
+
+/** A turn as a fixture gives it: a single turn's 1 pick left on the turn unless it says otherwise. */
+export type FixtureTurn = Omit<TurnView, 'picksLeftOnTurn'> &
+  Partial<Pick<TurnView, 'picksLeftOnTurn'>>;
 
 /**
  * The default draft with `fields` changed. A Drafting or Frozen draft given no
@@ -105,6 +109,7 @@ export function draft(fields: DraftFixture): DraftView {
     name: 'Red dragons',
     poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     picksPerPlayer: 40,
+    doublePicks: 0,
     platform: 'Arena',
     organizer: { id: alice.id, name: alice.name },
     snapshot: completeSnapshot,
@@ -117,7 +122,7 @@ export function draft(fields: DraftFixture): DraftView {
   if (isTurnState(state)) {
     if (turn === null) throw new Error(`A ${state} draft needs a turn.`);
     const first = { pick: 1, round: 1, playerId: made.players[0]?.id ?? alice.id };
-    return { ...made, state, turn: turn ?? first };
+    return { ...made, state, turn: { picksLeftOnTurn: 1, ...(turn ?? first) } };
   }
   if (turn) throw new Error(`A ${state} draft has no turn.`);
   return { ...made, state, turn: null };
