@@ -1,4 +1,5 @@
 @use '../../breakpoints' as bp;
+@use 'scrollbar';
 
 /* Stacks mode's layout, after the Deck tab's own styles: the wide layout, and the strip with its stack headers. */
 
@@ -130,11 +131,7 @@ $fade: 2rem;
       /* A stack scrolled or snapped to stops clear of the faded edge, a faded sliver of the one before it showing. */
       scroll-padding-inline-start: $fade;
       scroll-snap-type: x proximity;
-      scrollbar-width: none;
-
-      &::-webkit-scrollbar {
-        display: none;
-      }
+      @include scrollbar.hide-scrollbar;
 
       .plan-board {
         flex: none;
@@ -188,11 +185,7 @@ $fade: 2rem;
         overflow-x: auto;
         padding: var(--stack-headers-padding);
         scroll-padding-inline: $fade;
-        scrollbar-width: none;
-
-        &::-webkit-scrollbar {
-          display: none;
-        }
+        @include scrollbar.hide-scrollbar;
       }
 
       /*

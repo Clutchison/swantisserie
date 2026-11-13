@@ -5,11 +5,18 @@
  * popover takes the same width.
  */
 
+@use 'scrollbar';
+
 /* The column's width. */
 $width: 19rem;
 
-/* It stays in view as a tab scrolls, and scrolls on its own when it's long. */
+/*
+ * It stays in view as a tab scrolls, and scrolls on its own when it's long,
+ * with no scrollbar to narrow the card names in a long queue.
+ */
 @mixin sticky {
+  @include scrollbar.hide-scrollbar;
+
   position: sticky;
   top: 0;
   box-sizing: border-box;

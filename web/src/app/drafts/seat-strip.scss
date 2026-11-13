@@ -1,4 +1,5 @@
 @use 'side-pane';
+@use 'scrollbar';
 
 /* The own seat's ring: a bg gap, then the accent, reaching $ring-width out from the avatar. */
 $ring-gap: 2px;
@@ -75,11 +76,7 @@ ol {
   /* A seat focused or kept in view scrolls clear of the fades. */
   scroll-padding-inline: $fade;
   /* It scrolls by wheel, swipe or a seat's focus, with no bar to fill the tab bar. */
-  scrollbar-width: none;
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
+  @include scrollbar.hide-scrollbar;
 
   @media (prefers-reduced-motion: no-preference) {
     scroll-behavior: smooth;
