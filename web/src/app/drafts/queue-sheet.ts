@@ -23,6 +23,6 @@ import { SheetClose } from './sheet-close';
       <button class="button secondary" type="button" cdkFocusInitial appSheetClose>Close</button>
     </div>
   </div>`,
-  styleUrls: ['../dialog.scss', './sheet.scss'],
+  styleUrls: ['../dialog.scss', './sheet.scss', './queue-sheet.scss'],
 })
 export class QueueSheet {}
