@@ -212,7 +212,7 @@ app-card-name {
     font-weight: 600;
   }
 
-  /* The state dims with its button, as the whole control did as a switch. */
+  /* The state can't be changed while its button is disabled, so its label dims with it. */
   &:has(.play-pause:disabled) .label {
     opacity: 0.6;
   }

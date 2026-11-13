@@ -74,6 +74,7 @@ export {
   queuePane,
   queuePaneToggle,
   queuePlayPauseButton,
+  queueRowNames,
   queueSheet,
   queueStatuses,
   rowMenu,

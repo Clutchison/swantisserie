@@ -170,7 +170,7 @@
             (pointerdown)="pressed()"
             (cdkDragStarted)="dragStarted()"
           >
-            @let nextUp = first && hasNextUpCard();
+            @let nextUp = card.poolCardId === nextUpCard()?.poolCardId;
             @if (nextUp) {
               <span class="number next-up"
                 ><svg lucideArrowRight size="16" aria-hidden="true"></svg

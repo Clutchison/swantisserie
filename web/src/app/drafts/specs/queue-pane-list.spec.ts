@@ -18,6 +18,7 @@ import {
   drafting,
   queued,
   queueOf,
+  pickOf,
   queuePane,
   statusTexts,
   type AppFixture,
@@ -28,6 +29,7 @@ import {
   cardName,
   cardNames,
   queueList,
+  queueRowNames,
   text,
   draggable,
   dragHandle,
@@ -41,9 +43,7 @@ import {
   openRowMenu,
   rowMenuName,
   rowMenu,
-  pickOf,
 } from './harness';
-import { queueRowNames } from './queue-harness';
 import { disabledMenuItems, menu, menuItems, openDialog, pressEscape } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
@@ -625,12 +625,12 @@ describe('Queue pane list', () => {
 
     it('shows each card’s mana cost before its name', async () => {
       const { page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [shivan],
-        queue: queueOf({ cards: [queued(shivan)] }),
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(brightclimb), queued(shivan)] }),
       });
 
-      const row = queuePane(page).querySelector('li')!;
-      expect(accessibleName(row)).toMatch(/.+ Shivan Dragon/);
+      const row = queuePane(page).querySelectorAll('li')[1];
+      expect(accessibleName(row)).toMatch(/^2 .+ Shivan Dragon/);
       expect(namedImages(row).map((symbol) => symbol.alt)).toHaveLength(3);
     });
 
