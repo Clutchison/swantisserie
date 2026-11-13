@@ -79,6 +79,47 @@ describe('pick import', () => {
     ]);
   });
 
+  it('takes a round of double turns from two rows in turn order and leaves the turn mid double turn', async () => {
+    // A round of single turns, A B, then a round of double turns, B B A A.
+    const id = await readyDraft(
+      [aliceCookie, await signIn(bob)],
+      3,
+      [...cards, 'Ember Stag', 'Fen Lurker'],
+      null,
+      2,
+    );
+    const doubles = [
+      ',Ann,Ben,',
+      '->,Ash Golem,Brine Wisp,',
+      ',Ember Stag,Cinder Hound,<-',
+      ',,Dusk Heron,<-',
+    ].join('\n');
+
+    const answer = await importPicks(id, doubles, previewed).expect(200);
+
+    expect(answer.body.turn).toEqual({
+      pick: 6,
+      round: 2,
+      playerId: alice.id,
+      picksBeforeTurnPasses: 1,
+    });
+    const log = await pickLog(id);
+    const names = await pickedNames(id);
+    expect(
+      log.body.map((pick: { pick: number; playerId: string }, i: number) => [
+        pick.pick,
+        pick.playerId,
+        names[i],
+      ]),
+    ).toEqual([
+      [1, alice.id, 'Ash Golem'],
+      [2, bob.id, 'Brine Wisp'],
+      [3, bob.id, 'Cinder Hound'],
+      [4, bob.id, 'Dusk Heron'],
+      [5, alice.id, 'Ember Stag'],
+    ]);
+  });
+
   it('takes a different copy for each use of a card’s name', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, [
       'Ash Golem',
