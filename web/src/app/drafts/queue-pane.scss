@@ -9,13 +9,16 @@
 /*
  * The pane scrolls, so it clips what reaches past its edges. Its padding,
  * taken back by its margin, leaves room for the focus ring of a control at
- * either edge, such as a row menu, while the column and its rows keep their width.
+ * either edge, such as a row menu, while the column and its rows keep their
+ * width. The ring is 2px, 2px out.
  */
 :host(.collapsible) {
+  --focus-room: var(--space-xs);
+
   position: relative;
-  inline-size: calc(side-pane.$width + 2 * var(--space-xs));
-  margin-inline: calc(-1 * var(--space-xs));
-  padding-inline: var(--space-xs);
+  inline-size: calc(side-pane.$width + 2 * var(--focus-room));
+  margin-inline: calc(-1 * var(--focus-room));
+  padding-inline: var(--focus-room);
 }
 
 :host(.collapsed) {
@@ -30,7 +33,7 @@
 .toggle {
   position: absolute;
   top: 0;
-  right: var(--space-xs);
+  right: var(--focus-room);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -47,6 +50,7 @@
 /* The rail: the toggle alone, with the queue's size, a pause icon while it is queue paused and a dot for an unseen Queue notice. */
 :host(.collapsed) .toggle {
   position: relative;
+  right: auto;
   flex-direction: column;
   gap: var(--space-xs);
   padding: var(--space-sm) var(--space-xs);
@@ -173,12 +177,6 @@
 
 app-card-name {
   font-weight: 600;
-}
-
-.move {
-  display: flex;
-  justify-self: end;
-  gap: var(--space-xs);
 }
 
 .icon {

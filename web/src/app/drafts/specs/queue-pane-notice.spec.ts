@@ -27,7 +27,7 @@ import {
   openQueueSheet,
   queueNotice,
   cardNames,
-  fromRowMenu,
+  chooseInRowMenu,
   openRowMenu,
   rowMenu,
   rowMenuName,
@@ -266,7 +266,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       const queue = queuePane(page);
       expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
 
-      fromRowMenu(queue, 'Shivan Dragon', 'Move up');
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Move up');
       await fixture.whenStable();
       expect(rows(queue)).toEqual(['Shivan Dragon', CUTOFF, 'Lightning Bolt']);
       http
@@ -279,7 +279,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       await vi.waitFor(() =>
         expect(rowMenu(queue, 'Lightning Bolt').getAttribute('aria-disabled')).toBeNull(),
       );
-      fromRowMenu(queue, 'Lightning Bolt', 'Remove');
+      chooseInRowMenu(queue, 'Lightning Bolt', 'Remove');
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue/bolt-card'))).flush(
         queueOf({ cards: [queued(shivan)] }),
       );

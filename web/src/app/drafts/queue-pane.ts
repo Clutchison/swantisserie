@@ -318,6 +318,11 @@ export class QueuePane {
     });
   }
 
+  /** What a card's row menu button is found by, focus-wise. */
+  protected menuKey(poolCardId: string) {
+    return `menu ${poolCardId}`;
+  }
+
   /**
    * A row menu's item chosen: focus goes back to the menu's button first, as
    * the menu it leaves closes, so the change keeps it there as a button's would.
@@ -362,7 +367,7 @@ export class QueuePane {
       },
       {
         status: `${name} moved from position ${from + 1} to ${to + 1} in your queue`,
-        // Put the card back, so focus can go back to the button pressed.
+        // Put the card back, so focus can go back to its row menu button.
         rollBack: () => this.store.showQueue({ ...this.queue(), cards: before }),
       },
     );
@@ -380,7 +385,7 @@ export class QueuePane {
     const before = cards[at - 1];
     const neighbours = [after, before].filter((card) => card !== undefined);
     return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
-      keep: neighbours.map((card) => `menu ${card.poolCardId}`),
+      keep: neighbours.map((card) => this.menuKey(card.poolCardId)),
     });
   }
 

@@ -177,19 +177,17 @@
             @if (!readOnly()) {
               <!-- A menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
               @let menuName = 'Move or remove ' + card.name;
-              <span class="move">
-                <button
-                  #rowMenu
-                  class="icon"
-                  type="button"
-                  [attr.aria-label]="menuName"
-                  [title]="menuName"
-                  [cdkMenuTriggerFor]="moves"
-                  [appSendsChange]="'menu ' + card.poolCardId"
-                >
-                  <svg lucideEllipsisVertical size="16"></svg>
-                </button>
-              </span>
+              <button
+                #rowMenu
+                class="icon"
+                type="button"
+                [attr.aria-label]="menuName"
+                [title]="menuName"
+                [cdkMenuTriggerFor]="moves"
+                [appSendsChange]="menuKey(card.poolCardId)"
+              >
+                <svg lucideEllipsisVertical size="16"></svg>
+              </button>
               <ng-template #moves>
                 <div cdkMenu [attr.aria-label]="menuName">
                   <button

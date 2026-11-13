@@ -39,7 +39,7 @@ import {
   namedList,
   startDrag,
   button,
-  chooseFromRowMenu,
+  chooseInOpenRowMenu,
   openRowMenu,
 } from './harness';
 import { openDialog } from '../../specs-harness';
@@ -736,7 +736,7 @@ describe('card previews', () => {
 
       openRowMenu(sheet, 'Shock');
       expect(previewImage()).not.toBeNull();
-      chooseFromRowMenu('Shock', 'Remove');
+      chooseInOpenRowMenu('Shock', 'Remove');
       http
         .expectOne('/api/drafts/draft-1/queue/shock-card')
         .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));

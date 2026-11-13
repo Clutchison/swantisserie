@@ -33,7 +33,7 @@ import {
   ORGANIZE_ONLY,
   heading,
   openUrl,
-  fromRowMenu,
+  chooseInRowMenu,
 } from './harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 import { openPlan } from './plan-tab-harness';
@@ -326,7 +326,7 @@ describe('live updates', () => {
     });
     const queue = await openQueueSheet(fixture, page);
 
-    fromRowMenu(queue, 'Brightclimb Pathway // Grimclimb Pathway', 'Remove');
+    chooseInRowMenu(queue, 'Brightclimb Pathway // Grimclimb Pathway', 'Remove');
     const removed = http.expectOne('/api/drafts/draft-1/queue/brightclimb-card');
     // Bob picks Shivan Dragon before the removal answers.
     updates.events.next({

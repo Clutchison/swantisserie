@@ -121,12 +121,12 @@ export const rowMenu = (root: HTMLElement, card: string) => button(root, rowMenu
 export const openRowMenu = (root: HTMLElement, card: string) =>
   openMenu(rowMenu(root, card)!, rowMenuName(card));
 /** Chooses `item` from the open row menu of `card`, as a click or tap on it does. */
-export function chooseFromRowMenu(card: string, item: string) {
+export function chooseInOpenRowMenu(card: string, item: string) {
   menuItem(rowMenuName(card), item)!.click();
   TestBed.tick();
 }
 /** Chooses `item` from the row menu of the queued card named `card` inside `root`, opening it first. */
-export function fromRowMenu(root: HTMLElement, card: string, item: string) {
+export function chooseInRowMenu(root: HTMLElement, card: string, item: string) {
   openRowMenu(root, card);
-  chooseFromRowMenu(card, item);
+  chooseInOpenRowMenu(card, item);
 }

@@ -38,7 +38,7 @@ import {
   draft,
   viewOn,
   startDraft,
-  fromRowMenu,
+  chooseInRowMenu,
   rowMenu,
 } from './harness';
 import { measuredAs } from './measure-harness';
@@ -224,7 +224,7 @@ describe('Queue pane layout', () => {
       expect(sheet.textContent).toContain('Queue cutoff');
       expect(button(sheet, 'Steal behavior: Pause queue')).toBeDefined();
 
-      fromRowMenu(sheet, 'Shivan Dragon', 'Move down');
+      chooseInRowMenu(sheet, 'Shivan Dragon', 'Move down');
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
       req.flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
