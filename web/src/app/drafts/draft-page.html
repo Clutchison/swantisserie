@@ -279,9 +279,12 @@
       }
     </div>
 
-    <!-- Beside the tabs from the desktop layout, whichever is open; below it, the "next up" strip opens it in a sheet. -->
+    <!--
+      Beside the tabs from the desktop layout, whichever is open; below it, the "next up" strip
+      opens it in a sheet. It scrolls on its own, so a drag near its edges scrolls it (cdkScrollable).
+    -->
     @if (showQueuePane()) {
-      <app-queue-pane class="queue-pane" [collapsible]="true" />
+      <app-queue-pane class="queue-pane" [collapsible]="true" cdkScrollable />
     } @else if (showNextUpStrip()) {
       <app-next-up-strip />
     }

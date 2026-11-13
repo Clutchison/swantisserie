@@ -90,10 +90,10 @@
         @if (draftState() === 'Closed') {
           Cards are picked for you in this order if the draft reopens.
         } @else if (coarsePointer()) {
-          Cards are picked for you in this order. Tap a card’s menu button, or hold it to drag the
-          card and reorder.
+          Cards are picked for you in this order. Tap a card’s menu button, or hold it to drag, to
+          reorder.
         } @else {
-          Cards are picked for you in this order. Drag a card, or use its menu, to reorder.
+          Cards are picked for you in this order. Drag a card, or use its menu button, to reorder.
         }
         If another player picks a queued card first and no copy is left, it is lost.
         {{ stealBehaviorHelp }}
@@ -189,7 +189,7 @@
                   cdkDragHandle
                   [cdkMenuTriggerFor]="moves"
                   [cdkMenuTriggerData]="{ $implicit: rowMenu }"
-                  [appSendsChange]="menuKey(card.poolCardId)"
+                  [appSendsChange]="focusKey(card.poolCardId)"
                 >
                   <svg lucideEllipsisVertical size="16"></svg>
                 </button>
@@ -202,7 +202,7 @@
                   [title]="menuName"
                   [cdkMenuTriggerFor]="moves"
                   [cdkMenuTriggerData]="{ $implicit: rowMenu }"
-                  [appSendsChange]="menuKey(card.poolCardId)"
+                  [appSendsChange]="focusKey(card.poolCardId)"
                 >
                   <svg lucideEllipsisVertical size="16"></svg>
                 </button>

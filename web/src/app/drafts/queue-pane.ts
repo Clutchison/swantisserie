@@ -171,11 +171,7 @@ export class QueuePane {
   protected readonly changing = this.changes.changing;
   protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
-  /**
-   * Whether rows are dragged by their menu button, as their handle, where the
-   * primary pointer is touch and a swipe elsewhere on a row must scroll; with
-   * a mouse, the whole row drags.
-   */
+  /** Whether the primary pointer is touch, which changes how rows drag: see the row menu in the template. */
   protected readonly coarsePointer = matching(COARSE_POINTER_QUERY);
   /** How long a row is held before it drags. */
   protected readonly dragStartDelay = DRAG_START_DELAY;
@@ -235,11 +231,7 @@ export class QueuePane {
       this.host,
       'click',
       (event: MouseEvent) => {
-        if (
-          this.dragged &&
-          event.detail > 0 &&
-          (event.target as Element).closest('.handle')
-        ) {
+        if (this.dragged && event.detail > 0 && (event.target as Element).closest('.handle')) {
           event.stopPropagation();
         }
       },
@@ -341,8 +333,8 @@ export class QueuePane {
     });
   }
 
-  /** What a card's row menu button is found by, focus-wise. */
-  protected menuKey(poolCardId: string) {
+  /** What a card's row menu button is found by when focus goes back to it after a change. */
+  protected focusKey(poolCardId: string) {
     return `menu ${poolCardId}`;
   }
 
@@ -408,7 +400,7 @@ export class QueuePane {
     const before = cards[at - 1];
     const neighbours = [after, before].filter((card) => card !== undefined);
     return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
-      keep: neighbours.map((card) => this.menuKey(card.poolCardId)),
+      keep: neighbours.map((card) => this.focusKey(card.poolCardId)),
     });
   }
 

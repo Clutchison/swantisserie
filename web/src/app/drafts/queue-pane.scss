@@ -6,19 +6,10 @@
   display: block;
 }
 
-/*
- * The pane scrolls, so it clips what reaches past its edges. Its padding,
- * taken back by its margin, leaves room for the focus ring of a control at
- * either edge, such as a row menu, while the column and its rows keep their
- * width. The ring is 2px, 2px out.
- */
+/* The column's width, with room for a row menu's focus ring: see side-pane.sticky. */
 :host(.collapsible) {
-  --focus-room: var(--space-xs);
-
   position: relative;
-  inline-size: calc(side-pane.$width + 2 * var(--focus-room));
-  margin-inline: calc(-1 * var(--focus-room));
-  padding-inline: var(--focus-room);
+  inline-size: side-pane.$outer-width;
 }
 
 :host(.collapsed) {
@@ -33,7 +24,7 @@
 .toggle {
   position: absolute;
   top: 0;
-  right: var(--focus-room);
+  right: side-pane.$focus-room;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -113,7 +104,7 @@
   }
 }
 
-/* The position, cost, name and row menu, which on a touchscreen is also the row's drag handle. */
+/* The position, cost, name and row menu. */
 .queue {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
   margin: 0;
@@ -178,7 +169,7 @@ app-card-name {
   }
 }
 
-/* The row menu as a touchscreen's drag handle: finger-sized, and a long press on it starts no text selection or callout. */
+/* The row menu as a drag handle (see the template): finger-sized, and a long press on it starts no text selection or callout. */
 .icon.handle {
   width: 2.75rem;
   height: 2.75rem;

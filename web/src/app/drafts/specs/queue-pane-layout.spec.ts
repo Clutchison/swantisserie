@@ -398,7 +398,7 @@ describe('Queue pane layout', () => {
 
       expect(info.getAttribute('aria-expanded')).toBe('true');
       expect(shownHelp(pane)?.textContent).toContain(
-        'Cards are picked for you in this order. Drag a card, or use its menu, to reorder.',
+        'Cards are picked for you in this order. Drag a card, or use its menu button, to reorder.',
       );
       expect(document.getElementById(info.getAttribute('aria-controls')!)).toBe(shownHelp(pane));
     });
@@ -415,7 +415,7 @@ describe('Queue pane layout', () => {
       await fixture.whenStable();
 
       expect(shownHelp(pane)?.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Tap a card’s menu button, or hold it to drag the card and reorder.',
+        'Tap a card’s menu button, or hold it to drag, to reorder.',
       );
     });
 

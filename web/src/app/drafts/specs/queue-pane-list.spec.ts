@@ -15,7 +15,6 @@ import {
   flushPicks,
   completeSnapshot,
   button,
-  buttons,
   drafting,
   queued,
   queueOf,
@@ -43,14 +42,7 @@ import {
   rowMenuName,
   rowMenu,
 } from './harness';
-import {
-  disabledMenuItems,
-  menu,
-  menuItems,
-  openDialog,
-  openMenu,
-  pressEscape,
-} from '../../specs-harness';
+import { disabledMenuItems, menu, menuItems, openDialog, pressEscape } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
 
@@ -205,7 +197,10 @@ describe('Queue pane list', () => {
     http.expectNone('/api/drafts/draft-1/queue');
   });
 
-  describe.each(['fine', 'coarse'] as const)('the row menu, with a %s pointer', (pointer) => {
+  describe.each([
+    { on: 'with a mouse', pointer: 'fine' },
+    { on: 'on a touchscreen', pointer: 'coarse' },
+  ] as const)('the row menu, $on', ({ pointer }) => {
     beforeEach(() => viewOn('desktop', { pointer }));
 
     it('gives each row a menu named for its card, in place of Move up, Move down and Remove', async () => {
@@ -505,9 +500,8 @@ describe('Queue pane list', () => {
         queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
       });
       const queue = queuePane(page);
-      const boltMenus = () => buttons(queue, rowMenuName('Lightning Bolt'));
 
-      openMenu(boltMenus()[0], rowMenuName('Lightning Bolt'));
+      openRowMenu(queue, 'Lightning Bolt', 0);
       chooseInOpenRowMenu('Lightning Bolt', 'Move down');
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.body).toEqual({
@@ -517,7 +511,9 @@ describe('Queue pane list', () => {
       await fixture.whenStable();
 
       // The second row's: the copy moved, now one place down.
-      await vi.waitFor(() => expect(document.activeElement).toBe(boltMenus()[1]));
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(rowMenu(queue, 'Lightning Bolt', 1)),
+      );
     });
 
     it('moves focus to the next card’s menu when a card is removed, even one of the same name', async () => {
@@ -527,7 +523,7 @@ describe('Queue pane list', () => {
       });
       const queue = queuePane(page);
 
-      openMenu(buttons(queue, rowMenuName('Lightning Bolt'))[1], rowMenuName('Lightning Bolt'));
+      openRowMenu(queue, 'Lightning Bolt', 1);
       chooseInOpenRowMenu('Lightning Bolt', 'Remove');
       http
         .expectOne('/api/drafts/draft-1/queue/bolt-card-2')

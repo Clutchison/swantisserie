@@ -262,6 +262,6 @@ describe('close and reopen', () => {
 
     const queue = await openQueueSheet(fixture, page);
     expect(rowMenu(queue, 'Shivan Dragon')).toBeDefined();
-    expect(queue.textContent).toContain('Drag a card, or use its menu, to reorder.');
+    expect(queue.textContent).toContain('Drag a card, or use its menu button, to reorder.');
   });
 });

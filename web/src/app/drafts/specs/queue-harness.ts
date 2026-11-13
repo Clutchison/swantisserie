@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import {
   accessibleName,
-  button,
+  buttons,
   byAriaLabel,
   byName,
   menuItem,
@@ -115,11 +115,15 @@ export const queuePaneToggle = (page: HTMLElement) =>
 
 /** The name of the row menu of the queued card named `card`, which moves or removes it. */
 export const rowMenuName = (card: string) => `Move or remove ${card}`;
-/** The row menu button of the queued card named `card` inside `root`: the first, if two share a name. */
-export const rowMenu = (root: HTMLElement, card: string) => button(root, rowMenuName(card));
-/** Opens the row menu of the queued card named `card` inside `root`, answering its items' names. */
-export const openRowMenu = (root: HTMLElement, card: string) =>
-  openMenu(rowMenu(root, card)!, rowMenuName(card));
+/**
+ * The row menu button of the queued card named `card` inside `root`: of its
+ * `copy`th copy in the queue, counting from 0, if two share a name.
+ */
+export const rowMenu = (root: HTMLElement, card: string, copy = 0) =>
+  buttons(root, rowMenuName(card))[copy];
+/** Opens the row menu of the `copy`th queued card named `card` inside `root`, answering its items' names. */
+export const openRowMenu = (root: HTMLElement, card: string, copy = 0) =>
+  openMenu(rowMenu(root, card, copy)!, rowMenuName(card));
 /** Chooses `item` from the open row menu of `card`, as a click or tap on it does. */
 export function chooseInOpenRowMenu(card: string, item: string) {
   menuItem(rowMenuName(card), item)!.click();
