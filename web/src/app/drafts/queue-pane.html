@@ -90,8 +90,8 @@
         @if (draftState() === 'Closed') {
           Cards are picked for you in this order if the draft reopens.
         } @else if (coarsePointer()) {
-          Cards are picked for you in this order. Drag a card by its handle, or use its menu, to
-          reorder.
+          Cards are picked for you in this order. Tap a card’s menu button for its menu, or hold it
+          to drag the card.
         } @else {
           Cards are picked for you in this order. Drag a card, or use its menu, to reorder.
         }
@@ -130,7 +130,6 @@
       @let cutoffAt = store.picksLeft();
       <ol
         class="queue card-rows"
-        [class.with-handles]="coarsePointer() && !readOnly()"
         aria-label="Your queue"
         cdkDropList
         [cdkDropListDisabled]="changing() || readOnly()"
@@ -160,10 +159,6 @@
             (pointerdown)="pressed()"
             (cdkDragStarted)="dragStarted()"
           >
-            <!-- With a mouse the whole row drags; on a touchscreen only its handle, so a swipe scrolls. -->
-            @if (coarsePointer() && !readOnly()) {
-              <span class="handle" cdkDragHandle aria-hidden="true">⠿</span>
-            }
             <span class="number">{{ i + 1 }}</span>
             <app-card-name
               [card]="poolCardsById().get(card.poolCardId)"
@@ -177,18 +172,42 @@
             @if (!readOnly()) {
               <!-- A menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
               @let menuName = 'Move or remove ' + card.name;
-              <button
-                #rowMenu
-                class="icon"
-                type="button"
-                [attr.aria-label]="menuName"
-                [title]="menuName"
-                [cdkMenuTriggerFor]="moves"
-                [appSendsChange]="menuKey(card.poolCardId)"
-              >
-                <svg lucideEllipsisVertical size="16"></svg>
-              </button>
-              <ng-template #moves>
+              <!--
+                With a mouse the whole row drags, so its menu button is no handle: a row
+                with any handle drags only by it. On a touchscreen the menu button is the
+                row's one handle, so a swipe on the rest of the row scrolls; a tap opens
+                the menu and a held press drags.
+              -->
+              @if (coarsePointer()) {
+                <button
+                  #rowMenu
+                  class="icon handle"
+                  type="button"
+                  [attr.aria-label]="menuName"
+                  [title]="menuName"
+                  cdkDragHandle
+                  [cdkMenuTriggerFor]="moves"
+                  [cdkMenuTriggerData]="{ $implicit: rowMenu }"
+                  [appSendsChange]="menuKey(card.poolCardId)"
+                >
+                  <svg lucideEllipsisVertical size="16"></svg>
+                </button>
+              } @else {
+                <button
+                  #rowMenu
+                  class="icon"
+                  type="button"
+                  [attr.aria-label]="menuName"
+                  [title]="menuName"
+                  [cdkMenuTriggerFor]="moves"
+                  [cdkMenuTriggerData]="{ $implicit: rowMenu }"
+                  [appSendsChange]="menuKey(card.poolCardId)"
+                >
+                  <svg lucideEllipsisVertical size="16"></svg>
+                </button>
+              }
+              <!-- The menu's button, which its items give focus back to. -->
+              <ng-template #moves let-rowMenu>
                 <div cdkMenu [attr.aria-label]="menuName">
                   <button
                     type="button"

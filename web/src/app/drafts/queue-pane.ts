@@ -17,6 +17,7 @@ import {
   inject,
   Injector,
   input,
+  Renderer2,
   signal,
   untracked,
   viewChild,
@@ -171,13 +172,14 @@ export class QueuePane {
   protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
   /**
-   * Whether rows are dragged by a handle, where the primary pointer is touch
-   * and a swipe elsewhere on a row must scroll; with a mouse, the whole row drags.
+   * Whether rows are dragged by their menu button, as their handle, where the
+   * primary pointer is touch and a swipe elsewhere on a row must scroll; with
+   * a mouse, the whole row drags.
    */
   protected readonly coarsePointer = matching(COARSE_POINTER_QUERY);
   /** How long a row is held before it drags. */
   protected readonly dragStartDelay = DRAG_START_DELAY;
-  /** Whether the latest press on a row became a drag, so the click that ends it opens nothing. */
+  /** Whether the latest press on a row became a drag, so the click that ends it opens nothing: no Card detail, no row menu. */
   private dragged = false;
 
   /** The queue's state, as its switch names it. */
@@ -226,6 +228,23 @@ export class QueuePane {
   });
 
   constructor() {
+    // A click that ends a drag by a row's menu button, as some browsers send
+    // after a short one, opens no row menu: it is stopped before the menu's
+    // trigger hears it. A keyboard's click (no detail) still opens it.
+    inject(Renderer2).listen(
+      this.host,
+      'click',
+      (event: MouseEvent) => {
+        if (
+          this.dragged &&
+          event.detail > 0 &&
+          (event.target as Element).closest('.cdk-drag-handle')
+        ) {
+          event.stopPropagation();
+        }
+      },
+      { capture: true },
+    );
     // The Queue notice shown in an open pane has been seen: the pane is on the
     // page only where it is in view, beside the tabs or in the Queue sheet.
     effect(() => {
@@ -280,12 +299,16 @@ export class QueuePane {
     }
   }
 
-  /** A row pressed: a drag it starts is told apart from a click. */
+  /**
+   * A row pressed: a drag it starts is told apart from a click. Bound as a
+   * call, which answers nothing: a listener answering false would cancel the
+   * press, and with it a mouse's drag.
+   */
   protected pressed() {
     this.dragged = false;
   }
 
-  /** A row's drag started: no Card preview shows during it, and the click ending it opens nothing. */
+  /** A row's drag started: no Card preview shows during it, and the click ending it opens no Card detail or row menu. */
   protected dragStarted() {
     this.dragged = true;
     this.previews.dragStarted();
