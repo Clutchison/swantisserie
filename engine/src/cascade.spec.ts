@@ -230,6 +230,76 @@ describe('cascade', () => {
     ]);
   });
 
+  describe('on double turns', () => {
+    // Two players with 2 picks each, both double picks: seat 0 makes two
+    // picks, then seat 1 makes two.
+    const doubleTurns = {
+      players: 2,
+      picksPerPlayer: 2,
+      doublePicks: 2,
+      picked: [],
+    };
+
+    it('has a queue make both picks of its seat’s double turn', () => {
+      expect(
+        picks(
+          doubleTurns,
+          [
+            ['shock', 'bolt'],
+            ['spike', 'skewer'],
+          ],
+          singles,
+        ),
+      ).toEqual([
+        { seat: 0, card: 'shock' },
+        { seat: 0, card: 'bolt' },
+        { seat: 1, card: 'spike' },
+        { seat: 1, card: 'skewer' },
+      ]);
+    });
+
+    it('stops at a seat whose queue runs out after the first pick of its double turn', () => {
+      expect(
+        picks(doubleTurns, [['shock'], ['spike', 'skewer']], singles),
+      ).toEqual([{ seat: 0, card: 'shock' }]);
+    });
+
+    it('stops at the double turn of a seat whose queue a loss paused under pause queue', () => {
+      expect(
+        picks(
+          doubleTurns,
+          [
+            ['shock', 'spike'],
+            ['shock', 'bolt', 'skewer'],
+          ],
+          singles,
+        ),
+      ).toEqual([
+        { seat: 0, card: 'shock' },
+        { seat: 0, card: 'spike' },
+      ]);
+    });
+
+    it('has a queue under pick next make both picks of its double turn from its next queued cards after a loss', () => {
+      expect(
+        picks(
+          doubleTurns,
+          [
+            ['shock', 'spike'],
+            ['shock', 'bolt', 'skewer'],
+          ],
+          singles,
+          ['PauseQueue', 'PickNext'],
+        ),
+      ).toEqual([
+        { seat: 0, card: 'shock' },
+        { seat: 0, card: 'spike' },
+        { seat: 1, card: 'bolt' },
+        { seat: 1, card: 'skewer' },
+      ]);
+    });
+  });
+
   describe('effects', () => {
     const bolts = new Map([
       ['bolt-1', 'Lightning Bolt'],

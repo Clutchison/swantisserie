@@ -48,18 +48,21 @@ describe('bot players', () => {
 
   /**
    * A draft of Alice then `bots` bots, each making `picksPerPlayer` picks
-   * from `cards`, ready to start.
+   * from `cards`, the last `doublePicks` of them on double turns, ready to
+   * start.
    */
   async function draftWithBots(
     bots: number,
     picksPerPlayer = 1,
     webhookId: string | null = null,
+    doublePicks = 0,
   ) {
     const id = await readyDraft(
       [aliceCookie],
       picksPerPlayer,
       cards,
       webhookId,
+      doublePicks,
     );
     const carolCookie = await signIn(carol);
     let draft!: DraftView;
@@ -154,6 +157,27 @@ describe('bot players', () => {
         (logged: { playerId: string }) => logged.playerId,
       ),
     ).toEqual([botIds[0]]);
+  });
+
+  it('has a bot make both picks of its double turn', async () => {
+    const { id, botIds } = await draftWithBots(1, 2, null, 2);
+    await setSeats(id, [botIds[0], alice.id]).expect(200);
+
+    await start(id).expect(200);
+
+    const draft = await atPick(id, 3);
+    expect(draft.turn).toEqual({
+      pick: 3,
+      round: 1,
+      playerId: alice.id,
+      picksBeforeTurnPasses: 2,
+    });
+    expect(
+      (await pickLog(id)).body.map(
+        (logged: { playerId: string }) => logged.playerId,
+      ),
+    ).toEqual([botIds[0], botIds[0]]);
+    expect(new Set(await pickedNames(id)).size).toBe(2);
   });
 
   it('picks the available card the random value lands on, with the available cards sorted by name', async () => {

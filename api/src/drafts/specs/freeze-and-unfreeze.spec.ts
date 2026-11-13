@@ -53,6 +53,37 @@ describe('freeze and unfreeze', () => {
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
   });
 
+  it('gives the same player their remaining pick on unfreeze between the two picks of a double turn', async () => {
+    const id = await readyDraft(
+      [aliceCookie, bobCookie],
+      2,
+      fourCards,
+      null,
+      2,
+    );
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+    await pick(id, ids.Shock).expect(200);
+    await post(id, 'freeze').expect(200);
+
+    const unfrozen = await post(id, 'unfreeze').expect(200);
+
+    expect(unfrozen.body).toMatchObject({
+      state: 'Drafting',
+      turn: {
+        pick: 2,
+        round: 1,
+        playerId: alice.id,
+        picksBeforeTurnPasses: 1,
+      },
+    });
+    const second = await pick(id, ids['Lightning Bolt']).expect(200);
+    expect(second.body.turn).toMatchObject({
+      playerId: bob.id,
+      picksBeforeTurnPasses: 2,
+    });
+  });
+
   it('makes the queued picks due on unfreeze, cascading from whoever is up', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);

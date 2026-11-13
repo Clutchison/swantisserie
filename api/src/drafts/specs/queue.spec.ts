@@ -641,6 +641,25 @@ describe('queue', () => {
       expect(removed.body.cards).toEqual([shock]);
     });
 
+    it('refuses an add from the player between the two picks of their double turn', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        2,
+        fourCards,
+        null,
+        2,
+      );
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+
+      expect(
+        (await enqueue(id, ids['Lightning Bolt']).expect(409)).body,
+      ).toEqual(refusedOnTurn);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
+    });
+
     it('makes a player on the first of two turns in a row make the second by hand', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);

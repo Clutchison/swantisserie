@@ -40,6 +40,28 @@ describe('queuePicksBeforeTurnPasses', () => {
     ).toEqual(['bolt']);
   });
 
+  it('names two cards at the start of the seat’s double turn', () => {
+    expect(
+      queuePicksBeforeTurnPasses(
+        { players: 2, picksPerPlayer: 2, doublePicks: 2, picked: [] },
+        0,
+        ['shock', 'bolt', 'spike'],
+        singles,
+      ),
+    ).toEqual(['shock', 'bolt']);
+  });
+
+  it('names one card where one pick is left on the seat’s double turn', () => {
+    expect(
+      queuePicksBeforeTurnPasses(
+        { players: 2, picksPerPlayer: 2, doublePicks: 2, picked: ['shock'] },
+        0,
+        ['bolt', 'spike'],
+        singles,
+      ),
+    ).toEqual(['bolt']);
+  });
+
   it('names nothing once the turn has passed to another seat', () => {
     expect(
       queuePicksBeforeTurnPasses(

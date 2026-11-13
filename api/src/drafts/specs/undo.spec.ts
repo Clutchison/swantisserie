@@ -60,6 +60,91 @@ describe('undo', () => {
     ]);
   });
 
+  describe('on a double turn', () => {
+    /** Alice then Bob, two picks each, both on double turns: A A B B. */
+    async function doubleTurnDraft() {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        2,
+        fourCards,
+        null,
+        2,
+      );
+      await start(id).expect(200);
+      return { id, ids: await poolCardIds(id) };
+    }
+
+    it('gives the turn back to its player with one pick left on an undo of its second pick', async () => {
+      const { id, ids } = await doubleTurnDraft();
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
+
+      const undone = await undo(id, 2).expect(200);
+
+      expect(undone.body.turn).toEqual({
+        pick: 2,
+        round: 1,
+        playerId: alice.id,
+        picksBeforeTurnPasses: 1,
+      });
+      expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
+    });
+
+    it('gives the turn back to its player at the start of the double turn on an undo of its first pick', async () => {
+      const { id, ids } = await doubleTurnDraft();
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+
+      const undone = await undo(id, 3).expect(200);
+
+      expect(undone.body.turn).toEqual({
+        pick: 3,
+        round: 1,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 2,
+      });
+      expect(await pickLogLines(id)).toEqual([
+        'Alice: Shock',
+        'Alice: Lightning Bolt',
+      ]);
+    });
+
+    it('returns to the last single round’s order on an undo of the first pick of the first double round', async () => {
+      // Three picks each, the last two on double turns: round 1 runs A B,
+      // then round 2, the first double round, runs back B B A A.
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        3,
+        [...fourCards, 'Play with Fire', 'Burst Lightning'],
+        null,
+        2,
+      );
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+
+      const second = await undo(id, 3).expect(200);
+      expect(second.body.turn).toEqual({
+        pick: 3,
+        round: 2,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 2,
+      });
+
+      const first = await undo(id, 2).expect(200);
+      expect(first.body.turn).toEqual({
+        pick: 2,
+        round: 1,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 1,
+      });
+      expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
+    });
+  });
+
   it('undoes only the last pick of a cascade, and makes no queued picks', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);

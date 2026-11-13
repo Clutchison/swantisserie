@@ -201,6 +201,42 @@ describe('queue paused', () => {
       expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
     });
 
+    it('on the player’s own double turn, picks both its cards, refusing only one confirmed', async () => {
+      // Alice then Bob, two picks each, both on double turns: A A B B.
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        2,
+        fourCards,
+        null,
+        2,
+      );
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await bobQueuesPaused(id, ids, 'Lava Spike', 'Skewer the Critics');
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
+
+      const refused = await setQueuePicking(
+        id,
+        [ids['Lava Spike']],
+        bobCookie,
+      ).expect(409);
+      expect(refused.body.error).toBe('queue-picks-changed');
+
+      await setQueuePicking(
+        id,
+        [ids['Lava Spike'], ids['Skewer the Critics']],
+        bobCookie,
+      ).expect(200);
+      expect(await pickLogLines(id)).toEqual([
+        'Alice: Shock',
+        'Alice: Lightning Bolt',
+        'Bob: Lava Spike',
+        'Bob: Skewer the Critics',
+      ]);
+      expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
+    });
+
     it('announces the picks it makes in one post, as a cascade', async () => {
       const { id, ids } = await startedDraft(await registerWebhook());
       await bobQueuesPaused(id, ids, 'Lava Spike');
