@@ -22,7 +22,8 @@ Why: a browser-default control looks broken next to styled ones, and looks diffe
 ```html
 <!-- BAD: a bare checkbox, only tinted by accent-color -->
 <label><input type="checkbox" formControlName="doublePicks" /> Double picks</label>
-<!-- GOOD: the same markup, drawn by a shared checkbox style in styles.scss that matches the app's buttons and segmented controls -->
+<!-- GOOD: an on/off setting as a toggle button, like the Pool tab's Hide picked, with a fixed label -->
+<button type="button" [attr.aria-pressed]="doublePicks()" (click)="toggleDoublePicks()">Double picks</button>
 ```
 
 Origin: the double-picks grilling (`docs/double-picks`), 2026-11-13.
