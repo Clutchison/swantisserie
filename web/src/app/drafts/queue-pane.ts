@@ -32,6 +32,7 @@ import {
   LucidePanelRightClose,
   LucidePanelRightOpen,
   LucidePause,
+  LucidePlay,
 } from '@lucide/angular';
 import { afterCardDetailsClose, CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
@@ -42,6 +43,7 @@ import {
   DRAG_START_DELAY,
   matching,
   QUEUE_CHANGE_FAILED,
+  queueStateChangeName,
   queueStateName,
 } from './drafts';
 import { PicksLeft } from './picks-left';
@@ -86,7 +88,7 @@ const STEAL_BEHAVIOR_HELP =
   `Under ${STEAL_BEHAVIORS.PauseQueue.name}, ${STEAL_BEHAVIORS.PauseQueue.effect}; ` +
   `under ${STEAL_BEHAVIORS.PickNext.name}, it stays queue picking.`;
 
-/** Where a failed change is explained: by the queue paused switch, by the steal behavior pill, or under the queue. */
+/** Where a failed change is explained: by the queue's play/pause button, by the steal behavior pill, or under the queue. */
 type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
@@ -117,6 +119,7 @@ let panes = 0;
     LucidePanelRightClose,
     LucidePanelRightOpen,
     LucidePause,
+    LucidePlay,
     PicksLeft,
     QueueAddBump,
     QueueAddStatus,
@@ -152,6 +155,7 @@ export class QueuePane {
   protected readonly bodyId = `queue-pane-body-${this.id}`;
   protected readonly helpId = `queue-pane-help-${this.id}`;
   protected readonly descriptionId = `steal-behavior-description-${this.id}`;
+  protected readonly queueStateId = `queue-state-${this.id}`;
 
   /** A draft the signed-in user is playing in. */
   private readonly draftId = this.store.id;
@@ -180,8 +184,10 @@ export class QueuePane {
   /** Whether the latest press on a row became a drag, so the click that ends it opens nothing: no Card detail, no row menu. */
   private dragged = false;
 
-  /** The queue's state, as its switch names it. */
+  /** The queue's state, as the label beside its play/pause button says it. */
   protected readonly queueStateName = computed(() => queueStateName(this.queue().queuePaused));
+  /** The play/pause button's name and tooltip: what pressing it does. */
+  protected readonly playPauseName = computed(() => queueStateChangeName(this.queue().queuePaused));
 
   protected readonly stealBehaviorName = computed(
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
@@ -474,7 +480,7 @@ export class QueuePane {
 
   /**
    * Opens the Set queue picking dialog. A failure it closes with is said by
-   * the switch, where focus returns; should the queue, read again, pick
+   * the play/pause button, where focus returns; should the queue, read again, pick
    * nothing after all, it is set queue picking with none.
    */
   private confirmQueuePicking() {
