@@ -27,7 +27,6 @@
           class="seat"
           role="img"
           tabindex="0"
-          [class.own]="isOwn(player)"
           [class.avatar-shown]="avatarShown(player)"
           [class.turn]="hasTheTurn(player)"
           [class.pulse]="hasTheTurn(player) && pulse() === 'pulse'"

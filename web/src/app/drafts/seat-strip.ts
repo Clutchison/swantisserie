@@ -51,9 +51,9 @@ const ARROW_SIZE = 14;
 /**
  * The Seat strip: a drafting or frozen draft's players as avatars in seat
  * order, in a row in the tab bar from the desktop layout and under the draft
- * header below it, marking whose turn it is and the viewer's
- * own seat, with arrows between the seats pointing toward the next player
- * to pick. The turn's seat pulses briefly when the turn changes, and it and
+ * header below it, ringing the seat whose turn it is, with arrows between
+ * the seats pointing toward the next player to pick. The turn's ring pulses
+ * briefly when the turn changes, and the turn's seat and
  * the next seat are scrolled into view when the row is too long to show
  * whole. Its Players button opens `playersPanel`, the full Players panel,
  * where `panelIn` says: a non-modal popover under it, over the tab content,
