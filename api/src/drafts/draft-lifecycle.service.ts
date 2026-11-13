@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TURN_STATES } from 'contract';
-import { currentTurn } from 'engine';
+import { currentTurn, draftSize } from 'engine';
 import {
   CloseRefusedError,
   DraftGoneError,
@@ -14,7 +14,7 @@ import {
   toEventPlayer,
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
-import { draftSize, SEAT_ORDER } from './draft-shapes.js';
+import { SEAT_ORDER } from './draft-shapes.js';
 import { TurnsService } from './turns.service.js';
 
 /** A draft's webhook changes, and a started draft's freezes, unfreezes, closes and reopens. */

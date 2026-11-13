@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { PickImportPreview } from 'contract';
-import { readPickImport } from 'engine';
+import { draftSize, readPickImport } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
@@ -8,7 +8,6 @@ import { planPicks } from './plan-picks.js';
 import { leaveQueue } from './queue-order.js';
 import {
   DRAFT_SIZE_FIELDS,
-  draftSize,
   MADE_PICK,
   SEAT_ORDER,
   type Transaction,

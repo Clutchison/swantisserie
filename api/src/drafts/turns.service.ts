@@ -4,6 +4,7 @@ import {
   cascade,
   currentTurn,
   draftComplete,
+  draftSize,
   type PlanAfterPick,
   pickProblem,
   plansAfterPick,
@@ -25,12 +26,7 @@ import {
   toEventPlayer,
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
-import {
-  DRAFT_SIZE_FIELDS,
-  draftSize,
-  MADE_PICK,
-  SEAT_ORDER,
-} from './draft-shapes.js';
+import { DRAFT_SIZE_FIELDS, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
 import { recordQueueEffects, restoreQueues } from './queue-effects.js';
 import {

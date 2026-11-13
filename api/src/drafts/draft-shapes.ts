@@ -1,4 +1,3 @@
-import type { DraftSize } from 'engine';
 import type { Draft, Prisma } from '../generated/prisma/client.js';
 
 export type Transaction = Prisma.TransactionClient;
@@ -36,11 +35,3 @@ export const DRAFT_SIZE_FIELDS = {
   picksPerPlayer: true,
   doublePicks: true,
 } as const satisfies Record<keyof DraftSizeFields, true>;
-
-/** The engine's size of the draft, with `players` players. */
-export function draftSize(
-  { picksPerPlayer, doublePicks }: DraftSizeFields,
-  players: number,
-): DraftSize {
-  return { players, picksPerPlayer, doublePicks };
-}

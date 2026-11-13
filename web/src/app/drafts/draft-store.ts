@@ -30,14 +30,13 @@ import type {
   ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
-import { queuePicksBeforeTurnPasses, turnStartPick } from 'engine';
+import { draftSize, queuePicksBeforeTurnPasses, turnStartPick } from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
 import {
   cardsNoun,
   EMPTY_PLAN,
-  draftSize,
   EMPTY_QUEUE,
   hasTurn,
   isActive,

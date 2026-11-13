@@ -1,14 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import type { QueuedCardView, QueueView, StealBehavior } from 'contract';
-import { currentTurn } from 'engine';
+import { currentTurn, draftSize } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
-import {
-  DRAFT_SIZE_FIELDS,
-  draftSize,
-  type Transaction,
-} from './draft-shapes.js';
+import { DRAFT_SIZE_FIELDS, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 import {

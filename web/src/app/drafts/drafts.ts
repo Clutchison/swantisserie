@@ -12,16 +12,7 @@ import type {
   TurnState,
 } from 'contract';
 import { isTurnState } from 'contract';
-import type { DraftSize } from 'engine';
 import type { Changes } from './changes';
-
-/** The engine's size of `draft`, with `players` players, as the api works it out. */
-export function draftSize(
-  { picksPerPlayer, doublePicks }: Pick<DraftView, 'picksPerPlayer' | 'doublePicks'>,
-  players: number,
-): DraftSize {
-  return { players, picksPerPlayer, doublePicks };
-}
 
 /**
  * The media query of the draft page's desktop layout, where the tabs sit at

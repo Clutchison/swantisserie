@@ -9,11 +9,10 @@ import type {
   TurnView,
 } from 'contract';
 import { isTurnState } from 'contract';
-import { currentTurn } from 'engine';
+import { currentTurn, draftSize } from 'engine';
 import { avatarUrl } from '../auth/avatar-url.js';
 import type { PoolCard } from '../generated/prisma/client.js';
 import type { DraftWithOrganizer } from './draft-reads.service.js';
-import { draftSize } from './draft-shapes.js';
 import { UNEXPECTED_SNAPSHOT_FAILURE } from './pool-snapshot.service.js';
 import { toPoolSourceView } from './pool-source.js';
 import type { LoggedPick } from './turns.service.js';
