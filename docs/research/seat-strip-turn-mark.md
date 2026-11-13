@@ -122,7 +122,7 @@ Seats in a 6+6 loop; turn as a ring; direction by arrows at the two ends of the 
 
 ### Recommendation
 
-_Build note:_ the build (#686) put an arrow between every pair of seats rather than the one end chevron recommended below. Later (#712) the strip moved to option B's accent ring for the turn, which pulses on a turn change, with no own-seat mark and no dimming; the bar above went.
+_Build note:_ the build (#686) put an arrow between every pair of seats rather than the one end chevron recommended below. Later (#712) the strip moved to option B's accent ring for the turn, which pulses on a turn change, with no own-seat mark and no dimming; the bar above went. Then (#714) the viewer's own ring loops its pulse on their turn, from the moment the turn reaches or resumes with them until their first pointer or key press on the page, so their eye comes back to the strip when they've looked away; other players' turns keep the three beats under five seconds. That loop goes past §4's five seconds, and meets 2.2.2 (Pause, Stop, Hide) because the viewer's first press stops it; it rests while the draft is frozen and plays not at all under `prefers-reduced-motion: reduce`.
 
 **A, with the focus fix.** It keeps the marks players already know, fits one 44px row, and adds direction with one shape. Concretely: a bar **above** (never below) the turn seat, a pulse of under five seconds on the turn change only under `prefers-reduced-motion: no-preference`, one end chevron that becomes `Repeat1` on the turnaround pick, a seat focus style that isn't the accent ring, and the state in the accessible name ("Alice, picking"; "Bob, you") alongside `aria-current="true"`. Keep B in reserve if testing shows the bar is too quiet next to the tabs.
 

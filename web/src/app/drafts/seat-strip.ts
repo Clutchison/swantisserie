@@ -29,6 +29,7 @@ import {
 } from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
+import { OwnTurnLoop } from './own-turn-loop';
 import { PlayerAvatar } from './player-avatar';
 import { PlayersSheet } from './players-sheet';
 
@@ -53,8 +54,10 @@ const ARROW_SIZE = 14;
  * order, in a row in the tab bar from the desktop layout and under the draft
  * header below it, ringing the seat whose turn it is, with arrows between
  * the seats pointing toward the next player to pick. The turn's ring pulses
- * briefly when the turn changes, and the turn's seat and the next seat
- * are scrolled into view when the row is too long to show whole. Its
+ * three times when the turn changes to another player. The viewer's own ring
+ * pulses on through their turn, as `OwnTurnLoop` says, until they press a
+ * pointer or a key, then finishes its beat and rests. The turn's seat and the
+ * next seat are scrolled into view when the row is too long to show whole. Its
  * Players button opens `playersPanel`, the full Players panel, where
  * `panelIn` says: a non-modal popover under it, over the tab content, which
  * Escape, a pointer pressed outside or focus leaving closes; or the Players
@@ -78,6 +81,7 @@ const ARROW_SIZE = 14;
 })
 export class SeatStrip {
   private readonly store = inject(DraftStore);
+  protected readonly ownLoop = inject(OwnTurnLoop);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
   private readonly dialogs = inject(DialogShell);
@@ -131,9 +135,9 @@ export class SeatStrip {
   /** The avatar images that have loaded, by URL: a seat shows its player's in place of the disc and initial. */
   private readonly loadedAvatars = signal<ReadonlySet<string>>(new Set());
   /**
-   * Which of the two copies of the pulse the turn's seat plays, alternating
-   * so that each turn change starts it afresh, even on the same seat; null
-   * once it has played.
+   * Which of the two copies of the three-beat pulse the turn's seat plays,
+   * alternating so that each turn change starts it afresh, even on the same
+   * seat; null once it has played, or while the viewer's own ring loops.
    */
   protected readonly pulse = signal<Pulse | null>(null);
 
@@ -149,12 +153,17 @@ export class SeatStrip {
       if (this.panelIn() === 'sheet') this.openSheet();
       else this.popover()?.nativeElement.focus();
     });
-    // A turn change pulses the turn's seat; the turn the strip first shows doesn't.
+    // A turn change pulses the turn's seat three times; the turn the strip
+    // first shows doesn't. The viewer's own ring, looping, plays the loop instead.
     let shownPick: number | undefined;
     effect(() => {
       const pick = this.store.turn()?.pick;
       if (shownPick !== undefined && pick !== undefined && pick !== shownPick) {
-        untracked(() => this.pulse.update((copy) => (copy === 'pulse' ? 'pulse-again' : 'pulse')));
+        untracked(() =>
+          this.pulse.update((copy) =>
+            this.ownLoop.looping() ? null : copy === 'pulse' ? 'pulse-again' : 'pulse',
+          ),
+        );
       }
       shownPick = pick;
     });

@@ -8,9 +8,11 @@ import {
   completeSnapshot,
   draft,
   drafting,
+  type DraftFixture,
   findPlayersBesideTabs,
   findQueuePane,
   flushPicks,
+  flushQueue,
   flushQueueAndPlan,
   heading,
   http,
@@ -24,7 +26,8 @@ import {
   updates,
   viewOn,
 } from './harness';
-import { clickBackdrop, clickOn, pressEscape, pressPointerOn } from '../../specs-harness';
+import { clickBackdrop, clickOn, pressEscape, pressKey, pressPointerOn } from '../../specs-harness';
+import { EMPTY_QUEUE } from '../drafts';
 import { disclosure } from './disclosure-harness';
 import {
   findSeatStrip,
@@ -32,6 +35,7 @@ import {
   playersPopover,
   playersSheet,
   seatListName,
+  seatPulse,
   stripSeatNames,
   stripSeats,
 } from './seat-strip-harness';
@@ -52,6 +56,12 @@ const playersDisclosure = (root: HTMLElement) => disclosure(root, /^Players · \
 
 /** The draft's name, heading the page: somewhere to press that takes no focus. */
 const draftName = (page: HTMLElement) => heading(page, 'Red dragons')!;
+
+/** Ends a beat of `seat`'s pulse, as the browser does between the beats it repeats. */
+const beatEnds = (seat: HTMLElement) => {
+  seat.dispatchEvent(new Event('animationiteration', { bubbles: true }));
+  TestBed.tick();
+};
 
 describe('the Seat strip', () => {
   describe('on a desktop screen', () => {
@@ -346,6 +356,169 @@ describe('the Seat strip', () => {
       await fixture.whenStable();
 
       expect(seatListName(page)).toBe('Seat order, Bob picks next');
+    });
+  });
+
+  describe('pulsing the turn’s ring', () => {
+    beforeEach(() => viewOn('desktop'));
+
+    /**
+     * A drafting draft seating Alice (the viewer) and Bob, at `pick`, with
+     * `playerId` picking: by the snake order, Alice picks 1, 4 and 5, Bob 2 and 3.
+     */
+    const atPick = (pick: number, playerId: string, fields: DraftFixture = {}) =>
+      drafting({ turn: { pick, round: Math.ceil(pick / 2), playerId }, ...fields });
+
+    /** The pulse each seat plays, in seat order: Alice's (the viewer's), then Bob's. */
+    const pulses = (page: HTMLElement) => stripSeats(page).map(seatPulse);
+
+    let version = 0;
+    beforeEach(() => (version = 0));
+
+    /** Pushes the draft changed to `fields`, as an update does, and renders it. */
+    const changeTo = async (fixture: { whenStable(): Promise<unknown> }, fields: DraftFixture) => {
+      updates.events.next({ type: 'changed', draft: draft({ ...fields, version: ++version }) });
+      await flushPicks([]);
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+    };
+
+    it('rests every ring on another player’s turn as the strip first shows', async () => {
+      const { page } = await openDraft(completeSnapshot, atPick(2, bob.id));
+
+      expect(pulses(page)).toEqual([null, null]);
+    });
+
+    it('loops the viewer’s ring, with no three beats, as the turn passes to them, whatever they pressed before', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, atPick(3, bob.id));
+      pressPointerOn(draftName(page));
+      pressKey(document.body, 'a');
+
+      await changeTo(fixture, atPick(4, alice.id));
+
+      expect(pulses(page)).toEqual(['loop', null]);
+    });
+
+    it('plays three beats on another player’s ring as the turn passes to them', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, atPick(1, alice.id));
+
+      await changeTo(fixture, atPick(2, bob.id));
+
+      expect(pulses(page)).toEqual([null, 'beats']);
+    });
+
+    it('plays only three beats at the turnaround, once the viewer has picked by hand', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, atPick(4, alice.id));
+      pressPointerOn(draftName(page));
+
+      await changeTo(fixture, atPick(5, alice.id));
+
+      expect(pulses(page)).toEqual(['beats', null]);
+    });
+
+    /** Opens the draft on the viewer's turn and presses, letting their ring's beat end: at rest. */
+    const openAnswered = async (fields: DraftFixture = atPick(1, alice.id)) => {
+      const opened = await openDraft(completeSnapshot, fields);
+      pressPointerOn(draftName(opened.page));
+      beatEnds(stripSeats(opened.page)[0]!);
+      expect(pulses(opened.page)).toEqual([null, null]);
+      return opened;
+    };
+
+    it('loops the viewer’s ring again as an undo returns the turn to them', async () => {
+      const { fixture, page } = await openAnswered();
+      await changeTo(fixture, atPick(2, bob.id));
+
+      await changeTo(fixture, atPick(1, alice.id));
+
+      expect(pulses(page)).toEqual(['loop', null]);
+    });
+
+    it('rests the viewer’s ring while frozen on their turn', async () => {
+      const { page } = await openDraft(completeSnapshot, atPick(1, alice.id, { state: 'Frozen' }));
+
+      expect(pulses(page)).toEqual([null, null]);
+    });
+
+    it('rests the viewer’s looping ring as the draft freezes', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, atPick(1, alice.id));
+
+      await changeTo(fixture, atPick(1, alice.id, { state: 'Frozen' }));
+
+      expect(pulses(page)).toEqual([null, null]);
+    });
+
+    it('loops the viewer’s ring again as the draft unfreezes on their turn', async () => {
+      const { fixture, page } = await openAnswered();
+      await changeTo(fixture, atPick(1, alice.id, { state: 'Frozen' }));
+
+      await changeTo(fixture, atPick(1, alice.id));
+
+      expect(pulses(page)).toEqual(['loop', null]);
+    });
+
+    it('loops the viewer’s ring again as the draft reopens on their turn', async () => {
+      const { fixture, page } = await openAnswered();
+      await changeTo(fixture, drafting({ state: 'Closed', turn: null }));
+
+      await changeTo(fixture, atPick(1, alice.id));
+
+      expect(pulses(page)).toEqual(['loop', null]);
+    });
+
+    it('keeps the viewer’s ring at rest as the strip moves out of the tab bar', async () => {
+      const { page } = await openAnswered();
+
+      resizeTo('mobile');
+
+      expect(pulses(page)).toEqual([null, null]);
+    });
+
+    it('loops the viewer’s own ring when it is already their turn as the strip first shows', async () => {
+      const { page } = await openDraft(completeSnapshot, atPick(1, alice.id));
+
+      expect(pulses(page)).toEqual(['loop', null]);
+    });
+
+    it.each([
+      ['a pointer press', (page: HTMLElement) => pressPointerOn(draftName(page))],
+      ['a key press', () => pressKey(document.body, 'a')],
+    ])(
+      'rests the viewer’s ring after %s on the page, once its current beat ends',
+      async (_, press) => {
+        const { page } = await openDraft(completeSnapshot, atPick(1, alice.id));
+
+        press(page);
+        expect(pulses(page)).toEqual(['loop', null]);
+
+        beatEnds(stripSeats(page)[0]!);
+        expect(pulses(page)).toEqual([null, null]);
+      },
+    );
+
+    it.each([
+      ['a mouse move', 'pointermove'],
+      ['a wheel scroll', 'wheel'],
+    ])('keeps looping the viewer’s ring through %s', async (_, type) => {
+      const { page } = await openDraft(completeSnapshot, atPick(1, alice.id));
+
+      document.body.dispatchEvent(new Event(type, { bubbles: true }));
+      TestBed.tick();
+      beatEnds(stripSeats(page)[0]!);
+
+      expect(pulses(page)).toEqual(['loop', null]);
+    });
+
+    it('keeps looping the viewer’s ring through the window taking focus', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, atPick(1, alice.id));
+
+      window.dispatchEvent(new Event('focus'));
+      // The page re-reads the queue as the window takes focus.
+      await flushQueue(EMPTY_QUEUE);
+      await fixture.whenStable();
+      beatEnds(stripSeats(page)[0]!);
+
+      expect(pulses(page)).toEqual(['loop', null]);
     });
   });
 

@@ -206,7 +206,10 @@ li {
 /*
  * A turn change: the ring's accent band widens outward and settles three
  * times, under five seconds in all, then rests. Two copies, so the next
- * change restarts it.
+ * change restarts it. On the viewer's own turn, the same beat repeats until
+ * they press, which ends the loop at the end of its beat: a copy of its own,
+ * so the three beats after it at the turnaround start afresh. Under reduced
+ * motion, neither plays.
  */
 @media (prefers-reduced-motion: no-preference) {
   .pulse {
@@ -215,6 +218,10 @@ li {
 
   .pulse-again {
     animation: turn-pulse-again 0.8s ease-in-out 3;
+  }
+
+  .pulse-loop {
+    animation: turn-pulse-loop 0.8s ease-in-out infinite;
   }
 }
 
@@ -225,6 +232,12 @@ li {
 }
 
 @keyframes turn-pulse-again {
+  50% {
+    @include turn-ring($pulse-reach);
+  }
+}
+
+@keyframes turn-pulse-loop {
   50% {
     @include turn-ring($pulse-reach);
   }
