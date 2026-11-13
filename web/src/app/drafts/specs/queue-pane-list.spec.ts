@@ -41,6 +41,7 @@ import {
   openRowMenu,
   rowMenuName,
   rowMenu,
+  pickOf,
 } from './harness';
 import { disabledMenuItems, menu, menuItems, openDialog, pressEscape } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
@@ -534,6 +535,73 @@ describe('Queue pane list', () => {
     });
   });
 
+  describe('the next-up card', () => {
+    /** What a screen reader hears on each of the queue's rows, in order. */
+    const rows = (queue: HTMLElement) =>
+      [...queueList(queue).querySelectorAll('li')].map((row) => accessibleName(row));
+
+    it('marks the first row next up, in place of its number, while queue picking with picks left', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+
+      const [first, second, third] = rows(queuePane(page));
+      expect(first).toContain('Lightning Bolt');
+      expect(first).toContain('next up');
+      expect(first).not.toMatch(/^1 /);
+      expect(second).toMatch(/^2 .*Shivan Dragon/);
+      expect(second).not.toContain('next up');
+      expect(third).toMatch(/^3 /);
+      expect(third).not.toContain('next up');
+    });
+
+    it('marks no row next up while the queue is queue paused', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan)], queuePaused: true }),
+      });
+
+      const [first, second] = rows(queuePane(page));
+      expect(first).toMatch(/^1 .*Lightning Bolt/);
+      expect(first).not.toContain('next up');
+      expect(second).not.toContain('next up');
+    });
+
+    it('marks no row next up once the player has no picks left', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 1 }), {
+        cards: [bolt, shivan],
+        picks: [pickOf({ poolCardId: 'a' })],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
+      });
+
+      const named = rows(queuePane(page)).filter((row) => !row.includes('Queue cutoff'));
+      expect(named[0]).toMatch(/^1 .*Lightning Bolt/);
+      expect(named.join()).not.toContain('next up');
+    });
+
+    it('marks the new first row next up once the first card is removed', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = queuePane(page);
+
+      chooseInRowMenu(queue, 'Lightning Bolt', 'Remove');
+      http
+        .expectOne('/api/drafts/draft-1/queue/bolt-card')
+        .flush(queueOf({ cards: [queued(shivan), queued(brightclimb)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(rows(queue)[0]).toContain('Shivan Dragon'));
+      const [first, second] = rows(queue);
+      expect(first).toContain('next up');
+      expect(first).not.toMatch(/^1 /);
+      expect(second).toMatch(/^2 .*Brightclimb/);
+      expect(second).not.toContain('next up');
+    });
+  });
+
   describe('each row', () => {
     it('opens a queued card’s Card detail from its name, offering Remove from queue, then puts focus back on the name', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
@@ -559,7 +627,8 @@ describe('Queue pane list', () => {
     it('shows each card’s mana cost before its name', async () => {
       const { page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
-        queue: queueOf({ cards: [queued(shivan)] }),
+        // Queue paused, so its row reads its number rather than "next up".
+        queue: queueOf({ cards: [queued(shivan)], queuePaused: true }),
       });
 
       const row = queuePane(page).querySelector('li')!;

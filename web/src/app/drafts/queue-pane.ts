@@ -26,6 +26,7 @@ import type { LostQueuedCardView, QueueView, StealBehavior } from 'contract';
 import type { Observable } from 'rxjs';
 import {
   LucideArrowLeftRight,
+  LucideArrowRight,
   LucideEllipsisVertical,
   LucideInfo,
   LucidePanelRightClose,
@@ -110,6 +111,7 @@ let panes = 0;
     CdkMenuTrigger,
     LoadingAnimation,
     LucideArrowLeftRight,
+    LucideArrowRight,
     LucideEllipsisVertical,
     LucideInfo,
     LucidePanelRightClose,
@@ -208,6 +210,14 @@ export class QueuePane {
 
   /** Whether the queue is queue paused, which the rail marks. */
   protected readonly queuePaused = this.store.queuePaused;
+  /**
+   * Whether the queue's first card is its next-up card, which an arrow marks
+   * in place of its row's number: the queue is queue picking and the player
+   * has picks left.
+   */
+  protected readonly hasNextUpCard = computed(
+    () => !this.queuePaused() && (this.store.picksLeft() ?? 0) > 0,
+  );
   /** The collapse toggle's name: on the rail, with the queue's size, whether it is queue paused and any unseen Queue notice. */
   protected readonly toggleName = computed(() =>
     this.collapsed() ? this.store.queueSummary('Expand queue') : 'Collapse queue',
