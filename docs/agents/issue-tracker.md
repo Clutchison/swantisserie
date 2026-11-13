@@ -6,7 +6,7 @@ Issues and specs live as GitHub issues in `Clutchison/swantisserie`, worked with
 
 - **Read an issue** (also what "fetch the relevant ticket" means): `gh issue view <number> --json number,title,body,labels,comments`.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with `--label` and `--state` filters.
-- **Publish** (what "publish to the issue tracker" means): `gh issue create`.
+- **Publish** (what "publish to the issue tracker" means): `gh issue create`. If you're on a `docs/<slug>` branch, rename it to the new issue's branch as the branch rules below say. When one publish creates several tickets and no spec, the branch goes to the first ticket in blocking order.
 - **Sub-issues**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards.
 - **Blocking**: GitHub's native issue dependencies. Add an edge with `gh issue create --blocked-by <n>,<n> ...` or `gh issue edit <child> --add-blocked-by <blocker>`. A ticket is unblocked when every blocker is closed, except inside an `/implement-spec` run, where a blocker is done once it merges to the integration branch.
 - **Count open blockers**: `gh api repos/Clutchison/swantisserie/issues/<n> --jq .issue_dependencies_summary.blocked_by` (0 means startable). `gh issue view <n> --json blockedBy` also lists closed blockers.
