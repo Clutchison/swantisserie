@@ -7,6 +7,7 @@ import {
   useDraftsApp,
   signIn,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   pick,
   enqueue,
@@ -54,13 +55,7 @@ describe('freeze and unfreeze', () => {
   });
 
   it('gives the same player their remaining pick on unfreeze between the two picks of a double turn', async () => {
-    const id = await readyDraft(
-      [aliceCookie, bobCookie],
-      2,
-      fourCards,
-      null,
-      2,
-    );
+    const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);

@@ -10,6 +10,7 @@ import {
   signIn,
   getDraft,
   readyDraft,
+  readyDraftOfDoubleTurns,
   readyDraftWithCopies,
   pool,
   start,
@@ -203,13 +204,7 @@ describe('queue paused', () => {
 
     it('on the player’s own double turn, picks both its cards, refusing only one confirmed', async () => {
       // Alice then Bob, two picks each, both on double turns: A A B B.
-      const id = await readyDraft(
-        [aliceCookie, bobCookie],
-        2,
-        fourCards,
-        null,
-        2,
-      );
+      const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await bobQueuesPaused(id, ids, 'Lava Spike', 'Skewer the Critics');

@@ -8,6 +8,7 @@ import {
   signIn,
   getDraft,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   queue,
   enqueue,
@@ -643,13 +644,7 @@ describe('queue', () => {
 
     it('refuses an add from the player between the two picks of their double turn', async () => {
       const bobCookie = await signIn(bob);
-      const id = await readyDraft(
-        [aliceCookie, bobCookie],
-        2,
-        fourCards,
-        null,
-        2,
-      );
+      const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);

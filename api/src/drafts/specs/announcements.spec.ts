@@ -14,6 +14,7 @@ import {
   signIn,
   getDraft,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   enqueue,
   pick,
@@ -159,13 +160,11 @@ describe('announcements', () => {
     });
 
     describe('on a double turn', () => {
-      /** Alice then Bob, two picks each, both on double turns: A A B B. */
-      function doubleTurnDraft() {
-        return readyDraft([aliceCookie, bobCookie], 2, fourCards, webhookId, 2);
-      }
-
       it('names them without a ping after their first pick by hand', async () => {
-        const id = await doubleTurnDraft();
+        const id = await readyDraftOfDoubleTurns(
+          [aliceCookie, bobCookie],
+          webhookId,
+        );
         const ids = await poolCardIds(id);
         await start(id).expect(200);
 
@@ -178,7 +177,10 @@ describe('announcements', () => {
       });
 
       it('pings them after their first pick came from their queue', async () => {
-        const id = await doubleTurnDraft();
+        const id = await readyDraftOfDoubleTurns(
+          [aliceCookie, bobCookie],
+          webhookId,
+        );
         const ids = await poolCardIds(id);
         // A queue already filled in the lobby, with one card.
         await queueInLobby(id, alice, ids.Shock);

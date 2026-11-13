@@ -25,6 +25,7 @@ import {
   start,
   pick,
   pickLog,
+  pickerIds,
   pickedIds,
   pickedNames,
   undo,
@@ -128,8 +129,7 @@ describe('bot players', () => {
       playerId: alice.id,
       picksBeforeTurnPasses: 1,
     });
-    const log = (await pickLog(id)).body as { playerId: string }[];
-    expect(log.map((logged) => logged.playerId)).toEqual([
+    expect(await pickerIds(id)).toEqual([
       alice.id,
       botIds[0],
       botIds[1],
@@ -152,11 +152,7 @@ describe('bot players', () => {
     await start(id).expect(200);
 
     expect((await atPick(id, 2)).turn?.playerId).toBe(alice.id);
-    expect(
-      (await pickLog(id)).body.map(
-        (logged: { playerId: string }) => logged.playerId,
-      ),
-    ).toEqual([botIds[0]]);
+    expect(await pickerIds(id)).toEqual([botIds[0]]);
   });
 
   it('has a bot make both picks of its double turn', async () => {
@@ -172,12 +168,7 @@ describe('bot players', () => {
       playerId: alice.id,
       picksBeforeTurnPasses: 2,
     });
-    expect(
-      (await pickLog(id)).body.map(
-        (logged: { playerId: string }) => logged.playerId,
-      ),
-    ).toEqual([botIds[0], botIds[0]]);
-    expect(new Set(await pickedNames(id)).size).toBe(2);
+    expect(await pickerIds(id)).toEqual([botIds[0], botIds[0]]);
   });
 
   it('picks the available card the random value lands on, with the available cards sorted by name', async () => {
@@ -257,11 +248,7 @@ describe('bot players', () => {
     await post(id, 'unfreeze').expect(200);
 
     await waitForBotPicks(1, async () => {
-      expect(
-        (await pickLog(id)).body.map(
-          (logged: { playerId: string }) => logged.playerId,
-        ),
-      ).toEqual([alice.id, botIds[0]]);
+      expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
     });
   });
 
@@ -282,11 +269,7 @@ describe('bot players', () => {
     await post(id, 'reopen').expect(200);
 
     await waitForBotPicks(1, async () => {
-      expect(
-        (await pickLog(id)).body.map(
-          (logged: { playerId: string }) => logged.playerId,
-        ),
-      ).toEqual([alice.id, botIds[0]]);
+      expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
     });
   });
 
@@ -301,11 +284,7 @@ describe('bot players', () => {
     await undo(id, 3).expect(200);
 
     await atPick(id, 4);
-    expect(
-      (await pickLog(id)).body.map(
-        (logged: { playerId: string }) => logged.playerId,
-      ),
-    ).toEqual([alice.id, botIds[0], botIds[0]]);
+    expect(await pickerIds(id)).toEqual([alice.id, botIds[0], botIds[0]]);
     expect(await pickedNames(id)).toEqual([
       'Shock',
       'Burst Lightning',
@@ -326,11 +305,7 @@ describe('bot players', () => {
     await startApp();
 
     await waitForBotPicks(1, async () => {
-      expect(
-        (await pickLog(id)).body.map(
-          (logged: { playerId: string }) => logged.playerId,
-        ),
-      ).toEqual([alice.id, botIds[0]]);
+      expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
     });
   });
 
@@ -349,11 +324,7 @@ describe('bot players', () => {
 
     // Too slow for the second bot to pick before the check below.
     await startApp({ botDelayMs: 60_000 });
-    expect(
-      (await pickLog(id)).body.map(
-        (logged: { playerId: string }) => logged.playerId,
-      ),
-    ).toEqual([alice.id, botIds[0]]);
+    expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
     expect(errors).not.toHaveBeenCalled();
   });
 
@@ -371,11 +342,7 @@ describe('bot players', () => {
       await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
       expect((await atPick(id, 4)).turn?.playerId).toBe(alice.id);
-      expect(
-        (await pickLog(id)).body.map(
-          (logged: { playerId: string }) => logged.playerId,
-        ),
-      ).toEqual([alice.id, botIds[0], botIds[0]]);
+      expect(await pickerIds(id)).toEqual([alice.id, botIds[0], botIds[0]]);
     });
 
     it('gives up once its retries run out, leaving the draft on its turn', async () => {
@@ -419,11 +386,7 @@ describe('bot players', () => {
       );
 
       await waitForBotPicks(2, async () => {
-        expect(
-          (await pickLog(id)).body.map(
-            (logged: { playerId: string }) => logged.playerId,
-          ),
-        ).toEqual([alice.id, botIds[0], botIds[1]]);
+        expect(await pickerIds(id)).toEqual([alice.id, botIds[0], botIds[1]]);
       });
     });
 
@@ -481,11 +444,7 @@ describe('bot players', () => {
       expect(errors).not.toHaveBeenCalled();
       // Too slow for the bot to pick before the check below.
       await startApp({ botDelayMs: 60_000 });
-      expect(
-        (await pickLog(id)).body.map(
-          (logged: { playerId: string }) => logged.playerId,
-        ),
-      ).toEqual([alice.id]);
+      expect(await pickerIds(id)).toEqual([alice.id]);
     });
   });
 

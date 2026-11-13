@@ -7,6 +7,7 @@ import {
   useDraftsApp,
   signIn,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   post,
   pick,
@@ -177,13 +178,7 @@ describe('close and reopen', () => {
   });
 
   it('gives the same player their remaining pick on reopen between the two picks of a double turn', async () => {
-    const id = await readyDraft(
-      [aliceCookie, bobCookie],
-      2,
-      fourCards,
-      null,
-      2,
-    );
+    const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
     await pick(id, ids.Shock).expect(200);
@@ -203,21 +198,23 @@ describe('close and reopen', () => {
   });
 
   it('has a queue that is queue picking make the remaining pick of a double turn straight away on reopen', async () => {
-    const id = await readyDraft(
-      [aliceCookie, bobCookie],
-      2,
-      fourCards,
-      null,
-      2,
-    );
+    const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
     const ids = await poolCardIds(id);
     // A queue already filled in the lobby.
     await queueInLobby(id, alice, ids.Shock, ids['Lava Spike']);
     await start(id).expect(200);
     // Both of Alice's picks came from her queue; undoing the second leaves
-    // her turn with one pick left, and Lava Spike back in her queue.
-    await undo(id, 2).expect(200);
+    // her turn with one pick left, and Lava Spike back in her queue,
+    // waiting.
+    const undone = await undo(id, 2).expect(200);
+    expect(undone.body.turn).toEqual({
+      pick: 2,
+      round: 1,
+      playerId: alice.id,
+      picksBeforeTurnPasses: 1,
+    });
     await post(id, 'close').expect(200);
+    expect(await pickedNames(id)).toEqual(['Shock']);
 
     const reopened = await post(id, 'reopen').expect(200);
 

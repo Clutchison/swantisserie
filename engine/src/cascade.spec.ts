@@ -231,7 +231,7 @@ describe('cascade', () => {
   });
 
   describe('on double turns', () => {
-    // Two players with 2 picks each, both double picks: seat 0 makes two
+    // Two players with 2 picks each, both on double turns: seat 0 makes two
     // picks, then seat 1 makes two.
     const doubleTurns = {
       players: 2,
@@ -264,20 +264,23 @@ describe('cascade', () => {
       ).toEqual([{ seat: 0, card: 'shock' }]);
     });
 
-    it('stops at the double turn of a seat whose queue a loss paused under pause queue', () => {
-      expect(
-        picks(
-          doubleTurns,
-          [
-            ['shock', 'spike'],
-            ['shock', 'bolt', 'skewer'],
-          ],
-          singles,
-        ),
-      ).toEqual([
+    it('pauses a queue that loses a card under pause queue, and stops at its seat’s double turn', () => {
+      const made = cascade(
+        doubleTurns,
+        seatsOf([
+          ['shock', 'spike'],
+          ['shock', 'bolt', 'skewer'],
+        ]),
+        singles,
+      );
+      expect(made.map(({ pick }) => pick)).toEqual([
         { seat: 0, card: 'shock' },
         { seat: 0, card: 'spike' },
       ]);
+      expect(made.at(-1)?.queues[1]).toMatchObject({
+        queue: ['bolt', 'skewer'],
+        queuePaused: true,
+      });
     });
 
     it('has a queue under pick next make both picks of its double turn from its next queued cards after a loss', () => {

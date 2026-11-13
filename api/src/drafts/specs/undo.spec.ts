@@ -7,6 +7,7 @@ import {
   useDraftsApp,
   signIn,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   pick,
   undo,
@@ -63,13 +64,7 @@ describe('undo', () => {
   describe('on a double turn', () => {
     /** Alice then Bob, two picks each, both on double turns: A A B B. */
     async function doubleTurnDraft() {
-      const id = await readyDraft(
-        [aliceCookie, bobCookie],
-        2,
-        fourCards,
-        null,
-        2,
-      );
+      const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
       await start(id).expect(200);
       return { id, ids: await poolCardIds(id) };
     }
@@ -110,13 +105,22 @@ describe('undo', () => {
       ]);
     });
 
-    it('returns to the last single round’s order on an undo of the first pick of the first double round', async () => {
-      // Three picks each, the last two on double turns: round 1 runs A B,
-      // then round 2, the first double round, runs back B B A A.
+    it('returns to the round of single turns’ order on an undo of the first pick of the first round of double turns', async () => {
+      // Three players with three picks each, the last two on double turns:
+      // round 1, of single turns, runs A B C, then round 2, of double turns,
+      // runs back C C B B A A.
+      const carolCookie = await signIn(carol);
       const id = await readyDraft(
-        [aliceCookie, bobCookie],
+        [aliceCookie, bobCookie, carolCookie],
         3,
-        [...fourCards, 'Play with Fire', 'Burst Lightning'],
+        [
+          ...fourCards,
+          'Play with Fire',
+          'Burst Lightning',
+          'Firebolt',
+          'Fireblast',
+          'Lightning Strike',
+        ],
         null,
         2,
       );
@@ -124,18 +128,28 @@ describe('undo', () => {
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
       await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
-      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+      await pick(id, ids['Lava Spike'], carolCookie).expect(200);
+      await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
 
-      const second = await undo(id, 3).expect(200);
-      expect(second.body.turn).toEqual({
-        pick: 3,
+      const doubleTurn = await undo(id, 4).expect(200);
+      expect(doubleTurn.body.turn).toEqual({
+        pick: 4,
         round: 2,
-        playerId: bob.id,
+        playerId: carol.id,
         picksBeforeTurnPasses: 2,
       });
 
-      const first = await undo(id, 2).expect(200);
-      expect(first.body.turn).toEqual({
+      const lastSingle = await undo(id, 3).expect(200);
+      expect(lastSingle.body.turn).toEqual({
+        pick: 3,
+        round: 1,
+        playerId: carol.id,
+        picksBeforeTurnPasses: 1,
+      });
+
+      // Round 1 runs forward, so Bob, not Carol, made pick 2.
+      const earlier = await undo(id, 2).expect(200);
+      expect(earlier.body.turn).toEqual({
         pick: 2,
         round: 1,
         playerId: bob.id,

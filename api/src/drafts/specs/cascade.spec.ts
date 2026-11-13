@@ -97,6 +97,46 @@ describe('cascade', () => {
     });
   });
 
+  it('picks both picks of each double turn from queues, pausing a queue that loses a card and leaving the turn with its player', async () => {
+    const carolCookie = await signIn(carol);
+    // Two picks each, both on double turns: A A B B C C.
+    const id = await readyDraft(
+      [aliceCookie, bobCookie, carolCookie],
+      2,
+      [...fourCards, 'Play with Fire', 'Burst Lightning'],
+      null,
+      2,
+    );
+    const ids = await poolCardIds(id);
+    // Queues already filled in the lobby.
+    await queueInLobby(id, alice, ids.Shock, ids['Lightning Bolt']);
+    await queueInLobby(id, bob, ids['Lava Spike'], ids['Skewer the Critics']);
+    await queueInLobby(id, carol, ids.Shock, ids['Play with Fire']);
+
+    const started = await start(id).expect(200);
+
+    expect(started.body.turn).toEqual({
+      pick: 5,
+      round: 1,
+      playerId: carol.id,
+      picksBeforeTurnPasses: 2,
+    });
+    expect(await pickLogLines(id)).toEqual([
+      'Alice: Shock',
+      'Alice: Lightning Bolt',
+      'Bob: Lava Spike',
+      'Bob: Skewer the Critics',
+    ]);
+    expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+      cards: [{ poolCardId: ids['Play with Fire'], name: 'Play with Fire' }],
+      lost: [
+        { poolCardId: ids.Shock, name: 'Shock', queueLoss: 'QueuePaused' },
+      ],
+      stealBehavior: 'PauseQueue',
+      queuePaused: true,
+    });
+  });
+
   describe('at a player whose queue is paused', () => {
     /**
      * Alice, Bob and Carol, one pick each: Bob's queue picks Lightning Bolt,
