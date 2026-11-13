@@ -24,6 +24,7 @@ import { CardPreviews } from './card-preview';
 import { ListsTab } from './lists-tab';
 import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
+import { OwnTurnLoop } from './own-turn-loop';
 import { DESKTOP_QUERY, hasTurn, matching, setListText } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
@@ -77,6 +78,8 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Deck']);
     // The Play tab's standings, results grid and bracket read its players from the draft.
     { provide: TournamentViewer, useExisting: DraftStore },
     ImagePreloader,
+    // The Seat strip's, kept as the strip moves between the tab bar and the row under the header.
+    OwnTurnLoop,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './draft-page.html',

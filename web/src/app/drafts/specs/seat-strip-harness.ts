@@ -31,3 +31,16 @@ export const playersPopover = (page: HTMLElement) =>
  */
 export const playersSheet = () =>
   byAriaLabel(document.body, '[role="dialog"][aria-modal="true"]', 'Players');
+
+/**
+ * Which pulse a seat's ring plays: `loop`, the viewer's own ring pulsing
+ * until they press; `beats`, the three beats of a turn change; both, which
+ * a seat should never play; or null at rest. A pulse has no accessible
+ * state, so this reads the seat's classes.
+ */
+export const seatPulse = (seat: HTMLElement) => {
+  const loop = seat.classList.contains('pulse-loop');
+  const beats = seat.classList.contains('pulse') || seat.classList.contains('pulse-again');
+  if (loop && beats) return 'loop and beats';
+  return loop ? 'loop' : beats ? 'beats' : null;
+};

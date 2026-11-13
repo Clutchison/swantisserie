@@ -31,6 +31,7 @@
           [class.turn]="hasTheTurn(player)"
           [class.pulse]="hasTheTurn(player) && pulse() === 'pulse'"
           [class.pulse-again]="hasTheTurn(player) && pulse() === 'pulse-again'"
+          [class.pulse-loop]="hasTheTurn(player) && ownLoop.looping()"
           [attr.aria-label]="seatName(player)"
           [attr.aria-current]="hasTheTurn(player) ? 'true' : null"
           (mouseenter)="showHint(player, seat)"
@@ -38,6 +39,7 @@
           (focus)="showHint(player, seat)"
           (blur)="hideHint()"
           (animationend)="pulse.set(null)"
+          (animationiteration)="ownLoop.beatEnded()"
         >
           <span class="initial">{{ initial(player) }}</span>
           <app-player-avatar
