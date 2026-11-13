@@ -105,9 +105,32 @@ function cardsByName(pool: PickImportCard[]): (name: string) => CopiesByCard {
   };
 }
 
+/** Whether the 1-based `round` is all double turns. */
+function roundIsDouble(
+  { picksPerPlayer, doublePicks }: DraftSize,
+  round: number,
+): boolean {
+  return round > picksPerPlayer - doublePicks;
+}
+
+/**
+ * The 1-based round of a file's 0-based row `index`: a single round takes one
+ * row and a double round two.
+ */
+function rowRound(
+  { picksPerPlayer, doublePicks }: DraftSize,
+  index: number,
+): number {
+  const singleRounds = picksPerPlayer - doublePicks;
+  if (index < singleRounds) return index + 1;
+  return singleRounds + Math.floor((index - singleRounds) / 2) + 1;
+}
+
 /**
  * Reads a pick import's file for a draft of `size` with `pool`. Column N of
- * the file is seat N, and its picks run in snake order. Names are matched to
+ * the file is seat N, and its picks run in the draft's turn order: a single
+ * round is one row, and a double round two rows read seat by seat across the
+ * pair, a seat's two cells being its double turn. Names are matched to
  * pool cards ignoring case, never fuzzily, on a card's full name or else its
  * front-face name, and each use of a name takes the next unpicked copy of its
  * card.
@@ -147,7 +170,8 @@ export function readPickImport(
     );
   }
 
-  rows.forEach((row, round) => {
+  rows.forEach((row, index) => {
+    const round = rowRound(size, index) - 1;
     const direction = roundRunsForward(round + 1) ? '->' : '<-';
     row.forEach((cell, index) => {
       const marker = index === 0 || index === seats + 1;
@@ -167,13 +191,28 @@ export function readPickImport(
     });
   });
 
-  // Every player cell in snake order, with the filled ones' names.
-  const cells = rows.flatMap((row, round) =>
-    columns.map((_, place) => {
+  // Each round's rows: one for a single round, two for a double round, read
+  // as empty where the file stops before its second.
+  const roundsRows: string[][][] = [];
+  rows.forEach((row, index) => {
+    const round = rowRound(size, index) - 1;
+    roundsRows[round] = [...(roundsRows[round] ?? []), row];
+  });
+  // Every player cell in turn order, with the filled ones' names: a double
+  // round's rows are read seat by seat across the pair.
+  const cells = roundsRows.flatMap((roundRows, round) => {
+    const turnRows = roundIsDouble(size, round + 1)
+      ? [roundRows[0], roundRows[1] ?? []]
+      : roundRows;
+    return columns.flatMap((_, place) => {
       const seat = roundRunsForward(round + 1) ? place : seats - 1 - place;
-      return { round, seat, name: row[seat + 1] ?? '' };
-    }),
-  );
+      return turnRows.map((row) => ({
+        round,
+        seat,
+        name: row[seat + 1] ?? '',
+      }));
+    });
+  });
   const filled = cells.filter((cell) => cell.name);
 
   const lastFilled = cells.findLastIndex((cell) => cell.name);

@@ -365,6 +365,95 @@ describe('readPickImport', () => {
     });
   });
 
+  describe('double picks', () => {
+    // One single round, A B, then two double rounds: B B A A, A A B B.
+    const doubles = { players: 2, picksPerPlayer: 5, doublePicks: 4 };
+    const cards = [
+      ...pool,
+      ...['Gale Kite', 'Hollow Elk', 'Iron Moth', 'Jade Viper'].map(card),
+    ];
+    const header = ',Ann,Ben,';
+    const single = '->,Ash Golem,Brine Wisp,';
+
+    it('reads a double round from two rows, seat by seat across the pair', () => {
+      const csv = [
+        header,
+        single,
+        ',Cinder Hound,Dusk Heron,<-',
+        ',Ember Stag,Fen Lurker,<-',
+        '->,Gale Kite,Hollow Elk,',
+        '->,Iron Moth,,',
+      ].join('\n');
+
+      expect(read(csv, doubles, cards)).toEqual({
+        ok: true,
+        columns: ['Ann', 'Ben'],
+        picks: [
+          { number: 1, seat: 0, poolCardId: 'ash golem' },
+          { number: 2, seat: 1, poolCardId: 'brine wisp' },
+          { number: 3, seat: 1, poolCardId: 'dusk heron' },
+          { number: 4, seat: 1, poolCardId: 'fen lurker' },
+          { number: 5, seat: 0, poolCardId: 'cinder hound' },
+          { number: 6, seat: 0, poolCardId: 'ember stag' },
+          { number: 7, seat: 0, poolCardId: 'gale kite' },
+          { number: 8, seat: 0, poolCardId: 'iron moth' },
+          { number: 9, seat: 1, poolCardId: 'hollow elk' },
+        ],
+        next: { pick: 10, round: 3, seat: 1, picksBeforeTurnPasses: 1 },
+      });
+    });
+
+    it('leaves the turn with the player after the first pick of their double turn', () => {
+      const csv = [header, single, ',,Dusk Heron,<-'].join('\n');
+
+      expect(read(csv, doubles, cards)).toMatchObject({
+        ok: true,
+        picks: [
+          { number: 1, seat: 0 },
+          { number: 2, seat: 1 },
+          { number: 3, seat: 1, poolCardId: 'dusk heron' },
+        ],
+        next: { pick: 4, round: 2, seat: 1, picksBeforeTurnPasses: 1 },
+      });
+    });
+
+    it.each([
+      [
+        ',,Dusk Heron,->\n,,,<-',
+        'Round 2 is marked -> but runs <- in snake order.',
+      ],
+      [
+        ',,Dusk Heron,<-\n->,,,',
+        'Round 2 is marked -> but runs <- in snake order.',
+      ],
+      [
+        ',,Dusk Heron,<-\n,,,<-\n<-,,,\n',
+        'Round 3 is marked <- but runs -> in snake order.',
+      ],
+      [
+        ',,Dusk Heron,<-\n,,,<-\n,,,\n,,,<-',
+        'Round 3 is marked <- but runs -> in snake order.',
+      ],
+    ])(
+      'names the double round of a wrong marker on either of its rows',
+      (rows, problem) => {
+        const csv = [header, single, rows].join('\n');
+
+        expect(problems(csv, doubles, cards)).toEqual([problem]);
+      },
+    );
+
+    it('refuses an empty cell before a filled one across the pair', () => {
+      const csv = [header, single, ',Cinder Hound,,<-', ',,Fen Lurker,<-'].join(
+        '\n',
+      );
+
+      expect(problems(csv, doubles, cards)).toEqual([
+        'Round 2 has no pick for Ben, but later picks are filled in.',
+      ]);
+    });
+  });
+
   it('reports every problem in a file together', () => {
     const csv = [
       ',Ann,Ben,Cid,',
