@@ -38,6 +38,8 @@ import {
   draft,
   viewOn,
   startDraft,
+  chooseInRowMenu,
+  rowMenu,
 } from './harness';
 import { measuredAs } from './measure-harness';
 import {
@@ -222,7 +224,7 @@ describe('Queue pane layout', () => {
       expect(sheet.textContent).toContain('Queue cutoff');
       expect(button(sheet, 'Steal behavior: Pause queue')).toBeDefined();
 
-      button(sheet, 'Move Shivan Dragon down').click();
+      chooseInRowMenu(sheet, 'Shivan Dragon', 'Move down');
       const req = http.expectOne('/api/drafts/draft-1/queue');
       expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
       req.flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
@@ -396,12 +398,12 @@ describe('Queue pane layout', () => {
 
       expect(info.getAttribute('aria-expanded')).toBe('true');
       expect(shownHelp(pane)?.textContent).toContain(
-        'Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.',
+        'Cards are picked for you in this order. Drag a card, or use its menu button, to reorder.',
       );
       expect(document.getElementById(info.getAttribute('aria-controls')!)).toBe(shownHelp(pane));
     });
 
-    it('says on a touchscreen that a card moves by its handle or its menu', async () => {
+    it('says on a touchscreen that a card’s menu opens with a tap and drags when held', async () => {
       viewOn('desktop', { pointer: 'coarse' });
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
@@ -413,7 +415,7 @@ describe('Queue pane layout', () => {
       await fixture.whenStable();
 
       expect(shownHelp(pane)?.textContent?.replace(/\s+/g, ' ')).toContain(
-        'Drag a card by its handle, or use its menu, to reorder.',
+        'Tap a card’s menu button, or hold it to drag, to reorder.',
       );
     });
 
@@ -509,7 +511,7 @@ describe('Queue pane layout', () => {
         cards: [shivan],
         queue: queueOf({ cards: [queued(shivan)] }),
       });
-      button(queuePane(page), 'Remove Shivan Dragon').focus();
+      rowMenu(queuePane(page), 'Shivan Dragon')!.focus();
 
       // A click that leaves focus where it was, as Safari's does on a button.
       queuePaneToggle(page).click();

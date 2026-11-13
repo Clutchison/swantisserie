@@ -6,9 +6,10 @@
   display: block;
 }
 
+/* The column's width, with room for a row menu's focus ring: see side-pane.sticky. */
 :host(.collapsible) {
   position: relative;
-  inline-size: side-pane.$width;
+  inline-size: side-pane.$outer-width;
 }
 
 :host(.collapsed) {
@@ -23,7 +24,7 @@
 .toggle {
   position: absolute;
   top: 0;
-  right: 0;
+  right: side-pane.$focus-room;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -40,6 +41,7 @@
 /* The rail: the toggle alone, with the queue's size, a pause icon while it is queue paused and a dot for an unseen Queue notice. */
 :host(.collapsed) .toggle {
   position: relative;
+  right: auto;
   flex-direction: column;
   gap: var(--space-xs);
   padding: var(--space-sm) var(--space-xs);
@@ -102,16 +104,12 @@
   }
 }
 
-/* The position, cost, name and buttons; on a touchscreen, the handle first. */
+/* The position, cost, name and row menu. */
 .queue {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
   margin: 0;
   padding: 0;
   list-style: none;
-
-  &.with-handles {
-    --card-row-columns: auto auto [cost] max-content [name] minmax(0, 1fr) auto;
-  }
 
   li {
     gap: var(--space-sm);
@@ -119,8 +117,8 @@
     background: var(--color-bg);
   }
 
-  /* With a mouse, the whole row drags. */
-  &:not(.with-handles) li:not(.empty, .cutoff) {
+  /* A row with no handle, as with a mouse, drags as a whole. */
+  li:not(.empty, .cutoff):not(:has(.handle)) {
     cursor: grab;
   }
 
@@ -142,22 +140,6 @@
   }
 }
 
-/* Finger-sized, and a long press on it starts no text selection or callout. */
-.handle {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: 2.75rem;
-  height: 2.75rem;
-  color: var(--color-muted);
-  font-size: var(--font-size-lg);
-  cursor: grab;
-  touch-action: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-
 .number {
   min-width: 1.5rem;
   color: var(--color-muted);
@@ -166,12 +148,6 @@
 
 app-card-name {
   font-weight: 600;
-}
-
-.move {
-  display: flex;
-  justify-self: end;
-  gap: var(--space-xs);
 }
 
 .icon {
@@ -191,6 +167,15 @@ app-card-name {
     opacity: 0.4;
     cursor: default;
   }
+}
+
+/* The row menu as a drag handle (see the template): finger-sized, and a long press on it starts no text selection or callout. */
+.icon.handle {
+  width: 2.75rem;
+  height: 2.75rem;
+  touch-action: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 /* CDK drag-drop: the cards making way for the one being dragged. */

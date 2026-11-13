@@ -21,8 +21,8 @@ export const draggable = (fixture: AppFixture, element: HTMLElement) =>
   !dragHolding(fixture, element).injector.get(CdkDrag).disabled;
 
 /**
- * The drag handle of the card that holds `element`, if it has one: hidden
- * from assistive tech, which reorders with buttons or a menu instead.
+ * The drag handle of the card that holds `element`, if it has one: on a
+ * touchscreen, its row menu button.
  */
 export const dragHandle = (fixture: AppFixture, element: HTMLElement): HTMLElement | undefined =>
   dragHolding(fixture, element).query(By.directive(CdkDragHandle))?.nativeElement;

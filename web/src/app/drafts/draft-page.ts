@@ -1,3 +1,4 @@
+import { CdkScrollable } from '@angular/cdk/scrolling';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -49,6 +50,7 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Deck']);
   selector: 'app-draft-page',
   imports: [
     BoardTab,
+    CdkScrollable,
     DraftHeader,
     ListsTab,
     LoadingAnimation,

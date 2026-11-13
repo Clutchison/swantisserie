@@ -15,12 +15,10 @@ import {
   flushPicks,
   completeSnapshot,
   button,
-  buttons,
   drafting,
   queued,
   queueOf,
   queuePane,
-  statusMessage,
   statusTexts,
   type AppFixture,
   alertIn,
@@ -34,29 +32,29 @@ import {
   draggable,
   dragHandle,
   touchDrag,
+  startDrag,
+  pointer,
   namedImages,
   accessibleName,
+  chooseInOpenRowMenu,
+  chooseInRowMenu,
+  openRowMenu,
+  rowMenuName,
+  rowMenu,
 } from './harness';
-import {
-  disabledMenuItems,
-  menu,
-  menuItem,
-  openDialog,
-  openMenu,
-  pressEscape,
-} from '../../specs-harness';
+import { disabledMenuItems, menu, menuItems, openDialog, pressEscape } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, boltAgain } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
 
-/** The Queue pane's list and its reordering, with a mouse, on a desktop screen. */
+/** The Queue pane's list and its reordering, on a desktop screen: with a mouse, unless a spec says otherwise. */
 describe('Queue pane list', () => {
   beforeEach(() => viewOn('desktop'));
   afterEach(() => vi.unstubAllGlobals());
 
-  const shivanUp = 'Move Shivan Dragon up';
+  const threeQueued = () => queueOf({ cards: [queued(bolt), queued(shivan), queued(brightclimb)] });
   /** The api's refusal of a queue change made against a queue that has since changed: its body, then its status. */
   const queueChanged = [
     {
@@ -111,7 +109,7 @@ describe('Queue pane list', () => {
     });
 
     const queue = queuePane(page);
-    queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
+    chooseInRowMenu(queue, 'Shivan Dragon', 'Remove');
     http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(EMPTY_QUEUE);
     await fixture.whenStable();
     tabButton(page, 'Pool').click();
@@ -122,55 +120,6 @@ describe('Queue pane list', () => {
     expect(button(detail, 'Remove from queue')).toBeUndefined();
   });
 
-  it('removes a card from the Queue pane', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-      cards: [brightclimb, shivan],
-      queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
-    });
-    const queue = queuePane(page);
-
-    queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!.click();
-    const req = http.expectOne('/api/drafts/draft-1/queue/shivan-card');
-    expect(req.request.method).toBe('DELETE');
-    req.flush(queueOf({ cards: [queued(brightclimb)] }));
-    await fixture.whenStable();
-
-    expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
-  });
-
-  it('shows a queued card’s remove button as an icon, named for its card', async () => {
-    const { page } = await openDraft(completeSnapshot, drafting(), {
-      cards: [shivan],
-      queue: queueOf({ cards: [queued(shivan)] }),
-    });
-    const queue = queuePane(page);
-
-    const remove = queue.querySelector<HTMLButtonElement>('[aria-label="Remove Shivan Dragon"]')!;
-    expect(remove.textContent?.trim()).toBe('');
-    expect(remove.title).toBe('Remove Shivan Dragon');
-  });
-
-  it('moves a card up or down the queue, saving the new order', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-      cards: [brightclimb, shivan],
-      queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
-    });
-    const queue = queuePane(page);
-    expect(button(queue, shivanUp)!.disabled).toBe(true);
-
-    queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
-    await fixture.whenStable();
-    // Shown at once, before the API answers.
-    expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Shivan Dragon']);
-    const req = http.expectOne('/api/drafts/draft-1/queue');
-    expect(req.request.method).toBe('PUT');
-    expect(req.request.body).toEqual({ poolCardIds: ['brightclimb-card', 'shivan-card'] });
-    req.flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
-    await fixture.whenStable();
-
-    expect(names(queue)).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Shivan Dragon']);
-  });
-
   it('says why a new order was refused, and re-reads the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [brightclimb, shivan],
@@ -178,7 +127,7 @@ describe('Queue pane list', () => {
     });
     const queue = queuePane(page);
 
-    queue.querySelector<HTMLButtonElement>('[aria-label="Move Shivan Dragon down"]')!.click();
+    chooseInRowMenu(queue, 'Shivan Dragon', 'Move down');
     http.expectOne('/api/drafts/draft-1/queue').flush(...queueChanged);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
       queueOf({ cards: [queued(shivan)] }),
@@ -196,14 +145,14 @@ describe('Queue pane list', () => {
       queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
     });
     const queue = queuePane(page);
-    button(queue, 'Move Shivan Dragon down')!.click();
+    chooseInRowMenu(queue, 'Shivan Dragon', 'Move down');
     http.expectOne('/api/drafts/draft-1/queue').flush(...queueChanged);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
       queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
     );
     await fixture.whenStable();
 
-    button(queue, 'Move Shivan Dragon down')!.click();
+    chooseInRowMenu(queue, 'Shivan Dragon', 'Move down');
     http
       .expectOne('/api/drafts/draft-1/queue')
       .flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));
@@ -248,374 +197,24 @@ describe('Queue pane list', () => {
     http.expectNone('/api/drafts/draft-1/queue');
   });
 
-  describe('focus after a change', () => {
-    const threeQueued = () =>
-      queueOf({ cards: [queued(bolt), queued(shivan), queued(brightclimb)] });
+  describe.each([
+    { on: 'with a mouse', pointer: 'fine' },
+    { on: 'on a touchscreen', pointer: 'coarse' },
+  ] as const)('the row menu, $on', ({ pointer }) => {
+    beforeEach(() => viewOn('desktop', { pointer }));
 
-    it('keeps focus on Move down as the card moves, and says where it went', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-
-      button(queue, 'Move Lightning Bolt down')!.focus();
-      button(queue, 'Move Lightning Bolt down')!.click();
-      await fixture.whenStable();
-      // While the change is in flight, the pressed button stays focused but sends nothing more.
-      const pressed = button(queue, 'Move Lightning Bolt down')!;
-      expect(pressed.getAttribute('aria-disabled')).toBe('true');
-      expect(document.activeElement).toBe(pressed);
-      pressed.click();
-      await fixture.whenStable();
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
-      await fixture.whenStable();
-
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Move Lightning Bolt down')),
-      );
-      await vi.waitFor(() =>
-        expect(button(queue, 'Move Lightning Bolt down')!.getAttribute('aria-disabled')).toBeNull(),
-      );
-      expect(document.activeElement).toBe(button(queue, 'Move Lightning Bolt down'));
-      expect(names(queue)[1]).toBe('Lightning Bolt');
-      expect(
-        statusMessage(queue, 'Lightning Bolt moved from position 1 to 2 in your queue'),
-      ).toBeDefined();
-    });
-
-    it('keeps focus on Move up as the card moves up, while the new order saves', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-      const label = 'Move Brightclimb Pathway // Grimclimb Pathway up';
-
-      button(queue, label)!.focus();
-      button(queue, label)!.click();
-      await fixture.whenStable();
-
-      expect(document.activeElement).toBe(button(queue, label));
-      http.expectOne('/api/drafts/draft-1/queue').flush(threeQueued());
-      await fixture.whenStable();
-    });
-
-    it('moves focus to Move down once a card reaches the top', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
-      });
-      const queue = queuePane(page);
-
-      button(queue, shivanUp)!.focus();
-      button(queue, shivanUp)!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
-      await fixture.whenStable();
-
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Move Shivan Dragon down')),
-      );
-    });
-
-    it('moves focus to Move up once a card reaches the bottom', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
-      });
-      const queue = queuePane(page);
-
-      button(queue, 'Move Lightning Bolt down')!.focus();
-      button(queue, 'Move Lightning Bolt down')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
-      await fixture.whenStable();
-
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Move Lightning Bolt up')),
-      );
-    });
-
-    it('keeps focus on the pressed button when the change fails', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-
-      button(queue, shivanUp)!.focus();
-      button(queue, shivanUp)!.click();
-      http.expectOne('/api/drafts/draft-1/queue').flush(null, serverError);
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(threeQueued());
-      await fixture.whenStable();
-
-      await vi.waitFor(() =>
-        expect(alertIn(queue)?.textContent).toContain("Couldn't change your queue."),
-      );
-      expect(document.activeElement?.getAttribute('aria-label')).toBe(shivanUp);
-    });
-
-    it('puts focus on the moved card’s other button before the move answers, and back on the pressed one once a failed move puts the card back', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-
-      button(queue, shivanUp)!.focus();
-      button(queue, shivanUp)!.click();
-      await fixture.whenStable();
-      // Shivan Dragon shows at the top at once, where it can't move up.
-      expect(names(queue)[0]).toBe('Shivan Dragon');
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Move Shivan Dragon down')),
-      );
-      http.expectOne('/api/drafts/draft-1/queue').flush(null, serverError);
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(threeQueued());
-      await fixture.whenStable();
-
-      await vi.waitFor(() => expect(document.activeElement).toBe(button(queue, shivanUp)));
-      expect(names(queue)[1]).toBe('Shivan Dragon');
-      expect(statusTexts(queue)).toEqual(['']);
-    });
-
-    it('says nothing of a change that says nothing, clearing what the last change said', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-      button(queue, 'Move Lightning Bolt down')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
-      await vi.waitFor(() =>
-        expect(statusTexts(queue)).toEqual([
-          'Lightning Bolt moved from position 1 to 2 in your queue',
-        ]),
-      );
-
-      button(queue, 'Remove Shivan Dragon')!.click();
-      await fixture.whenStable();
-      expect(statusTexts(queue)).toEqual(['']);
-      http
-        .expectOne('/api/drafts/draft-1/queue/shivan-card')
-        .flush(queueOf({ cards: [queued(bolt), queued(brightclimb)] }));
-      await vi.waitFor(() => expect(names(queue)).not.toContain('Shivan Dragon'));
-      await fixture.whenStable();
-
-      expect(statusTexts(queue)).toEqual(['']);
-    });
-
-    it('moves focus to the nearest control before, in page order, once the pressed card and its other buttons are gone', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-      // Moving Lightning Bolt down puts its row after the row of Shivan Dragon, which came after it.
-      button(queue, 'Move Lightning Bolt down')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
-      await vi.waitFor(() => expect(names(queue)[1]).toBe('Lightning Bolt'));
-
-      button(queue, 'Move Brightclimb Pathway // Grimclimb Pathway up')!.focus();
-      button(queue, 'Move Brightclimb Pathway // Grimclimb Pathway up')!.click();
-      // A pick took Brightclimb Pathway out of the queue meanwhile.
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
-      await fixture.whenStable();
-
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Remove Lightning Bolt')),
-      );
-    });
-
-    it('leaves focus alone after a change sent with focus on nothing, such as a drag', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-      expect(document.activeElement).toBe(document.body);
-
-      dragToIndex(fixture, 'Shivan Dragon')(0);
-      http
-        .expectOne('/api/drafts/draft-1/queue')
-        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
-      await vi.waitFor(() =>
-        expect(button(queue, 'Remove Shivan Dragon')!.getAttribute('aria-disabled')).toBeNull(),
-      );
-      await fixture.whenStable();
-
-      expect(document.activeElement).toBe(document.body);
-    });
-
-    it('leaves focus where the viewer moved it while the change was in flight', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: threeQueued(),
-      });
-      const queue = queuePane(page);
-
-      button(queue, 'Remove Shivan Dragon')!.focus();
-      button(queue, 'Remove Shivan Dragon')!.click();
-      tabButton(page, 'Pool').focus();
-      http
-        .expectOne('/api/drafts/draft-1/queue/shivan-card')
-        .flush(queueOf({ cards: [queued(bolt), queued(brightclimb)] }));
-      await vi.waitFor(() => expect(names(queue)).not.toContain('Shivan Dragon'));
-      await fixture.whenStable();
-
-      expect(document.activeElement).toBe(tabButton(page, 'Pool'));
-    });
-
-    it('puts focus nowhere once Dismiss, which has no control to go back to, takes the notice away', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(shivan)], lost: [queued(brightclimb)] }),
-      });
-      const queue = queuePane(page);
-
-      button(queue, 'Dismiss')!.focus();
-      button(queue, 'Dismiss')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue/notice')
-        .flush(queueOf({ cards: [queued(bolt), queued(shivan)] }));
-      await vi.waitFor(() => expect(button(queue, 'Dismiss')).toBeUndefined());
-      await fixture.whenStable();
-
-      expect(document.activeElement).toBe(document.body);
-    });
-
-    it('keeps focus on the copy moved when two queued cards share a name', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, boltAgain, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
-      });
-      const queue = queuePane(page);
-
-      buttons(queue, 'Move Lightning Bolt down')[0].focus();
-      buttons(queue, 'Move Lightning Bolt down')[0].click();
-      const req = http.expectOne('/api/drafts/draft-1/queue');
-      expect(req.request.body).toEqual({
-        poolCardIds: ['bolt-card-2', 'bolt-card', 'shivan-card'],
-      });
-      req.flush(queueOf({ cards: [queued(boltAgain), queued(bolt), queued(shivan)] }));
-      await fixture.whenStable();
-
-      // The second row's: the copy pressed, now one place down.
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(buttons(queue, 'Move Lightning Bolt down')[1]),
-      );
-    });
-
-    it('moves focus to the next card’s Remove when a card is removed, even one of the same name', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, boltAgain, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
-      });
-      const queue = queuePane(page);
-
-      buttons(queue, 'Remove Lightning Bolt')[1].focus();
-      buttons(queue, 'Remove Lightning Bolt')[1].click();
-      http
-        .expectOne('/api/drafts/draft-1/queue/bolt-card-2')
-        .flush(queueOf({ cards: [queued(bolt), queued(shivan)] }));
-      await fixture.whenStable();
-
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Remove Shivan Dragon')),
-      );
-    });
-  });
-
-  describe('each row', () => {
-    it('opens a queued card’s Card detail from its name, offering Remove from queue, then puts focus back on the name', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
-      });
-      const name = cardName(queuePane(page), 'Shivan Dragon');
-      expect(name.getAttribute('aria-haspopup')).toBe('dialog');
-
-      name.focus();
-      name.click();
-      await fixture.whenStable();
-      const detail = openDialog()!;
-      expect(detail.getAttribute('aria-label')).toBe('Shivan Dragon');
-      expect(button(detail, 'Remove from queue')).toBeDefined();
-
-      pressEscape();
-      await fixture.whenStable();
-      expect(openDialog()).toBeNull();
-      expect(document.activeElement).toBe(cardName(queuePane(page), 'Shivan Dragon'));
-    });
-
-    it('shows each card’s mana cost before its name', async () => {
+    it('gives each row a menu named for its card, in place of Move up, Move down and Remove', async () => {
       const { page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [shivan],
-        queue: queueOf({ cards: [queued(shivan)] }),
-      });
-
-      const row = queuePane(page).querySelector('li')!;
-      expect(accessibleName(row)).toMatch(/^1 .+ Shivan Dragon/);
-      expect(namedImages(row).map((symbol) => symbol.alt)).toHaveLength(3);
-    });
-
-    it('drags by the whole row with a mouse, and offers Move up, Move down and Remove', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [brightclimb, shivan],
-        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
-      });
-      const queue = queuePane(page);
-
-      expect(draggable(fixture, cardName(queue, 'Shivan Dragon'))).toBe(true);
-      for (const label of [
-        'Move Shivan Dragon up',
-        'Move Shivan Dragon down',
-        'Remove Shivan Dragon',
-      ]) {
-        expect(button(queue, label)).toBeDefined();
-      }
-    });
-  });
-
-  describe('on a touchscreen', () => {
-    beforeEach(() => viewOn('desktop', { pointer: 'coarse' }));
-
-    const threeQueued = () =>
-      queueOf({ cards: [queued(bolt), queued(shivan), queued(brightclimb)] });
-    const rowMenuName = (card: string) => `Move or remove ${card}`;
-    /** Opens the row menu of the queued card named `card`, answering its items' names. */
-    const openRowMenu = (queue: HTMLElement, card: string) =>
-      openMenu(button(queue, rowMenuName(card))!, rowMenuName(card));
-    /** Chooses `item` from the open row menu of `card`, as a tap on it does. */
-    const choose = (card: string, item: string) => {
-      menuItem(rowMenuName(card), item)!.click();
-      TestBed.tick();
-    };
-
-    it('gives each row a drag handle and a menu named for its card, in place of Move up and Move down', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
       });
       const queue = queuePane(page);
 
       for (const card of ['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']) {
-        expect(dragHandle(fixture, cardName(queue, card))).toBeDefined();
-        const trigger = button(queue, rowMenuName(card))!;
-        expect(trigger.getAttribute('aria-haspopup')).toBe('menu');
+        expect(rowMenu(queue, card)!.getAttribute('aria-haspopup')).toBe('menu');
+        expect(rowMenu(queue, card)!.title).toBe(`Move or remove ${card}`);
       }
-      expect(button(queue, shivanUp)).toBeUndefined();
+      expect(button(queue, 'Move Shivan Dragon up')).toBeUndefined();
       expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
       expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
     });
@@ -656,7 +255,7 @@ describe('Queue pane list', () => {
       const card = 'Brightclimb Pathway // Grimclimb Pathway';
 
       openRowMenu(queue, card);
-      choose(card, 'Move to top');
+      chooseInOpenRowMenu(card, 'Move to top');
       await fixture.whenStable();
       expect(menu(rowMenuName(card))).toBeNull();
       // Shown at once, before the API answers.
@@ -672,7 +271,7 @@ describe('Queue pane list', () => {
       await vi.waitFor(() =>
         expect(statusTexts(queue)).toEqual([`${card} moved from position 3 to 1 in your queue`]),
       );
-      await vi.waitFor(() => expect(document.activeElement).toBe(button(queue, rowMenuName(card))));
+      await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, card)));
     });
 
     it('moves a card up or down from its menu, keeping focus on its menu', async () => {
@@ -681,14 +280,17 @@ describe('Queue pane list', () => {
         queue: threeQueued(),
       });
       const queue = queuePane(page);
-      const shivanMenu = () => button(queue, rowMenuName('Shivan Dragon'));
+      const shivanMenu = () => rowMenu(queue, 'Shivan Dragon');
 
-      openRowMenu(queue, 'Shivan Dragon');
-      choose('Shivan Dragon', 'Move down');
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Move down');
       await fixture.whenStable();
       // Shown at once and still in flight: the menu is busy, but keeps focus.
       expect(shivanMenu()!.getAttribute('aria-disabled')).toBe('true');
       expect(document.activeElement).toBe(shivanMenu());
+      // A move chosen while one is in flight sends nothing more.
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Move up');
+      await fixture.whenStable();
+      expect(names(queue)[2]).toBe('Shivan Dragon');
       const down = http.expectOne('/api/drafts/draft-1/queue');
       expect(down.request.body).toEqual({
         poolCardIds: ['bolt-card', 'brightclimb-card', 'shivan-card'],
@@ -703,8 +305,7 @@ describe('Queue pane list', () => {
       await vi.waitFor(() => expect(document.activeElement).toBe(shivanMenu()));
       expect(shivanMenu()!.getAttribute('aria-disabled')).toBeNull();
 
-      openRowMenu(queue, 'Shivan Dragon');
-      choose('Shivan Dragon', 'Move up');
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Move up');
       const up = http.expectOne('/api/drafts/draft-1/queue');
       expect(up.request.body).toEqual({
         poolCardIds: ['bolt-card', 'shivan-card', 'brightclimb-card'],
@@ -722,8 +323,7 @@ describe('Queue pane list', () => {
       });
       const queue = queuePane(page);
 
-      openRowMenu(queue, 'Shivan Dragon');
-      choose('Shivan Dragon', 'Remove');
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Remove');
       const req = http.expectOne('/api/drafts/draft-1/queue/shivan-card');
       expect(req.request.method).toBe('DELETE');
       req.flush(queueOf({ cards: [queued(bolt), queued(brightclimb)] }));
@@ -732,21 +332,302 @@ describe('Queue pane list', () => {
 
       await vi.waitFor(() =>
         expect(document.activeElement).toBe(
-          button(queue, rowMenuName('Brightclimb Pathway // Grimclimb Pathway')),
+          rowMenu(queue, 'Brightclimb Pathway // Grimclimb Pathway'),
         ),
       );
     });
+  });
 
-    it('starts a drag from the handle only once a press has been held, so a swipe scrolls', async () => {
+  describe('focus after a change', () => {
+    it('keeps focus on a card’s menu once it reaches the bottom, where it can’t move down', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan)] }),
+      });
+      const queue = queuePane(page);
+
+      chooseInRowMenu(queue, 'Lightning Bolt', 'Move down');
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, 'Lightning Bolt')));
+    });
+
+    it('keeps focus on the moved card’s menu as it moves, and as a failed move puts it back', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = queuePane(page);
+      const shivanMenu = () => rowMenu(queue, 'Shivan Dragon');
+
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Move up');
+      await fixture.whenStable();
+      // Shivan Dragon shows at the top at once.
+      expect(names(queue)[0]).toBe('Shivan Dragon');
+      await vi.waitFor(() => expect(document.activeElement).toBe(shivanMenu()));
+      http.expectOne('/api/drafts/draft-1/queue').flush(null, serverError);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(threeQueued());
+      await fixture.whenStable();
+
+      await vi.waitFor(() =>
+        expect(alertIn(queue)?.textContent).toContain("Couldn't change your queue."),
+      );
+      await vi.waitFor(() => expect(document.activeElement).toBe(shivanMenu()));
+      expect(names(queue)[1]).toBe('Shivan Dragon');
+      expect(statusTexts(queue)).toEqual(['']);
+    });
+
+    it('says nothing of a change that says nothing, clearing what the last change said', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = queuePane(page);
+      chooseInRowMenu(queue, 'Lightning Bolt', 'Move down');
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
+      await vi.waitFor(() =>
+        expect(statusTexts(queue)).toEqual([
+          'Lightning Bolt moved from position 1 to 2 in your queue',
+        ]),
+      );
+      await vi.waitFor(() =>
+        expect(rowMenu(queue, 'Shivan Dragon')!.getAttribute('aria-disabled')).toBeNull(),
+      );
+
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Remove');
+      await fixture.whenStable();
+      expect(statusTexts(queue)).toEqual(['']);
+      http
+        .expectOne('/api/drafts/draft-1/queue/shivan-card')
+        .flush(queueOf({ cards: [queued(bolt), queued(brightclimb)] }));
+      await vi.waitFor(() => expect(names(queue)).not.toContain('Shivan Dragon'));
+      await fixture.whenStable();
+
+      expect(statusTexts(queue)).toEqual(['']);
+    });
+
+    it('moves focus to the nearest control before, in page order, once the moved card is gone', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = queuePane(page);
+      const brightclimbName = 'Brightclimb Pathway // Grimclimb Pathway';
+      // Moving Lightning Bolt down puts its row after the row of Shivan Dragon, which came after it.
+      chooseInRowMenu(queue, 'Lightning Bolt', 'Move down');
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
+      await vi.waitFor(() => expect(names(queue)[1]).toBe('Lightning Bolt'));
+      await vi.waitFor(() =>
+        expect(rowMenu(queue, brightclimbName)!.getAttribute('aria-disabled')).toBeNull(),
+      );
+
+      chooseInRowMenu(queue, brightclimbName, 'Move up');
+      // A pick took Brightclimb Pathway out of the queue meanwhile.
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, 'Lightning Bolt')));
+    });
+
+    it('leaves focus alone after a change sent with focus on nothing, such as a drag', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = queuePane(page);
+      expect(document.activeElement).toBe(document.body);
+
+      dragToIndex(fixture, 'Shivan Dragon')(0);
+      http
+        .expectOne('/api/drafts/draft-1/queue')
+        .flush(queueOf({ cards: [queued(shivan), queued(bolt), queued(brightclimb)] }));
+      await vi.waitFor(() =>
+        expect(rowMenu(queue, 'Shivan Dragon')!.getAttribute('aria-disabled')).toBeNull(),
+      );
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(document.body);
+    });
+
+    it('leaves focus where the viewer moved it while the change was in flight', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: threeQueued(),
+      });
+      const queue = queuePane(page);
+
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Remove');
+      tabButton(page, 'Pool').focus();
+      http
+        .expectOne('/api/drafts/draft-1/queue/shivan-card')
+        .flush(queueOf({ cards: [queued(bolt), queued(brightclimb)] }));
+      await vi.waitFor(() => expect(names(queue)).not.toContain('Shivan Dragon'));
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(tabButton(page, 'Pool'));
+    });
+
+    it('puts focus nowhere once Dismiss, which has no control to go back to, takes the notice away', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(shivan)], lost: [queued(brightclimb)] }),
+      });
+      const queue = queuePane(page);
+
+      button(queue, 'Dismiss')!.focus();
+      button(queue, 'Dismiss')!.click();
+      http
+        .expectOne('/api/drafts/draft-1/queue/notice')
+        .flush(queueOf({ cards: [queued(bolt), queued(shivan)] }));
+      await vi.waitFor(() => expect(button(queue, 'Dismiss')).toBeUndefined());
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(document.body);
+    });
+
+    it('keeps focus on the copy moved when two queued cards share a name', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, boltAgain, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
+      });
+      const queue = queuePane(page);
+
+      openRowMenu(queue, 'Lightning Bolt', 0);
+      chooseInOpenRowMenu('Lightning Bolt', 'Move down');
+      const req = http.expectOne('/api/drafts/draft-1/queue');
+      expect(req.request.body).toEqual({
+        poolCardIds: ['bolt-card-2', 'bolt-card', 'shivan-card'],
+      });
+      req.flush(queueOf({ cards: [queued(boltAgain), queued(bolt), queued(shivan)] }));
+      await fixture.whenStable();
+
+      // The second row's: the copy moved, now one place down.
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(rowMenu(queue, 'Lightning Bolt', 1)),
+      );
+    });
+
+    it('moves focus to the next card’s menu when a card is removed, even one of the same name', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, boltAgain, shivan],
+        queue: queueOf({ cards: [queued(bolt), queued(boltAgain), queued(shivan)] }),
+      });
+      const queue = queuePane(page);
+
+      openRowMenu(queue, 'Lightning Bolt', 1);
+      chooseInOpenRowMenu('Lightning Bolt', 'Remove');
+      http
+        .expectOne('/api/drafts/draft-1/queue/bolt-card-2')
+        .flush(queueOf({ cards: [queued(bolt), queued(shivan)] }));
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, 'Shivan Dragon')));
+    });
+  });
+
+  describe('each row', () => {
+    it('opens a queued card’s Card detail from its name, offering Remove from queue, then puts focus back on the name', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [brightclimb, shivan],
         queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
       });
-      const handle = dragHandle(fixture, cardName(queuePane(page), 'Shivan Dragon'))!;
+      const name = cardName(queuePane(page), 'Shivan Dragon');
+      expect(name.getAttribute('aria-haspopup')).toBe('dialog');
 
-      expect(touchDrag(fixture, handle, 0)).toBe(false);
-      expect(touchDrag(fixture, handle, 500)).toBe(true);
+      name.focus();
+      name.click();
       await fixture.whenStable();
+      const detail = openDialog()!;
+      expect(detail.getAttribute('aria-label')).toBe('Shivan Dragon');
+      expect(button(detail, 'Remove from queue')).toBeDefined();
+
+      pressEscape();
+      await fixture.whenStable();
+      expect(openDialog()).toBeNull();
+      expect(document.activeElement).toBe(cardName(queuePane(page), 'Shivan Dragon'));
+    });
+
+    it('shows each card’s mana cost before its name', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+
+      const row = queuePane(page).querySelector('li')!;
+      expect(accessibleName(row)).toMatch(/^1 .+ Shivan Dragon/);
+      expect(namedImages(row).map((symbol) => symbol.alt)).toHaveLength(3);
+    });
+
+    it('drags by the whole row with a mouse', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+
+      expect(draggable(fixture, cardName(queuePane(page), 'Shivan Dragon'))).toBe(true);
+    });
+  });
+
+  describe('on a touchscreen', () => {
+    beforeEach(() => viewOn('desktop', { pointer: 'coarse' }));
+
+    it('makes each row’s menu its drag handle, one control named for its card', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const queue = queuePane(page);
+
+      for (const card of ['Shivan Dragon', 'Brightclimb Pathway // Grimclimb Pathway']) {
+        expect(dragHandle(fixture, cardName(queue, card))).toBe(rowMenu(queue, card));
+      }
+    });
+
+    it('starts a drag from a row’s menu only once a press has been held, so a swipe scrolls', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const control = rowMenu(queuePane(page), 'Shivan Dragon')!;
+
+      expect(touchDrag(fixture, control, 0)).toBe(false);
+      expect(touchDrag(fixture, control, 500)).toBe(true);
+      await fixture.whenStable();
+    });
+
+    it('opens a row’s menu on a tap, but not as a drag from it ends', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [brightclimb, shivan],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+      const control = rowMenu(queuePane(page), 'Shivan Dragon')!;
+      const lift = () => {
+        control.dispatchEvent(new MouseEvent('click', { bubbles: true, detail: 1 }));
+        TestBed.tick();
+      };
+
+      control.dispatchEvent(pointer('pointerdown', 'touch'));
+      startDrag(fixture, control);
+      lift();
+      expect(menu(rowMenuName('Shivan Dragon'))).toBeNull();
+
+      control.dispatchEvent(pointer('pointerdown', 'touch'));
+      lift();
+      expect(menuItems(rowMenuName('Shivan Dragon'))).toEqual([
+        'Move to top',
+        'Move up',
+        'Move down',
+        'Remove',
+      ]);
     });
 
     it('offers no handle or menu once the queue is read-only', async () => {
@@ -762,7 +643,7 @@ describe('Queue pane list', () => {
       const queue = queuePane(await openQueueSheet(fixture, page));
 
       expect(dragHandle(fixture, cardName(queue, 'Shivan Dragon'))).toBeUndefined();
-      expect(button(queue, rowMenuName('Shivan Dragon'))).toBeUndefined();
+      expect(rowMenu(queue, 'Shivan Dragon')).toBeUndefined();
     });
   });
 });

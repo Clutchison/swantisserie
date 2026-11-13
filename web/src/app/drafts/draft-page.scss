@@ -233,7 +233,7 @@ main {
     }
 
     > .players-beside-tabs {
-      inline-size: side-pane.$width;
+      inline-size: side-pane.$outer-width;
     }
   }
 }

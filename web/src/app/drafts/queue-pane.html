@@ -90,10 +90,10 @@
         @if (draftState() === 'Closed') {
           Cards are picked for you in this order if the draft reopens.
         } @else if (coarsePointer()) {
-          Cards are picked for you in this order. Drag a card by its handle, or use its menu, to
+          Cards are picked for you in this order. Tap a card’s menu button, or hold it to drag, to
           reorder.
         } @else {
-          Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.
+          Cards are picked for you in this order. Drag a card, or use its menu button, to reorder.
         }
         If another player picks a queued card first and no copy is left, it is lost.
         {{ stealBehaviorHelp }}
@@ -130,7 +130,6 @@
       @let cutoffAt = store.picksLeft();
       <ol
         class="queue card-rows"
-        [class.with-handles]="coarsePointer() && !readOnly()"
         aria-label="Your queue"
         cdkDropList
         [cdkDropListDisabled]="changing() || readOnly()"
@@ -160,10 +159,6 @@
             (pointerdown)="pressed()"
             (cdkDragStarted)="dragStarted()"
           >
-            <!-- With a mouse the whole row drags; on a touchscreen only its handle, so a swipe scrolls. -->
-            @if (coarsePointer() && !readOnly()) {
-              <span class="handle" cdkDragHandle aria-hidden="true">⠿</span>
-            }
             <span class="number">{{ i + 1 }}</span>
             <app-card-name
               [card]="poolCardsById().get(card.poolCardId)"
@@ -175,96 +170,82 @@
               <span class="visually-hidden">, just added</span>
             }
             @if (!readOnly()) {
+              <!-- A menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
+              @let menuName = 'Move or remove ' + card.name;
+              <!--
+                With a mouse the whole row drags, so its menu button is no handle: a row
+                with any handle drags only by it. On a touchscreen the menu button is the
+                row's one handle, so a swipe on the rest of the row scrolls; a tap opens
+                the menu and a held press drags. The two buttons differ only by
+                cdkDragHandle and its class: any other attribute change goes in both.
+              -->
               @if (coarsePointer()) {
-                <!-- On a touchscreen, a menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
-                @let menuName = 'Move or remove ' + card.name;
-                <span class="move">
-                  <button
-                    #rowMenu
-                    class="icon"
-                    type="button"
-                    [attr.aria-label]="menuName"
-                    [title]="menuName"
-                    [cdkMenuTriggerFor]="moves"
-                    [appSendsChange]="'menu ' + card.poolCardId"
-                  >
-                    <svg lucideEllipsisVertical size="16"></svg>
-                  </button>
-                </span>
-                <ng-template #moves>
-                  <div cdkMenu [attr.aria-label]="menuName">
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      [cdkMenuItemDisabled]="first"
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, 0))"
-                    >
-                      Move to top
-                    </button>
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      [cdkMenuItemDisabled]="first"
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i - 1))"
-                    >
-                      Move up
-                    </button>
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      [cdkMenuItemDisabled]="last"
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i + 1))"
-                    >
-                      Move down
-                    </button>
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => remove(card.poolCardId))"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </ng-template>
+                <button
+                  #rowMenu
+                  class="icon handle"
+                  type="button"
+                  [attr.aria-label]="menuName"
+                  [title]="menuName"
+                  cdkDragHandle
+                  [cdkMenuTriggerFor]="moves"
+                  [cdkMenuTriggerData]="{ $implicit: rowMenu }"
+                  [appSendsChange]="focusKey(card.poolCardId)"
+                >
+                  <svg lucideEllipsisVertical size="16"></svg>
+                </button>
               } @else {
-                <span class="move">
-                  @let upName = 'Move ' + card.name + ' up';
-                  <button
-                    class="icon"
-                    type="button"
-                    [attr.aria-label]="upName"
-                    [title]="upName"
-                    (click)="move(i, i - 1)"
-                    [disabled]="first"
-                    [appSendsChange]="'up ' + card.poolCardId"
-                  >
-                    <svg lucideArrowUp size="16"></svg>
-                  </button>
-                  @let downName = 'Move ' + card.name + ' down';
-                  <button
-                    class="icon"
-                    type="button"
-                    [attr.aria-label]="downName"
-                    [title]="downName"
-                    (click)="move(i, i + 1)"
-                    [disabled]="last"
-                    [appSendsChange]="'down ' + card.poolCardId"
-                  >
-                    <svg lucideArrowDown size="16"></svg>
-                  </button>
-                  @let removeName = 'Remove ' + card.name;
-                  <button
-                    class="icon"
-                    type="button"
-                    [attr.aria-label]="removeName"
-                    [title]="removeName"
-                    (click)="remove(card.poolCardId)"
-                    [appSendsChange]="'remove ' + card.poolCardId"
-                  >
-                    <svg lucideTrash size="16"></svg>
-                  </button>
-                </span>
+                <button
+                  #rowMenu
+                  class="icon"
+                  type="button"
+                  [attr.aria-label]="menuName"
+                  [title]="menuName"
+                  [cdkMenuTriggerFor]="moves"
+                  [cdkMenuTriggerData]="{ $implicit: rowMenu }"
+                  [appSendsChange]="focusKey(card.poolCardId)"
+                >
+                  <svg lucideEllipsisVertical size="16"></svg>
+                </button>
               }
+              <!--
+                The menu's button, which its items give focus back to, comes in as the
+                trigger's data (let-rowMenu): a #rowMenu inside the @if isn't visible here.
+              -->
+              <ng-template #moves let-rowMenu>
+                <div cdkMenu [attr.aria-label]="menuName">
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="first"
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, 0))"
+                  >
+                    Move to top
+                  </button>
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="first"
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i - 1))"
+                  >
+                    Move up
+                  </button>
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="last"
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i + 1))"
+                  >
+                    Move down
+                  </button>
+                  <button
+                    type="button"
+                    cdkMenuItem
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => remove(card.poolCardId))"
+                  >
+                    Remove
+                  </button>
+                </div>
+              </ng-template>
             }
           </li>
         } @empty {

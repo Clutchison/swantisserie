@@ -27,7 +27,12 @@ import {
   openQueueSheet,
   queueNotice,
   cardNames,
+  chooseInRowMenu,
+  openRowMenu,
+  rowMenu,
+  rowMenuName,
 } from './harness';
+import { disabledMenuItems } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt } from './plan-tab-harness';
 
@@ -44,7 +49,6 @@ describe('Queue pane notice, cutoff and read-only state', () => {
   beforeEach(() => viewOn('desktop'));
   afterEach(() => vi.unstubAllGlobals());
 
-  const shivanUp = 'Move Shivan Dragon up';
   /** The names in the Queue pane's list, in order. */
   const names = (queue: HTMLElement) => cardNames(queueList(queue)).map((name) => text(name));
 
@@ -177,8 +181,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     expect(
       text(document.getElementById(button(queue, 'How this works').getAttribute('aria-controls')!)),
     ).toContain('Cards are picked for you in this order if the draft reopens.');
-    expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
-    expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
+    expect(rowMenu(queue, 'Shivan Dragon')).toBeUndefined();
   });
 
   it.each([
@@ -191,8 +194,14 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     });
     const queue = queuePane(page);
 
-    expect(button(queue, 'Remove Shivan Dragon')!.disabled).toBe(false);
-    expect(button(queue, 'Move Shivan Dragon down')!.disabled).toBe(false);
+    expect(rowMenu(queue, 'Shivan Dragon')!.disabled).toBe(false);
+    expect(openRowMenu(queue, 'Shivan Dragon')).toEqual([
+      'Move to top',
+      'Move up',
+      'Move down',
+      'Remove',
+    ]);
+    expect(disabledMenuItems(rowMenuName('Shivan Dragon'))).toEqual(['Move to top', 'Move up']);
   });
 
   it('offers Add to queue and the Queue pane only to players, as the api refuses anyone else with `not-a-player`', async () => {
@@ -257,7 +266,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       const queue = queuePane(page);
       expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
 
-      button(queue, shivanUp).click();
+      chooseInRowMenu(queue, 'Shivan Dragon', 'Move up');
       await fixture.whenStable();
       expect(rows(queue)).toEqual(['Shivan Dragon', CUTOFF, 'Lightning Bolt']);
       http
@@ -268,14 +277,14 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       expect(rows(queue)).toEqual(['Shivan Dragon', CUTOFF, 'Lightning Bolt']);
       // Removable once the move has settled, though past the cutoff.
       await vi.waitFor(() =>
-        expect(button(queue, 'Remove Lightning Bolt').getAttribute('aria-disabled')).toBeNull(),
+        expect(rowMenu(queue, 'Lightning Bolt').getAttribute('aria-disabled')).toBeNull(),
       );
-      button(queue, 'Remove Lightning Bolt').click();
+      chooseInRowMenu(queue, 'Lightning Bolt', 'Remove');
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue/bolt-card'))).flush(
         queueOf({ cards: [queued(shivan)] }),
       );
+      await vi.waitFor(() => expect(rows(queue)).toEqual(['Shivan Dragon']));
       await fixture.whenStable();
-      expect(rows(queue)).toEqual(['Shivan Dragon']);
     });
 
     it('draws the queue cutoff while the draft is frozen', async () => {

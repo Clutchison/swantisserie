@@ -17,6 +17,7 @@ import {
   inject,
   Injector,
   input,
+  Renderer2,
   signal,
   untracked,
   viewChild,
@@ -24,15 +25,12 @@ import {
 import type { LostQueuedCardView, QueueView, StealBehavior } from 'contract';
 import type { Observable } from 'rxjs';
 import {
-  LucideArrowDown,
   LucideArrowLeftRight,
-  LucideArrowUp,
   LucideEllipsisVertical,
   LucideInfo,
   LucidePanelRightClose,
   LucidePanelRightOpen,
   LucidePause,
-  LucideTrash,
 } from '@lucide/angular';
 import { afterCardDetailsClose, CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
@@ -111,15 +109,12 @@ let panes = 0;
     CdkMenuItem,
     CdkMenuTrigger,
     LoadingAnimation,
-    LucideArrowDown,
     LucideArrowLeftRight,
-    LucideArrowUp,
     LucideEllipsisVertical,
     LucideInfo,
     LucidePanelRightClose,
     LucidePanelRightOpen,
     LucidePause,
-    LucideTrash,
     PicksLeft,
     QueueAddBump,
     QueueAddStatus,
@@ -176,14 +171,11 @@ export class QueuePane {
   protected readonly changing = this.changes.changing;
   protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
-  /**
-   * Whether rows are dragged by a handle, where the primary pointer is touch
-   * and a swipe elsewhere on a row must scroll; with a mouse, the whole row drags.
-   */
+  /** Whether the primary pointer is touch, which changes how rows drag: see the row menu in the template. */
   protected readonly coarsePointer = matching(COARSE_POINTER_QUERY);
   /** How long a row is held before it drags. */
   protected readonly dragStartDelay = DRAG_START_DELAY;
-  /** Whether the latest press on a row became a drag, so the click that ends it opens nothing. */
+  /** Whether the latest press on a row became a drag, so the click that ends it opens nothing: no Card detail, no row menu. */
   private dragged = false;
 
   /** The queue's state, as its switch names it. */
@@ -232,6 +224,19 @@ export class QueuePane {
   });
 
   constructor() {
+    // A click that ends a drag by a row's menu button, as some browsers send
+    // after a short one, opens no row menu: it is stopped before the menu's
+    // trigger hears it. A keyboard's click (no detail) still opens it.
+    inject(Renderer2).listen(
+      this.host,
+      'click',
+      (event: MouseEvent) => {
+        if (this.dragged && event.detail > 0 && (event.target as Element).closest('.handle')) {
+          event.stopPropagation();
+        }
+      },
+      { capture: true },
+    );
     // The Queue notice shown in an open pane has been seen: the pane is on the
     // page only where it is in view, beside the tabs or in the Queue sheet.
     effect(() => {
@@ -286,12 +291,16 @@ export class QueuePane {
     }
   }
 
-  /** A row pressed: a drag it starts is told apart from a click. */
+  /**
+   * A row pressed: a drag it starts is told apart from a click. Bound as a
+   * call, which answers nothing: a listener answering false would cancel the
+   * press, and with it a mouse's drag.
+   */
   protected pressed() {
     this.dragged = false;
   }
 
-  /** A row's drag started: no Card preview shows during it, and the click ending it opens nothing. */
+  /** A row's drag started: no Card preview shows during it, and the click ending it opens no Card detail or row menu. */
   protected dragStarted() {
     this.dragged = true;
     this.previews.dragStarted();
@@ -324,6 +333,11 @@ export class QueuePane {
     });
   }
 
+  /** What a card's row menu button is found by when focus goes back to it after a change. */
+  protected focusKey(poolCardId: string) {
+    return `menu ${poolCardId}`;
+  }
+
   /**
    * A row menu's item chosen: focus goes back to the menu's button first, as
    * the menu it leaves closes, so the change keeps it there as a button's would.
@@ -347,15 +361,14 @@ export class QueuePane {
   /**
    * Moves the card at `from` to `to`, showing the new order at once, and
    * the old one again if that fails, until the queue is re-read. Focus
-   * stays on the button pressed, or on the card's other move button if it
-   * has reached the end; from the row menu, on its button. A status message
-   * says where the card went, from where.
+   * stays on the card's row menu button, if a move from its menu put it
+   * there. A status message says where the card went, from where.
    */
   protected move(from: number, to: number) {
     if (from === to) return;
     const before = this.queue().cards;
     const cards = [...before];
-    const { name, poolCardId } = cards[from];
+    const { name } = cards[from];
     moveItemInArray(cards, from, to);
     return this.change(
       () => {
@@ -368,32 +381,26 @@ export class QueuePane {
         );
       },
       {
-        keep: [
-          // Stryker disable next-line EqualityOperator: move returns early when to equals from.
-          `${to > from ? 'up' : 'down'} ${poolCardId}`,
-          // Stryker disable next-line StringLiteral: the card's other move button is always there when the pressed one goes, so the Remove fallback is never reached.
-          `remove ${poolCardId}`,
-        ],
         status: `${name} moved from position ${from + 1} to ${to + 1} in your queue`,
-        // Put the card back, so focus can go back to the button pressed.
+        // Put the card back, so focus can go back to its row menu button.
         rollBack: () => this.store.showQueue({ ...this.queue(), cards: before }),
       },
     );
   }
 
   /**
-   * Removes a card from the queue; focus goes to the card after it, or else
-   * the one before: to its Remove, or its row menu from the row menu.
+   * Removes a card from the queue; focus goes to the row menu button of
+   * the card after it, or else the one before.
    */
   protected remove(poolCardId: string) {
     const cards = this.queue().cards;
     const at = cards.findIndex((card) => card.poolCardId === poolCardId);
     const after = cards[at + 1];
-    // Stryker disable next-line ArithmeticOperator: removing the last card leaves no keep, and focus falls back to the nearest control before, the previous row's Remove.
+    // Stryker disable next-line ArithmeticOperator: removing the last card leaves no keep, and focus falls back to the nearest control before, the previous row's menu.
     const before = cards[at - 1];
     const neighbours = [after, before].filter((card) => card !== undefined);
     return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
-      keep: neighbours.flatMap((card) => [`remove ${card.poolCardId}`, `menu ${card.poolCardId}`]),
+      keep: neighbours.map((card) => this.focusKey(card.poolCardId)),
     });
   }
 

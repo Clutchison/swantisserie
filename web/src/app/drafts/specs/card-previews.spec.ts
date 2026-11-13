@@ -39,6 +39,8 @@ import {
   namedList,
   startDrag,
   button,
+  chooseInOpenRowMenu,
+  openRowMenu,
 } from './harness';
 import { openDialog } from '../../specs-harness';
 import { image } from './pool-tab-harness';
@@ -732,13 +734,15 @@ describe('card previews', () => {
       restOn(cardName(list, 'Shock'));
       expect(previewImage()).not.toBeNull();
 
-      button(sheet, 'Remove Shock')!.click();
+      openRowMenu(sheet, 'Shock');
+      expect(previewImage()).not.toBeNull();
+      chooseInOpenRowMenu('Shock', 'Remove');
       http
         .expectOne('/api/drafts/draft-1/queue/shock-card')
         .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));
+      await vi.waitFor(() => expect(cardNames(queueList(sheet))).toEqual([]));
       await fixture.whenStable();
 
-      expect(cardNames(queueList(sheet))).toEqual([]);
       expect(previewImage()).toBeNull();
     });
 

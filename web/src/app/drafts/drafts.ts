@@ -23,10 +23,7 @@ import type { Changes } from './changes';
  */
 export const DESKTOP_QUERY = '(min-width: 1024px)';
 
-/**
- * The media query of a screen whose primary pointer is touch, where a queue
- * row is dragged by its handle, and moved or removed from its row menu.
- */
+/** The media query of a screen whose primary pointer is touch. */
 export const COARSE_POINTER_QUERY = '(pointer: coarse)';
 
 /**
