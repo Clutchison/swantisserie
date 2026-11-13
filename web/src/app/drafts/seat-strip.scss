@@ -1,24 +1,32 @@
 @use 'side-pane';
 @use 'scrollbar';
 
-/* The own seat's ring: a bg gap, then the accent, reaching $ring-width out from the avatar. */
+/* The turn's ring: a bg gap, then an accent band, reaching $ring-reach out from the avatar. */
 $ring-gap: 2px;
-$ring-width: $ring-gap + 2px;
+$ring-band: 2px;
+$ring-reach: $ring-gap + $ring-band;
+/* At the height of its pulse, the band is twice as wide, reaching this far. */
+$pulse-reach: $ring-gap + 2 * $ring-band;
 $focus-width: 2px;
-/* A focused seat's outline sits outside the ring, so reaches this far. */
-$focus-reach: $ring-width + $focus-width;
-
-/* The turn mark: a bar above the turn's avatar, just outside a focused seat's outline. */
-$bar-height: 3px;
-$bar-gap: $focus-reach + 1px;
-$bar-reach: $bar-gap + $bar-height;
+/*
+ * A focused seat's outline sits outside the ring, even at the height of its
+ * pulse, so reaches this far: the farthest anything reaches from a seat.
+ */
+$focus-reach: $pulse-reach + $focus-width;
 /*
  * The arrow between two seats is `ARROW_SIZE` in `seat-strip.ts`, read as
  * `--arrow-size`. Lucide's chevron fills only the middle third of its box, so
  * with this clearance its stroke stays outside a focused neighbour's outline,
- * which reaches $focus-reach (6px) from the avatar.
+ * which reaches $focus-reach (8px) from the avatar.
  */
-$arrow-clearance: 2px;
+$arrow-clearance: 4px;
+
+/* The turn's ring, its accent band reaching $reach from the avatar past a bg gap. */
+@mixin turn-ring($reach) {
+  box-shadow:
+    0 0 0 $ring-gap var(--color-bg),
+    0 0 0 $reach var(--color-accent);
+}
 /* How far in from a clipped edge the seats fade out. */
 $fade: 1.5rem;
 
@@ -66,11 +74,8 @@ ol {
   gap: calc(var(--arrow-size) + #{2 * $arrow-clearance});
   min-inline-size: 0;
   margin: 0;
-  /*
-   * Room for each seat's focus outline and ring, and the turn mark above,
-   * which the scroller would clip.
-   */
-  padding: $bar-reach $focus-reach $focus-reach;
+  /* Room for each seat's focus outline and the turn's ring, which the scroller would clip. */
+  padding: $focus-reach;
   overflow-x: auto;
   list-style: none;
   /* A seat focused or kept in view scrolls clear of the fades. */
@@ -170,11 +175,12 @@ li {
 
   /*
    * Focus: an outline in the text colour, not an accent one, which would
-   * look like the own seat's ring. Outside that ring, so it still shows.
+   * look like the turn's ring. Outside that ring even as it pulses, so it
+   * still shows.
    */
   &:focus-visible {
     outline: $focus-width solid var(--color-text);
-    outline-offset: $ring-width;
+    outline-offset: $pulse-reach;
   }
 }
 
@@ -192,52 +198,35 @@ li {
   }
 }
 
-/* The viewer's own seat: a ring. */
-.own {
-  box-shadow:
-    0 0 0 $ring-gap var(--color-bg),
-    0 0 0 $ring-width var(--color-accent);
+/* Whose turn it is: a ring, the bg gap keeping the accent clear of the avatar. */
+.turn {
+  @include turn-ring($ring-reach);
 }
 
 /*
- * Whose turn it is: a bar above the seat, apart from the ring, and never
- * below it, where it would read as the selected tab's underline.
- */
-.turn::before {
-  position: absolute;
-  bottom: calc(100% + #{$bar-gap});
-  left: 50%;
-  inline-size: 0.75rem;
-  block-size: $bar-height;
-  border-radius: $bar-height;
-  background: var(--color-accent);
-  content: '';
-  transform: translateX(-50%);
-}
-
-/*
- * A turn change: the bar stretches and settles three times, under five
- * seconds in all, then rests. Two copies, so the next change restarts it.
+ * A turn change: the ring's accent band widens outward and settles three
+ * times, under five seconds in all, then rests. Two copies, so the next
+ * change restarts it.
  */
 @media (prefers-reduced-motion: no-preference) {
-  .pulse::before {
+  .pulse {
     animation: turn-pulse 0.8s ease-in-out 3;
   }
 
-  .pulse-again::before {
+  .pulse-again {
     animation: turn-pulse-again 0.8s ease-in-out 3;
   }
 }
 
 @keyframes turn-pulse {
   50% {
-    transform: translateX(-50%) scaleX(1.75);
+    @include turn-ring($pulse-reach);
   }
 }
 
 @keyframes turn-pulse-again {
   50% {
-    transform: translateX(-50%) scaleX(1.75);
+    @include turn-ring($pulse-reach);
   }
 }
 
