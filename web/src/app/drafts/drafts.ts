@@ -204,7 +204,7 @@ export const EMPTY_QUEUE: QueueView = {
 };
 
 /**
- * A queue's state, as the viewer reads it: on the queue paused switch, and
+ * A queue's state, as the viewer reads it: beside the queue's play/pause button, and
  * in place of the next card on the "next up" strip.
  */
 export function queueStateName(queuePaused: boolean): string {

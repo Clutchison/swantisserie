@@ -88,15 +88,15 @@ export const findQueuePane = (page: HTMLElement) =>
 export const queueNotice = (root: HTMLElement) =>
   byAriaLabel(root, '[role="status"]', 'Queue notice');
 /**
- * The switch inside `root` that pauses the queue or sets it picking: by its
- * role and its name, which is the state it is in. Null if there is none.
+ * The play/pause button inside `root` that pauses the queue or sets it
+ * picking: by its name, which is what pressing it does. Null if there is none.
  */
-export const findQueuePausedSwitch = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find((toggle) =>
-    /^Queue (paused|picking)$/.test(accessibleName(toggle)),
+export const findQueuePlayPauseButton = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLButtonElement>('button')].find((toggle) =>
+    /^Set queue (paused|picking)$/.test(accessibleName(toggle)),
   ) ?? null;
-/** The queue paused switch inside `root`, which is there. */
-export const queuePausedSwitch = (root: HTMLElement) => findQueuePausedSwitch(root)!;
+/** The queue play/pause button inside `root`, which is there. */
+export const queuePlayPauseButton = (root: HTMLElement) => findQueuePlayPauseButton(root)!;
 /** What the statuses inside `root` say to screen readers, such as what a change just made did. */
 export const queueStatuses = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('[role="status"]')].map((status) =>
