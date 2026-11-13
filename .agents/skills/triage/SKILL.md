@@ -46,7 +46,7 @@ State transitions: an unlabeled issue normally goes to `needs-triage` first; fro
 
 ## Invocation
 
-Before starting, switch to `main` and pull it up to date (`git pull --ff-only`); if the working tree is dirty, stop and ask instead. Triage is finished only once every `GLOSSARY.md` and `docs/adr/` change it made is committed to `main` and pushed.
+Before starting, switch to `main` and pull it up to date (`git pull --ff-only`); if the working tree is dirty, stop and ask instead. Before the first `GLOSSARY.md`, `docs/adr/`, research or `.out-of-scope/` edit, switch to the issue's branch as the issue tracker's branch rules say. Triage is finished only once every such change is committed there and pushed.
 
 The maintainer invokes `/triage` and describes what they want in natural language. Interpret the request and act. Examples:
 
@@ -63,7 +63,7 @@ Query the issue tracker and present three buckets, oldest first:
 2. **`needs-triage`**: evaluation in progress.
 3. **`needs-info` with reporter activity since the last triage notes**: needs re-evaluation.
 
-When PRs are in scope, include external PRs in these buckets and tag each line `[PR]` or `[issue]`. Discovery surfaces only *external* PRs (the tracker config defines who counts as external), so a collaborator's in-flight PR is not triage work. This filter is discovery-only; an explicitly named PR is always triaged regardless of author.
+When PRs are in scope, include external PRs in these buckets and tag each line `[PR]` or `[issue]`. Discovery surfaces only _external_ PRs (the tracker config defines who counts as external), so a collaborator's in-flight PR is not triage work. This filter is discovery-only; an explicitly named PR is always triaged regardless of author.
 
 Show counts and a one-line summary per item. Let the maintainer pick.
 
@@ -81,8 +81,8 @@ Show counts and a one-line summary per item. Let the maintainer pick.
    - `ready-for-agent`: post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
    - `ready-for-human`: same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
    - `needs-info`: post triage notes (template below).
-   - For `wontfix`, close the issue, with the comment depending on *why*:
-     - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for *rejected* requests, not built ones).
+   - For `wontfix`, close the issue, with the comment depending on _why_:
+     - **Already implemented**: the change already exists in the codebase. Point to where it lives; do **not** write to `.out-of-scope/` (that KB is for _rejected_ requests, not built ones).
      - **Rejected (bug)**: give a polite explanation, then close.
      - **Rejected (enhancement)**: write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
    - `needs-triage`: apply the role. Optional comment if there's partial progress.

@@ -42,7 +42,7 @@ Status: Accepted
 Every ADR has one status line under its title:
 
 - `Accepted`
-- `Accepted, not yet built (#N)`: decided, with the work still open in #N
+- `Accepted, not yet built (#N)`: decided, with the work still open in #N. An ADR merges with the work that builds it, so this status only reaches `main` for an ADR built across several separate PRs: it lands with the first of them, and the last sets `Accepted`.
 - `Proposed`: written for a decision the user hasn't settled
 - `Amended by NNNN`: still in force, with part changed by NNNN
 - `Superseded by NNNN`: no longer in force; NNNN replaces it
