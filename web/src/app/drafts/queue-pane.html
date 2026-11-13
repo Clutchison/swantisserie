@@ -42,19 +42,30 @@
         <app-picks-left />
       </div>
       @if (!failed()) {
-        <!-- Named for the state it is in, so a screen reader hears "Queue paused", not "Queue picking, off". -->
-        <button
-          class="queue-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="!queue().queuePaused"
-          [disabled]="readOnly() || loading()"
-          appSendsChange="queue paused"
-          (click)="toggleQueuePaused()"
-        >
-          <span class="track" aria-hidden="true"><span class="thumb"></span></span>
-          {{ queueStateName() }}
-        </button>
+        <!--
+          A media player's play/pause: named and drawn for what pressing it does, so
+          its name never flips meaning with the state. The label beside it says the state.
+        -->
+        <div class="queue-state">
+          <button
+            class="play-pause"
+            type="button"
+            [class.queue-picking]="!queue().queuePaused"
+            [attr.aria-label]="playPauseName()"
+            [title]="playPauseName()"
+            [attr.aria-describedby]="queueStateId"
+            [disabled]="readOnly() || loading()"
+            appSendsChange="queue paused"
+            (click)="toggleQueuePaused()"
+          >
+            @if (queue().queuePaused) {
+              <svg lucidePlay size="20" aria-hidden="true"></svg>
+            } @else {
+              <svg lucidePause size="20" aria-hidden="true"></svg>
+            }
+          </button>
+          <span class="label" [id]="queueStateId">{{ queueStateName() }}</span>
+        </div>
         <div class="steal-behavior">
           <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
           <span [id]="descriptionId" class="visually-hidden">{{ stealBehaviorExplanation }}</span>

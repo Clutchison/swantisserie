@@ -204,11 +204,20 @@ export const EMPTY_QUEUE: QueueView = {
 };
 
 /**
- * A queue's state, as the viewer reads it: on the queue paused switch, and
+ * A queue's state, as the viewer reads it: beside the queue's play/pause button, and
  * in place of the next card on the "next up" strip.
  */
 export function queueStateName(queuePaused: boolean): string {
   return queuePaused ? 'Queue paused' : 'Queue picking';
+}
+
+/**
+ * What changes a queue to its other state, as the viewer reads it: the
+ * queue's play/pause button's name, and the Set queue picking dialog's
+ * confirm button.
+ */
+export function queueStateChangeName(queuePaused: boolean): string {
+  return queuePaused ? 'Set queue picking' : 'Set queue paused';
 }
 
 /** A plan with nothing on either plan board, nothing lost from it, and no preferred printings. */
