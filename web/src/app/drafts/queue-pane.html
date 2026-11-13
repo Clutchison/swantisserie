@@ -159,7 +159,8 @@
             (pointerdown)="pressed()"
             (cdkDragStarted)="dragStarted()"
           >
-            @if (first && hasNextUpCard()) {
+            @let nextUp = first && hasNextUpCard();
+            @if (nextUp) {
               <span class="number next-up"
                 ><svg lucideArrowRight size="16" aria-hidden="true"></svg
               ></span>
@@ -172,7 +173,7 @@
               [opensDetail]="true"
               (opened)="openDetail(card.poolCardId, $event)"
             />
-            @if (first && hasNextUpCard()) {
+            @if (nextUp) {
               <span class="visually-hidden">, next up</span>
             }
             @if (card.poolCardId === justAdded()) {
