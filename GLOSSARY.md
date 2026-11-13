@@ -179,7 +179,7 @@ How many picks each player makes in a draft. The organizer sets it when creating
 _Avoid_: Pick count, rounds
 
 **Double picks**:
-A draft's setting for how many of each player's last picks they make on double turns: an even number no greater than their picks per player. It is off unless the organizer turns it on when creating the draft or in the lobby, and is locked once the draft starts.
+A draft's setting for how many of each player's last picks they make on double turns: an even number no greater than their picks per player. It is off unless the organizer turns it on when creating the draft, and it never changes.
 _Avoid_: Double-pick rounds, late doubles, double picking
 
 **Picks left**:
