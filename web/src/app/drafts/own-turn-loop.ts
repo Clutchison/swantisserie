@@ -46,8 +46,8 @@ export class OwnTurnLoop {
   );
 
   /**
-   * The start pick of the turn on which the viewer pressed, stopping the
-   * loop; null while they haven't. Each new turn, and each return to drafting, clears
+   * The start pick of the turn on which the viewer pressed, stopping the loop;
+   * null while they haven't. Each new turn, and each return to drafting, clears
    * it, except at the turnaround: a pick they pressed to make by hand that
    * leaves the turn with them doesn't start the loop again.
    */

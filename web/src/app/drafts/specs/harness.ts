@@ -357,6 +357,22 @@ export const drafting = (fields: DraftFixture = {}): DraftFixture => ({
   ...fields,
 });
 
+/**
+ * A drafting draft of Alice (the viewer) and Bob, 6 picks each, the last 4 on
+ * double turns, at `pick`, with `playerId` picking: rounds 1 and 2 are single
+ * turns, Alice, Bob, Bob, Alice; then round 3 goes Alice picks 5 and 6, Bob 7
+ * and 8, and round 4 Bob 9 and 10, Alice 11 and 12.
+ */
+export const withDoubleTurns = (pick: number, playerId: string): DraftFixture =>
+  drafting({
+    picksPerPlayer: 6,
+    doublePicks: 4,
+    turn:
+      pick <= 4
+        ? { pick, round: Math.ceil(pick / 2), playerId }
+        : { pick, round: pick <= 8 ? 3 : 4, playerId, picksBeforeTurnPasses: pick % 2 ? 2 : 1 },
+  });
+
 /** A pool card as a queue or a plan names it: by its id and name. */
 export type NamedPoolCard = Pick<PoolCardView, 'id' | 'name'>;
 

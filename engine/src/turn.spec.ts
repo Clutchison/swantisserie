@@ -4,6 +4,8 @@ import {
   draftComplete,
   nextTurn,
   roundRunsForward,
+  turnAfter,
+  turnStartPick,
 } from './turn.js';
 
 describe('currentTurn', () => {
@@ -169,6 +171,68 @@ describe('nextTurn', () => {
     expect(
       nextTurn({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 6),
     ).toBeNull();
+  });
+});
+
+/**
+ * Two players, 4 picks each, the last 2 on double turns: round 1 is seats
+ * 0 then 1, round 2 seats 1 then 0, then round 3 seat 0 on picks 5 and 6
+ * and seat 1 on picks 7 and 8.
+ */
+const SINGLES_THEN_DOUBLES = { players: 2, picksPerPlayer: 4, doublePicks: 2 };
+
+describe('turnStartPick', () => {
+  it('is the pick itself on a single turn and at the start of a double turn', () => {
+    expect(
+      [0, 1, 2, 3, 4, 6].map((picksMade) =>
+        turnStartPick(
+          SINGLES_THEN_DOUBLES,
+          currentTurn(SINGLES_THEN_DOUBLES, picksMade)!,
+        ),
+      ),
+    ).toEqual([1, 2, 3, 4, 5, 7]);
+  });
+
+  it('is the pick before on the second pick of a double turn', () => {
+    expect(
+      [5, 7].map((picksMade) =>
+        turnStartPick(
+          SINGLES_THEN_DOUBLES,
+          currentTurn(SINGLES_THEN_DOUBLES, picksMade)!,
+        ),
+      ),
+    ).toEqual([5, 7]);
+  });
+});
+
+describe('turnAfter', () => {
+  it('is the next pick’s turn after a single turn', () => {
+    expect(
+      turnAfter(SINGLES_THEN_DOUBLES, currentTurn(SINGLES_THEN_DOUBLES, 3)!),
+    ).toMatchObject({ pick: 5, round: 3, seat: 0 });
+  });
+
+  it('skips a double turn’s second pick from its first, as both are the turn’s', () => {
+    expect(
+      turnAfter(SINGLES_THEN_DOUBLES, currentTurn(SINGLES_THEN_DOUBLES, 4)!),
+    ).toMatchObject({ pick: 7, round: 3, seat: 1 });
+  });
+
+  it('is the next turn from a double turn’s second pick', () => {
+    expect(
+      turnAfter(SINGLES_THEN_DOUBLES, currentTurn(SINGLES_THEN_DOUBLES, 5)!),
+    ).toMatchObject({ pick: 7, round: 3, seat: 1 });
+  });
+
+  it('is null from either pick of the draft’s last turn', () => {
+    expect(
+      [6, 7].map((picksMade) =>
+        turnAfter(
+          SINGLES_THEN_DOUBLES,
+          currentTurn(SINGLES_THEN_DOUBLES, picksMade)!,
+        ),
+      ),
+    ).toEqual([null, null]);
   });
 });
 

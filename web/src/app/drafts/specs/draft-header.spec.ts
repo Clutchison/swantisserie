@@ -17,6 +17,7 @@ import {
   SWITCH_ANNOUNCEMENTS_ONLY,
   useDraftsApp,
   viewOn,
+  withDoubleTurns,
   webhooksAnswer,
 } from './harness';
 
@@ -48,37 +49,25 @@ describe('draft header', () => {
     });
 
     describe('on a double turn', () => {
-      /**
-       * A drafting draft of Alice (the viewer) and Bob, 6 picks each, the last
-       * 4 on double turns: rounds 1 and 2 are single, then round 3 goes Alice
-       * picks 5 and 6, Bob 7 and 8, and round 4 Bob 9 and 10, Alice 11 and 12.
-       */
-      const onDoubleTurn = (pick: number, round: number, playerId: string) =>
-        drafting({
-          picksPerPlayer: 6,
-          doublePicks: 4,
-          turn: { pick, round, playerId, picksBeforeTurnPasses: pick % 2 === 1 ? 2 : 1 },
-        });
-
       it.each([
         [
           'the viewer 2 picks at its start',
-          onDoubleTurn(5, 3, alice.id),
+          withDoubleTurns(5, alice.id),
           'Your turn: pick 5, round 3 · 2 picks',
         ],
         [
           'the viewer 1 more pick after its first',
-          onDoubleTurn(6, 3, alice.id),
+          withDoubleTurns(6, alice.id),
           'Your turn: pick 6, round 3 · 1 more pick',
         ],
         [
           'another player 2 picks at its start',
-          onDoubleTurn(9, 4, bob.id),
+          withDoubleTurns(9, bob.id),
           'Bob’s turn: pick 9, round 4 · 2 picks',
         ],
         [
           'another player 1 more pick after its first',
-          onDoubleTurn(10, 4, bob.id),
+          withDoubleTurns(10, bob.id),
           'Bob’s turn: pick 10, round 4 · 1 more pick',
         ],
       ])('tells %s', async (_, fields, turnText) => {
@@ -87,8 +76,8 @@ describe('draft header', () => {
         expect(text(page)).toContain(turnText);
       });
 
-      it('says nothing of picks left on a single turn of the same draft', async () => {
-        const { page } = await openDraft(completeSnapshot, onDoubleTurn(4, 2, alice.id));
+      it('adds nothing to a single turn’s text in the same draft', async () => {
+        const { page } = await openDraft(completeSnapshot, withDoubleTurns(4, alice.id));
 
         const shown = text(page);
         expect(shown).toMatch(/Your turn: pick 4, round 2(?! ·)/);

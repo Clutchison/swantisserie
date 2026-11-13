@@ -20,7 +20,7 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { PlayerView } from 'contract';
-import { nextTurn, roundRunsForward } from 'engine';
+import { roundRunsForward, turnAfter } from 'engine';
 import {
   LucideChevronLeft,
   LucideChevronRight,
@@ -29,7 +29,6 @@ import {
 } from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
-import { draftSize } from './drafts';
 import { OwnTurnLoop } from './own-turn-loop';
 import { PlayerAvatar } from './player-avatar';
 import { PlayersSheet } from './players-sheet';
@@ -53,18 +52,18 @@ const ARROW_SIZE = 14;
 /**
  * The Seat strip: a drafting or frozen draft's players as avatars in seat
  * order, in a row in the tab bar from the desktop layout and under the draft
- * header below it, ringing the seat whose turn it is, with arrows between
- * the seats pointing toward the next player to pick. The turn's ring pulses
- * three times when the turn changes, though not for a double turn's second
- * pick. The viewer's own ring pulses on through their turn, as `OwnTurnLoop` says, until they press a
- * pointer or a key, then finishes its beat and rests. The turn's seat and the
- * next seat are scrolled into view when the row is too long to show whole. Its
- * Players button opens `playersPanel`, the full Players panel, where
- * `panelIn` says: a non-modal popover under it, over the tab content, which
- * Escape, a pointer pressed outside or focus leaving closes; or the Players
- * sheet. `panelOpen` is whether the panel is open, in either: the
- * page keeps it as the strip moves between the tab bar and the row under the
- * draft header, so the panel opens in the other.
+ * header below it, ringing the seat whose turn it is, with arrows between the
+ * seats pointing toward the next player to pick. The turn's ring pulses three
+ * times when the turn changes, though not for a double turn's second pick. The
+ * viewer's own ring pulses on through their turn, as `OwnTurnLoop` says, until
+ * they press a pointer or a key, then finishes its beat and rests. The turn's
+ * seat and the next seat are scrolled into view when the row is too long to
+ * show whole. Its Players button opens `playersPanel`, the full Players panel,
+ * where `panelIn` says: a non-modal popover under it, over the tab content,
+ * which Escape, a pointer pressed outside or focus leaving closes; or the
+ * Players sheet. `panelOpen` is whether the panel is open, in either: the page
+ * keeps it as the strip moves between the tab bar and the row under the draft
+ * header, so the panel opens in the other.
  */
 @Component({
   selector: 'app-seat-strip',
@@ -108,11 +107,8 @@ export class SeatStrip {
   private readonly nextPlayer = computed(() => {
     const turn = this.store.turn();
     if (!turn) return null;
-    const seats = this.seats();
-    // The turn's last pick: the next on a double turn's first.
-    const lastPick = turn.pick + turn.picksBeforeTurnPasses - 1;
-    const next = nextTurn(draftSize(this.store.shown(), seats.length), lastPick);
-    return next ? (seats[next.seat] ?? null) : null;
+    const next = turnAfter(this.store.draftSize(), turn);
+    return next ? (this.seats()[next.seat] ?? null) : null;
   });
 
   /**

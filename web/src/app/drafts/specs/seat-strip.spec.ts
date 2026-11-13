@@ -25,6 +25,7 @@ import {
   startDraft,
   updates,
   viewOn,
+  withDoubleTurns,
 } from './harness';
 import { clickBackdrop, clickOn, pressEscape, pressKey, pressPointerOn } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
@@ -62,24 +63,6 @@ const beatEnds = (seat: HTMLElement) => {
   seat.dispatchEvent(new Event('animationiteration', { bubbles: true }));
   TestBed.tick();
 };
-
-/**
- * A drafting draft of Alice (the viewer) and Bob, 6 picks each, the last 4
- * on double turns, at `pick`, with `playerId` picking: rounds 1 and 2 are
- * single, then round 3 goes Alice picks 5 and 6, Bob 7 and 8, and round 4
- * Bob 9 and 10, Alice 11 and 12.
- */
-const atDoublePick = (pick: number, playerId: string) =>
-  drafting({
-    picksPerPlayer: 6,
-    doublePicks: 4,
-    turn: {
-      pick,
-      round: pick <= 8 ? 3 : 4,
-      playerId,
-      picksBeforeTurnPasses: pick % 2 === 1 ? 2 : 1,
-    },
-  });
 
 describe('the Seat strip', () => {
   describe('on a desktop screen', () => {
@@ -383,13 +366,13 @@ describe('the Seat strip', () => {
     it.each([
       [
         'the next seat on, from the first pick of a double turn',
-        atDoublePick(5, alice.id),
+        withDoubleTurns(5, alice.id),
         'Bob picks next',
       ],
-      ['the next seat on, from the second', atDoublePick(6, alice.id), 'Bob picks next'],
-      ['the end seat itself at the turnaround', atDoublePick(7, bob.id), 'Bob picks next'],
-      ['the end seat’s neighbour, back the other way', atDoublePick(9, bob.id), 'you pick next'],
-      ['no one from the first pick of the draft’s last turn', atDoublePick(11, alice.id), null],
+      ['the next seat on, from the second', withDoubleTurns(6, alice.id), 'Bob picks next'],
+      ['the end seat itself at the turnaround', withDoubleTurns(7, bob.id), 'Bob picks next'],
+      ['the end seat’s neighbour, back the other way', withDoubleTurns(9, bob.id), 'you pick next'],
+      ['no one from the first pick of the draft’s last turn', withDoubleTurns(11, alice.id), null],
     ])('names %s in its list of seats', async (_, fields, next) => {
       const { page } = await openDraft(completeSnapshot, fields);
 
@@ -549,28 +532,28 @@ describe('the Seat strip', () => {
 
     describe('on a double turn', () => {
       /** Ends `seat`'s three beats, as the browser does once they have played. */
-      const beatsEnd = (seat: HTMLElement) => {
+      const pulseEnds = (seat: HTMLElement) => {
         seat.dispatchEvent(new Event('animationend', { bubbles: true }));
         TestBed.tick();
       };
 
       it('keeps the turn’s ring on another player through both picks, its three beats not played again', async () => {
-        const { fixture, page } = await openDraft(completeSnapshot, atDoublePick(6, alice.id));
-        await changeTo(fixture, atDoublePick(7, bob.id));
+        const { fixture, page } = await openDraft(completeSnapshot, withDoubleTurns(6, alice.id));
+        await changeTo(fixture, withDoubleTurns(7, bob.id));
         expect(pulses(page)).toEqual([null, 'beats']);
-        beatsEnd(stripSeats(page)[1]!);
+        pulseEnds(stripSeats(page)[1]!);
 
-        await changeTo(fixture, atDoublePick(8, bob.id));
+        await changeTo(fixture, withDoubleTurns(8, bob.id));
 
         expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
         expect(pulses(page)).toEqual([null, null]);
       });
 
       it('rests the viewer’s ring for their second pick, once they have picked by hand', async () => {
-        const { fixture, page } = await openDraft(completeSnapshot, atDoublePick(5, alice.id));
+        const { fixture, page } = await openDraft(completeSnapshot, withDoubleTurns(5, alice.id));
         pressPointerOn(draftName(page));
 
-        await changeTo(fixture, atDoublePick(6, alice.id));
+        await changeTo(fixture, withDoubleTurns(6, alice.id));
         beatEnds(stripSeats(page)[0]!);
 
         expect(stripSeatNames(page)).toEqual(['Alice, you, picking', 'Bob']);
@@ -578,9 +561,9 @@ describe('the Seat strip', () => {
       });
 
       it('keeps looping the viewer’s ring through their second pick until they press', async () => {
-        const { fixture, page } = await openDraft(completeSnapshot, atDoublePick(5, alice.id));
+        const { fixture, page } = await openDraft(completeSnapshot, withDoubleTurns(5, alice.id));
 
-        await changeTo(fixture, atDoublePick(6, alice.id));
+        await changeTo(fixture, withDoubleTurns(6, alice.id));
         beatEnds(stripSeats(page)[0]!);
 
         expect(pulses(page)).toEqual(['loop', null]);
