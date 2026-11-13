@@ -434,9 +434,8 @@ describe('readPickImport', () => {
         '->,Ash Golem,Brine Wisp,',
         '->,Cinder Hound,Dusk Heron,',
         ',Ember Stag,Fen Lurker,<-',
-        ',Gale Kite,Hollow Elk,<-',
-        '->,Iron Moth,,',
-        ',,,<-',
+        '->,Gale Kite,Hollow Elk,',
+        ',,Iron Moth,<-',
       ].join('\n');
 
       expect(

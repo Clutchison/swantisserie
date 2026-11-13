@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   currentTurn,
   draftComplete,
-  nextTurn,
+  picksPerTurn,
   roundRunsForward,
   turnAfter,
   turnStartPick,
@@ -123,57 +123,6 @@ describe('currentTurn with double picks', () => {
   });
 });
 
-describe('nextTurn', () => {
-  it('is the turn after the one making `pick`', () => {
-    expect(
-      nextTurn({ players: 4, picksPerPlayer: 3, doublePicks: 0 }, 2),
-    ).toEqual({
-      pick: 3,
-      round: 1,
-      seat: 2,
-      picksBeforeTurnPasses: 1,
-    });
-  });
-
-  it('gives the end seat its second pick of the pair, then turns back', () => {
-    const size = { players: 3, picksPerPlayer: 3, doublePicks: 0 };
-    expect(nextTurn(size, 3)).toEqual({
-      pick: 4,
-      round: 2,
-      seat: 2,
-      picksBeforeTurnPasses: 1,
-    });
-    expect(nextTurn(size, 4)).toEqual({
-      pick: 5,
-      round: 2,
-      seat: 1,
-      picksBeforeTurnPasses: 1,
-    });
-  });
-
-  it('keeps the turn with the player after the first pick of a double turn', () => {
-    const size = { players: 3, picksPerPlayer: 2, doublePicks: 2 };
-    expect(nextTurn(size, 1)).toEqual({
-      pick: 2,
-      round: 1,
-      seat: 0,
-      picksBeforeTurnPasses: 1,
-    });
-    expect(nextTurn(size, 2)).toEqual({
-      pick: 3,
-      round: 1,
-      seat: 1,
-      picksBeforeTurnPasses: 2,
-    });
-  });
-
-  it('is null after the draft’s last pick', () => {
-    expect(
-      nextTurn({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 6),
-    ).toBeNull();
-  });
-});
-
 /**
  * Two players, 4 picks each, the last 2 on double turns: round 1 is seats
  * 0 then 1, round 2 seats 1 then 0, then round 3 seat 0 on picks 5 and 6
@@ -233,6 +182,23 @@ describe('turnAfter', () => {
         ),
       ),
     ).toEqual([null, null]);
+  });
+});
+
+describe('picksPerTurn', () => {
+  it('is 1 in a round of single turns and 2 in a round of double turns', () => {
+    const size = { players: 3, picksPerPlayer: 6, doublePicks: 4 };
+    expect([1, 2, 3, 4].map((round) => picksPerTurn(size, round))).toEqual([
+      1, 1, 2, 2,
+    ]);
+  });
+
+  it('is 1 in every round past the draft’s last', () => {
+    // Two rounds of single turns, then two of double turns: the last is round 4.
+    const size = { players: 3, picksPerPlayer: 6, doublePicks: 4 };
+    expect([5, 6, 7].map((round) => picksPerTurn(size, round))).toEqual([
+      1, 1, 1,
+    ]);
   });
 });
 
