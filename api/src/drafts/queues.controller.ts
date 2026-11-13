@@ -116,7 +116,7 @@ export class QueuesController {
   /**
    * Sets the queue to queue paused or queue picking. Setting it queue
    * picking on the player's own turn sends the cards they confirmed it picks
-   * before the turn passes. Picks that setting it queue picking makes are
+   * before another player picks. Picks that setting it queue picking makes are
    * published, as a cascade's are; otherwise nothing is published, as the
    * state is private to the player.
    */

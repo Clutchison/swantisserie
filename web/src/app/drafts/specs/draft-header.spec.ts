@@ -1,5 +1,7 @@
 import {
+  alice,
   ALL_POWERS,
+  bob,
   button,
   buttonOrder,
   completeSnapshot,
@@ -15,6 +17,7 @@ import {
   SWITCH_ANNOUNCEMENTS_ONLY,
   useDraftsApp,
   viewOn,
+  withDoubleTurns,
   webhooksAnswer,
 } from './harness';
 
@@ -38,6 +41,55 @@ describe('draft header', () => {
         expect(shown).toContain('Bob’s turn: pick 1, round 1');
       },
     );
+
+    it('shows the draft’s double picks', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ doublePicks: 20 }));
+
+      expect(text(page)).toContain('Double picks: last 20');
+    });
+
+    describe('on a double turn', () => {
+      it.each([
+        [
+          'the viewer 2 picks at its start',
+          withDoubleTurns(5, alice.id),
+          'Your turn: pick 5, round 3 · 2 picks',
+        ],
+        [
+          'the viewer 1 more pick after its first',
+          withDoubleTurns(6, alice.id),
+          'Your turn: pick 6, round 3 · 1 more pick',
+        ],
+        [
+          'another player 2 picks at its start',
+          withDoubleTurns(9, bob.id),
+          'Bob’s turn: pick 9, round 4 · 2 picks',
+        ],
+        [
+          'another player 1 more pick after its first',
+          withDoubleTurns(10, bob.id),
+          'Bob’s turn: pick 10, round 4 · 1 more pick',
+        ],
+      ])('tells %s', async (_, fields, turnText) => {
+        const { page } = await openDraft(completeSnapshot, fields);
+
+        expect(text(page)).toContain(turnText);
+      });
+
+      it('adds nothing to a single turn’s text in the same draft', async () => {
+        const { page } = await openDraft(completeSnapshot, withDoubleTurns(4, alice.id));
+
+        const shown = text(page);
+        expect(shown).toMatch(/Your turn: pick 4, round 2(?! ·)/);
+        expect(shown).not.toMatch(/2 picks|more pick/);
+      });
+    });
+
+    it('says nothing of double picks for a draft without them', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting());
+
+      expect(text(page)).not.toContain('Double picks');
+    });
   });
 
   describe('the Announcements button', () => {

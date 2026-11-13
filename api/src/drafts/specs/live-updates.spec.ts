@@ -143,7 +143,12 @@ describe('live updates', () => {
         expect.objectContaining({
           id,
           state: 'Drafting',
-          turn: { pick: 2, round: 1, playerId: bob.id },
+          turn: {
+            pick: 2,
+            round: 1,
+            playerId: bob.id,
+            picksBeforeTurnPasses: 1,
+          },
         }),
       ]),
     );
@@ -164,7 +169,12 @@ describe('live updates', () => {
       expect(bobSees).toEqual([
         expect.objectContaining({
           id,
-          turn: { pick: 1, round: 1, playerId: alice.id },
+          turn: {
+            pick: 1,
+            round: 1,
+            playerId: alice.id,
+            picksBeforeTurnPasses: 1,
+          },
         }),
       ]),
     );
@@ -219,7 +229,12 @@ describe('live updates', () => {
     await vi.waitFor(() =>
       expect(carolSees).toEqual([
         expect.objectContaining({
-          turn: { pick: 3, round: 2, playerId: bob.id },
+          turn: {
+            pick: 3,
+            round: 2,
+            playerId: bob.id,
+            picksBeforeTurnPasses: 1,
+          },
         }),
       ]),
     );

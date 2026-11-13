@@ -38,7 +38,7 @@ describe('cascade', () => {
     bobCookie = await signIn(bob);
   });
 
-  it('picks the next player’s queued cards for them after a pick, through the snake turn', async () => {
+  it('picks the next player’s queued cards for them after a pick, through the turnaround', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);
@@ -52,6 +52,7 @@ describe('cascade', () => {
       pick: 4,
       round: 2,
       playerId: alice.id,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual([
       'Alice: Shock',
@@ -75,7 +76,12 @@ describe('cascade', () => {
 
     const picked = await pick(id, ids.Shock).expect(200);
 
-    expect(picked.body.turn).toEqual({ pick: 2, round: 1, playerId: bob.id });
+    expect(picked.body.turn).toEqual({
+      pick: 2,
+      round: 1,
+      playerId: bob.id,
+      picksBeforeTurnPasses: 1,
+    });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
       cards: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
@@ -85,6 +91,46 @@ describe('cascade', () => {
           name: 'Shock',
           queueLoss: 'QueuePaused',
         },
+      ],
+      stealBehavior: 'PauseQueue',
+      queuePaused: true,
+    });
+  });
+
+  it('picks both picks of each double turn from queues, pausing a queue that loses a card and leaving the turn with its player', async () => {
+    const carolCookie = await signIn(carol);
+    // Two picks each, both on double turns: A A B B C C.
+    const id = await readyDraft(
+      [aliceCookie, bobCookie, carolCookie],
+      2,
+      [...fourCards, 'Play with Fire', 'Burst Lightning'],
+      null,
+      2,
+    );
+    const ids = await poolCardIds(id);
+    // Queues already filled in the lobby.
+    await queueInLobby(id, alice, ids.Shock, ids['Lightning Bolt']);
+    await queueInLobby(id, bob, ids['Lava Spike'], ids['Skewer the Critics']);
+    await queueInLobby(id, carol, ids.Shock, ids['Play with Fire']);
+
+    const started = await start(id).expect(200);
+
+    expect(started.body.turn).toEqual({
+      pick: 5,
+      round: 1,
+      playerId: carol.id,
+      picksBeforeTurnPasses: 2,
+    });
+    expect(await pickLogLines(id)).toEqual([
+      'Alice: Shock',
+      'Alice: Lightning Bolt',
+      'Bob: Lava Spike',
+      'Bob: Skewer the Critics',
+    ]);
+    expect((await queue(id, carolCookie).expect(200)).body).toEqual({
+      cards: [{ poolCardId: ids['Play with Fire'], name: 'Play with Fire' }],
+      lost: [
+        { poolCardId: ids.Shock, name: 'Shock', queueLoss: 'QueuePaused' },
       ],
       stealBehavior: 'PauseQueue',
       queuePaused: true,
@@ -156,7 +202,12 @@ describe('cascade', () => {
 
     const started = await start(id).expect(200);
 
-    expect(started.body.turn).toEqual({ pick: 2, round: 1, playerId: bob.id });
+    expect(started.body.turn).toEqual({
+      pick: 2,
+      round: 1,
+      playerId: bob.id,
+      picksBeforeTurnPasses: 1,
+    });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Alice's own pick leaves the rest of her queue in place.
     expect((await queue(id).expect(200)).body).toEqual({
@@ -336,6 +387,7 @@ describe('cascade', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Lightning Bolt']);
   });

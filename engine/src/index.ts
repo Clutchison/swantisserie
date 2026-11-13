@@ -1,6 +1,7 @@
 export * from './card-faces.js';
 export * from './cascade.js';
 export * from './copies.js';
+export * from './double-picks.js';
 export * from './draft-size.js';
 export * from './my-stats.js';
 export * from './pick.js';

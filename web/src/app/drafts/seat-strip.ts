@@ -20,7 +20,7 @@ import {
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
 import type { PlayerView } from 'contract';
-import { nextTurn, roundRunsForward } from 'engine';
+import { roundRunsForward, turnAfter } from 'engine';
 import {
   LucideChevronLeft,
   LucideChevronRight,
@@ -52,18 +52,18 @@ const ARROW_SIZE = 14;
 /**
  * The Seat strip: a drafting or frozen draft's players as avatars in seat
  * order, in a row in the tab bar from the desktop layout and under the draft
- * header below it, ringing the seat whose turn it is, with arrows between
- * the seats pointing toward the next player to pick. The turn's ring pulses
- * three times when the turn changes to another player. The viewer's own ring
- * pulses on through their turn, as `OwnTurnLoop` says, until they press a
- * pointer or a key, then finishes its beat and rests. The turn's seat and the
- * next seat are scrolled into view when the row is too long to show whole. Its
- * Players button opens `playersPanel`, the full Players panel, where
- * `panelIn` says: a non-modal popover under it, over the tab content, which
- * Escape, a pointer pressed outside or focus leaving closes; or the Players
- * sheet. `panelOpen` is whether the panel is open, in either: the
- * page keeps it as the strip moves between the tab bar and the row under the
- * draft header, so the panel opens in the other.
+ * header below it, ringing the seat whose turn it is, with arrows between the
+ * seats pointing toward the next player to pick. The turn's ring pulses three
+ * times when the turn changes, though not for a double turn's second pick. The
+ * viewer's own ring pulses on through their turn, as `OwnTurnLoop` says, until
+ * they press a pointer or a key, then finishes its beat and rests. The turn's
+ * seat and the next seat are scrolled into view when the row is too long to
+ * show whole. Its Players button opens `playersPanel`, the full Players panel,
+ * where `panelIn` says: a non-modal popover under it, over the tab content,
+ * which Escape, a pointer pressed outside or focus leaving closes; or the
+ * Players sheet. `panelOpen` is whether the panel is open, in either: the page
+ * keeps it as the strip moves between the tab bar and the row under the draft
+ * header, so the panel opens in the other.
  */
 @Component({
   selector: 'app-seat-strip',
@@ -101,16 +101,14 @@ export class SeatStrip {
   private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
 
   /**
-   * The player who picks after the turn's player, by the snake order: the
-   * turn's player again at the end of a round. Null on the draft's last pick.
+   * The player who picks after the turn passes, by the snake order: the
+   * turn's player again at the end of a round. Null on the draft's last turn.
    */
   private readonly nextPlayer = computed(() => {
     const turn = this.store.turn();
     if (!turn) return null;
-    const seats = this.seats();
-    const size = { players: seats.length, picksPerPlayer: this.store.shown().picksPerPlayer };
-    const next = nextTurn(size, turn.pick);
-    return next ? (seats[next.seat] ?? null) : null;
+    const next = turnAfter(this.store.draftSize(), turn);
+    return next ? (this.seats()[next.seat] ?? null) : null;
   });
 
   /**
@@ -140,6 +138,16 @@ export class SeatStrip {
    * seat; null once it has played, or while the viewer's own ring loops.
    */
   protected readonly pulse = signal<Pulse | null>(null);
+  /**
+   * What the turn's ring plays, as its `data-pulse` says for want of an
+   * accessible state: `loop`, the viewer's own ring pulsing until they press;
+   * `beats`, the three beats of a turn change; `loop beats`, which it should
+   * never play; or null at rest.
+   */
+  protected readonly turnPulse = computed(() => {
+    const plays = [...(this.ownLoop.looping() ? ['loop'] : []), ...(this.pulse() ? ['beats'] : [])];
+    return plays.length > 0 ? plays.join(' ') : null;
+  });
 
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
   private readonly popover = viewChild<ElementRef<HTMLElement>>('popover');
@@ -154,10 +162,11 @@ export class SeatStrip {
       else this.popover()?.nativeElement.focus();
     });
     // A turn change pulses the turn's seat three times; the turn the strip
-    // first shows doesn't. The viewer's own ring, looping, plays the loop instead.
+    // first shows doesn't, nor a double turn's second pick. The viewer's own
+    // ring, looping, plays the loop instead.
     let shownPick: number | undefined;
     effect(() => {
-      const pick = this.store.turn()?.pick;
+      const pick = this.store.turnStartPick() ?? undefined;
       if (shownPick !== undefined && pick !== undefined && pick !== shownPick) {
         untracked(() =>
           this.pulse.update((copy) =>

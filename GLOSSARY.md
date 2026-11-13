@@ -162,9 +162,17 @@ _Avoid_: Players dropdown, players menu, Players sheet (that is the narrow-scree
 The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
 _Avoid_: Serpentine, wheel
 
+**Turnaround**:
+Where snake order turns back between rounds: the end seat takes the last turn of one round and the first of the next, so its player picks twice in a row, or up to four times across double turns.
+_Avoid_: Snake turn, wheel, the turn (alone)
+
 **Turn**:
-A player's chance to make the next pick. The draft says whose turn it is and which pick and round it is.
+A player's chance to make the next pick, or the next two on a double turn. The draft says whose turn it is and which pick and round it is.
 _Avoid_: Go, move
+
+**Double turn**:
+A turn on which the player makes two picks before it passes. Snake order runs over turns, so a round of double turns goes from each seat's two picks to the next seat's.
+_Avoid_: Double pick (for the turn), two-pick, bonus pick, extra turn
 
 **Pick**:
 One pool card taken by one player on their turn. Each pool card can be picked once.
@@ -173,6 +181,10 @@ _Avoid_: Selection, draft (as a verb)
 **Picks per player**:
 How many picks each player makes in a draft. The organizer sets it when creating the draft, and it is locked once the draft starts.
 _Avoid_: Pick count, rounds
+
+**Double picks**:
+A draft's setting for how many of each player's last picks they make on double turns: an even number no greater than their picks per player. It is off unless the organizer turns it on when creating the draft, and it never changes.
+_Avoid_: Double-pick rounds, late doubles, double picking
 
 **Picks left**:
 How many picks a player still has to make in a draft: their picks per player less the picks they have made.
@@ -199,7 +211,7 @@ A player's queue when it makes no queued picks: on their turn, they pick by hand
 _Avoid_: Held, on hold, autopick off
 
 **Queue picking**:
-A player's queue when it picks for them on their turn: the opposite of queue paused, and how every queue starts. Setting a queue picking on the player's own turn picks its next available cards straight away, after the player confirms the cards it will pick before the turn passes. Always written as "queue picking", never "picking" alone.
+A player's queue when it picks for them on their turn: the opposite of queue paused, and how every queue starts. Setting a queue picking on the player's own turn picks its next available cards straight away, after the player confirms the cards it will pick before another player picks. Always written as "queue picking", never "picking" alone.
 _Avoid_: Queue active (an active draft is the draft's), running, armed, unpaused, resumed
 
 **Cascade**:
@@ -387,7 +399,7 @@ The organizer returning a closed draft to drafting, at any time. Its turn comes 
 _Avoid_: Restore, unclose, unfreeze (that is from frozen)
 
 **Pick import**:
-The organizer loading picks made outside the app into a draft in the lobby, which starts it frozen. A file's columns map to seats by position, and its picks are taken in snake order.
+The organizer loading picks made outside the app into a draft in the lobby, which starts it frozen. A file's columns map to seats by position, and its picks are taken in snake order. Each row is a round, except that a round of double turns takes two rows, each seat's two cells being its double turn.
 _Avoid_: Upload, sheet sync, import (alone)
 
 **Cancel**:

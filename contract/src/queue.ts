@@ -68,7 +68,7 @@ export type QueuePausedRequest =
       queuePaused: false;
       /**
        * The pool card ids, in order, that the player confirmed their queue
-       * picks before the turn passes, as `queuePicksBeforeTurnPasses` names
+       * picks before another player picks, as `queuePicksBeforeAnotherPlayerPicks` names
        * them. Left out, none.
        */
       poolCardIds?: string[];

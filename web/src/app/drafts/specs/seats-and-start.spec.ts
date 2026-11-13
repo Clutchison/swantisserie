@@ -266,7 +266,7 @@ describe('seats and start', () => {
         { column: 'Ben', playerId: bob.id, player: 'Bob' },
       ],
       picks: 70,
-      next: { pick: 71, player: 'Bob' },
+      next: { pick: 71, round: 36, picksBeforeTurnPasses: 1 as const, player: 'Bob' },
     };
 
     describe('from the Players panel beside the tabs, on a desktop', () => {
@@ -321,7 +321,25 @@ describe('seats and start', () => {
       expect(shown).toContain('Ann → Alice');
       expect(shown).toContain('Ben → Bob');
       expect(shown).toContain('70 picks');
-      expect(shown).toContain('Next turn: Pick 71, Bob');
+      expect(shown).toContain('Next turn: Pick 71, Bob.');
+    });
+
+    it('previews a file that stops partway through a double turn, saying the player has 1 more pick on it', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob],
+        picksPerPlayer: 3,
+        doublePicks: 2,
+      });
+
+      await chooseFile(fixture, page, {
+        ...preview,
+        picks: 3,
+        next: { pick: 4, round: 2, picksBeforeTurnPasses: 1, player: 'Bob' },
+      });
+
+      expect((await shownPreview(page)).textContent).toContain(
+        'Next turn: Pick 4, Bob · 1 more pick.',
+      );
     });
 
     describe('confirming', () => {

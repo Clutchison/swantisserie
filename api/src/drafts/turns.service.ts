@@ -4,11 +4,12 @@ import {
   cascade,
   currentTurn,
   draftComplete,
+  draftSize,
   type PlanAfterPick,
   pickProblem,
   plansAfterPick,
   type QueueAfterPick,
-  queuePicksBeforeTurnPasses,
+  queuePicksBeforeAnotherPlayerPicks,
   queuesAfterPick,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -25,7 +26,7 @@ import {
   toEventPlayer,
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
-import { draftSize, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
+import { DRAFT_SIZE_FIELDS, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
 import { recordPlanEffects, restorePlans } from './plan-picks.js';
 import { recordQueueEffects, restoreQueues } from './queue-effects.js';
 import {
@@ -141,8 +142,7 @@ export class TurnsService {
       where: { state: 'Drafting' },
       select: {
         id: true,
-        // Stryker disable next-line BooleanLiteral: with `picksPerPlayer` missing, `currentTurn` still works out the same seat and pick from the player count. Only its completion check reads `picksPerPlayer`, and a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete in the same transaction.
-        picksPerPlayer: true,
+        ...DRAFT_SIZE_FIELDS,
         players: {
           orderBy: SEAT_ORDER,
           select: {
@@ -174,7 +174,7 @@ export class TurnsService {
    * Sets the user's queue in the draft queue picking, with the draft row and
    * their player row locked. On their own turn while the draft is Drafting,
    * the queue picks straight away: the cascade from that turn, whose events
-   * are returned. Its picks before the turn passes must be `poolCardIds`,
+   * are returned. Its picks before another player picks must be `poolCardIds`,
    * the cards the player confirmed, in order; if they aren't, it throws
    * QueueRefusedError and the queue stays queue paused. Otherwise nothing
    * is picked, whatever `poolCardIds` says, no events are returned, and the
@@ -210,7 +210,7 @@ export class TurnsService {
         // Stryker disable next-line OptionalChaining: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete.
         if (currentTurn(size, state.picked.length)?.seat !== seat) return [];
         const { queues, context } = engineView(state);
-        const picks = queuePicksBeforeTurnPasses(
+        const picks = queuePicksBeforeAnotherPlayerPicks(
           { ...size, picked: context.picked },
           seat,
           queues[seat].queue,

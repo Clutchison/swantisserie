@@ -470,6 +470,13 @@ export async function pickedIds(id: string): Promise<string[]> {
   );
 }
 
+/** The ids of the players who made each pick, in pick order. */
+export async function pickerIds(id: string): Promise<string[]> {
+  return ((await pickLog(id)).body as { playerId: string }[]).map(
+    (logged) => logged.playerId,
+  );
+}
+
 /** The names of the cards picked, in pick order, taken from the draft's pool. */
 export async function pickedNames(id: string): Promise<string[]> {
   const [log, cards] = await Promise.all([pickLog(id), pool(id).expect(200)]);
@@ -534,6 +541,7 @@ export async function readyDraft(
   picksPerPlayer = 1,
   cards: (string | ScryfallCard)[] = ['Shock', 'Lightning Bolt', 'Lava Spike'],
   webhookId: string | null = null,
+  doublePicks = 0,
 ) {
   scryfallAnswers({
     'c:r': page(...cards),
@@ -543,6 +551,7 @@ export async function readyDraft(
   const created = await createDraft({
     name: 'Red',
     picksPerPlayer,
+    doublePicks,
     webhookId,
   }).expect(201);
   const id = created.body.id as string;
@@ -570,6 +579,18 @@ export const shock = queued('Shock');
 export const bolt = queued('Lightning Bolt');
 export const spike = queued('Lava Spike');
 export const skewer = queued('Skewer the Critics');
+
+/**
+ * A ready draft, as readyDraft makes, of the players signed in with
+ * `cookies`, two of them, whose two picks each are both on double turns,
+ * from `fourCards`: the first player picks twice, then the second twice.
+ */
+export function readyDraftOfDoubleTurns(
+  cookies: string[],
+  webhookId: string | null = null,
+) {
+  return readyDraft(cookies, 2, fourCards, webhookId, 2);
+}
 
 /** Two copies of Lightning Bolt, with Shock and Lava Spike. */
 export const boltCopies = [
@@ -677,7 +698,7 @@ export function setQueuePaused(
 
 /**
  * Sets the player's queue to queue picking, sending `poolCardIds`: the cards
- * they confirmed it picks before the turn passes, on their own turn.
+ * they confirmed it picks before another player picks, on their own turn.
  */
 export function setQueuePicking(
   id: string,

@@ -239,6 +239,65 @@ button {
 }
 
 /*
+ * An on/off setting as an aria-pressed button that keeps its label, such as
+ * the Pool tab's color filter: a 44px touch target, ringed when pressed.
+ */
+.toggle-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  height: 44px;
+  border: 2px solid transparent;
+  background: transparent;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--color-raised);
+  }
+
+  &[aria-pressed='true'] {
+    border-color: var(--color-text);
+  }
+
+  /*
+   * One labelled in words, such as Hide picked: a pill, told apart by the
+   * ring, the text's strength and a check, not by color alone. Unpressed, its
+   * padding holds the check's room, so pressing it doesn't change its width.
+   */
+  &.labelled {
+    gap: var(--space-xs);
+    padding: 0 calc(var(--space-sm) + (16px + var(--space-xs)) / 2);
+    border-color: var(--color-raised);
+    border-radius: 22px;
+    color: var(--color-muted);
+    font: inherit;
+    white-space: nowrap;
+
+    &[aria-pressed='true'] {
+      padding-inline: var(--space-sm);
+      border-color: var(--color-text);
+      color: var(--color-text);
+    }
+  }
+}
+
+/*
+ * Forced colours may draw the unpressed buttons' transparent border too, so
+ * pressed draws a thicker ring, a labelled one taking the extra width from
+ * its padding.
+ */
+@media (forced-colors: active) {
+  .toggle-button[aria-pressed='true'] {
+    border-width: 4px;
+  }
+
+  .toggle-button.labelled[aria-pressed='true'] {
+    padding-inline: calc(var(--space-sm) - 2px);
+  }
+}
+
+/*
  * Not the raised background, as accent text on raised fails AA.
  * No specificity, so a component's own hover wins.
  */

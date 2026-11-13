@@ -8,6 +8,7 @@ import {
   signIn,
   getDraft,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   queue,
   enqueue,
@@ -631,6 +632,7 @@ describe('queue', () => {
         pick: 1,
         round: 1,
         playerId: alice.id,
+        picksBeforeTurnPasses: 1,
       });
       expect((await queue(id).expect(200)).body.cards).toEqual([shock, spike]);
       const log = await pickLog(id);
@@ -638,6 +640,19 @@ describe('queue', () => {
 
       const removed = await removeFromQueue(id, ids['Lava Spike']).expect(200);
       expect(removed.body.cards).toEqual([shock]);
+    });
+
+    it('refuses an add from the player between the two picks of their double turn', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+
+      expect(
+        (await enqueue(id, ids['Lightning Bolt']).expect(409)).body,
+      ).toEqual(refusedOnTurn);
+      await enqueue(id, ids['Lightning Bolt'], bobCookie).expect(200);
     });
 
     it('makes a player on the first of two turns in a row make the second by hand', async () => {
@@ -659,6 +674,7 @@ describe('queue', () => {
         pick: 3,
         round: 2,
         playerId: bob.id,
+        picksBeforeTurnPasses: 1,
       });
     });
   });

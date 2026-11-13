@@ -4,18 +4,31 @@ import { pickProblem } from './pick.js';
 describe('pickProblem', () => {
   it('lets the seat whose turn it is pick an available card', () => {
     expect(
-      pickProblem({ players: 2, picksPerPlayer: 2, picked: [] }, 0, 'shock'),
+      pickProblem(
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
+        0,
+        'shock',
+      ),
     ).toBeNull();
   });
 
   it('refuses a seat whose turn it is not', () => {
     expect(
-      pickProblem({ players: 2, picksPerPlayer: 2, picked: [] }, 1, 'shock'),
+      pickProblem(
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
+        1,
+        'shock',
+      ),
     ).toEqual({ error: 'not-your-turn', message: 'It’s not your turn.' });
   });
 
   it('follows snake order: the last seat picks again at the turn', () => {
-    const draft = { players: 2, picksPerPlayer: 2, picked: ['shock'] };
+    const draft = {
+      players: 2,
+      picksPerPlayer: 2,
+      doublePicks: 0,
+      picked: ['shock'],
+    };
     expect(pickProblem(draft, 1, 'bolt')).toBeNull();
     expect(
       pickProblem({ ...draft, picked: ['shock', 'bolt'] }, 1, 'lava-spike'),
@@ -29,7 +42,7 @@ describe('pickProblem', () => {
   it('refuses a card that has already been picked', () => {
     expect(
       pickProblem(
-        { players: 2, picksPerPlayer: 2, picked: ['shock'] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         1,
         'shock',
       ),
@@ -42,7 +55,12 @@ describe('pickProblem', () => {
   it('refuses every seat once every pick is made', () => {
     expect(
       pickProblem(
-        { players: 2, picksPerPlayer: 1, picked: ['shock', 'bolt'] },
+        {
+          players: 2,
+          picksPerPlayer: 1,
+          doublePicks: 0,
+          picked: ['shock', 'bolt'],
+        },
         0,
         'lava-spike',
       )?.error,

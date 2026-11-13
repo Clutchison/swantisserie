@@ -68,6 +68,8 @@ model Draft {
   /// The sets whose cards define the pool, each with the sublists it includes, as [{code, sublists}] in Scryfall's lowercase set codes: set exactly when poolSourceKind is SetList, by check constraint.
   setList        Json?
   picksPerPlayer Int
+  /// How many of each player's last picks they make on double turns; 0 for none. Set at creation and never changed; a check constraint keeps it 0, or even from 2 to picksPerPlayer.
+  doublePicks    Int               @default(0)
   /// The game the draft is played on. Chosen at creation; it never changes.
   platform       Platform          @default(Arena)
   state          DraftState        @default(Lobby)

@@ -30,7 +30,7 @@ import type {
   ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
-import { queuePicksBeforeTurnPasses } from 'engine';
+import { draftSize, picksPerTurn, queuePicksBeforeAnotherPlayerPicks, turnStartPick } from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
@@ -191,6 +191,21 @@ export class DraftStore implements TournamentViewer {
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   readonly turn = computed(() => this.draft.value()?.turn ?? null);
   readonly yourTurn = computed(() => this.turn()?.playerId === this.user()?.id);
+  /** The engine's size of the draft, once it has loaded, as the api works it out. */
+  readonly draftSize = computed(() => draftSize(this.shown(), this.players().length));
+  /**
+   * The pick that started the turn, which both picks of a double turn share,
+   * so a change to it is the turn passing; null with no turn.
+   */
+  readonly turnStartPick = computed(() => {
+    const turn = this.turn();
+    return turn && turnStartPick(this.draftSize(), turn);
+  });
+  /** Whether the turn is a double turn, on either of its picks; false with no turn. */
+  readonly isDoubleTurn = computed(() => {
+    const turn = this.turn();
+    return !!turn && picksPerTurn(this.draftSize(), turn.round) === 2;
+  });
 
   /** The pool's cards wait for the snapshot. */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
@@ -316,10 +331,9 @@ export class DraftStore implements TournamentViewer {
     const seat = this.players().findIndex((player) => player.id === this.user()?.id);
     const cards = this.queue.value().cards;
     const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
-    const picks = queuePicksBeforeTurnPasses(
+    const picks = queuePicksBeforeAnotherPlayerPicks(
       {
-        players: this.players().length,
-        picksPerPlayer: draft.picksPerPlayer,
+        ...draftSize(draft, this.players().length),
         picked: this.picks.value().map((pick) => pick.poolCardId),
       },
       seat,

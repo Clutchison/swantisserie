@@ -53,7 +53,7 @@ export class QueueApi {
   /**
    * Sets the queue to queue picking. On the player's own turn it picks
    * straight away: `poolCardIds` are the cards the player confirmed it picks
-   * before the turn passes, which the api refuses if it would pick others.
+   * before another player picks, which the api refuses if it would pick others.
    */
   setQueuePicking(draftId: string, poolCardIds: string[]): Observable<QueueView> {
     return this.http.put<QueueView>(`${url(draftId)}/paused`, {

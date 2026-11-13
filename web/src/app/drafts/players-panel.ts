@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { MAX_PLAYERS } from 'engine';
+import { MAX_PLAYERS, picksPerTurn } from 'engine';
 import type {
   DraftView,
   PickImportPreview,
@@ -21,7 +21,13 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
+import {
+  doubleTurnSuffix,
+  hasTurn,
+  isRefusal,
+  PLAYERS_CHANGE_FAILED,
+  sendDraftChange,
+} from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from './changes';
 import { PlayerAvatar } from './player-avatar';
@@ -95,6 +101,16 @@ export class PlayersPanel {
    * send again on confirming: nothing is saved between the two.
    */
   protected readonly pickImportPreview = signal<(PickImportPreview & { csv: string }) | null>(null);
+  /**
+   * What the preview's next turn adds on a double turn, as the header's turn
+   * text does: the picks still to make before it passes, which may be 1 when
+   * the file stops partway through it.
+   */
+  protected readonly previewNextSuffix = computed(() => {
+    const next = this.pickImportPreview()?.next;
+    if (!next || picksPerTurn(this.store.draftSize(), next.round) === 1) return '';
+    return doubleTurnSuffix(next.picksBeforeTurnPasses);
+  });
   /** All that's wrong with the latest file chosen for a pick import. */
   protected readonly pickImportProblems = signal<string[]>([]);
 

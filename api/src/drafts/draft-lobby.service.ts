@@ -55,6 +55,8 @@ export interface NewDraft {
   /** As the organizer gave it, trimmed. */
   poolSource: NewPoolSourceRequest;
   picksPerPlayer: number;
+  /** 0 for none. */
+  doublePicks: number;
   platform: Platform;
   /** Where its announcements are posted; null for none. */
   webhookId: string | null;

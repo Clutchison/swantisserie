@@ -1,4 +1,4 @@
-import type { SeatOrderRequest } from './drafts.js';
+import type { SeatOrderRequest, TurnView } from './drafts.js';
 
 /** One pick in a draft's pick log. */
 export interface PickView {
@@ -14,7 +14,10 @@ export interface PickImportPreview {
   /** Each column of the file with the player in the seat it maps to. */
   seats: { column: string; playerId: string; player: string }[];
   picks: number;
-  next: { pick: number; player: string };
+  /** The turn once the picks are made, with its player's name. */
+  next: Pick<TurnView, 'pick' | 'round' | 'picksBeforeTurnPasses'> & {
+    player: string;
+  };
 }
 
 /** A file of picks to preview importing into a draft in the lobby. */

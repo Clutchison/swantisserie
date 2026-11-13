@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { PickImportPreview } from 'contract';
-import { readPickImport } from 'engine';
+import { draftSize, readPickImport } from 'engine';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
 import { planPicks } from './plan-picks.js';
 import { leaveQueue } from './queue-order.js';
 import {
-  draftSize,
+  DRAFT_SIZE_FIELDS,
   MADE_PICK,
   SEAT_ORDER,
   type Transaction,
@@ -41,7 +41,7 @@ export class PickImportService {
       select: {
         id: true,
         state: true,
-        picksPerPlayer: true,
+        ...DRAFT_SIZE_FIELDS,
         snapshotState: true,
       },
     });
@@ -61,6 +61,8 @@ export class PickImportService {
       picks: reading.picks.length,
       next: {
         pick: reading.next.pick,
+        round: reading.next.round,
+        picksBeforeTurnPasses: reading.next.picksBeforeTurnPasses,
         player: players[reading.next.seat].user.name,
       },
     };

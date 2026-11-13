@@ -1,4 +1,3 @@
-import type { DraftSize } from 'engine';
 import type { Draft, Prisma } from '../generated/prisma/client.js';
 
 export type Transaction = Prisma.TransactionClient;
@@ -28,10 +27,11 @@ export const SEAT_ORDER = [
   { joinedAt: 'asc' },
 ] satisfies Prisma.PlayerOrderByWithRelationInput[];
 
-/** The engine's size of the draft, with `players` players. */
-export function draftSize(
-  { picksPerPlayer }: Pick<Draft, 'picksPerPlayer'>,
-  players: number,
-): DraftSize {
-  return { players, picksPerPlayer };
-}
+/** What a draft row holds of the engine's draft size: all but its players. */
+export type DraftSizeFields = Pick<Draft, 'picksPerPlayer' | 'doublePicks'>;
+
+/** Selects a draft's {@link DraftSizeFields}, to spread into a Prisma select. */
+export const DRAFT_SIZE_FIELDS = {
+  picksPerPlayer: true,
+  doublePicks: true,
+} as const satisfies Record<keyof DraftSizeFields, true>;

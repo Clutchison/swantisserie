@@ -29,6 +29,7 @@ import type {
   WebhookView,
 } from 'contract';
 import { isTurnState } from 'contract';
+import { currentTurn } from 'engine';
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
@@ -91,7 +92,11 @@ export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 54
  * so partial fixtures spread into each other type-check; `draft` checks they
  * match instead.
  */
-export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: TurnView | null };
+export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: FixtureTurn | null };
+
+/** A turn as a fixture gives it: a single turn, with 1 pick before it passes, unless it says otherwise. */
+export type FixtureTurn = Omit<TurnView, 'picksBeforeTurnPasses'> &
+  Partial<Pick<TurnView, 'picksBeforeTurnPasses'>>;
 
 /**
  * The default draft with `fields` changed. A Drafting or Frozen draft given no
@@ -105,6 +110,7 @@ export function draft(fields: DraftFixture): DraftView {
     name: 'Red dragons',
     poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     picksPerPlayer: 40,
+    doublePicks: 0,
     platform: 'Arena',
     organizer: { id: alice.id, name: alice.name },
     snapshot: completeSnapshot,
@@ -117,7 +123,7 @@ export function draft(fields: DraftFixture): DraftView {
   if (isTurnState(state)) {
     if (turn === null) throw new Error(`A ${state} draft needs a turn.`);
     const first = { pick: 1, round: 1, playerId: made.players[0]?.id ?? alice.id };
-    return { ...made, state, turn: turn ?? first };
+    return { ...made, state, turn: { picksBeforeTurnPasses: 1, ...(turn ?? first) } };
   }
   if (turn) throw new Error(`A ${state} draft has no turn.`);
   return { ...made, state, turn: null };
@@ -351,6 +357,22 @@ export const drafting = (fields: DraftFixture = {}): DraftFixture => ({
   turn: { pick: 1, round: 1, playerId: bob.id },
   ...fields,
 });
+
+/**
+ * A drafting draft of Alice (the viewer) and Bob, 6 picks each, the last 4 on
+ * double turns, at `pick`, with `playerId` picking: rounds 1 and 2 are single
+ * turns, Alice, Bob, Bob, Alice; then round 3 goes Alice picks 5 and 6, Bob 7
+ * and 8, and round 4 Bob 9 and 10, Alice 11 and 12.
+ */
+export const withDoubleTurns = (pick: number, playerId: string): DraftFixture => {
+  const size = { players: 2, picksPerPlayer: 6, doublePicks: 4 };
+  const { round, picksBeforeTurnPasses } = currentTurn(size, pick - 1)!;
+  return drafting({
+    picksPerPlayer: size.picksPerPlayer,
+    doublePicks: size.doublePicks,
+    turn: { pick, round, playerId, picksBeforeTurnPasses },
+  });
+};
 
 /** A pool card as a queue or a plan names it: by its id and name. */
 export type NamedPoolCard = Pick<PoolCardView, 'id' | 'name'>;

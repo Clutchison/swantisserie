@@ -7,6 +7,7 @@ import {
   useDraftsApp,
   signIn,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   post,
   pick,
@@ -174,6 +175,59 @@ describe('close and reopen', () => {
       turn: { pick: 2, round: 1, playerId: bob.id },
     });
     expect(await pickedNames(id)).toEqual(['Lava Spike']);
+  });
+
+  it('gives the same player their remaining pick on reopen between the two picks of a double turn', async () => {
+    const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+    await pick(id, ids.Shock).expect(200);
+    await post(id, 'close').expect(200);
+
+    const reopened = await post(id, 'reopen').expect(200);
+
+    expect(reopened.body).toMatchObject({
+      state: 'Drafting',
+      turn: {
+        pick: 2,
+        round: 1,
+        playerId: alice.id,
+        picksBeforeTurnPasses: 1,
+      },
+    });
+  });
+
+  it('has a queue that is queue picking make the remaining pick of a double turn straight away on reopen', async () => {
+    const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
+    const ids = await poolCardIds(id);
+    // A queue already filled in the lobby.
+    await queueInLobby(id, alice, ids.Shock, ids['Lava Spike']);
+    await start(id).expect(200);
+    // Both of Alice's picks came from her queue; undoing the second leaves
+    // her turn with one pick left, and Lava Spike back in her queue,
+    // waiting.
+    const undone = await undo(id, 2).expect(200);
+    expect(undone.body.turn).toEqual({
+      pick: 2,
+      round: 1,
+      playerId: alice.id,
+      picksBeforeTurnPasses: 1,
+    });
+    await post(id, 'close').expect(200);
+    expect(await pickedNames(id)).toEqual(['Shock']);
+
+    const reopened = await post(id, 'reopen').expect(200);
+
+    expect(reopened.body).toMatchObject({
+      state: 'Drafting',
+      turn: {
+        pick: 3,
+        round: 1,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 2,
+      },
+    });
+    expect(await pickedNames(id)).toEqual(['Shock', 'Lava Spike']);
   });
 
   it('announces a close pinging nobody, and a reopen pinging whoever is up', async () => {

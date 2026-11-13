@@ -90,6 +90,41 @@
         required
       />
     </label>
+    <div class="double-picks">
+      <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
+      <button
+        type="button"
+        class="toggle-button labelled"
+        [attr.aria-pressed]="doublePicksOn()"
+        (click)="toggleDoublePicks()"
+      >
+        @if (doublePicksOn()) {
+          <svg lucideCheck size="16" aria-hidden="true"></svg>
+        }
+        Double picks
+      </button>
+      @if (doublePicksOn()) {
+        @let problem = doublePicksProblem();
+        <label class="inline">
+          for each player’s last
+          <input
+            name="doublePicks"
+            formControlName="doublePicks"
+            type="number"
+            [min]="minDoublePicks"
+            [max]="picksPerPlayer()"
+            [step]="minDoublePicks"
+            required
+            [attr.aria-invalid]="problem ? 'true' : null"
+            [attr.aria-describedby]="problem ? 'double-picks-problem' : null"
+          />
+          picks
+        </label>
+        @if (problem) {
+          <span id="double-picks-problem" class="hint error">{{ problem }}</span>
+        }
+      }
+    </div>
 
     <label>
       Announcements

@@ -10,7 +10,9 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { LucideCheck } from '@lucide/angular';
 import {
+  DEFAULT_DOUBLE_PICKS,
   DEFAULT_PICKS_PER_PLAYER,
   MAX_CUBE_LINK_LENGTH,
   MAX_DRAFT_NAME_LENGTH,
@@ -26,6 +28,7 @@ import {
   type SetListEntryView,
   type WebhookView,
 } from 'contract';
+import { doublePicksProblem, doublePicksRule, MIN_DOUBLE_PICKS, startingDoublePicks } from 'engine';
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 import { SetListPicker } from './set-list-picker';
@@ -39,7 +42,7 @@ interface PoolSourceFields {
 
 @Component({
   selector: 'app-create-draft-page',
-  imports: [ReactiveFormsModule, RouterLink, SetListPicker],
+  imports: [LucideCheck, ReactiveFormsModule, RouterLink, SetListPicker],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './create-draft-page.html',
   styleUrls: ['../page.scss', './drafts.scss', './create-draft-page.scss'],
@@ -60,6 +63,8 @@ export class CreateDraftPage {
       'set-list': this.fb.group({ setList: this.fb.control<SetListEntryView[]>([]) }),
     } satisfies Record<PoolSourceKind, unknown>),
     picksPerPlayer: DEFAULT_PICKS_PER_PLAYER,
+    // Null for a number field left blank. Sent only while Double picks is pressed.
+    doublePicks: this.fb.control<number | null>(DEFAULT_DOUBLE_PICKS),
     platform: 'Arena' as Platform,
     webhookId: null as string | null,
   });
@@ -68,9 +73,31 @@ export class CreateDraftPage {
   protected readonly maxPoolQueryLength = MAX_POOL_QUERY_LENGTH;
   protected readonly maxCubeLinkLength = MAX_CUBE_LINK_LENGTH;
   protected readonly minPicksPerPlayer = MIN_PICKS_PER_PLAYER;
+  /** Also the step between allowed numbers: one double turn's picks. */
+  protected readonly minDoublePicks = MIN_DOUBLE_PICKS;
   protected readonly maxPicksPerPlayer = MAX_PICKS_PER_PLAYER;
   protected readonly poolSource = toSignal(this.form.controls.poolSource.valueChanges, {
     initialValue: this.form.controls.poolSource.value,
+  });
+  protected readonly picksPerPlayer = toSignal(this.form.controls.picksPerPlayer.valueChanges, {
+    initialValue: this.form.controls.picksPerPlayer.value,
+  });
+  private readonly doublePicks = toSignal(this.form.controls.doublePicks.valueChanges, {
+    initialValue: this.form.controls.doublePicks.value,
+  });
+  /** Whether Double picks is pressed, showing the number of them. */
+  protected readonly doublePicksOn = signal(false);
+  /**
+   * Why the number of double picks would be refused, by the engine's rule the
+   * api enforces too (ADR 0004); null while Double picks is unpressed or the
+   * number is allowed.
+   */
+  protected readonly doublePicksProblem = computed(() => {
+    if (!this.doublePicksOn()) return null;
+    const doublePicks = this.doublePicks();
+    // A field left blank: the rule says what to give.
+    if (doublePicks === null) return doublePicksRule(this.picksPerPlayer());
+    return doublePicksProblem(doublePicks, this.picksPerPlayer());
   });
   protected readonly platform = toSignal(this.form.controls.platform.valueChanges, {
     initialValue: this.form.controls.platform.value,
@@ -93,21 +120,39 @@ export class CreateDraftPage {
     });
   }
 
+  /**
+   * Presses or unpresses Double picks. Pressing starts the number afresh at
+   * the default, or at the largest even number the picks per player allow.
+   */
+  protected toggleDoublePicks() {
+    const on = !this.doublePicksOn();
+    if (on) {
+      this.form.controls.doublePicks.setValue(
+        startingDoublePicks(this.picksPerPlayer(), DEFAULT_DOUBLE_PICKS),
+      );
+    }
+    this.doublePicksOn.set(on);
+  }
+
   /** The form's fields as the API takes them, with only the pool source chosen. */
   private requestBody() {
     // Each field named, as `satisfies` doesn't catch an extra field that arrives by spread.
-    const { name, poolSource, poolSources, picksPerPlayer, platform, webhookId } =
+    const { name, poolSource, poolSources, picksPerPlayer, doublePicks, platform, webhookId } =
       this.form.getRawValue();
     return {
       name,
       poolSource: poolSourceRequest(poolSource, poolSources),
       picksPerPlayer,
+      // Checked by `doublePicksProblem` before sending, so a number while pressed.
+      doublePicks: this.doublePicksOn() ? (doublePicks ?? 0) : 0,
       platform,
       webhookId,
     } satisfies NewDraftRequest;
   }
 
   protected async create() {
+    // Refused inline already, where the field says why.
+    if (this.doublePicksProblem()) return;
     this.saving.set(true);
     this.problem.set(null);
     try {

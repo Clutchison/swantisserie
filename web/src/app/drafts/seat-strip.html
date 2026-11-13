@@ -32,6 +32,7 @@
           [class.pulse]="hasTheTurn(player) && pulse() === 'pulse'"
           [class.pulse-again]="hasTheTurn(player) && pulse() === 'pulse-again'"
           [class.pulse-loop]="hasTheTurn(player) && ownLoop.looping()"
+          [attr.data-pulse]="hasTheTurn(player) ? turnPulse() : null"
           [attr.aria-label]="seatName(player)"
           [attr.aria-current]="hasTheTurn(player) ? 'true' : null"
           (mouseenter)="showHint(player, seat)"

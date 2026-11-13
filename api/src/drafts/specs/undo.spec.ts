@@ -7,6 +7,7 @@ import {
   useDraftsApp,
   signIn,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   pick,
   undo,
@@ -49,6 +50,7 @@ describe('undo', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Lightning Bolt is back in the pool.
@@ -57,6 +59,104 @@ describe('undo', () => {
       'Alice: Shock',
       'Bob: Lightning Bolt',
     ]);
+  });
+
+  describe('on a double turn', () => {
+    /** Alice then Bob, two picks each, both on double turns: A A B B. */
+    async function doubleTurnDraft() {
+      const id = await readyDraftOfDoubleTurns([aliceCookie, bobCookie]);
+      await start(id).expect(200);
+      return { id, ids: await poolCardIds(id) };
+    }
+
+    it('gives the turn back to its player with one pick left on an undo of its second pick', async () => {
+      const { id, ids } = await doubleTurnDraft();
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
+
+      const undone = await undo(id, 2).expect(200);
+
+      expect(undone.body.turn).toEqual({
+        pick: 2,
+        round: 1,
+        playerId: alice.id,
+        picksBeforeTurnPasses: 1,
+      });
+      expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
+    });
+
+    it('gives the turn back to its player at the start of the double turn on an undo of its first pick', async () => {
+      const { id, ids } = await doubleTurnDraft();
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt']).expect(200);
+      await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+
+      const undone = await undo(id, 3).expect(200);
+
+      expect(undone.body.turn).toEqual({
+        pick: 3,
+        round: 1,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 2,
+      });
+      expect(await pickLogLines(id)).toEqual([
+        'Alice: Shock',
+        'Alice: Lightning Bolt',
+      ]);
+    });
+
+    it('returns to the round of single turns’ order on an undo of the first pick of the first round of double turns', async () => {
+      // Three players with three picks each, the last two on double turns:
+      // round 1, of single turns, runs A B C, then round 2, of double turns,
+      // runs back C C B B A A.
+      const carolCookie = await signIn(carol);
+      const id = await readyDraft(
+        [aliceCookie, bobCookie, carolCookie],
+        3,
+        [
+          ...fourCards,
+          'Play with Fire',
+          'Burst Lightning',
+          'Firebolt',
+          'Fireblast',
+          'Lightning Strike',
+        ],
+        null,
+        2,
+      );
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+      await pick(id, ids['Lava Spike'], carolCookie).expect(200);
+      await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
+
+      const doubleTurn = await undo(id, 4).expect(200);
+      expect(doubleTurn.body.turn).toEqual({
+        pick: 4,
+        round: 2,
+        playerId: carol.id,
+        picksBeforeTurnPasses: 2,
+      });
+
+      const lastSingle = await undo(id, 3).expect(200);
+      expect(lastSingle.body.turn).toEqual({
+        pick: 3,
+        round: 1,
+        playerId: carol.id,
+        picksBeforeTurnPasses: 1,
+      });
+
+      // Round 1 runs forward, so Bob, not Carol, made pick 2.
+      const earlier = await undo(id, 2).expect(200);
+      expect(earlier.body.turn).toEqual({
+        pick: 2,
+        round: 1,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 1,
+      });
+      expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
+    });
   });
 
   it('undoes only the last pick of a cascade, and makes no queued picks', async () => {
@@ -71,7 +171,12 @@ describe('undo', () => {
     const undone = await undo(id, 3).expect(200);
 
     // Skewer the Critics is back in Bob's queue, but it waits for him.
-    expect(undone.body.turn).toEqual({ pick: 3, round: 2, playerId: bob.id });
+    expect(undone.body.turn).toEqual({
+      pick: 3,
+      round: 2,
+      playerId: bob.id,
+      picksBeforeTurnPasses: 1,
+    });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
     expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([
       skewer,
@@ -418,7 +523,12 @@ describe('undo', () => {
 
     const undone = await undo(id, 1).expect(200);
 
-    expect(undone.body.turn).toEqual({ pick: 1, round: 1, playerId: alice.id });
+    expect(undone.body.turn).toEqual({
+      pick: 1,
+      round: 1,
+      playerId: alice.id,
+      picksBeforeTurnPasses: 1,
+    });
     expect(await pickLogLines(id)).toEqual([]);
     expect(await pickLogLines(other)).toEqual([
       'Alice: Shock',

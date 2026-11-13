@@ -2,7 +2,7 @@
 
 Status: Accepted
 
-Amends 0006, which made the Complete round dialog the one place the web works out with the engine what the api will do. Setting a queue to [queue picking](../../GLOSSARY.md) on the player's own turn now picks straight away, so the player first confirms the cards it will pick before the turn passes (#693, #697). Those depend on the player's own queue and the picks so far, which the browser already holds. So one pure engine function names them. The web calls it to fill the confirmation, and the api calls it under the draft row lock to check the cards the player confirmed. The api alone decides what is picked. If the cards no longer match while it is still the player's turn, it refuses and leaves the queue paused, and the web forecasts again.
+Amends 0006, which made the Complete round dialog the one place the web works out with the engine what the api will do. Setting a queue to [queue picking](../../GLOSSARY.md) on the player's own turn now picks straight away, so the player first confirms the cards it will pick before another player picks (#693, #697). Those depend on the player's own queue and the picks so far, which the browser already holds. So one pure engine function names them. The web calls it to fill the confirmation, and the api calls it under the draft row lock to check the cards the player confirmed. The api alone decides what is picked. If the cards no longer match while it is still the player's turn, it refuses and leaves the queue paused, and the web forecasts again.
 
 The forecast stops where the turn passes. The cascade's later picks depend on other players' queues, which are private, so neither the function nor the confirmation names them.
 

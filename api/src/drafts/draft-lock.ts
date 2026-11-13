@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { Draft, DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DraftGoneError, DraftStartedError } from './draft-errors.js';
-import type { Transaction } from './draft-shapes.js';
+import type { DraftSizeFields, Transaction } from './draft-shapes.js';
 
 /**
  * How long a locked change may run, a long cascade included, before it
@@ -11,14 +11,15 @@ import type { Transaction } from './draft-shapes.js';
 const LOCKED_CHANGE_TIMEOUT_MS = 15_000;
 
 /** What a change reads from the draft row it locks. */
-type LockedRow = Pick<Draft, 'state' | 'picksPerPlayer' | 'snapshotState'>;
+type LockedRow = Pick<Draft, 'state' | 'snapshotState'> & DraftSizeFields;
 
 /**
  * A draft whose row is locked, and the transaction holding the lock. Only
  * DraftLock makes one, so code taking one can only run inside the lock.
  */
-class LockedDraft {
+class LockedDraft implements DraftSizeFields {
   readonly picksPerPlayer: number;
+  readonly doublePicks: number;
   readonly snapshotState: Draft['snapshotState'];
   #state: DraftState;
 
@@ -28,6 +29,7 @@ class LockedDraft {
     row: LockedRow,
   ) {
     this.picksPerPlayer = row.picksPerPlayer;
+    this.doublePicks = row.doublePicks;
     this.snapshotState = row.snapshotState;
     this.#state = row.state;
   }
@@ -155,11 +157,12 @@ export class DraftLock {
   ): Promise<T> {
     return this.prisma.$transaction(
       async (tx) => {
+        // Every column of LockedRow, the DraftSizeFields among them.
         // FOR UPDATE, not a conditional update: Prisma writes a draft's
         // players and picks after a plain SELECT of the draft, which takes no
         // lock.
         const [row] = await tx.$queryRaw<LockedRow[]>`
-          SELECT "state", "picksPerPlayer", "snapshotState"
+          SELECT "state", "picksPerPlayer", "doublePicks", "snapshotState"
           FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
         const result = await change(
           row ? new LockedDraft(tx, draftId, row) : undefined,

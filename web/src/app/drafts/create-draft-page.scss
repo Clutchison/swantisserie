@@ -73,3 +73,23 @@ input[type='number'] {
   align-items: center;
   gap: var(--space-lg);
 }
+
+/* Double picks' toggle button, then the number of them on the same line, wrapping on a narrow screen. */
+.double-picks {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm) var(--space-lg);
+
+  .error {
+    flex-basis: 100%;
+  }
+}
+
+/* A field read as part of a sentence: "for each player's last [20] picks". */
+label.inline {
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-sm);
+  font-weight: normal;
+}

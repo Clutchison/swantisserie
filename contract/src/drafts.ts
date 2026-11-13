@@ -55,6 +55,8 @@ export interface TurnView {
   pick: number;
   round: number;
   playerId: string;
+  /** The picks the player still makes before the turn passes: 2 at the start of a double turn, else 1. */
+  picksBeforeTurnPasses: 1 | 2;
 }
 
 /** A webhook as organizers choose it: by name, its URL kept secret. */
@@ -140,6 +142,8 @@ export interface DraftBase {
   name: string;
   poolSource: PoolSourceView;
   picksPerPlayer: number;
+  /** How many of each player's last picks they make on double turns; 0 for none. */
+  doublePicks: number;
   platform: Platform;
   organizer: { id: string; name: string };
   snapshot: PoolSnapshotView;
@@ -210,12 +214,23 @@ export const MIN_PICKS_PER_PLAYER = 1;
 /** The most picks per player a draft can have. */
 export const MAX_PICKS_PER_PLAYER = 100;
 
+/**
+ * The double picks a draft starts with when the organizer turns them on, unless
+ * picks per player are fewer (the engine's `startingDoublePicks`).
+ */
+export const DEFAULT_DOUBLE_PICKS = 20;
+
 /** The create form's fields, as the web sends them to create a draft. */
 export interface NewDraftRequest {
   name: string;
   poolSource: NewPoolSourceRequest;
   /** Missing: the default. Null: a field left blank, which is refused. */
   picksPerPlayer?: number | null;
+  /**
+   * Missing or 0: no double picks. Null: a field left blank, which is refused.
+   * Else the engine's `doublePicksProblem` must allow it.
+   */
+  doublePicks?: number | null;
   /** Missing: Arena. */
   platform?: Platform;
   /** Missing or null: the draft posts nowhere. */

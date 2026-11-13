@@ -212,9 +212,9 @@ describe('setting a queue picking on the player’s own turn', () => {
 
   /**
    * Bob then Alice: Bob picked Shivan Dragon, so Alice picks twice in a
-   * row, at the snake turn. Her queue, paused, holds `queue`'s cards.
+   * row, at the turnaround. Her queue, paused, holds `queue`'s cards.
    */
-  const aliceAtSnakeTurn = (queue: (typeof cards)[number][]) =>
+  const aliceAtTurnaround = (queue: (typeof cards)[number][]) =>
     openDraft(
       completeSnapshot,
       drafting({
@@ -248,8 +248,8 @@ describe('setting a queue picking on the player’s own turn', () => {
     await fixture.whenStable();
   };
 
-  it('first names the cards the queue picks before the turn passes, and sets it queue picking once confirmed', async () => {
-    const { fixture, page } = await aliceAtSnakeTurn([shivan, bolt, spike, skewer]);
+  it('first names the cards the queue picks before another player picks, and sets it queue picking once confirmed', async () => {
+    const { fixture, page } = await aliceAtTurnaround([shivan, bolt, spike, skewer]);
     const queue = queuePane(page);
 
     queuePlayPauseButton(queue).click();
@@ -282,7 +282,7 @@ describe('setting a queue picking on the player’s own turn', () => {
   });
 
   it('leaves the queue paused when cancelled', async () => {
-    const { fixture, page } = await aliceAtSnakeTurn([bolt]);
+    const { fixture, page } = await aliceAtTurnaround([bolt]);
     const queue = queuePane(page);
 
     queuePlayPauseButton(queue).click();
@@ -295,7 +295,7 @@ describe('setting a queue picking on the player’s own turn', () => {
   });
 
   it('sets it queue picking with no dialog when the queue has no available card', async () => {
-    const { fixture, page } = await aliceAtSnakeTurn([shivan]);
+    const { fixture, page } = await aliceAtTurnaround([shivan]);
     const queue = queuePane(page);
 
     queuePlayPauseButton(queue).click();
@@ -307,7 +307,7 @@ describe('setting a queue picking on the player’s own turn', () => {
   });
 
   it('says why confirmed cards were refused, and names the cards the queue picks now to confirm', async () => {
-    const { fixture, page } = await aliceAtSnakeTurn([bolt, spike]);
+    const { fixture, page } = await aliceAtTurnaround([bolt, spike]);
 
     queuePlayPauseButton(queuePane(page)).click();
     const dialog = await question(asked);
@@ -328,7 +328,7 @@ describe('setting a queue picking on the player’s own turn', () => {
   });
 
   it('sets it queue picking with none, asking nothing, once confirmed cards are refused and the queue picks none', async () => {
-    const { fixture, page } = await aliceAtSnakeTurn([bolt]);
+    const { fixture, page } = await aliceAtTurnaround([bolt]);
 
     queuePlayPauseButton(queuePane(page)).click();
     button(await question(asked), 'Set queue picking').click();
@@ -345,7 +345,7 @@ describe('setting a queue picking on the player’s own turn', () => {
   });
 
   it('names the cards to confirm once setting it queue picking with none is refused', async () => {
-    const { fixture, page } = await aliceAtSnakeTurn([]);
+    const { fixture, page } = await aliceAtTurnaround([]);
 
     queuePlayPauseButton(queuePane(page)).click();
     http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);

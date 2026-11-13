@@ -142,7 +142,7 @@ export interface QueueRefusal {
     | 'queue-changed'
     /**
      * Setting a queue picking on the player's own turn: the cards it would
-     * pick before the turn passes aren't those they confirmed.
+     * pick before another player picks aren't those they confirmed.
      */
     | 'queue-picks-changed';
   message: string;

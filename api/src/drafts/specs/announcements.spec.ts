@@ -14,6 +14,7 @@ import {
   signIn,
   getDraft,
   readyDraft,
+  readyDraftOfDoubleTurns,
   start,
   enqueue,
   pick,
@@ -155,6 +156,46 @@ describe('announcements', () => {
           '2- **Bob** picked **Lightning Bolt**\n' +
           `<@${bob.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
         allowed_mentions: { parse: [], users: [bob.id] },
+      });
+    });
+
+    describe('on a double turn', () => {
+      it('names them without a ping after their first pick by hand', async () => {
+        const id = await readyDraftOfDoubleTurns(
+          [aliceCookie, bobCookie],
+          webhookId,
+        );
+        const ids = await poolCardIds(id);
+        await start(id).expect(200);
+
+        await pick(id, ids.Shock).expect(200);
+
+        expect(await lastPost(id, 2)).toEqual({
+          content: `1- **Alice** picked **Shock**\n**Alice** is up. [Open draft](<https://roto.example/drafts/${id}>)`,
+          allowed_mentions: { parse: [], users: [] },
+        });
+      });
+
+      it('pings them after their first pick came from their queue', async () => {
+        const id = await readyDraftOfDoubleTurns(
+          [aliceCookie, bobCookie],
+          webhookId,
+        );
+        const ids = await poolCardIds(id);
+        // A queue already filled in the lobby, with one card.
+        await queueInLobby(id, alice, ids.Shock);
+
+        await start(id).expect(200);
+
+        expect(await lastPost(id, 1)).toEqual({
+          content:
+            '**Red** has started. Seat order:\n' +
+            '1. **Alice**\n' +
+            '2. **Bob**\n' +
+            '1- **Alice** picked **Shock**\n' +
+            `<@${alice.id}> you’re up. [Open draft](<https://roto.example/drafts/${id}>)`,
+          allowed_mentions: { parse: [], users: [alice.id] },
+        });
       });
     });
 

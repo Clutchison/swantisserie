@@ -39,6 +39,10 @@ describe('create form', () => {
   const textBox = (page: HTMLElement, label: string) => controlByLabel(page, 'textbox', label);
   const picksPerPlayer = (page: HTMLElement) =>
     controlByLabel(page, 'spinbutton', 'Picks per player')!;
+  const doublePicksToggle = (page: HTMLElement) => button(page, 'Double picks')!;
+  /** The number of double picks, if it's showing. */
+  const doublePicks = (page: HTMLElement) =>
+    controlByLabel(page, 'spinbutton', 'for each player’s last picks');
 
   /** Types `value` into the text box or number field labelled `label`. */
   function fill(page: HTMLElement, label: string, value: string) {
@@ -145,6 +149,118 @@ describe('create form', () => {
     expect(validFor(MAX_PICKS_PER_PLAYER + 1)).toBe(false);
   });
 
+  describe('double picks', () => {
+    /** Presses the Double picks toggle button. */
+    async function toggleDoublePicks({ fixture, page }: Awaited<ReturnType<typeof openForm>>) {
+      doublePicksToggle(page).click();
+      await fixture.whenStable();
+    }
+
+    /** The inline refusal of the number of double picks, as the field describes it; undefined for none. */
+    const doublePicksProblem = (page: HTMLElement) => {
+      const describedBy = doublePicks(page)?.getAttribute('aria-describedby');
+      return describedBy ? document.getElementById(describedBy)?.textContent?.trim() : undefined;
+    };
+
+    it('offers a Double picks toggle button, unpressed, with no number field', async () => {
+      const { page } = await openForm();
+
+      expect(doublePicksToggle(page).type).toBe('button');
+      expect(doublePicksToggle(page).getAttribute('aria-pressed')).toBe('false');
+      expect(doublePicks(page)).toBeUndefined();
+    });
+
+    it('shows the number field when pressed, starting at 20, keeping its label', async () => {
+      const form = await openForm();
+
+      await toggleDoublePicks(form);
+
+      expect(doublePicksToggle(form.page).getAttribute('aria-pressed')).toBe('true');
+      expect(doublePicksToggle(form.page).textContent?.trim()).toBe('Double picks');
+      expect(doublePicks(form.page)?.value).toBe('20');
+    });
+
+    it.each([
+      ['15', '14'],
+      ['12', '12'],
+      ['2', '2'],
+    ])(
+      'starts at the largest even number no greater than %s picks per player',
+      async (picks, start) => {
+        const form = await openForm();
+        fill(form.page, 'Picks per player', picks);
+
+        await toggleDoublePicks(form);
+
+        expect(doublePicks(form.page)?.value).toBe(start);
+      },
+    );
+
+    it('sends the double picks chosen', async () => {
+      const form = await openForm();
+      await toggleDoublePicks(form);
+      fill(form.page, 'for each player’s last picks', '10');
+
+      const req = await create(form);
+      expect(req.request.body).toMatchObject({ picksPerPlayer: 40, doublePicks: 10 });
+    });
+
+    it('hides the field when unpressed, and creates the draft with double picks off', async () => {
+      const form = await openForm();
+      await toggleDoublePicks(form);
+      fill(form.page, 'for each player’s last picks', '10');
+
+      await toggleDoublePicks(form);
+
+      expect(doublePicksToggle(form.page).getAttribute('aria-pressed')).toBe('false');
+      expect(doublePicks(form.page)).toBeUndefined();
+      const req = await create(form);
+      expect(req.request.body).toMatchObject({ doublePicks: 0 });
+    });
+
+    it.each(['19', '0', '42', ''])(
+      'refuses %j double picks inline, naming the rule, and sends nothing',
+      async (value) => {
+        const form = await openForm();
+        await toggleDoublePicks(form);
+
+        fill(form.page, 'for each player’s last picks', value);
+        await form.fixture.whenStable();
+
+        expect(doublePicksProblem(form.page)).toBe(
+          'Double picks must be an even number from 2 to 40.',
+        );
+        expect(doublePicks(form.page)?.getAttribute('aria-invalid')).toBe('true');
+        fill(form.page, 'Name', 'Red dragons');
+        fill(form.page, 'Pool query', 't:dragon c:r');
+        await form.fixture.whenStable();
+        submit(form.page);
+        await form.fixture.whenStable();
+        http.expectNone('/api/drafts');
+      },
+    );
+
+    it('refuses double picks above picks per player once picks per player drop below them', async () => {
+      const form = await openForm();
+      await toggleDoublePicks(form);
+
+      fill(form.page, 'Picks per player', '16');
+      await form.fixture.whenStable();
+
+      expect(doublePicksProblem(form.page)).toBe(
+        'Double picks must be an even number from 2 to 16.',
+      );
+    });
+
+    it('refuses nothing for an allowed number', async () => {
+      const form = await openForm();
+      await toggleDoublePicks(form);
+
+      expect(doublePicksProblem(form.page)).toBeUndefined();
+      expect(doublePicks(form.page)?.getAttribute('aria-invalid')).toBeNull();
+    });
+  });
+
   it('creates the draft and goes to its page', async () => {
     const form = await openForm();
     fill(form.page, 'Picks per player', '30');
@@ -155,6 +271,7 @@ describe('create form', () => {
       name: 'Red dragons',
       poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
       picksPerPlayer: 30,
+      doublePicks: 0,
       platform: 'Arena',
       webhookId: null,
     });
@@ -247,6 +364,7 @@ describe('create form', () => {
       name: 'Pauper',
       poolSource: { kind: 'cube', cubeLink: 'https://cubecobra.com/cube/list/thepaupercube' },
       picksPerPlayer: 40,
+      doublePicks: 0,
       platform: 'Arena',
       webhookId: null,
     });

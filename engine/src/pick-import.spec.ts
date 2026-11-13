@@ -13,7 +13,7 @@ const pool = [
   'Vex, the Quiet',
   'Spring // Autumn',
 ].map(card);
-const size = { players: 2, picksPerPlayer: 3 };
+const size = { players: 2, picksPerPlayer: 3, doublePicks: 0 };
 
 const read = (csv: string, draftSize = size, cards = pool) =>
   readPickImport(csv, draftSize, cards);
@@ -35,7 +35,7 @@ describe('readPickImport', () => {
         { number: 3, seat: 1, poolCardId: 'brine wisp' },
         { number: 4, seat: 0, poolCardId: 'cinder hound' },
       ],
-      next: { pick: 5, round: 3, seat: 0 },
+      next: { pick: 5, round: 3, seat: 0, picksBeforeTurnPasses: 1 },
     });
   });
 
@@ -135,7 +135,7 @@ describe('readPickImport', () => {
     });
 
     it('refuses a header with no blank first cell or with a nameless column', () => {
-      const threePlayers = { players: 3, picksPerPlayer: 3 };
+      const threePlayers = { players: 3, picksPerPlayer: 3, doublePicks: 0 };
 
       expect(problems('Ann,Ben,,Cid,\n->,Ash Golem,,,', threePlayers)).toEqual([
         'The header’s first cell must be blank.',
@@ -200,7 +200,7 @@ describe('readPickImport', () => {
     });
 
     it('names a column with no player name by its number', () => {
-      const threePlayers = { players: 3, picksPerPlayer: 3 };
+      const threePlayers = { players: 3, picksPerPlayer: 3, doublePicks: 0 };
       const csv = ',Ann,,Cid,\n->,Ash Golem,,Brine Wisp,';
 
       expect(problems(csv, threePlayers)).toEqual([
@@ -348,7 +348,9 @@ describe('readPickImport', () => {
       const csv =
         ',Ann,Ben,\n->,Ash Golem,Brine Wisp,\n,Cinder Hound,Dusk Heron,<-';
 
-      expect(problems(csv, { players: 2, picksPerPlayer: 2 })).toEqual([
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 0 }),
+      ).toEqual([
         'The file makes every pick in the draft, so there would be nothing left to draft.',
       ]);
     });
@@ -357,8 +359,137 @@ describe('readPickImport', () => {
       const csv =
         ',Ann,Ben,\n->,Ash Golem,Brine Wisp,\n,Cinder Hound,Dusk Heron,<-\n->,Ember Stag,,';
 
-      expect(problems(csv, { players: 2, picksPerPlayer: 2 })).toEqual([
-        'The file has 5 picks, but the draft allows 4.',
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 0 }),
+      ).toEqual(['The file has 5 picks, but the draft allows 4.']);
+    });
+
+    it('takes each row past the draft’s last round as a round of its own', () => {
+      const csv = [
+        ',Ann,Ben,',
+        '->,Ash Golem,Brine Wisp,',
+        ',Cinder Hound,Dusk Heron,<-',
+        '->,Ember Stag,,',
+        ',,,<-',
+        '->,,,',
+      ].join('\n');
+
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 0 }),
+      ).toEqual(['The file has 5 picks, but the draft allows 4.']);
+    });
+  });
+
+  describe('double picks', () => {
+    // A round of single turns, A B, then two rounds of double turns:
+    // B B A A, then A A B B.
+    const doubles = { players: 2, picksPerPlayer: 5, doublePicks: 4 };
+    const cards = [
+      ...pool,
+      ...['Gale Kite', 'Hollow Elk', 'Iron Moth', 'Jade Viper'].map(card),
+    ];
+    const header = ',Ann,Ben,';
+    const single = '->,Ash Golem,Brine Wisp,';
+
+    const pairs = [
+      ',Cinder Hound,Dusk Heron,<-',
+      ',Ember Stag,Fen Lurker,<-',
+      '->,Gale Kite,Hollow Elk,',
+      '->,Iron Moth,,',
+    ];
+
+    it('reads a round of double turns from two rows, seat by seat across the pair', () => {
+      const csv = [header, single, ...pairs].join('\n');
+
+      expect(read(csv, doubles, cards)).toEqual({
+        ok: true,
+        columns: ['Ann', 'Ben'],
+        picks: [
+          { number: 1, seat: 0, poolCardId: 'ash golem' },
+          { number: 2, seat: 1, poolCardId: 'brine wisp' },
+          { number: 3, seat: 1, poolCardId: 'dusk heron' },
+          { number: 4, seat: 1, poolCardId: 'fen lurker' },
+          { number: 5, seat: 0, poolCardId: 'cinder hound' },
+          { number: 6, seat: 0, poolCardId: 'ember stag' },
+          { number: 7, seat: 0, poolCardId: 'gale kite' },
+          { number: 8, seat: 0, poolCardId: 'iron moth' },
+          { number: 9, seat: 1, poolCardId: 'hollow elk' },
+        ],
+        next: { pick: 10, round: 3, seat: 1, picksBeforeTurnPasses: 1 },
+      });
+    });
+
+    it('skips blank lines inside and between a round’s two rows, as they aren’t rows', () => {
+      const [first, second, third, fourth] = pairs;
+      const csv = [header, single, first, '', second, ',,,', third, fourth];
+
+      expect(read(csv.join('\n'), doubles, cards)).toEqual(
+        read([header, single, ...pairs].join('\n'), doubles, cards),
+      );
+    });
+
+    it('takes each row past the draft’s last round as a round of its own', () => {
+      const csv = [
+        header,
+        '->,Ash Golem,Brine Wisp,',
+        '->,Cinder Hound,Dusk Heron,',
+        ',Ember Stag,Fen Lurker,<-',
+        '->,Gale Kite,Hollow Elk,',
+        ',,Iron Moth,<-',
+      ].join('\n');
+
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 2 }, cards),
+      ).toEqual(['The file has 9 picks, but the draft allows 4.']);
+    });
+
+    it('leaves the turn with the player after the first pick of their double turn', () => {
+      const csv = [header, single, ',,Dusk Heron,<-'].join('\n');
+
+      expect(read(csv, doubles, cards)).toMatchObject({
+        ok: true,
+        picks: [
+          { number: 1, seat: 0 },
+          { number: 2, seat: 1 },
+          { number: 3, seat: 1, poolCardId: 'dusk heron' },
+        ],
+        next: { pick: 4, round: 2, seat: 1, picksBeforeTurnPasses: 1 },
+      });
+    });
+
+    it.each([
+      [
+        ',,Dusk Heron,->\n,,,<-',
+        'Round 2 is marked -> but runs <- in snake order.',
+      ],
+      [
+        ',,Dusk Heron,<-\n->,,,',
+        'Round 2 is marked -> but runs <- in snake order.',
+      ],
+      [
+        ',,Dusk Heron,<-\n,,,<-\n<-,,,\n',
+        'Round 3 is marked <- but runs -> in snake order.',
+      ],
+      [
+        ',,Dusk Heron,<-\n,,,<-\n,,,\n,,,<-',
+        'Round 3 is marked <- but runs -> in snake order.',
+      ],
+    ])(
+      'names the round of a wrong marker on either of its two rows',
+      (rows, problem) => {
+        const csv = [header, single, rows].join('\n');
+
+        expect(problems(csv, doubles, cards)).toEqual([problem]);
+      },
+    );
+
+    it('refuses an empty cell before a filled one across the pair', () => {
+      const csv = [header, single, ',Cinder Hound,,<-', ',,Fen Lurker,<-'].join(
+        '\n',
+      );
+
+      expect(problems(csv, doubles, cards)).toEqual([
+        'Round 2 has no pick for Ben, but later picks are filled in.',
       ]);
     });
   });
@@ -370,7 +501,9 @@ describe('readPickImport', () => {
       ',Unknown Card,,,<-',
     ].join('\n');
 
-    expect(problems(csv, { players: 2, picksPerPlayer: 1 })).toEqual([
+    expect(
+      problems(csv, { players: 2, picksPerPlayer: 1, doublePicks: 0 }),
+    ).toEqual([
       'The file has 3 player columns, but the draft has 2 players.',
       'Round 1 has no pick for Ben, but later picks are filled in.',
       'Round 2 has no pick for Cid, but later picks are filled in.',
