@@ -38,7 +38,7 @@ describe('cascade', () => {
     bobCookie = await signIn(bob);
   });
 
-  it('picks the next player’s queued cards for them after a pick, through the snake turn', async () => {
+  it('picks the next player’s queued cards for them after a pick, through the turnaround', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);

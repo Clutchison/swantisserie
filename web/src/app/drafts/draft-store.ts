@@ -30,7 +30,7 @@ import type {
   ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
-import { draftSize, queuePicksBeforeTurnPasses, turnStartPick } from 'engine';
+import { draftSize, queuePicksBeforeAnotherPlayerPicks, turnStartPick } from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
@@ -326,7 +326,7 @@ export class DraftStore implements TournamentViewer {
     const seat = this.players().findIndex((player) => player.id === this.user()?.id);
     const cards = this.queue.value().cards;
     const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
-    const picks = queuePicksBeforeTurnPasses(
+    const picks = queuePicksBeforeAnotherPlayerPicks(
       {
         ...draftSize(draft, this.players().length),
         picked: this.picks.value().map((pick) => pick.poolCardId),

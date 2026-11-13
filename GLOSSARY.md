@@ -162,6 +162,10 @@ _Avoid_: Players dropdown, players menu, Players sheet (that is the narrow-scree
 The order turns follow: the first seat to the last in odd rounds, the last seat to the first in even ones.
 _Avoid_: Serpentine, wheel
 
+**Turnaround**:
+Where snake order turns back between rounds: the end seat takes the last turn of one round and the first of the next, so its player picks twice in a row, or up to four times across double turns.
+_Avoid_: Snake turn, wheel, the turn (alone)
+
 **Turn**:
 A player's chance to make the next pick, or the next two on a double turn. The draft says whose turn it is and which pick and round it is.
 _Avoid_: Go, move
@@ -207,7 +211,7 @@ A player's queue when it makes no queued picks: on their turn, they pick by hand
 _Avoid_: Held, on hold, autopick off
 
 **Queue picking**:
-A player's queue when it picks for them on their turn: the opposite of queue paused, and how every queue starts. Setting a queue picking on the player's own turn picks its next available cards straight away, after the player confirms the cards it will pick before the turn passes. Always written as "queue picking", never "picking" alone.
+A player's queue when it picks for them on their turn: the opposite of queue paused, and how every queue starts. Setting a queue picking on the player's own turn picks its next available cards straight away, after the player confirms the cards it will pick before another player picks. Always written as "queue picking", never "picking" alone.
 _Avoid_: Queue active (an active draft is the draft's), running, armed, unpaused, resumed
 
 **Cascade**:

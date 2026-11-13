@@ -698,7 +698,7 @@ export function setQueuePaused(
 
 /**
  * Sets the player's queue to queue picking, sending `poolCardIds`: the cards
- * they confirmed it picks before the turn passes, on their own turn.
+ * they confirmed it picks before another player picks, on their own turn.
  */
 export function setQueuePicking(
   id: string,

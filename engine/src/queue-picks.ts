@@ -4,16 +4,16 @@ import { nextQueuedPick, type SeatQueue } from './queue.js';
 import { currentTurn } from './turn.js';
 
 /**
- * The cards, in order, that `seat`'s queue picks before the turn passes to
- * another seat, were it set queue picking now: its first available queued
- * card, and at a snake turn, where the seat picks twice in a row, the first
- * available once the first pick has changed its queue, each as
- * `nextQueuedPick` says. None unless it is `seat`'s turn. It needs no other
- * seat's queue, so it names none of the picks a cascade makes after the
- * turn passes. Cards are pool card ids, as in `queue`, `pool` and
- * `draft.picked`.
+ * The cards, in order, that `seat`'s queue picks before another player
+ * picks, were it set queue picking now: one for each pick the seat makes in
+ * a row, each the first available once the picks before it have changed its
+ * queue, as `nextQueuedPick` says. That is the rest of its turn, and at the
+ * turnaround its next turn too: up to four picks across double turns. None
+ * unless it is `seat`'s turn. It needs no other seat's queue, so it names
+ * none of the picks a cascade makes after another player's. Cards are pool
+ * card ids, as in `queue`, `pool` and `draft.picked`.
  */
-export function queuePicksBeforeTurnPasses(
+export function queuePicksBeforeAnotherPlayerPicks(
   draft: DraftPicks,
   seat: number,
   queue: readonly string[],

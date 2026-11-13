@@ -58,7 +58,7 @@ describe('cascade', () => {
     ).toEqual([{ seat: 0, card: 'shock' }]);
   });
 
-  it('carries on through each next seat with a queued card, across the snake turn', () => {
+  it('carries on through each next seat with a queued card, across the turnaround', () => {
     // Seat 1 picks last in round 1 and first in round 2.
     expect(
       picks(

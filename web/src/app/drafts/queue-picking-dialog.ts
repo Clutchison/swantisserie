@@ -26,7 +26,7 @@ export type QueuePickingResult =
 /**
  * The Set queue picking dialog, opened on the dialog shell when a player
  * sets their queue to queue picking on their own turn: it names the cards
- * the queue picks before the turn passes, and sets it queue picking,
+ * the queue picks before another player picks, and sets it queue picking,
  * picking them, once the player confirms. Should the api refuse them, as the
  * queue would now pick others, it says so, catches up, and names the cards
  * as they now are to confirm; if there are none, it closes, as there is
@@ -47,7 +47,7 @@ export class QueuePickingDialog {
   protected readonly headingId = QUEUE_PICKING_HEADING;
   /** The confirm button's text, the name the play/pause button gives the same change. */
   protected readonly confirmName = queueStateChangeName(true);
-  /** The cards the queue picks before the turn passes, as they are now. */
+  /** The cards the queue picks before another player picks, as they are now. */
   protected readonly picks = this.store.queuePicks;
   /** How many cards it picks, as it says it. */
   protected readonly picksText = computed(
