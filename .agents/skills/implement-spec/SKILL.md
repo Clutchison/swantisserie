@@ -22,7 +22,7 @@ Communication to and from subagents should be sparse. Communicate primarily thro
 
 2. Create a **notes directory** outside the repo, readable and writable by every subagent. (optional) Use an **exploration subagent** to conduct any exploration required by the tickets - relevant codebase files or external documentation - and save its markdown notes there. This lets **implementer subagents** focus on implementation rather than exploration.
 
-3. Check out the integration branch: the existing one rebased on `main` if the remote has it (a grilling session may have left decisions on it), otherwise a new one. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
+3. Start the integration branch as the issue tracker's branch rules say. If the issue tracker closes work through PRs, or the user asks for one, open a draft PR after the first merge in step 5 (a branch with no commits ahead of main can't open one), marked as closing the spec and tickets.
 
 4. Use **implementer subagents** to implement each ticket, each in its own worktree on its own branch. Each implementer subagent:
    - confirms its worktree is based on the integration branch before starting, and resets onto it if not;

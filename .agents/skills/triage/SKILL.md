@@ -46,7 +46,7 @@ State transitions: an unlabeled issue normally goes to `needs-triage` first; fro
 
 ## Invocation
 
-Before starting, switch to `main` and pull it up to date (`git pull --ff-only`); if the working tree is dirty, stop and ask instead. Before the first `GLOSSARY.md`, `docs/adr/`, research or `.out-of-scope/` edit, switch to the issue's branch as the issue tracker's branch rules say. Triage is finished only once every such change is committed there and pushed.
+Before starting, switch to `main` and pull it up to date (`git pull --ff-only`); if the working tree is dirty, stop and ask instead. Before the first `GLOSSARY.md`, `docs/adr/`, research or `.out-of-scope/` edit, switch to the branch the issue tracker's branch rules name for it. Triage is finished only once every such change is committed there and pushed.
 
 The maintainer invokes `/triage` and describes what they want in natural language. Interpret the request and act. Examples:
 
