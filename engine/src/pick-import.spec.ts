@@ -363,10 +363,26 @@ describe('readPickImport', () => {
         problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 0 }),
       ).toEqual(['The file has 5 picks, but the draft allows 4.']);
     });
+
+    it('takes each row past the draft’s last round as a round of its own', () => {
+      const csv = [
+        ',Ann,Ben,',
+        '->,Ash Golem,Brine Wisp,',
+        ',Cinder Hound,Dusk Heron,<-',
+        '->,Ember Stag,,',
+        ',,,<-',
+        '->,,,',
+      ].join('\n');
+
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 0 }),
+      ).toEqual(['The file has 5 picks, but the draft allows 4.']);
+    });
   });
 
   describe('double picks', () => {
-    // One single round, A B, then two double rounds: B B A A, A A B B.
+    // A round of single turns, A B, then two rounds of double turns:
+    // B B A A, then A A B B.
     const doubles = { players: 2, picksPerPlayer: 5, doublePicks: 4 };
     const cards = [
       ...pool,
@@ -375,15 +391,15 @@ describe('readPickImport', () => {
     const header = ',Ann,Ben,';
     const single = '->,Ash Golem,Brine Wisp,';
 
-    it('reads a double round from two rows, seat by seat across the pair', () => {
-      const csv = [
-        header,
-        single,
-        ',Cinder Hound,Dusk Heron,<-',
-        ',Ember Stag,Fen Lurker,<-',
-        '->,Gale Kite,Hollow Elk,',
-        '->,Iron Moth,,',
-      ].join('\n');
+    const pairs = [
+      ',Cinder Hound,Dusk Heron,<-',
+      ',Ember Stag,Fen Lurker,<-',
+      '->,Gale Kite,Hollow Elk,',
+      '->,Iron Moth,,',
+    ];
+
+    it('reads a round of double turns from two rows, seat by seat across the pair', () => {
+      const csv = [header, single, ...pairs].join('\n');
 
       expect(read(csv, doubles, cards)).toEqual({
         ok: true,
@@ -401,6 +417,31 @@ describe('readPickImport', () => {
         ],
         next: { pick: 10, round: 3, seat: 1, picksBeforeTurnPasses: 1 },
       });
+    });
+
+    it('skips blank lines inside and between a round’s two rows, as they aren’t rows', () => {
+      const [first, second, third, fourth] = pairs;
+      const csv = [header, single, first, '', second, ',,,', third, fourth];
+
+      expect(read(csv.join('\n'), doubles, cards)).toEqual(
+        read([header, single, ...pairs].join('\n'), doubles, cards),
+      );
+    });
+
+    it('takes each row past the draft’s last round as a round of its own', () => {
+      const csv = [
+        header,
+        '->,Ash Golem,Brine Wisp,',
+        '->,Cinder Hound,Dusk Heron,',
+        ',Ember Stag,Fen Lurker,<-',
+        ',Gale Kite,Hollow Elk,<-',
+        '->,Iron Moth,,',
+        ',,,<-',
+      ].join('\n');
+
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 2 }, cards),
+      ).toEqual(['The file has 9 picks, but the draft allows 4.']);
     });
 
     it('leaves the turn with the player after the first pick of their double turn', () => {
@@ -435,7 +476,7 @@ describe('readPickImport', () => {
         'Round 3 is marked <- but runs -> in snake order.',
       ],
     ])(
-      'names the double round of a wrong marker on either of its rows',
+      'names the round of a wrong marker on either of its two rows',
       (rows, problem) => {
         const csv = [header, single, rows].join('\n');
 

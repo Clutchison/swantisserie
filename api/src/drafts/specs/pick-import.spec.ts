@@ -79,8 +79,8 @@ describe('pick import', () => {
     ]);
   });
 
-  it('takes a double round’s two rows in turn order and leaves the turn mid double turn', async () => {
-    // One single round, A B, then a double round, B B A A.
+  it('takes a round of double turns from two rows in turn order and leaves the turn mid double turn', async () => {
+    // A round of single turns, A B, then a round of double turns, B B A A.
     const id = await readyDraft(
       [aliceCookie, await signIn(bob)],
       3,

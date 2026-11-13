@@ -16,14 +16,10 @@ export interface Turn {
 }
 
 /** The next turn after `picksMade` picks, or null once every pick is made. */
-export function currentTurn(
-  { players, picksPerPlayer, doublePicks }: DraftSize,
-  picksMade: number,
-): Turn | null {
+export function currentTurn(size: DraftSize, picksMade: number): Turn | null {
+  const { players, picksPerPlayer } = size;
   if (picksMade >= players * picksPerPlayer) return null;
-  // Every player has the same picks per player, so the first rounds are all
-  // single turns and the last all double.
-  const singleRounds = picksPerPlayer - doublePicks;
+  const singleRounds = roundsOfSingleTurns(size);
   const singlePicks = players * singleRounds;
   if (picksMade < singlePicks) {
     const round = Math.floor(picksMade / players) + 1;
@@ -45,8 +41,31 @@ export function currentTurn(
   };
 }
 
+/**
+ * How many of the draft's first rounds are all single turns. Every player has
+ * the same picks per player, so these come first and the rest are all double
+ * turns.
+ */
+function roundsOfSingleTurns({ picksPerPlayer, doublePicks }: DraftSize) {
+  return picksPerPlayer - doublePicks;
+}
+
+/**
+ * The picks each turn of the 1-based `round` makes: 2 in a round of double
+ * turns, else 1, including in any round past the draft's last.
+ */
+export function picksPerTurn(size: DraftSize, round: number): 1 | 2 {
+  return round > roundsOfSingleTurns(size) && round <= size.picksPerPlayer
+    ? 2
+    : 1;
+}
+
 /** The seat taking the 0-based `place`th turn of the 1-based `round`. */
-function seatOnRound(round: number, place: number, players: number): number {
+export function seatOnRound(
+  round: number,
+  place: number,
+  players: number,
+): number {
   return roundRunsForward(round) ? place : players - 1 - place;
 }
 

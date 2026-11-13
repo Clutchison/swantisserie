@@ -1,6 +1,12 @@
 import { frontFace } from './card-faces.js';
 import type { DraftSize } from './draft-size.js';
-import { currentTurn, roundRunsForward, type Turn } from './turn.js';
+import {
+  currentTurn,
+  picksPerTurn,
+  roundRunsForward,
+  seatOnRound,
+  type Turn,
+} from './turn.js';
 
 /** What a pick import needs of a pool card. */
 export interface PickImportCard {
@@ -105,32 +111,37 @@ function cardsByName(pool: PickImportCard[]): (name: string) => CopiesByCard {
   };
 }
 
-/** Whether the 1-based `round` is all double turns. */
-function roundIsDouble(
-  { picksPerPlayer, doublePicks }: DraftSize,
-  round: number,
-): boolean {
-  return round > picksPerPlayer - doublePicks;
+/** A round of a pick import's file and its rows. */
+interface RoundRows {
+  /** 1-based. */
+  round: number;
+  /** One for each pick a turn of the round makes, read as empty where the file stops early. */
+  rows: string[][];
 }
 
 /**
- * The 1-based round of a file's 0-based row `index`: a single round takes one
- * row and a double round two.
+ * A file's rows, as the draft's rounds: a round of single turns takes one
+ * row, and a round of double turns two.
  */
-function rowRound(
-  { picksPerPlayer, doublePicks }: DraftSize,
-  index: number,
-): number {
-  const singleRounds = picksPerPlayer - doublePicks;
-  if (index < singleRounds) return index + 1;
-  return singleRounds + Math.floor((index - singleRounds) / 2) + 1;
+function rowsByRound(size: DraftSize, rows: string[][]): RoundRows[] {
+  const rounds: RoundRows[] = [];
+  for (let rowIndex = 0; rowIndex < rows.length;) {
+    const round = rounds.length + 1;
+    const picks = picksPerTurn(size, round);
+    rounds.push({
+      round,
+      rows: Array.from({ length: picks }, (_, i) => rows[rowIndex + i] ?? []),
+    });
+    rowIndex += picks;
+  }
+  return rounds;
 }
 
 /**
  * Reads a pick import's file for a draft of `size` with `pool`. Column N of
- * the file is seat N, and its picks run in the draft's turn order: a single
- * round is one row, and a double round two rows read seat by seat across the
- * pair, a seat's two cells being its double turn. Names are matched to
+ * the file is seat N, and its picks run in the draft's turn order: a round
+ * of single turns is one row, and a round of double turns two rows read seat
+ * by seat across the pair, a seat's two cells being its double turn. Names are matched to
  * pool cards ignoring case, never fuzzily, on a card's full name or else its
  * front-face name, and each use of a name takes the next unpicked copy of its
  * card.
@@ -147,7 +158,8 @@ export function readPickImport(
       problems: ['The file has a quote that is never closed.'],
     };
   }
-  // Blank lines aren't rounds, wherever they fall.
+  // Blank lines aren't rows, wherever they fall, even between a round's two
+  // rows: a round of double turns always takes the next two that aren't.
   // Stryker disable next-line ArrayDeclaration: only reached for an empty file, where the columns come out empty either way.
   const [header = [], ...rows] = parsed.filter((row) => row.some(Boolean));
   const columns = header.slice(1);
@@ -170,49 +182,41 @@ export function readPickImport(
     );
   }
 
-  rows.forEach((row, index) => {
-    const round = rowRound(size, index) - 1;
-    const direction = roundRunsForward(round + 1) ? '->' : '<-';
-    row.forEach((cell, index) => {
-      const marker = index === 0 || index === seats + 1;
-      const outside = marker
-        ? !DIRECTION_MARKERS.has(cell)
-        : // Stryker disable next-line EqualityOperator: index `seats + 1` is a marker and takes the other branch.
-          index > seats + 1 && cell;
-      if (outside) {
-        problems.push(
-          `Round ${round + 1} has “${cell}” outside the player columns.`,
-        );
-      } else if (marker && cell && cell !== direction) {
-        problems.push(
-          `Round ${round + 1} is marked ${cell} but runs ${direction} in snake order.`,
-        );
-      }
-    });
-  });
+  const rounds = rowsByRound(size, rows);
+  for (const { round, rows: roundRows } of rounds) {
+    const direction = roundRunsForward(round) ? '->' : '<-';
+    for (const row of roundRows) {
+      row.forEach((cell, index) => {
+        const marker = index === 0 || index === seats + 1;
+        const outside = marker
+          ? !DIRECTION_MARKERS.has(cell)
+          : // Stryker disable next-line EqualityOperator: index `seats + 1` is a marker and takes the other branch.
+            index > seats + 1 && cell;
+        if (outside) {
+          problems.push(
+            `Round ${round} has “${cell}” outside the player columns.`,
+          );
+        } else if (marker && cell && cell !== direction) {
+          problems.push(
+            `Round ${round} is marked ${cell} but runs ${direction} in snake order.`,
+          );
+        }
+      });
+    }
+  }
 
-  // Each round's rows: one for a single round, two for a double round, read
-  // as empty where the file stops before its second.
-  const roundsRows: string[][][] = [];
-  rows.forEach((row, index) => {
-    const round = rowRound(size, index) - 1;
-    roundsRows[round] = [...(roundsRows[round] ?? []), row];
-  });
-  // Every player cell in turn order, with the filled ones' names: a double
-  // round's rows are read seat by seat across the pair.
-  const cells = roundsRows.flatMap((roundRows, round) => {
-    const turnRows = roundIsDouble(size, round + 1)
-      ? [roundRows[0], roundRows[1] ?? []]
-      : roundRows;
-    return columns.flatMap((_, place) => {
-      const seat = roundRunsForward(round + 1) ? place : seats - 1 - place;
-      return turnRows.map((row) => ({
+  // Every player cell in turn order, with the filled ones' names: a round's
+  // rows are read seat by seat, a seat's cells across them being its turn.
+  const cells = rounds.flatMap(({ round, rows: roundRows }) =>
+    columns.flatMap((_, place) => {
+      const seat = seatOnRound(round, place, seats);
+      return roundRows.map((row) => ({
         round,
         seat,
         name: row[seat + 1] ?? '',
       }));
-    });
-  });
+    }),
+  );
   const filled = cells.filter((cell) => cell.name);
 
   const lastFilled = cells.findLastIndex((cell) => cell.name);
@@ -220,7 +224,7 @@ export function readPickImport(
     if (!name) {
       const player = columns[seat] || `column ${seat + 1}`;
       problems.push(
-        `Round ${round + 1} has no pick for ${player}, but later picks are filled in.`,
+        `Round ${round} has no pick for ${player}, but later picks are filled in.`,
       );
     }
   }
