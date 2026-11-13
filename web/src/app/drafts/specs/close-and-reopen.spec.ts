@@ -20,6 +20,7 @@ import {
   powersAnswer,
   ALL_POWERS,
   buttonOrder,
+  rowMenu,
   openQueueSheet,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore, openMore } from './draft-header-harness';
@@ -242,8 +243,7 @@ describe('close and reopen', () => {
     const queue = await openQueueSheet(fixture, page);
     expect(queue.textContent).toContain('Shivan Dragon');
     expect(queue.textContent).toContain('Lightning Bolt');
-    expect(button(queue, 'Remove Shivan Dragon')).toBeUndefined();
-    expect(button(queue, 'Move Shivan Dragon down')).toBeUndefined();
+    expect(rowMenu(queue, 'Shivan Dragon')).toBeUndefined();
     expect(button(queue, 'Dismiss')).toBeUndefined();
     expect(queue.textContent).not.toContain('to reorder');
   });
@@ -261,7 +261,7 @@ describe('close and reopen', () => {
     );
 
     const queue = await openQueueSheet(fixture, page);
-    expect(queue.querySelector('button[aria-label="Remove Shivan Dragon"]')).not.toBeNull();
-    expect(queue.textContent).toContain('Drag a card, or use its arrows, to reorder.');
+    expect(rowMenu(queue, 'Shivan Dragon')).toBeDefined();
+    expect(queue.textContent).toContain('Drag a card, or use its menu, to reorder.');
   });
 });

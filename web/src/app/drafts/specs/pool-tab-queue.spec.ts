@@ -34,6 +34,7 @@ import {
   nextUpStrip,
   queueSheet,
   startDraft,
+  fromRowMenu,
 } from './harness';
 import { viewOn } from './screen-harness';
 import { carol, openDialog, openDialogs, text, visibleText } from '../../specs-harness';
@@ -295,7 +296,7 @@ describe('pool tab', () => {
         });
 
         const queue = await openQueueSheet(fixture, page);
-        button(queue, `Move ${brightclimb.name} up`)!.click();
+        fromRowMenu(queue, brightclimb.name, 'Move up');
         http
           .expectOne('/api/drafts/draft-1/queue')
           .flush(queueOf({ cards: [queued(brightclimb), queued(shivan)] }));

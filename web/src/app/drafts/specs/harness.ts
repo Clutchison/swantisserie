@@ -58,8 +58,13 @@ export { accessibleName, alertIn, alice, button, buttons, serverError, table, ta
 export { resizeTo, viewOn } from './screen-harness';
 export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
 export {
+  chooseFromRowMenu,
   endJustAddedHighlight,
   findNextUpStrip,
+  fromRowMenu,
+  openRowMenu,
+  rowMenu,
+  rowMenuName,
   findQueuePane,
   findQueuePausedSwitch,
   justAddedCards,

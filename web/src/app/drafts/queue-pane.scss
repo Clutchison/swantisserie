@@ -6,9 +6,16 @@
   display: block;
 }
 
+/*
+ * The pane scrolls, so it clips what reaches past its edges. Its padding,
+ * taken back by its margin, leaves room for the focus ring of a control at
+ * either edge, such as a row menu, while the column and its rows keep their width.
+ */
 :host(.collapsible) {
   position: relative;
-  inline-size: side-pane.$width;
+  inline-size: calc(side-pane.$width + 2 * var(--space-xs));
+  margin-inline: calc(-1 * var(--space-xs));
+  padding-inline: var(--space-xs);
 }
 
 :host(.collapsed) {
@@ -23,7 +30,7 @@
 .toggle {
   position: absolute;
   top: 0;
-  right: 0;
+  right: var(--space-xs);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -102,7 +109,7 @@
   }
 }
 
-/* The position, cost, name and buttons; on a touchscreen, the handle first. */
+/* The position, cost, name and row menu; on a touchscreen, the handle first. */
 .queue {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
   margin: 0;

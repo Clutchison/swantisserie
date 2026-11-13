@@ -24,15 +24,12 @@ import {
 import type { LostQueuedCardView, QueueView, StealBehavior } from 'contract';
 import type { Observable } from 'rxjs';
 import {
-  LucideArrowDown,
   LucideArrowLeftRight,
-  LucideArrowUp,
   LucideEllipsisVertical,
   LucideInfo,
   LucidePanelRightClose,
   LucidePanelRightOpen,
   LucidePause,
-  LucideTrash,
 } from '@lucide/angular';
 import { afterCardDetailsClose, CardDetailRequests, CardDetails } from './card-detail';
 import { CardName } from './card-name';
@@ -111,15 +108,12 @@ let panes = 0;
     CdkMenuItem,
     CdkMenuTrigger,
     LoadingAnimation,
-    LucideArrowDown,
     LucideArrowLeftRight,
-    LucideArrowUp,
     LucideEllipsisVertical,
     LucideInfo,
     LucidePanelRightClose,
     LucidePanelRightOpen,
     LucidePause,
-    LucideTrash,
     PicksLeft,
     QueueAddBump,
     QueueAddStatus,
@@ -347,15 +341,14 @@ export class QueuePane {
   /**
    * Moves the card at `from` to `to`, showing the new order at once, and
    * the old one again if that fails, until the queue is re-read. Focus
-   * stays on the button pressed, or on the card's other move button if it
-   * has reached the end; from the row menu, on its button. A status message
-   * says where the card went, from where.
+   * stays on the card's row menu button, if a move from its menu put it
+   * there. A status message says where the card went, from where.
    */
   protected move(from: number, to: number) {
     if (from === to) return;
     const before = this.queue().cards;
     const cards = [...before];
-    const { name, poolCardId } = cards[from];
+    const { name } = cards[from];
     moveItemInArray(cards, from, to);
     return this.change(
       () => {
@@ -368,12 +361,6 @@ export class QueuePane {
         );
       },
       {
-        keep: [
-          // Stryker disable next-line EqualityOperator: move returns early when to equals from.
-          `${to > from ? 'up' : 'down'} ${poolCardId}`,
-          // Stryker disable next-line StringLiteral: the card's other move button is always there when the pressed one goes, so the Remove fallback is never reached.
-          `remove ${poolCardId}`,
-        ],
         status: `${name} moved from position ${from + 1} to ${to + 1} in your queue`,
         // Put the card back, so focus can go back to the button pressed.
         rollBack: () => this.store.showQueue({ ...this.queue(), cards: before }),
@@ -382,18 +369,18 @@ export class QueuePane {
   }
 
   /**
-   * Removes a card from the queue; focus goes to the card after it, or else
-   * the one before: to its Remove, or its row menu from the row menu.
+   * Removes a card from the queue; focus goes to the row menu button of
+   * the card after it, or else the one before.
    */
   protected remove(poolCardId: string) {
     const cards = this.queue().cards;
     const at = cards.findIndex((card) => card.poolCardId === poolCardId);
     const after = cards[at + 1];
-    // Stryker disable next-line ArithmeticOperator: removing the last card leaves no keep, and focus falls back to the nearest control before, the previous row's Remove.
+    // Stryker disable next-line ArithmeticOperator: removing the last card leaves no keep, and focus falls back to the nearest control before, the previous row's menu.
     const before = cards[at - 1];
     const neighbours = [after, before].filter((card) => card !== undefined);
     return this.change(() => this.queueApi.remove(this.draftId(), poolCardId), {
-      keep: neighbours.flatMap((card) => [`remove ${card.poolCardId}`, `menu ${card.poolCardId}`]),
+      keep: neighbours.map((card) => `menu ${card.poolCardId}`),
     });
   }
 
