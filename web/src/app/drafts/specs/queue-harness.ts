@@ -47,11 +47,14 @@ export async function pickChangesQueue(
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
 export const queueList = (root: HTMLElement) => namedList(root, 'Your queue');
 
+/** The queue's rows inside `root`, its list items, in order: each queued card's, and the Queue cutoff's. */
+const queueRows = (root: HTMLElement) => [...queueList(root).querySelectorAll<HTMLElement>('li')];
+/** What a screen reader hears on each of the queue's rows inside `root`, in order. */
+export const queueRowNames = (root: HTMLElement) =>
+  queueRows(root).map((row) => accessibleName(row));
 /** The rows of the queue inside `root` that a screen reader hears as just added. */
 const justAddedRows = (root: HTMLElement) =>
-  [...queueList(root).querySelectorAll<HTMLElement>('li')].filter((row) =>
-    accessibleName(row).includes('just added'),
-  );
+  queueRows(root).filter((row) => accessibleName(row).includes('just added'));
 /** The names of the cards in the queue inside `root` marked as just added. */
 export const justAddedCards = (root: HTMLElement) =>
   justAddedRows(root).flatMap((row) => cardNames(row).map((name) => text(name)));
@@ -88,15 +91,15 @@ export const findQueuePane = (page: HTMLElement) =>
 export const queueNotice = (root: HTMLElement) =>
   byAriaLabel(root, '[role="status"]', 'Queue notice');
 /**
- * The switch inside `root` that pauses the queue or sets it picking: by its
- * role and its name, which is the state it is in. Null if there is none.
+ * The play/pause button inside `root` that pauses the queue or sets it
+ * picking: by its name, which is what pressing it does. Null if there is none.
  */
-export const findQueuePausedSwitch = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find((toggle) =>
-    /^Queue (paused|picking)$/.test(accessibleName(toggle)),
+export const findQueuePlayPauseButton = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLButtonElement>('button')].find((playPause) =>
+    /^Set queue (paused|picking)$/.test(accessibleName(playPause)),
   ) ?? null;
-/** The queue paused switch inside `root`, which is there. */
-export const queuePausedSwitch = (root: HTMLElement) => findQueuePausedSwitch(root)!;
+/** The queue play/pause button inside `root`, which is there. */
+export const queuePlayPauseButton = (root: HTMLElement) => findQueuePlayPauseButton(root)!;
 /** What the statuses inside `root` say to screen readers, such as what a change just made did. */
 export const queueStatuses = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('[role="status"]')].map((status) =>

@@ -362,6 +362,16 @@ export class DraftStore implements TournamentViewer {
   readonly queuePaused = computed(
     () => this.queueSize() !== null && this.queue.value().queuePaused,
   );
+  /**
+   * The queue's Next-up card, the card it picks on the player's next turn:
+   * its first card, while the queue is queue picking, not empty, and that card
+   * isn't past the Queue cutoff. Null otherwise, and while picks left isn't known.
+   */
+  readonly nextUpCard = computed(() => {
+    const first = this.queueSize() === null ? undefined : this.queue.value().cards[0];
+    if (!first || this.queuePaused()) return null;
+    return this.picksLeft() !== null && !this.pastQueueCutoff(0) ? first : null;
+  });
 
   /**
    * A name summing up the queue, as a screen reader reads it: `lead`, then

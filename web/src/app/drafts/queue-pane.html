@@ -42,19 +42,30 @@
         <app-picks-left />
       </div>
       @if (!failed()) {
-        <!-- Named for the state it is in, so a screen reader hears "Queue paused", not "Queue picking, off". -->
-        <button
-          class="queue-switch"
-          type="button"
-          role="switch"
-          [attr.aria-checked]="!queue().queuePaused"
-          [disabled]="readOnly() || loading()"
-          appSendsChange="queue paused"
-          (click)="toggleQueuePaused()"
-        >
-          <span class="track" aria-hidden="true"><span class="thumb"></span></span>
-          {{ queueStateName() }}
-        </button>
+        <!--
+          A media player's play/pause: named and drawn for what pressing it does, so
+          its name never flips meaning with the state. The label beside it says the state.
+        -->
+        <div class="queue-state">
+          <button
+            class="play-pause"
+            type="button"
+            [class.queue-picking]="!queue().queuePaused"
+            [attr.aria-label]="playPauseName()"
+            [title]="playPauseName()"
+            [attr.aria-describedby]="queueStateId"
+            [disabled]="readOnly() || loading()"
+            appSendsChange="queue paused"
+            (click)="toggleQueuePaused()"
+          >
+            @if (queue().queuePaused) {
+              <svg lucidePlay size="20" aria-hidden="true"></svg>
+            } @else {
+              <svg lucidePause size="20" aria-hidden="true"></svg>
+            }
+          </button>
+          <span class="label" [id]="queueStateId">{{ queueStateName() }}</span>
+        </div>
         <div class="steal-behavior">
           <span class="label" [title]="stealBehaviorExplanation">Steal behavior</span>
           <span [id]="descriptionId" class="visually-hidden">{{ stealBehaviorExplanation }}</span>
@@ -159,13 +170,23 @@
             (pointerdown)="pressed()"
             (cdkDragStarted)="dragStarted()"
           >
-            <span class="number">{{ i + 1 }}</span>
+            @let nextUp = card.poolCardId === nextUpCard()?.poolCardId;
+            @if (nextUp) {
+              <span class="number next-up"
+                ><svg lucideArrowRight size="16" aria-hidden="true"></svg
+              ></span>
+            } @else {
+              <span class="number">{{ i + 1 }}</span>
+            }
             <app-card-name
               [card]="poolCardsById().get(card.poolCardId)"
               [name]="card.name"
               [opensDetail]="true"
               (opened)="openDetail(card.poolCardId, $event)"
             />
+            @if (nextUp) {
+              <span class="visually-hidden">, next up</span>
+            }
             @if (card.poolCardId === justAdded()) {
               <span class="visually-hidden">, just added</span>
             }

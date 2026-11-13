@@ -16,14 +16,15 @@ import {
   queued,
   queueOf,
   queuePane,
-  queuePausedSwitch,
+  queuePlayPauseButton,
   queueStatuses,
   findQueuePane,
-  findQueuePausedSwitch,
+  findQueuePlayPauseButton,
   alertIn,
   viewOn,
   openQueueSheet,
   accessibleName,
+  accessibleDescription,
   button,
   items,
   pickOf,
@@ -38,31 +39,45 @@ import { useTallScreen, shivan, brightclimb, card } from './pool-tab-harness';
 useDraftsApp();
 useTallScreen();
 
-describe('queue paused switch', () => {
+describe('queue play/pause button', () => {
   beforeEach(() => viewOn('desktop'));
   afterEach(() => vi.unstubAllGlobals());
 
-  it('names a picking queue in the Queue pane’s header, switched on', async () => {
+  it('offers to pause a picking queue in the Queue pane’s header, described as queue picking', async () => {
     const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
     });
-    const toggle = queuePausedSwitch(queuePane(page));
+    const playPause = queuePlayPauseButton(queuePane(page));
 
-    expect(accessibleName(toggle)).toBe('Queue picking');
-    expect(toggle.getAttribute('aria-checked')).toBe('true');
-    expect(toggle.disabled).toBe(false);
+    expect(accessibleName(playPause)).toBe('Set queue paused');
+    expect(playPause.title).toBe('Set queue paused');
+    expect(accessibleDescription(playPause)).toBe('Queue picking');
+    expect(playPause.disabled).toBe(false);
   });
 
-  it('names a paused queue, switched off', async () => {
+  it('offers to set a paused queue picking, described as queue paused', async () => {
     const { page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)], queuePaused: true }),
     });
-    const toggle = queuePausedSwitch(queuePane(page));
+    const playPause = queuePlayPauseButton(queuePane(page));
 
-    expect(accessibleName(toggle)).toBe('Queue paused');
-    expect(toggle.getAttribute('aria-checked')).toBe('false');
+    expect(accessibleName(playPause)).toBe('Set queue picking');
+    expect(playPause.title).toBe('Set queue picking');
+    expect(accessibleDescription(playPause)).toBe('Queue paused');
+  });
+
+  it('is a plain button, not a switch or a toggle', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    const playPause = queuePlayPauseButton(queuePane(page));
+
+    expect(playPause.getAttribute('role')).toBeNull();
+    expect(playPause.hasAttribute('aria-checked')).toBe(false);
+    expect(playPause.hasAttribute('aria-pressed')).toBe(false);
   });
 
   it('pauses the queue when clicked, and sets it queue picking again, showing and saying each at once', async () => {
@@ -72,26 +87,26 @@ describe('queue paused switch', () => {
     });
     const queue = queuePane(page);
 
-    queuePausedSwitch(queue).click();
+    queuePlayPauseButton(queue).click();
     await fixture.whenStable();
-    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue picking');
     const req = http.expectOne('/api/drafts/draft-1/queue/paused');
     expect(req.request.method).toBe('PUT');
     expect(req.request.body).toEqual({ queuePaused: true });
     req.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
     await fixture.whenStable();
-    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue picking');
     await vi.waitFor(() => expect(queueStatuses(queue)).toContain('Queue paused'));
 
-    queuePausedSwitch(queue).click();
+    queuePlayPauseButton(queue).click();
     const back = http.expectOne('/api/drafts/draft-1/queue/paused');
     // It's Bob's turn, not Alice's: nothing to confirm, and no cards to pick.
     expect(back.request.body).toEqual({ queuePaused: false, poolCardIds: [] });
     back.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
 
-    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
-    expect(queuePausedSwitch(queue).getAttribute('aria-checked')).toBe('true');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
+    expect(accessibleDescription(queuePlayPauseButton(queue))).toBe('Queue picking');
     await vi.waitFor(() => expect(queueStatuses(queue)).toContain('Queue picking'));
   });
 
@@ -101,42 +116,42 @@ describe('queue paused switch', () => {
       drafting({ turn: { pick: 1, round: 1, playerId: alicePlayer.id } }),
     ],
     ['while frozen', drafting({ state: 'Frozen' })],
-  ] as [string, DraftFixture][])('can be switched %s', async (_when, fields) => {
+  ] as [string, DraftFixture][])('can be pressed %s', async (_when, fields) => {
     const { page } = await openDraft(
       completeSnapshot,
       { players: [alicePlayer, bob], ...fields },
       { cards: [shivan], queue: queueOf({ cards: [queued(shivan)], queuePaused: true }) },
     );
 
-    expect(queuePausedSwitch(queuePane(page)).disabled).toBe(false);
+    expect(queuePlayPauseButton(queuePane(page)).disabled).toBe(false);
   });
 
-  it('can’t be switched until the queue has loaded', async () => {
+  it('can’t be pressed until the queue has loaded', async () => {
     const { fixture, page } = await openUrl('/drafts/draft-1');
     http.expectOne('/api/drafts/draft-1').flush(draft(drafting()));
     await flushPool([shivan]);
     await flushPicks([]);
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
-    await vi.waitFor(() => expect(queuePausedSwitch(queuePane(page)).disabled).toBe(true));
+    await vi.waitFor(() => expect(queuePlayPauseButton(queuePane(page)).disabled).toBe(true));
 
     req.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
-    expect(queuePausedSwitch(queuePane(page)).disabled).toBe(false);
-    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue paused');
+    expect(queuePlayPauseButton(queuePane(page)).disabled).toBe(false);
+    expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');
   });
 
-  it('is shown but can’t be switched once the draft is closed', async () => {
+  it('is shown but can’t be pressed once the draft is closed', async () => {
     viewOn('mobile');
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ state: 'Closed', turn: null }),
       { cards: [shivan], queue: queueOf({ cards: [queued(shivan)], queuePaused: true }) },
     );
-    const toggle = queuePausedSwitch(queuePane(await openQueueSheet(fixture, page)));
+    const playPause = queuePlayPauseButton(queuePane(await openQueueSheet(fixture, page)));
 
-    expect(accessibleName(toggle)).toBe('Queue paused');
-    expect(toggle.disabled).toBe(true);
+    expect(accessibleName(playPause)).toBe('Set queue picking');
+    expect(playPause.disabled).toBe(true);
   });
 
   it('isn’t offered once the draft is complete, as the queue can’t change after', async () => {
@@ -147,17 +162,17 @@ describe('queue paused switch', () => {
     );
 
     expect(findQueuePane(page)).toBeNull();
-    expect(findQueuePausedSwitch(page)).toBeNull();
+    expect(findQueuePlayPauseButton(page)).toBeNull();
   });
 
-  it('says when it couldn’t be switched, shows the state as it was, and re-reads the queue', async () => {
+  it('says when it couldn’t set the queue, shows the state as it was, and re-reads the queue', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
     });
     const queue = queuePane(page);
 
-    queuePausedSwitch(queue).click();
+    queuePlayPauseButton(queue).click();
     http
       .expectOne('/api/drafts/draft-1/queue/paused')
       .flush(
@@ -167,12 +182,12 @@ describe('queue paused switch', () => {
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
     await vi.waitFor(() => {
       expect(alertIn(queue)?.textContent).toContain('This draft is closed.');
-      expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
+      expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
     });
 
     reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
-    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
   });
 });
 
@@ -237,12 +252,12 @@ describe('setting a queue picking on the player’s own turn', () => {
     const { fixture, page } = await aliceAtSnakeTurn([shivan, bolt, spike, skewer]);
     const queue = queuePane(page);
 
-    queuePausedSwitch(queue).click();
+    queuePlayPauseButton(queue).click();
     const dialog = await question(asked);
     http.expectNone('/api/drafts/draft-1/queue/paused');
     // Shivan Dragon is picked already; Skewer the Critics waits for her next turn.
     expect(items(dialog, picksList)).toEqual(['Lightning Bolt', 'Lava Spike']);
-    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue picking');
 
     button(dialog, 'Set queue picking').click();
     const req = http.expectOne('/api/drafts/draft-1/queue/paused');
@@ -251,7 +266,7 @@ describe('setting a queue picking on the player’s own turn', () => {
     await fixture.whenStable();
 
     await vi.waitFor(() => expect(openDialog()).toBeNull());
-    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue picking');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
   });
 
   it('names the one card picked where the turn passes after it', async () => {
@@ -261,7 +276,7 @@ describe('setting a queue picking on the player’s own turn', () => {
       { cards, queue: queueOf({ cards: [queued(bolt), queued(spike)], queuePaused: true }) },
     );
 
-    queuePausedSwitch(queuePane(page)).click();
+    queuePlayPauseButton(queuePane(page)).click();
 
     expect(items(await question(asked), picksList)).toEqual(['Lightning Bolt']);
   });
@@ -270,20 +285,20 @@ describe('setting a queue picking on the player’s own turn', () => {
     const { fixture, page } = await aliceAtSnakeTurn([bolt]);
     const queue = queuePane(page);
 
-    queuePausedSwitch(queue).click();
+    queuePlayPauseButton(queue).click();
     button(await question(asked), 'Cancel').click();
     await fixture.whenStable();
 
     await vi.waitFor(() => expect(openDialog()).toBeNull());
     http.expectNone('/api/drafts/draft-1/queue/paused');
-    expect(accessibleName(queuePausedSwitch(queue))).toBe('Queue paused');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue picking');
   });
 
   it('sets it queue picking with no dialog when the queue has no available card', async () => {
     const { fixture, page } = await aliceAtSnakeTurn([shivan]);
     const queue = queuePane(page);
 
-    queuePausedSwitch(queue).click();
+    queuePlayPauseButton(queue).click();
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();
@@ -294,7 +309,7 @@ describe('setting a queue picking on the player’s own turn', () => {
   it('says why confirmed cards were refused, and names the cards the queue picks now to confirm', async () => {
     const { fixture, page } = await aliceAtSnakeTurn([bolt, spike]);
 
-    queuePausedSwitch(queuePane(page)).click();
+    queuePlayPauseButton(queuePane(page)).click();
     const dialog = await question(asked);
     button(dialog, 'Set queue picking').click();
     http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
@@ -315,7 +330,7 @@ describe('setting a queue picking on the player’s own turn', () => {
   it('sets it queue picking with none, asking nothing, once confirmed cards are refused and the queue picks none', async () => {
     const { fixture, page } = await aliceAtSnakeTurn([bolt]);
 
-    queuePausedSwitch(queuePane(page)).click();
+    queuePlayPauseButton(queuePane(page)).click();
     button(await question(asked), 'Set queue picking').click();
     http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
     // Lightning Bolt was taken out of her queue elsewhere.
@@ -326,19 +341,19 @@ describe('setting a queue picking on the player’s own turn', () => {
     expect(req.request.body).toEqual({ queuePaused: false, poolCardIds: [] });
     req.flush(queueOf());
     await fixture.whenStable();
-    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue picking');
+    expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue paused');
   });
 
   it('names the cards to confirm once setting it queue picking with none is refused', async () => {
     const { fixture, page } = await aliceAtSnakeTurn([]);
 
-    queuePausedSwitch(queuePane(page)).click();
+    queuePlayPauseButton(queuePane(page)).click();
     http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
     // A card was queued elsewhere.
     await flushRereads(fixture, ['bolt']);
 
     expect(items(await question(asked), picksList)).toEqual(['Lightning Bolt']);
-    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue paused');
+    expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');
   });
 });
 
@@ -377,7 +392,7 @@ describe('"next up" strip while the queue is paused', () => {
     });
     const sheet = await openQueueSheet(fixture, page);
 
-    queuePausedSwitch(sheet).click();
+    queuePlayPauseButton(sheet).click();
     await fixture.whenStable();
     expect(accessibleName(nextUpStrip(page))).toBe(
       'Queue, 1 card, 12 picks left, next up Shivan Dragon',
@@ -385,7 +400,7 @@ describe('"next up" strip while the queue is paused', () => {
     http.expectOne('/api/drafts/draft-1/queue/paused').flush(queueOf({ cards: [queued(shivan)] }));
     await vi.waitFor(() => expect(queueStatuses(sheet)).toContain('Queue picking'));
 
-    queuePausedSwitch(sheet).click();
+    queuePlayPauseButton(sheet).click();
     await fixture.whenStable();
     expect(accessibleName(nextUpStrip(page))).toBe('Queue, 1 card, 12 picks left, queue paused');
     http
@@ -453,7 +468,7 @@ describe('collapsed Queue pane rail while the queue is paused', () => {
     queuePaneToggle(page).click();
     await fixture.whenStable();
 
-    queuePausedSwitch(queuePane(page)).click();
+    queuePlayPauseButton(queuePane(page)).click();
     queuePaneToggle(page).click();
     await fixture.whenStable();
     expect(accessibleName(queuePaneToggle(page))).toBe('Expand queue, 1 card, queue paused');
@@ -463,7 +478,7 @@ describe('collapsed Queue pane rail while the queue is paused', () => {
 
     queuePaneToggle(page).click();
     await fixture.whenStable();
-    queuePausedSwitch(queuePane(page)).click();
+    queuePlayPauseButton(queuePane(page)).click();
     queuePaneToggle(page).click();
     await fixture.whenStable();
     expect(accessibleName(queuePaneToggle(page))).toBe('Expand queue, 1 card');
@@ -513,7 +528,7 @@ describe('another window of the same player', () => {
     reread.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
     await fixture.whenStable();
 
-    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue paused');
+    expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');
   });
 
   it('shows it once the window is shown again, as on switching back to its tab', async () => {
@@ -525,7 +540,7 @@ describe('another window of the same player', () => {
     reread.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
     await fixture.whenStable();
 
-    expect(accessibleName(queuePausedSwitch(queuePane(page)))).toBe('Queue paused');
+    expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');
   });
 
   it('doesn’t read the queue again as the window is hidden', async () => {
