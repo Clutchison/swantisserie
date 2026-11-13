@@ -92,8 +92,8 @@ export const queueNotice = (root: HTMLElement) =>
  * picking: by its name, which is what pressing it does. Null if there is none.
  */
 export const findQueuePlayPauseButton = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLButtonElement>('button')].find((toggle) =>
-    /^Set queue (paused|picking)$/.test(accessibleName(toggle)),
+  [...root.querySelectorAll<HTMLButtonElement>('button')].find((playPause) =>
+    /^Set queue (paused|picking)$/.test(accessibleName(playPause)),
   ) ?? null;
 /** The queue play/pause button inside `root`, which is there. */
 export const queuePlayPauseButton = (root: HTMLElement) => findQueuePlayPauseButton(root)!;

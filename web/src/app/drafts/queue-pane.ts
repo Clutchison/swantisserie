@@ -42,6 +42,7 @@ import {
   DRAG_START_DELAY,
   matching,
   QUEUE_CHANGE_FAILED,
+  queueStateChangeName,
   queueStateName,
 } from './drafts';
 import { PicksLeft } from './picks-left';
@@ -183,10 +184,8 @@ export class QueuePane {
 
   /** The queue's state, as the label beside its play/pause button says it. */
   protected readonly queueStateName = computed(() => queueStateName(this.queue().queuePaused));
-  /** What the play/pause button does, which names it: the queue's other state. */
-  protected readonly queueStateAction = computed(() =>
-    this.queue().queuePaused ? 'Set queue picking' : 'Set queue paused',
-  );
+  /** The play/pause button's name and tooltip: what pressing it does. */
+  protected readonly playPauseName = computed(() => queueStateChangeName(this.queue().queuePaused));
 
   protected readonly stealBehaviorName = computed(
     () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,

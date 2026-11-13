@@ -211,6 +211,15 @@ export function queueStateName(queuePaused: boolean): string {
   return queuePaused ? 'Queue paused' : 'Queue picking';
 }
 
+/**
+ * What changes a queue to its other state, as the viewer reads it: the
+ * queue's play/pause button's name, and the Set queue picking dialog's
+ * confirm button.
+ */
+export function queueStateChangeName(queuePaused: boolean): string {
+  return queuePaused ? 'Set queue picking' : 'Set queue paused';
+}
+
 /** A plan with nothing on either plan board, nothing lost from it, and no preferred printings. */
 export const EMPTY_PLAN: PlanView = {
   mainboard: [],

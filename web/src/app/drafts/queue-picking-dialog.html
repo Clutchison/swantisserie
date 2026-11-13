@@ -18,7 +18,7 @@
   <div class="dialog-actions">
     <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
     <button class="button" type="button" (click)="confirm()" [disabled]="sending() || rereading()">
-      Set queue picking
+      {{ confirmName }}
     </button>
   </div>
 </div>

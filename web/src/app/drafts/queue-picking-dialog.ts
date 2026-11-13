@@ -9,7 +9,7 @@ import {
   untracked,
 } from '@angular/core';
 import { DraftStore } from './draft-store';
-import { cardsNoun, changeFailure, QUEUE_CHANGE_FAILED } from './drafts';
+import { cardsNoun, changeFailure, QUEUE_CHANGE_FAILED, queueStateChangeName } from './drafts';
 import { QueueApi } from './queue-api';
 
 /** The Set queue picking dialog's heading's id, which names the dialog. */
@@ -45,6 +45,8 @@ export class QueuePickingDialog {
   private readonly dialogRef = inject<DialogRef<QueuePickingResult>>(DialogRef);
 
   protected readonly headingId = QUEUE_PICKING_HEADING;
+  /** The confirm button's text, the name the play/pause button gives the same change. */
+  protected readonly confirmName = queueStateChangeName(true);
   /** The cards the queue picks before the turn passes, as they are now. */
   protected readonly picks = this.store.queuePicks;
   /** How many cards it picks, as it says it. */

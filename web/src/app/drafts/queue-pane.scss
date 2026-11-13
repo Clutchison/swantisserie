@@ -204,6 +204,11 @@ app-card-name {
     font-size: var(--font-size-lg);
     font-weight: 600;
   }
+
+  /* The state dims with its button, as the whole control did as a switch. */
+  &:has(.play-pause:disabled) .label {
+    opacity: 0.6;
+  }
 }
 
 .play-pause {

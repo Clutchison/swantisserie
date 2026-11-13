@@ -48,12 +48,12 @@ describe('queue play/pause button', () => {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
     });
-    const toggle = queuePlayPauseButton(queuePane(page));
+    const playPause = queuePlayPauseButton(queuePane(page));
 
-    expect(accessibleName(toggle)).toBe('Set queue paused');
-    expect(toggle.title).toBe('Set queue paused');
-    expect(accessibleDescription(toggle)).toBe('Queue picking');
-    expect(toggle.disabled).toBe(false);
+    expect(accessibleName(playPause)).toBe('Set queue paused');
+    expect(playPause.title).toBe('Set queue paused');
+    expect(accessibleDescription(playPause)).toBe('Queue picking');
+    expect(playPause.disabled).toBe(false);
   });
 
   it('offers to set a paused queue picking, described as queue paused', async () => {
@@ -61,11 +61,11 @@ describe('queue play/pause button', () => {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)], queuePaused: true }),
     });
-    const toggle = queuePlayPauseButton(queuePane(page));
+    const playPause = queuePlayPauseButton(queuePane(page));
 
-    expect(accessibleName(toggle)).toBe('Set queue picking');
-    expect(toggle.title).toBe('Set queue picking');
-    expect(accessibleDescription(toggle)).toBe('Queue paused');
+    expect(accessibleName(playPause)).toBe('Set queue picking');
+    expect(playPause.title).toBe('Set queue picking');
+    expect(accessibleDescription(playPause)).toBe('Queue paused');
   });
 
   it('is a plain button, not a switch or a toggle', async () => {
@@ -73,11 +73,11 @@ describe('queue play/pause button', () => {
       cards: [shivan],
       queue: queueOf({ cards: [queued(shivan)] }),
     });
-    const toggle = queuePlayPauseButton(queuePane(page));
+    const playPause = queuePlayPauseButton(queuePane(page));
 
-    expect(toggle.getAttribute('role')).toBeNull();
-    expect(toggle.hasAttribute('aria-checked')).toBe(false);
-    expect(toggle.hasAttribute('aria-pressed')).toBe(false);
+    expect(playPause.getAttribute('role')).toBeNull();
+    expect(playPause.hasAttribute('aria-checked')).toBe(false);
+    expect(playPause.hasAttribute('aria-pressed')).toBe(false);
   });
 
   it('pauses the queue when clicked, and sets it queue picking again, showing and saying each at once', async () => {
@@ -148,10 +148,10 @@ describe('queue play/pause button', () => {
       drafting({ state: 'Closed', turn: null }),
       { cards: [shivan], queue: queueOf({ cards: [queued(shivan)], queuePaused: true }) },
     );
-    const toggle = queuePlayPauseButton(queuePane(await openQueueSheet(fixture, page)));
+    const playPause = queuePlayPauseButton(queuePane(await openQueueSheet(fixture, page)));
 
-    expect(accessibleName(toggle)).toBe('Set queue picking');
-    expect(toggle.disabled).toBe(true);
+    expect(accessibleName(playPause)).toBe('Set queue picking');
+    expect(playPause.disabled).toBe(true);
   });
 
   it('isn’t offered once the draft is complete, as the queue can’t change after', async () => {
