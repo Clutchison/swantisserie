@@ -395,7 +395,7 @@ The organizer returning a closed draft to drafting, at any time. Its turn comes 
 _Avoid_: Restore, unclose, unfreeze (that is from frozen)
 
 **Pick import**:
-The organizer loading picks made outside the app into a draft in the lobby, which starts it frozen. A file's columns map to seats by position, and its picks are taken in snake order.
+The organizer loading picks made outside the app into a draft in the lobby, which starts it frozen. A file's columns map to seats by position, and its picks are taken in snake order. Each row is a round, except that a round of double turns takes two rows, each seat's two cells being its double turn.
 _Avoid_: Upload, sheet sync, import (alone)
 
 **Cancel**:
