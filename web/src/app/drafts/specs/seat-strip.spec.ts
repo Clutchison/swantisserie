@@ -25,6 +25,7 @@ import {
   startDraft,
   updates,
   viewOn,
+  withDoubleTurns,
 } from './harness';
 import { clickBackdrop, clickOn, pressEscape, pressKey, pressPointerOn } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
@@ -359,6 +360,26 @@ describe('the Seat strip', () => {
     });
   });
 
+  describe('naming who picks next on double turns', () => {
+    beforeEach(() => viewOn('desktop'));
+
+    it.each([
+      [
+        'the next seat on, from the first pick of a double turn',
+        withDoubleTurns(5, alice.id),
+        'Bob picks next',
+      ],
+      ['the next seat on, from the second', withDoubleTurns(6, alice.id), 'Bob picks next'],
+      ['the end seat itself at the turnaround', withDoubleTurns(7, bob.id), 'Bob picks next'],
+      ['the end seat’s neighbour, back the other way', withDoubleTurns(9, bob.id), 'you pick next'],
+      ['no one from the first pick of the draft’s last turn', withDoubleTurns(11, alice.id), null],
+    ])('names %s in its list of seats', async (_, fields, next) => {
+      const { page } = await openDraft(completeSnapshot, fields);
+
+      expect(seatListName(page)).toBe(next ? `Seat order, ${next}` : 'Seat order');
+    });
+  });
+
   describe('pulsing the turn’s ring', () => {
     beforeEach(() => viewOn('desktop'));
 
@@ -507,6 +528,46 @@ describe('the Seat strip', () => {
       beatEnds(stripSeats(page)[0]!);
 
       expect(pulses(page)).toEqual(['loop', null]);
+    });
+
+    describe('on a double turn', () => {
+      /** Ends `seat`'s three beats, as the browser does once they have played. */
+      const pulseEnds = (seat: HTMLElement) => {
+        seat.dispatchEvent(new Event('animationend', { bubbles: true }));
+        TestBed.tick();
+      };
+
+      it('keeps the turn’s ring on another player through both picks, its three beats not played again', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, withDoubleTurns(6, alice.id));
+        await changeTo(fixture, withDoubleTurns(7, bob.id));
+        expect(pulses(page)).toEqual([null, 'beats']);
+        pulseEnds(stripSeats(page)[1]!);
+
+        await changeTo(fixture, withDoubleTurns(8, bob.id));
+
+        expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
+        expect(pulses(page)).toEqual([null, null]);
+      });
+
+      it('rests the viewer’s ring for their second pick, once they have picked by hand', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, withDoubleTurns(5, alice.id));
+        pressPointerOn(draftName(page));
+
+        await changeTo(fixture, withDoubleTurns(6, alice.id));
+        beatEnds(stripSeats(page)[0]!);
+
+        expect(stripSeatNames(page)).toEqual(['Alice, you, picking', 'Bob']);
+        expect(pulses(page)).toEqual([null, null]);
+      });
+
+      it('keeps looping the viewer’s ring through their second pick until they press', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, withDoubleTurns(5, alice.id));
+
+        await changeTo(fixture, withDoubleTurns(6, alice.id));
+        beatEnds(stripSeats(page)[0]!);
+
+        expect(pulses(page)).toEqual(['loop', null]);
+      });
     });
 
     it('keeps looping the viewer’s ring through the window taking focus', async () => {
