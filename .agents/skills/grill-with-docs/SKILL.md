@@ -5,3 +5,5 @@ disable-model-invocation: true
 ---
 
 Call the Skill tool twice, for "grilling" and "domain-modeling".
+
+Before the first glossary, ADR or research edit, switch to the branch the issue tracker's branch rules name for it. Commit and push each change there as it lands.

@@ -8,7 +8,7 @@ Implement the work described by the user in the spec or tickets.
 
 If the user passes a ticket reference, fetch it from the issue tracker and state its title before starting. If the reference is ambiguous, ask.
 
-For a ticket `#<NUM>`, before starting work: switch to `main`, pull it up to date (`git pull --ff-only`), then create and check out a branch named `ST-<NUM>`. If the working tree is dirty, stop and ask instead.
+For a ticket `#<NUM>`, before starting work: switch to `main`, pull it up to date (`git pull --ff-only`), then start the branch `ST-<NUM>` as the issue tracker's branch rules say. If the working tree is dirty, stop and ask instead.
 
 Fetch the ticket with its comments (`gh issue view <NUM> --json number,title,body,labels,comments`) and read the body and every comment before planning or touching code. Comments can narrow, amend or override the body; where they conflict, the latest comment wins. If a comment leaves the scope unclear, ask.
 
