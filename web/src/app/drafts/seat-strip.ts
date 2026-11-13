@@ -53,12 +53,12 @@ const ARROW_SIZE = 14;
  * order, in a row in the tab bar from the desktop layout and under the draft
  * header below it, ringing the seat whose turn it is, with arrows between
  * the seats pointing toward the next player to pick. The turn's ring pulses
- * briefly when the turn changes, and the turn's seat and
- * the next seat are scrolled into view when the row is too long to show
- * whole. Its Players button opens `playersPanel`, the full Players panel,
- * where `panelIn` says: a non-modal popover under it, over the tab content,
- * which Escape, a pointer pressed outside or focus leaving closes; or the
- * Players sheet. `panelOpen` is whether the panel is open, in either: the
+ * briefly when the turn changes, and the turn's seat and the next seat
+ * are scrolled into view when the row is too long to show whole. Its
+ * Players button opens `playersPanel`, the full Players panel, where
+ * `panelIn` says: a non-modal popover under it, over the tab content, which
+ * Escape, a pointer pressed outside or focus leaving closes; or the Players
+ * sheet. `panelOpen` is whether the panel is open, in either: the
  * page keeps it as the strip moves between the tab bar and the row under the
  * draft header, so the panel opens in the other.
  */

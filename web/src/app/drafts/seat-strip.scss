@@ -1,26 +1,32 @@
-@use 'sass:math';
 @use 'side-pane';
 @use 'scrollbar';
 
-/* The turn's ring: a bg gap, then an accent band, reaching $ring-width out from the avatar. */
+/* The turn's ring: a bg gap, then an accent band, reaching $ring-reach out from the avatar. */
 $ring-gap: 2px;
 $ring-band: 2px;
-$ring-width: $ring-gap + $ring-band;
+$ring-reach: $ring-gap + $ring-band;
 /* At the height of its pulse, the band is twice as wide, reaching this far. */
-$pulse-width: $ring-gap + 2 * $ring-band;
+$pulse-reach: $ring-gap + 2 * $ring-band;
 $focus-width: 2px;
-/* A focused seat's outline sits outside the ring, so reaches this far. */
-$focus-reach: $ring-width + $focus-width;
-/* The farthest a seat's ring, pulse or focus outline reaches from its avatar. */
-$seat-reach: math.max($focus-reach, $pulse-width);
+/*
+ * A focused seat's outline sits outside the ring, even at the height of its
+ * pulse, so reaches this far: the farthest anything reaches from a seat.
+ */
+$focus-reach: $pulse-reach + $focus-width;
 /*
  * The arrow between two seats is `ARROW_SIZE` in `seat-strip.ts`, read as
  * `--arrow-size`. Lucide's chevron fills only the middle third of its box, so
  * with this clearance its stroke stays outside a focused neighbour's outline,
- * which reaches $focus-reach (6px) from the avatar, as far as the turn's
- * ring at the height of its pulse.
+ * which reaches $focus-reach (8px) from the avatar.
  */
-$arrow-clearance: 2px;
+$arrow-clearance: 4px;
+
+/* The turn's ring, its accent band reaching $reach from the avatar past a bg gap. */
+@mixin turn-ring($reach) {
+  box-shadow:
+    0 0 0 $ring-gap var(--color-bg),
+    0 0 0 $reach var(--color-accent);
+}
 /* How far in from a clipped edge the seats fade out. */
 $fade: 1.5rem;
 
@@ -69,7 +75,7 @@ ol {
   min-inline-size: 0;
   margin: 0;
   /* Room for each seat's focus outline and the turn's ring, which the scroller would clip. */
-  padding: $seat-reach;
+  padding: $focus-reach;
   overflow-x: auto;
   list-style: none;
   /* A seat focused or kept in view scrolls clear of the fades. */
@@ -169,11 +175,12 @@ li {
 
   /*
    * Focus: an outline in the text colour, not an accent one, which would
-   * look like the turn's ring. Outside that ring, so it still shows.
+   * look like the turn's ring. Outside that ring even as it pulses, so it
+   * still shows.
    */
   &:focus-visible {
     outline: $focus-width solid var(--color-text);
-    outline-offset: $ring-width;
+    outline-offset: $pulse-reach;
   }
 }
 
@@ -193,9 +200,7 @@ li {
 
 /* Whose turn it is: a ring, the bg gap keeping the accent clear of the avatar. */
 .turn {
-  box-shadow:
-    0 0 0 $ring-gap var(--color-bg),
-    0 0 0 $ring-width var(--color-accent);
+  @include turn-ring($ring-reach);
 }
 
 /*
@@ -215,17 +220,13 @@ li {
 
 @keyframes turn-pulse {
   50% {
-    box-shadow:
-      0 0 0 $ring-gap var(--color-bg),
-      0 0 0 $pulse-width var(--color-accent);
+    @include turn-ring($pulse-reach);
   }
 }
 
 @keyframes turn-pulse-again {
   50% {
-    box-shadow:
-      0 0 0 $ring-gap var(--color-bg),
-      0 0 0 $pulse-width var(--color-accent);
+    @include turn-ring($pulse-reach);
   }
 }
 
