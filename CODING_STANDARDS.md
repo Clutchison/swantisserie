@@ -13,6 +13,21 @@ Each rule: the rule, _hard_ or _judgement_, why, an optional BAD/GOOD pair, and 
 
 ## Web UI
 
+### Never leave a control in the browser's default look
+
+_Hard._ Every checkbox, radio, select, input, textarea and button looks like the app's other controls of its kind: it takes the shared style in `web/src/styles.scss` (such as `button`, `.segmented`), or follows the nearest similar control in the app. When the app has no style yet for that kind of control, the change adds one shared style in `styles.scss` that matches the nearest controls, rather than leaving it unstyled or styling it in one component. The root `accent-color` alone doesn't count as styling.
+
+Why: a browser-default control looks broken next to styled ones, and looks different on every browser and OS.
+
+```html
+<!-- BAD: a bare checkbox, only tinted by accent-color -->
+<label><input type="checkbox" formControlName="doublePicks" /> Double picks</label>
+<!-- GOOD: an on/off setting as a toggle button, like the Pool tab's Hide picked, with a fixed label -->
+<button type="button" [attr.aria-pressed]="doublePicks()" (click)="toggleDoublePicks()">Double picks</button>
+```
+
+Origin: the double-picks grilling (`docs/double-picks`), 2026-11-13.
+
 ### Order every button row negative → intermediate → positive
 
 _Judgement._ In a row of action buttons, put the viewer's own buttons first and the organizer's after them, and order each group negative, then intermediate, then positive:
