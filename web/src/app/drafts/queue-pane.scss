@@ -146,6 +146,13 @@
   text-align: right;
 }
 
+/* The next-up card's arrow, in the number's slot so the row gains no width. */
+.number.next-up {
+  display: inline-flex;
+  justify-content: flex-end;
+  color: var(--color-accent);
+}
+
 app-card-name {
   font-weight: 600;
 }

@@ -47,11 +47,14 @@ export async function pickChangesQueue(
 /** The list of the cards in the signed-in player's queue, inside `root`, by its name. */
 export const queueList = (root: HTMLElement) => namedList(root, 'Your queue');
 
+/** The queue's rows inside `root`, its list items, in order: each queued card's, and the Queue cutoff's. */
+const queueRows = (root: HTMLElement) => [...queueList(root).querySelectorAll<HTMLElement>('li')];
+/** What a screen reader hears on each of the queue's rows inside `root`, in order. */
+export const queueRowNames = (root: HTMLElement) =>
+  queueRows(root).map((row) => accessibleName(row));
 /** The rows of the queue inside `root` that a screen reader hears as just added. */
 const justAddedRows = (root: HTMLElement) =>
-  [...queueList(root).querySelectorAll<HTMLElement>('li')].filter((row) =>
-    accessibleName(row).includes('just added'),
-  );
+  queueRows(root).filter((row) => accessibleName(row).includes('just added'));
 /** The names of the cards in the queue inside `root` marked as just added. */
 export const justAddedCards = (root: HTMLElement) =>
   justAddedRows(root).flatMap((row) => cardNames(row).map((name) => text(name)));
