@@ -28,7 +28,7 @@ import {
   type SetListEntryView,
   type WebhookView,
 } from 'contract';
-import { doublePicksProblem, startingDoublePicks } from 'engine';
+import { doublePicksProblem, doublePicksRule, MIN_DOUBLE_PICKS, startingDoublePicks } from 'engine';
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 import { SetListPicker } from './set-list-picker';
@@ -73,6 +73,8 @@ export class CreateDraftPage {
   protected readonly maxPoolQueryLength = MAX_POOL_QUERY_LENGTH;
   protected readonly maxCubeLinkLength = MAX_CUBE_LINK_LENGTH;
   protected readonly minPicksPerPlayer = MIN_PICKS_PER_PLAYER;
+  /** Also the step between allowed numbers: one double turn's picks. */
+  protected readonly minDoublePicks = MIN_DOUBLE_PICKS;
   protected readonly maxPicksPerPlayer = MAX_PICKS_PER_PLAYER;
   protected readonly poolSource = toSignal(this.form.controls.poolSource.valueChanges, {
     initialValue: this.form.controls.poolSource.value,
@@ -90,11 +92,13 @@ export class CreateDraftPage {
    * api enforces too (ADR 0004); null while Double picks is unpressed or the
    * number is allowed.
    */
-  protected readonly doublePicksProblem = computed(() =>
-    this.doublePicksOn()
-      ? doublePicksProblem(this.doublePicks() ?? Number.NaN, this.picksPerPlayer())
-      : null,
-  );
+  protected readonly doublePicksProblem = computed(() => {
+    if (!this.doublePicksOn()) return null;
+    const doublePicks = this.doublePicks();
+    // A field left blank: the rule says what to give.
+    if (doublePicks === null) return doublePicksRule(this.picksPerPlayer());
+    return doublePicksProblem(doublePicks, this.picksPerPlayer());
+  });
   protected readonly platform = toSignal(this.form.controls.platform.valueChanges, {
     initialValue: this.form.controls.platform.value,
   });

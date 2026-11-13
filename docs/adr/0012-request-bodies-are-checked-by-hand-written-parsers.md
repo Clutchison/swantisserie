@@ -12,4 +12,5 @@ The api checks every request body with a hand-written parser per endpoint, not a
 ## Consequences
 
 - Each new endpoint that takes a body needs a contract type, a parser in the api, and specs for its refusals.
+- A rule the engine enforces (ADR 0004), such as a draft's start checks or its [Double picks](../../GLOSSARY.md), words its own refusal, and the parser passes that copy on, so a web form checking the same rule shows the same message.
 - Switching to Zod is open. It would revise ADR 0004's rule that the contract has no dependencies, and supersede this ADR.

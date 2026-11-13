@@ -48,7 +48,7 @@ describe('picks', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect((await getDraft(id).expect(200)).body.turn.playerId).toBe(bob.id);
     expect((await pickLog(id)).body).toEqual([
@@ -75,7 +75,7 @@ describe('picks', () => {
       pick: 1,
       round: 1,
       playerId: alice.id,
-      picksLeftOnTurn: 2,
+      picksBeforeTurnPasses: 2,
     });
 
     const first = await pick(id, ids.Shock).expect(200);
@@ -83,7 +83,7 @@ describe('picks', () => {
       pick: 2,
       round: 1,
       playerId: alice.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
 
     const second = await pick(id, ids['Lightning Bolt']).expect(200);
@@ -91,7 +91,7 @@ describe('picks', () => {
       pick: 3,
       round: 1,
       playerId: bob.id,
-      picksLeftOnTurn: 2,
+      picksBeforeTurnPasses: 2,
     });
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
     const last = await pick(id, ids['Skewer the Critics'], bobCookie).expect(
@@ -134,7 +134,7 @@ describe('picks', () => {
       pick: 4,
       round: 2,
       playerId: alice.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect((await pickLog(id)).body).toEqual([
       {

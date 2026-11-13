@@ -4,7 +4,11 @@ import { currentTurn } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { draftSize, type Transaction } from './draft-shapes.js';
+import {
+  DRAFT_SIZE_FIELDS,
+  draftSize,
+  type Transaction,
+} from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 import {
@@ -297,8 +301,7 @@ export class QueuesService {
     const draft = await tx.draft.findUniqueOrThrow({
       where: { id: draftId },
       select: {
-        picksPerPlayer: true,
-        doublePicks: true,
+        ...DRAFT_SIZE_FIELDS,
         _count: { select: { players: true, picks: true } },
       },
     });

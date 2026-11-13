@@ -88,7 +88,7 @@ function toTurnView(draft: DraftWithOrganizer): TurnView {
     pick: turn.pick,
     round: turn.round,
     playerId: draft.players[turn.seat].user.id,
-    picksLeftOnTurn: turn.picksLeftOnTurn,
+    picksBeforeTurnPasses: turn.picksBeforeTurnPasses,
   };
 }
 

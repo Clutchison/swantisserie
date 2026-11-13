@@ -56,7 +56,7 @@ export interface TurnView {
   round: number;
   playerId: string;
   /** The picks the player still makes before the turn passes: 2 at the start of a double turn, else 1. */
-  picksLeftOnTurn: 1 | 2;
+  picksBeforeTurnPasses: 1 | 2;
 }
 
 /** A webhook as organizers choose it: by name, its URL kept secret. */
@@ -226,8 +226,11 @@ export interface NewDraftRequest {
   poolSource: NewPoolSourceRequest;
   /** Missing: the default. Null: a field left blank, which is refused. */
   picksPerPlayer?: number | null;
-  /** Missing or 0: no double picks. Else the engine's `doublePicksProblem` must allow it. */
-  doublePicks?: number;
+  /**
+   * Missing or 0: no double picks. Null: a field left blank, which is refused.
+   * Else the engine's `doublePicksProblem` must allow it.
+   */
+  doublePicks?: number | null;
   /** Missing: Arena. */
   platform?: Platform;
   /** Missing or null: the draft posts nowhere. */

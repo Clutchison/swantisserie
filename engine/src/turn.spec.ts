@@ -14,7 +14,7 @@ describe('currentTurn', () => {
       pick: 1,
       round: 1,
       seat: 0,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
   });
 
@@ -37,7 +37,7 @@ describe('currentTurn', () => {
       pick: 10,
       round: 3,
       seat: 1,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
   });
 
@@ -49,19 +49,23 @@ describe('currentTurn', () => {
 });
 
 describe('currentTurn with double picks', () => {
-  const seatsAndPicksLeft = (size: {
+  const roundSeatAndPicksBeforeTurnPasses = (size: {
     players: number;
     picksPerPlayer: number;
     doublePicks: number;
   }) =>
     Array.from({ length: size.players * size.picksPerPlayer }, (_, made) => {
       const turn = currentTurn(size, made)!;
-      return [turn.round, turn.seat, turn.picksLeftOnTurn];
+      return [turn.round, turn.seat, turn.picksBeforeTurnPasses];
     });
 
   it('makes every turn double when double picks equal picks per player', () => {
     expect(
-      seatsAndPicksLeft({ players: 2, picksPerPlayer: 4, doublePicks: 4 }),
+      roundSeatAndPicksBeforeTurnPasses({
+        players: 2,
+        picksPerPlayer: 4,
+        doublePicks: 4,
+      }),
     ).toEqual([
       [1, 0, 2],
       [1, 0, 1],
@@ -76,7 +80,11 @@ describe('currentTurn with double picks', () => {
 
   it('runs single rounds, then double rounds, snaking over turns', () => {
     expect(
-      seatsAndPicksLeft({ players: 3, picksPerPlayer: 6, doublePicks: 4 }),
+      roundSeatAndPicksBeforeTurnPasses({
+        players: 3,
+        picksPerPlayer: 6,
+        doublePicks: 4,
+      }),
     ).toEqual([
       [1, 0, 1],
       [1, 1, 1],
@@ -102,7 +110,7 @@ describe('currentTurn with double picks', () => {
   it('counts picks across single and double rounds', () => {
     expect(
       currentTurn({ players: 3, picksPerPlayer: 6, doublePicks: 4 }, 9),
-    ).toEqual({ pick: 10, round: 3, seat: 1, picksLeftOnTurn: 1 });
+    ).toEqual({ pick: 10, round: 3, seat: 1, picksBeforeTurnPasses: 1 });
   });
 
   it('is null once every player has all their picks', () => {
@@ -121,7 +129,7 @@ describe('nextTurn', () => {
       pick: 3,
       round: 1,
       seat: 2,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
   });
 
@@ -131,13 +139,13 @@ describe('nextTurn', () => {
       pick: 4,
       round: 2,
       seat: 2,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(nextTurn(size, 4)).toEqual({
       pick: 5,
       round: 2,
       seat: 1,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
   });
 
@@ -147,13 +155,13 @@ describe('nextTurn', () => {
       pick: 2,
       round: 1,
       seat: 0,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(nextTurn(size, 2)).toEqual({
       pick: 3,
       round: 1,
       seat: 1,
-      picksLeftOnTurn: 2,
+      picksBeforeTurnPasses: 2,
     });
   });
 

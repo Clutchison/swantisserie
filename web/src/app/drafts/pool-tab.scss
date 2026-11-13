@@ -46,27 +46,7 @@ $avatar-size: 32px;
   font-size: var(--font-size-md);
 }
 
-/* The color filter's toggle buttons: 44px touch targets, ringed when pressed, as Hide picked's shared style is. */
-.color-filter button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  height: 44px;
-  border: 2px solid transparent;
-  background: transparent;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--color-raised);
-  }
-
-  &[aria-pressed='true'] {
-    border-color: var(--color-text);
-  }
-}
-
-/* Hide picked takes the shared toggle button style; here it only keeps its width in the search bar's row. */
+/* Hide picked and the color filter take the shared toggle button style; Hide picked keeps its width in the search bar's row. */
 .hide-picked {
   flex: none;
 }
@@ -90,16 +70,6 @@ $avatar-size: 32px;
   /* Told apart by the ring as well as the symbol's strength, not by color alone. */
   button[aria-pressed='true'] img {
     opacity: 1;
-  }
-}
-
-/*
- * Forced colours may draw the unpressed buttons' transparent border too,
- * so pressed draws a thicker ring.
- */
-@media (forced-colors: active) {
-  .color-filter button[aria-pressed='true'] {
-    border-width: 4px;
   }
 }
 

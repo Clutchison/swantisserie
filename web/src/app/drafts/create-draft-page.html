@@ -94,7 +94,7 @@
       <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
       <button
         type="button"
-        class="toggle-button"
+        class="toggle-button labelled"
         [attr.aria-pressed]="doublePicksOn()"
         (click)="toggleDoublePicks()"
       >
@@ -111,9 +111,9 @@
             name="doublePicks"
             formControlName="doublePicks"
             type="number"
-            min="2"
+            [min]="minDoublePicks"
             [max]="picksPerPlayer()"
-            step="2"
+            [step]="minDoublePicks"
             required
             [attr.aria-invalid]="problem ? 'true' : null"
             [attr.aria-describedby]="problem ? 'double-picks-problem' : null"

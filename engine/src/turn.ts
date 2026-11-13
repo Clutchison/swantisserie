@@ -12,7 +12,7 @@ export interface Turn {
    * The picks the seat still makes before the turn passes: 2 at the start of
    * a double turn, else 1.
    */
-  picksLeftOnTurn: 1 | 2;
+  picksBeforeTurnPasses: 1 | 2;
 }
 
 /** The next turn after `picksMade` picks, or null once every pick is made. */
@@ -31,7 +31,7 @@ export function currentTurn(
       pick: picksMade + 1,
       round,
       seat: seatOnRound(round, picksMade % players, players),
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     };
   }
   const intoDoubles = picksMade - singlePicks;
@@ -41,7 +41,7 @@ export function currentTurn(
     pick: picksMade + 1,
     round,
     seat: seatOnRound(round, Math.floor(intoRound / 2), players),
-    picksLeftOnTurn: intoRound % 2 === 0 ? 2 : 1,
+    picksBeforeTurnPasses: intoRound % 2 === 0 ? 2 : 1,
   };
 }
 

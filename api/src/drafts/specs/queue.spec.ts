@@ -631,7 +631,7 @@ describe('queue', () => {
         pick: 1,
         round: 1,
         playerId: alice.id,
-        picksLeftOnTurn: 1,
+        picksBeforeTurnPasses: 1,
       });
       expect((await queue(id).expect(200)).body.cards).toEqual([shock, spike]);
       const log = await pickLog(id);
@@ -660,7 +660,7 @@ describe('queue', () => {
         pick: 3,
         round: 2,
         playerId: bob.id,
-        picksLeftOnTurn: 1,
+        picksBeforeTurnPasses: 1,
       });
     });
   });

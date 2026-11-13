@@ -52,7 +52,7 @@ describe('cascade', () => {
       pick: 4,
       round: 2,
       playerId: alice.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual([
       'Alice: Shock',
@@ -80,7 +80,7 @@ describe('cascade', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
@@ -166,7 +166,7 @@ describe('cascade', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Alice's own pick leaves the rest of her queue in place.
@@ -347,7 +347,7 @@ describe('cascade', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Lightning Bolt']);
   });

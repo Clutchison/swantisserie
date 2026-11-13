@@ -29,6 +29,7 @@ import {
 } from '@lucide/angular';
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
+import { draftSize } from './drafts';
 import { OwnTurnLoop } from './own-turn-loop';
 import { PlayerAvatar } from './player-avatar';
 import { PlayersSheet } from './players-sheet';
@@ -108,9 +109,7 @@ export class SeatStrip {
     const turn = this.store.turn();
     if (!turn) return null;
     const seats = this.seats();
-    const { picksPerPlayer, doublePicks } = this.store.shown();
-    const size = { players: seats.length, picksPerPlayer, doublePicks };
-    const next = nextTurn(size, turn.pick);
+    const next = nextTurn(draftSize(this.store.shown(), seats.length), turn.pick);
     return next ? (seats[next.seat] ?? null) : null;
   });
 

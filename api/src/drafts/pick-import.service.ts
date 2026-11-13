@@ -7,6 +7,7 @@ import { checkInLobby, DraftLock } from './draft-lock.js';
 import { planPicks } from './plan-picks.js';
 import { leaveQueue } from './queue-order.js';
 import {
+  DRAFT_SIZE_FIELDS,
   draftSize,
   MADE_PICK,
   SEAT_ORDER,
@@ -41,8 +42,7 @@ export class PickImportService {
       select: {
         id: true,
         state: true,
-        picksPerPlayer: true,
-        doublePicks: true,
+        ...DRAFT_SIZE_FIELDS,
         snapshotState: true,
       },
     });

@@ -93,9 +93,9 @@ export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 54
  */
 export type DraftFixture = Partial<DraftBase> & { state?: DraftState; turn?: FixtureTurn | null };
 
-/** A turn as a fixture gives it: a single turn's 1 pick left on the turn unless it says otherwise. */
-export type FixtureTurn = Omit<TurnView, 'picksLeftOnTurn'> &
-  Partial<Pick<TurnView, 'picksLeftOnTurn'>>;
+/** A turn as a fixture gives it: a single turn, with 1 pick before it passes, unless it says otherwise. */
+export type FixtureTurn = Omit<TurnView, 'picksBeforeTurnPasses'> &
+  Partial<Pick<TurnView, 'picksBeforeTurnPasses'>>;
 
 /**
  * The default draft with `fields` changed. A Drafting or Frozen draft given no
@@ -122,7 +122,7 @@ export function draft(fields: DraftFixture): DraftView {
   if (isTurnState(state)) {
     if (turn === null) throw new Error(`A ${state} draft needs a turn.`);
     const first = { pick: 1, round: 1, playerId: made.players[0]?.id ?? alice.id };
-    return { ...made, state, turn: { picksLeftOnTurn: 1, ...(turn ?? first) } };
+    return { ...made, state, turn: { picksBeforeTurnPasses: 1, ...(turn ?? first) } };
   }
   if (turn) throw new Error(`A ${state} draft has no turn.`);
   return { ...made, state, turn: null };

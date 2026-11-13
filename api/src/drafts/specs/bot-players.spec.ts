@@ -123,7 +123,7 @@ describe('bot players', () => {
       pick: 8,
       round: 2,
       playerId: alice.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     const log = (await pickLog(id)).body as { playerId: string }[];
     expect(log.map((logged) => logged.playerId)).toEqual([

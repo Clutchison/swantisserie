@@ -35,7 +35,7 @@ describe('readPickImport', () => {
         { number: 3, seat: 1, poolCardId: 'brine wisp' },
         { number: 4, seat: 0, poolCardId: 'cinder hound' },
       ],
-      next: { pick: 5, round: 3, seat: 0, picksLeftOnTurn: 1 },
+      next: { pick: 5, round: 3, seat: 0, picksBeforeTurnPasses: 1 },
     });
   });
 

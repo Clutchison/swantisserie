@@ -49,7 +49,7 @@ describe('undo', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Lightning Bolt is back in the pool.
@@ -76,7 +76,7 @@ describe('undo', () => {
       pick: 3,
       round: 2,
       playerId: bob.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
     expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([
@@ -428,7 +428,7 @@ describe('undo', () => {
       pick: 1,
       round: 1,
       playerId: alice.id,
-      picksLeftOnTurn: 1,
+      picksBeforeTurnPasses: 1,
     });
     expect(await pickLogLines(id)).toEqual([]);
     expect(await pickLogLines(other)).toEqual([

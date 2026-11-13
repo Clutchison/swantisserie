@@ -2,13 +2,15 @@ import { startProblem } from 'engine';
 import type { Draft } from '../generated/prisma/client.js';
 import { StartRefusedError } from './draft-errors.js';
 import type { LockedDraft } from './draft-lock.js';
-import { draftSize, type Transaction } from './draft-shapes.js';
+import {
+  draftSize,
+  type DraftSizeFields,
+  type Transaction,
+} from './draft-shapes.js';
 
 /** What the start checks read of a draft, locked or not. */
-export type StartableDraft = Pick<
-  Draft,
-  'id' | 'picksPerPlayer' | 'doublePicks' | 'snapshotState'
->;
+export type StartableDraft = Pick<Draft, 'id' | 'snapshotState'> &
+  DraftSizeFields;
 
 /**
  * Throws StartRefusedError if the draft, with `players` players, can't

@@ -37,6 +37,7 @@ import { playerIn, TournamentViewer } from './tournament-viewer';
 import {
   cardsNoun,
   EMPTY_PLAN,
+  draftSize,
   EMPTY_QUEUE,
   hasTurn,
   isActive,
@@ -318,9 +319,7 @@ export class DraftStore implements TournamentViewer {
     const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
     const picks = queuePicksBeforeTurnPasses(
       {
-        players: this.players().length,
-        picksPerPlayer: draft.picksPerPlayer,
-        doublePicks: draft.doublePicks,
+        ...draftSize(draft, this.players().length),
         picked: this.picks.value().map((pick) => pick.poolCardId),
       },
       seat,
