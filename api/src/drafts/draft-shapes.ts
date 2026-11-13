@@ -30,8 +30,11 @@ export const SEAT_ORDER = [
 
 /** The engine's size of the draft, with `players` players. */
 export function draftSize(
-  { picksPerPlayer }: Pick<Draft, 'picksPerPlayer'>,
+  {
+    picksPerPlayer,
+    doublePicks,
+  }: Pick<Draft, 'picksPerPlayer' | 'doublePicks'>,
   players: number,
 ): DraftSize {
-  return { players, picksPerPlayer };
+  return { players, picksPerPlayer, doublePicks };
 }

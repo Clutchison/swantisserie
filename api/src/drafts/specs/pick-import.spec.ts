@@ -62,6 +62,7 @@ describe('pick import', () => {
       pick: 4,
       round: 2,
       playerId: alice.id,
+      picksLeftOnTurn: 1,
     });
     const log = await pickLog(id);
     const names = await pickedNames(id);

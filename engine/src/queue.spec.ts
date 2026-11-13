@@ -145,7 +145,7 @@ describe('nextQueuedPick', () => {
   it('picks the first queued card not yet picked of the seat whose turn it is, with what it does to every queue', () => {
     expect(
       nextQueuedPick(
-        { players: 2, picksPerPlayer: 2, picked: ['bolt-2'] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['bolt-2'] },
         seatQueues([['bolt-1'], ['bolt-2', 'bolt-1', 'spike']]),
         pool,
       ),
@@ -170,7 +170,7 @@ describe('nextQueuedPick', () => {
   it('picks nothing from a queue paused queue', () => {
     expect(
       nextQueuedPick(
-        { players: 2, picksPerPlayer: 2, picked: [] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         seatQueues([['shock'], []], [{ queuePaused: true }]),
         pool,
       ),
@@ -180,7 +180,7 @@ describe('nextQueuedPick', () => {
   it('picks nothing from a queue with no card left to pick', () => {
     expect(
       nextQueuedPick(
-        { players: 2, picksPerPlayer: 2, picked: ['shock'] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         seatQueues([[], ['shock']]),
         pool,
       ),
@@ -190,7 +190,12 @@ describe('nextQueuedPick', () => {
   it('picks nothing once every pick is made', () => {
     expect(
       nextQueuedPick(
-        { players: 2, picksPerPlayer: 1, picked: ['shock', 'spike'] },
+        {
+          players: 2,
+          picksPerPlayer: 1,
+          doublePicks: 0,
+          picked: ['shock', 'spike'],
+        },
         seatQueues([['bolt-1'], []]),
         pool,
       ),

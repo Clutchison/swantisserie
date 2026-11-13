@@ -13,7 +13,7 @@ const pool = [
   'Vex, the Quiet',
   'Spring // Autumn',
 ].map(card);
-const size = { players: 2, picksPerPlayer: 3 };
+const size = { players: 2, picksPerPlayer: 3, doublePicks: 0 };
 
 const read = (csv: string, draftSize = size, cards = pool) =>
   readPickImport(csv, draftSize, cards);
@@ -35,7 +35,7 @@ describe('readPickImport', () => {
         { number: 3, seat: 1, poolCardId: 'brine wisp' },
         { number: 4, seat: 0, poolCardId: 'cinder hound' },
       ],
-      next: { pick: 5, round: 3, seat: 0 },
+      next: { pick: 5, round: 3, seat: 0, picksLeftOnTurn: 1 },
     });
   });
 
@@ -135,7 +135,7 @@ describe('readPickImport', () => {
     });
 
     it('refuses a header with no blank first cell or with a nameless column', () => {
-      const threePlayers = { players: 3, picksPerPlayer: 3 };
+      const threePlayers = { players: 3, picksPerPlayer: 3, doublePicks: 0 };
 
       expect(problems('Ann,Ben,,Cid,\n->,Ash Golem,,,', threePlayers)).toEqual([
         'The header’s first cell must be blank.',
@@ -200,7 +200,7 @@ describe('readPickImport', () => {
     });
 
     it('names a column with no player name by its number', () => {
-      const threePlayers = { players: 3, picksPerPlayer: 3 };
+      const threePlayers = { players: 3, picksPerPlayer: 3, doublePicks: 0 };
       const csv = ',Ann,,Cid,\n->,Ash Golem,,Brine Wisp,';
 
       expect(problems(csv, threePlayers)).toEqual([
@@ -348,7 +348,9 @@ describe('readPickImport', () => {
       const csv =
         ',Ann,Ben,\n->,Ash Golem,Brine Wisp,\n,Cinder Hound,Dusk Heron,<-';
 
-      expect(problems(csv, { players: 2, picksPerPlayer: 2 })).toEqual([
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 0 }),
+      ).toEqual([
         'The file makes every pick in the draft, so there would be nothing left to draft.',
       ]);
     });
@@ -357,9 +359,9 @@ describe('readPickImport', () => {
       const csv =
         ',Ann,Ben,\n->,Ash Golem,Brine Wisp,\n,Cinder Hound,Dusk Heron,<-\n->,Ember Stag,,';
 
-      expect(problems(csv, { players: 2, picksPerPlayer: 2 })).toEqual([
-        'The file has 5 picks, but the draft allows 4.',
-      ]);
+      expect(
+        problems(csv, { players: 2, picksPerPlayer: 2, doublePicks: 0 }),
+      ).toEqual(['The file has 5 picks, but the draft allows 4.']);
     });
   });
 
@@ -370,7 +372,9 @@ describe('readPickImport', () => {
       ',Unknown Card,,,<-',
     ].join('\n');
 
-    expect(problems(csv, { players: 2, picksPerPlayer: 1 })).toEqual([
+    expect(
+      problems(csv, { players: 2, picksPerPlayer: 1, doublePicks: 0 }),
+    ).toEqual([
       'The file has 3 player columns, but the draft has 2 players.',
       'Round 1 has no pick for Ben, but later picks are filled in.',
       'Round 2 has no pick for Cid, but later picks are filled in.',

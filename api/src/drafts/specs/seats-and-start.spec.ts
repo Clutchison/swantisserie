@@ -36,7 +36,7 @@ describe('seats and start', () => {
 
     expect(started.body).toMatchObject({
       state: 'Drafting',
-      turn: { pick: 1, round: 1, playerId: alice.id },
+      turn: { pick: 1, round: 1, playerId: alice.id, picksLeftOnTurn: 1 },
     });
     expect(playerIds(started.body)).toEqual([alice.id, bob.id]);
   });
@@ -216,6 +216,7 @@ describe('seats and start', () => {
       pick: 1,
       round: 1,
       playerId: carol.id,
+      picksLeftOnTurn: 1,
     });
   });
 

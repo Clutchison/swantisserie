@@ -141,8 +141,8 @@ export class TurnsService {
       where: { state: 'Drafting' },
       select: {
         id: true,
-        // Stryker disable next-line BooleanLiteral: with `picksPerPlayer` missing, `currentTurn` still works out the same seat and pick from the player count. Only its completion check reads `picksPerPlayer`, and a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete in the same transaction.
         picksPerPlayer: true,
+        doublePicks: true,
         players: {
           orderBy: SEAT_ORDER,
           select: {

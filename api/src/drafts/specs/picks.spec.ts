@@ -48,6 +48,7 @@ describe('picks', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
+      picksLeftOnTurn: 1,
     });
     expect((await getDraft(id).expect(200)).body.turn.playerId).toBe(bob.id);
     expect((await pickLog(id)).body).toEqual([
@@ -56,6 +57,52 @@ describe('picks', () => {
         playerId: alice.id,
         poolCardId: ids.Shock,
       },
+    ]);
+  });
+
+  it('keeps a double turn with the player for their second pick, then passes it in snake order', async () => {
+    const bobCookie = await signIn(bob);
+    const id = await readyDraft(
+      [aliceCookie, bobCookie],
+      2,
+      fourCards,
+      null,
+      2,
+    );
+    await start(id).expect(200);
+    const ids = await poolCardIds(id);
+    expect((await getDraft(id).expect(200)).body.turn).toEqual({
+      pick: 1,
+      round: 1,
+      playerId: alice.id,
+      picksLeftOnTurn: 2,
+    });
+
+    const first = await pick(id, ids.Shock).expect(200);
+    expect(first.body.turn).toEqual({
+      pick: 2,
+      round: 1,
+      playerId: alice.id,
+      picksLeftOnTurn: 1,
+    });
+
+    const second = await pick(id, ids['Lightning Bolt']).expect(200);
+    expect(second.body.turn).toEqual({
+      pick: 3,
+      round: 1,
+      playerId: bob.id,
+      picksLeftOnTurn: 2,
+    });
+    await pick(id, ids['Lava Spike'], bobCookie).expect(200);
+    const last = await pick(id, ids['Skewer the Critics'], bobCookie).expect(
+      200,
+    );
+    expect(last.body).toMatchObject({ state: 'Complete', turn: null });
+    expect(await pickLogLines(id)).toEqual([
+      'Alice: Shock',
+      'Alice: Lightning Bolt',
+      'Bob: Lava Spike',
+      'Bob: Skewer the Critics',
     ]);
   });
 
@@ -87,6 +134,7 @@ describe('picks', () => {
       pick: 4,
       round: 2,
       playerId: alice.id,
+      picksLeftOnTurn: 1,
     });
     expect((await pickLog(id)).body).toEqual([
       {

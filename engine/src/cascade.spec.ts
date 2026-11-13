@@ -51,7 +51,7 @@ describe('cascade', () => {
   it('picks the first card in the queue of the seat whose turn it is', () => {
     expect(
       picks(
-        { players: 2, picksPerPlayer: 2, picked: [] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         [['shock', 'bolt'], []],
         singles,
       ),
@@ -62,7 +62,7 @@ describe('cascade', () => {
     // Seat 1 picks last in round 1 and first in round 2.
     expect(
       picks(
-        { players: 2, picksPerPlayer: 3, picked: [] },
+        { players: 2, picksPerPlayer: 3, doublePicks: 0, picked: [] },
         [
           ['shock', 'bolt'],
           ['spike', 'skewer', 'fireblast'],
@@ -81,7 +81,7 @@ describe('cascade', () => {
   it('skips queued cards picked before the cascade', () => {
     expect(
       picks(
-        { players: 2, picksPerPlayer: 2, picked: ['shock'] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         [[], ['shock', 'bolt']],
         singles,
       ),
@@ -92,7 +92,7 @@ describe('cascade', () => {
     // Seat 1 loses Shock under pause queue, so its turn stops the cascade.
     expect(
       picks(
-        { players: 3, picksPerPlayer: 2, picked: [] },
+        { players: 3, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         [['shock', 'spike'], ['shock', 'bolt'], ['skewer']],
         singles,
       ),
@@ -103,7 +103,7 @@ describe('cascade', () => {
     // Seat 2 loses Shock to seat 0; seat 1 picks; seat 2's turn stops it.
     expect(
       picks(
-        { players: 3, picksPerPlayer: 2, picked: [] },
+        { players: 3, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         [['shock', 'spike'], ['bolt'], ['shock', 'skewer']],
         singles,
       ),
@@ -116,7 +116,7 @@ describe('cascade', () => {
   it('carries on to a seat under pick next, picking its next queued card after one is lost', () => {
     expect(
       picks(
-        { players: 3, picksPerPlayer: 2, picked: [] },
+        { players: 3, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         [['shock', 'spike'], ['shock', 'bolt'], ['skewer']],
         singles,
         ['PauseQueue', 'PickNext', 'PauseQueue'],
@@ -131,7 +131,7 @@ describe('cascade', () => {
   it('carries on to a seat whose queued card the cascade swapped for another copy', () => {
     expect(
       picks(
-        { players: 3, picksPerPlayer: 1, picked: [] },
+        { players: 3, picksPerPlayer: 1, doublePicks: 0, picked: [] },
         [['bolt-1'], ['bolt-1'], []],
         new Map([
           ['bolt-1', 'Lightning Bolt'],
@@ -148,7 +148,7 @@ describe('cascade', () => {
     // Seat 1's Bolt moves to bolt-2, then seat 1 picks it from seat 2.
     expect(
       picks(
-        { players: 3, picksPerPlayer: 1, picked: [] },
+        { players: 3, picksPerPlayer: 1, doublePicks: 0, picked: [] },
         [['bolt-1'], ['bolt-1'], ['bolt-2']],
         new Map([
           ['bolt-1', 'Lightning Bolt'],
@@ -165,7 +165,7 @@ describe('cascade', () => {
     // Shock leaves seat 0's queue, and Bolt is still there for its next turn.
     expect(
       picks(
-        { players: 2, picksPerPlayer: 2, picked: [] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         [
           ['shock', 'bolt'],
           ['spike', 'skewer'],
@@ -183,7 +183,7 @@ describe('cascade', () => {
   it('stops at a seat whose queue is paused, as at an empty queue', () => {
     expect(
       picks(
-        { players: 3, picksPerPlayer: 2, picked: [] },
+        { players: 3, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         [['shock'], ['bolt'], ['spike']],
         singles,
         [],
@@ -195,7 +195,7 @@ describe('cascade', () => {
   it('makes no pick when the seat whose turn it is has its queue paused', () => {
     expect(
       picks(
-        { players: 2, picksPerPlayer: 2, picked: [] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         [['shock'], ['bolt']],
         singles,
         [],
@@ -207,7 +207,7 @@ describe('cascade', () => {
   it('stops at a seat whose queued cards have all been picked', () => {
     expect(
       picks(
-        { players: 2, picksPerPlayer: 2, picked: ['shock'] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         [['bolt'], ['shock']],
         singles,
       ),
@@ -217,7 +217,7 @@ describe('cascade', () => {
   it('stops once every pick is made', () => {
     expect(
       picks(
-        { players: 2, picksPerPlayer: 1, picked: [] },
+        { players: 2, picksPerPlayer: 1, doublePicks: 0, picked: [] },
         [
           ['shock', 'spike'],
           ['bolt', 'skewer'],
@@ -241,7 +241,7 @@ describe('cascade', () => {
       // Seat 1's bolt-1 is swapped for bolt-2 mid-cascade, which it then picks.
       expect(
         cascade(
-          { players: 3, picksPerPlayer: 1, picked: [] },
+          { players: 3, picksPerPlayer: 1, doublePicks: 0, picked: [] },
           seatsOf([['bolt-1'], ['bolt-1', 'shock'], []]),
           bolts,
         ),
@@ -279,7 +279,7 @@ describe('cascade', () => {
     it('gives each pick what it does to every plan, as the cascade saw them', () => {
       // Seat 1's plan holds Shock unpicked, the only copy, which seat 0 takes.
       const [first] = cascade(
-        { players: 2, picksPerPlayer: 1, picked: [] },
+        { players: 2, picksPerPlayer: 1, doublePicks: 0, picked: [] },
         seatsOf([['shock'], []], { plans: [['bolt-1'], ['bolt-1', 'shock']] }),
         bolts,
       );
@@ -293,7 +293,7 @@ describe('cascade', () => {
       // Seat 1 plans both Bolts; seat 0 takes bolt-1, then seat 1 picks bolt-2.
       expect(
         cascade(
-          { players: 2, picksPerPlayer: 1, picked: [] },
+          { players: 2, picksPerPlayer: 1, doublePicks: 0, picked: [] },
           seatsOf([['bolt-1'], ['bolt-2']], { plans: [[], ['bolt-1']] }),
           bolts,
         ).map(({ plans }) => plans),
@@ -308,7 +308,7 @@ describe('cascade', () => {
 
     it('gives a queue that loses a card under pause queue the rest it keeps, and says it paused it', () => {
       const [first] = cascade(
-        { players: 2, picksPerPlayer: 2, picked: [] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         seatsOf([['shock'], ['shock', 'bolt-1']]),
         bolts,
       );
@@ -322,7 +322,7 @@ describe('cascade', () => {
 
     it('gives a queue that loses a card under pick next the rest it keeps', () => {
       const [first] = cascade(
-        { players: 2, picksPerPlayer: 2, picked: [] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         seatsOf([['shock'], ['shock', 'bolt-1']], {
           stealBehaviors: ['PauseQueue', 'PickNext'],
         }),

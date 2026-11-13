@@ -7,7 +7,7 @@ import { draftSize, type Transaction } from './draft-shapes.js';
 /** What the start checks read of a draft, locked or not. */
 export type StartableDraft = Pick<
   Draft,
-  'id' | 'picksPerPlayer' | 'snapshotState'
+  'id' | 'picksPerPlayer' | 'doublePicks' | 'snapshotState'
 >;
 
 /**

@@ -10,7 +10,7 @@ describe('queuePicksBeforeTurnPasses', () => {
   it('names the first available queued card on the seat’s turn', () => {
     expect(
       queuePicksBeforeTurnPasses(
-        { players: 3, picksPerPlayer: 2, picked: ['shock'] },
+        { players: 3, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         1,
         ['shock', 'bolt', 'spike'],
         singles,
@@ -21,7 +21,7 @@ describe('queuePicksBeforeTurnPasses', () => {
   it('names a second card at a snake turn, where the seat picks twice in a row', () => {
     expect(
       queuePicksBeforeTurnPasses(
-        { players: 2, picksPerPlayer: 3, picked: ['shock'] },
+        { players: 2, picksPerPlayer: 3, doublePicks: 0, picked: ['shock'] },
         1,
         ['bolt', 'spike', 'skewer'],
         singles,
@@ -32,7 +32,7 @@ describe('queuePicksBeforeTurnPasses', () => {
   it('names a snake turn’s one card where the draft ends after it', () => {
     expect(
       queuePicksBeforeTurnPasses(
-        { players: 2, picksPerPlayer: 1, picked: ['shock'] },
+        { players: 2, picksPerPlayer: 1, doublePicks: 0, picked: ['shock'] },
         1,
         ['bolt', 'spike'],
         singles,
@@ -43,7 +43,7 @@ describe('queuePicksBeforeTurnPasses', () => {
   it('names nothing once the turn has passed to another seat', () => {
     expect(
       queuePicksBeforeTurnPasses(
-        { players: 2, picksPerPlayer: 2, picked: [] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         1,
         ['bolt'],
         singles,
@@ -54,7 +54,7 @@ describe('queuePicksBeforeTurnPasses', () => {
   it('names nothing once the draft is complete', () => {
     expect(
       queuePicksBeforeTurnPasses(
-        { players: 1, picksPerPlayer: 1, picked: ['shock'] },
+        { players: 1, picksPerPlayer: 1, doublePicks: 0, picked: ['shock'] },
         0,
         ['bolt'],
         singles,
@@ -65,7 +65,7 @@ describe('queuePicksBeforeTurnPasses', () => {
   it('names nothing when no queued card is available', () => {
     expect(
       queuePicksBeforeTurnPasses(
-        { players: 2, picksPerPlayer: 2, picked: ['shock'] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         1,
         ['shock'],
         singles,
@@ -81,7 +81,7 @@ describe('queuePicksBeforeTurnPasses', () => {
     ]);
     expect(
       queuePicksBeforeTurnPasses(
-        { players: 2, picksPerPlayer: 2, picked: ['bolt'] },
+        { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['bolt'] },
         1,
         ['shock-1', 'shock-2'],
         copies,

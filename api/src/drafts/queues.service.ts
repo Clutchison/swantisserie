@@ -297,8 +297,8 @@ export class QueuesService {
     const draft = await tx.draft.findUniqueOrThrow({
       where: { id: draftId },
       select: {
-        // Stryker disable next-line BooleanLiteral: currentTurn reads picks per player only to return null once every pick is made, and `change` refuses a complete draft before this check runs, so picks are always left and the seat is the same.
         picksPerPlayer: true,
+        doublePicks: true,
         _count: { select: { players: true, picks: true } },
       },
     });

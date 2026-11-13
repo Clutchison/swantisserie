@@ -49,6 +49,7 @@ describe('undo', () => {
       pick: 2,
       round: 1,
       playerId: bob.id,
+      picksLeftOnTurn: 1,
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Lightning Bolt is back in the pool.
@@ -71,7 +72,12 @@ describe('undo', () => {
     const undone = await undo(id, 3).expect(200);
 
     // Skewer the Critics is back in Bob's queue, but it waits for him.
-    expect(undone.body.turn).toEqual({ pick: 3, round: 2, playerId: bob.id });
+    expect(undone.body.turn).toEqual({
+      pick: 3,
+      round: 2,
+      playerId: bob.id,
+      picksLeftOnTurn: 1,
+    });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
     expect((await queue(id, bobCookie).expect(200)).body.cards).toEqual([
       skewer,
@@ -418,7 +424,12 @@ describe('undo', () => {
 
     const undone = await undo(id, 1).expect(200);
 
-    expect(undone.body.turn).toEqual({ pick: 1, round: 1, playerId: alice.id });
+    expect(undone.body.turn).toEqual({
+      pick: 1,
+      round: 1,
+      playerId: alice.id,
+      picksLeftOnTurn: 1,
+    });
     expect(await pickLogLines(id)).toEqual([]);
     expect(await pickLogLines(other)).toEqual([
       'Alice: Shock',

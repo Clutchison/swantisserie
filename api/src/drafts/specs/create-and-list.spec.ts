@@ -14,6 +14,7 @@ import {
   allOnArena,
   createDraft,
   listDrafts,
+  getDraft,
   snapshotQuery,
 } from './harness.js';
 
@@ -33,6 +34,7 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
     name: 'Red dragons',
     poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
     picksPerPlayer: 30,
+    doublePicks: 0,
     platform: 'Arena',
     state: 'Lobby',
     organizer: alice,
@@ -147,6 +149,34 @@ it('gives each player 40 picks unless told otherwise', async () => {
   }).expect(201);
 
   expect(res.body.picksPerPlayer).toBe(40);
+});
+
+it('creates a draft with double picks for each player’s last picks', async () => {
+  allOnArena('cube:arena');
+
+  const res = await createDraft({
+    name: 'Arena cube',
+    poolSource: { kind: 'pool-query', poolQuery: 'cube:arena' },
+    picksPerPlayer: 30,
+    doublePicks: 20,
+  }).expect(201);
+
+  expect(res.body.doublePicks).toBe(20);
+  expect(
+    (await getDraft(res.body.id as string).expect(200)).body,
+  ).toMatchObject({ picksPerPlayer: 30, doublePicks: 20 });
+});
+
+it('creates a draft without double picks when given 0', async () => {
+  allOnArena('cube:arena');
+
+  const res = await createDraft({
+    name: 'Arena cube',
+    poolSource: { kind: 'pool-query', poolQuery: 'cube:arena' },
+    doublePicks: 0,
+  }).expect(201);
+
+  expect(res.body.doublePicks).toBe(0);
 });
 
 it('refuses a pool query that matches no cards', async () => {
@@ -309,6 +339,36 @@ it.each([
       picksPerPlayer: '40',
     },
     'Picks per player must be a whole number from 1 to 100.',
+  ],
+  [
+    'an odd number of double picks',
+    { name: 'Red', picksPerPlayer: 30, doublePicks: 19 },
+    'Double picks must be an even number from 2 to 30.',
+  ],
+  [
+    'more double picks than picks per player',
+    { name: 'Red', picksPerPlayer: 30, doublePicks: 32 },
+    'Double picks must be an even number from 2 to 30.',
+  ],
+  [
+    'negative double picks',
+    { name: 'Red', doublePicks: -2 },
+    'Double picks must be an even number from 2 to 40.',
+  ],
+  [
+    'double picks as text',
+    { name: 'Red', doublePicks: '20' },
+    'Double picks must be an even number from 2 to 40.',
+  ],
+  [
+    'double picks left blank',
+    { name: 'Red', doublePicks: null },
+    'Double picks must be an even number from 2 to 40.',
+  ],
+  [
+    'double picks with 1 pick per player',
+    { name: 'Red', picksPerPlayer: 1, doublePicks: 2 },
+    'Double picks need at least 2 picks per player.',
   ],
   [
     'a webhook that is not an id',

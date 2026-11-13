@@ -26,6 +26,7 @@ export function toDraftView(draft: DraftWithOrganizer): DraftView {
     name: draft.name,
     poolSource: toPoolSourceView(draft),
     picksPerPlayer: draft.picksPerPlayer,
+    doublePicks: draft.doublePicks,
     platform: draft.platform,
     organizer: draft.organizer,
     snapshot: toSnapshotView(draft),
@@ -87,6 +88,7 @@ function toTurnView(draft: DraftWithOrganizer): TurnView {
     pick: turn.pick,
     round: turn.round,
     playerId: draft.players[turn.seat].user.id,
+    picksLeftOnTurn: turn.picksLeftOnTurn,
   };
 }
 

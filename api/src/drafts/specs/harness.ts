@@ -534,6 +534,7 @@ export async function readyDraft(
   picksPerPlayer = 1,
   cards: (string | ScryfallCard)[] = ['Shock', 'Lightning Bolt', 'Lava Spike'],
   webhookId: string | null = null,
+  doublePicks = 0,
 ) {
   scryfallAnswers({
     'c:r': page(...cards),
@@ -543,6 +544,7 @@ export async function readyDraft(
   const created = await createDraft({
     name: 'Red',
     picksPerPlayer,
+    doublePicks,
     webhookId,
   }).expect(201);
   const id = created.body.id as string;

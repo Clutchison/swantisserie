@@ -3,4 +3,9 @@ export interface DraftSize {
   /** Every player has a seat, so this is also the number of seats. */
   players: number;
   picksPerPlayer: number;
+  /**
+   * How many of each player's last picks they make on double turns; 0 for
+   * none.
+   */
+  doublePicks: number;
 }

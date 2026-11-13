@@ -42,6 +42,7 @@ export class PickImportService {
         id: true,
         state: true,
         picksPerPlayer: true,
+        doublePicks: true,
         snapshotState: true,
       },
     });

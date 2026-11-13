@@ -11,7 +11,10 @@ import type { Transaction } from './draft-shapes.js';
 const LOCKED_CHANGE_TIMEOUT_MS = 15_000;
 
 /** What a change reads from the draft row it locks. */
-type LockedRow = Pick<Draft, 'state' | 'picksPerPlayer' | 'snapshotState'>;
+type LockedRow = Pick<
+  Draft,
+  'state' | 'picksPerPlayer' | 'doublePicks' | 'snapshotState'
+>;
 
 /**
  * A draft whose row is locked, and the transaction holding the lock. Only
@@ -19,6 +22,7 @@ type LockedRow = Pick<Draft, 'state' | 'picksPerPlayer' | 'snapshotState'>;
  */
 class LockedDraft {
   readonly picksPerPlayer: number;
+  readonly doublePicks: number;
   readonly snapshotState: Draft['snapshotState'];
   #state: DraftState;
 
@@ -28,6 +32,7 @@ class LockedDraft {
     row: LockedRow,
   ) {
     this.picksPerPlayer = row.picksPerPlayer;
+    this.doublePicks = row.doublePicks;
     this.snapshotState = row.snapshotState;
     this.#state = row.state;
   }
@@ -159,7 +164,7 @@ export class DraftLock {
         // players and picks after a plain SELECT of the draft, which takes no
         // lock.
         const [row] = await tx.$queryRaw<LockedRow[]>`
-          SELECT "state", "picksPerPlayer", "snapshotState"
+          SELECT "state", "picksPerPlayer", "doublePicks", "snapshotState"
           FROM "Draft" WHERE "id" = ${draftId} FOR UPDATE`;
         const result = await change(
           row ? new LockedDraft(tx, draftId, row) : undefined,

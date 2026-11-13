@@ -42,6 +42,7 @@ import {
   MIN_PICKS_PER_PLAYER,
   type SetListEntryView,
 } from 'contract';
+import { doublePicksProblem } from 'engine';
 import { bodyFields } from '../request-body.js';
 import { parseCard } from './parse-card.js';
 import { ScryfallUnavailableError } from '../scryfall/scryfall-client.js';
@@ -433,7 +434,7 @@ export class DraftsController {
 
 /** The create form's fields, or a 400 saying which one to fix. */
 function parseNewDraft(body: unknown): NewDraft {
-  const { name, poolSource, picksPerPlayer, platform, webhookId } =
+  const { name, poolSource, picksPerPlayer, doublePicks, platform, webhookId } =
     bodyFields<NewDraftRequest>(body);
 
   const trimmedName = typeof name === 'string' ? name.trim() : '';
@@ -458,6 +459,16 @@ function parseNewDraft(body: unknown): NewDraft {
     );
   }
 
+  // Missing or 0: no double picks. Anything but a number, null for a field
+  // left blank among them, breaks the rule.
+  const givenDoublePicks = doublePicks === undefined ? 0 : doublePicks;
+  const chosenDoublePicks =
+    typeof givenDoublePicks === 'number' ? givenDoublePicks : NaN;
+  if (chosenDoublePicks !== 0) {
+    const problem = doublePicksProblem(chosenDoublePicks, picks);
+    if (problem) throw invalid(problem);
+  }
+
   // Only a missing field gets the default, as with picks per player.
   const chosenPlatform = platform === undefined ? 'Arena' : platform;
   if (!isPlatform(chosenPlatform)) {
@@ -473,6 +484,7 @@ function parseNewDraft(body: unknown): NewDraft {
     name: trimmedName,
     poolSource: parsedPoolSource,
     picksPerPlayer: picks,
+    doublePicks: chosenDoublePicks,
     platform: chosenPlatform,
     webhookId: webhookId ?? null,
   };

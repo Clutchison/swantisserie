@@ -8,10 +8,13 @@ import {
 
 describe('currentTurn', () => {
   it('starts with the first seat taking pick 1 of round 1', () => {
-    expect(currentTurn({ players: 3, picksPerPlayer: 2 }, 0)).toEqual({
+    expect(
+      currentTurn({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 0),
+    ).toEqual({
       pick: 1,
       round: 1,
       seat: 0,
+      picksLeftOnTurn: 1,
     });
   });
 
@@ -19,41 +22,145 @@ describe('currentTurn', () => {
     const seats = Array.from(
       { length: 9 },
       (_, picksMade) =>
-        currentTurn({ players: 3, picksPerPlayer: 3 }, picksMade)?.seat,
+        currentTurn(
+          { players: 3, picksPerPlayer: 3, doublePicks: 0 },
+          picksMade,
+        )?.seat,
     );
     expect(seats).toEqual([0, 1, 2, 2, 1, 0, 0, 1, 2]);
   });
 
   it('counts rounds and picks across the whole draft', () => {
-    expect(currentTurn({ players: 4, picksPerPlayer: 3 }, 9)).toEqual({
+    expect(
+      currentTurn({ players: 4, picksPerPlayer: 3, doublePicks: 0 }, 9),
+    ).toEqual({
       pick: 10,
       round: 3,
       seat: 1,
+      picksLeftOnTurn: 1,
     });
   });
 
   it('is null once every player has all their picks', () => {
-    expect(currentTurn({ players: 3, picksPerPlayer: 2 }, 6)).toBeNull();
+    expect(
+      currentTurn({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 6),
+    ).toBeNull();
+  });
+});
+
+describe('currentTurn with double picks', () => {
+  const seatsAndPicksLeft = (size: {
+    players: number;
+    picksPerPlayer: number;
+    doublePicks: number;
+  }) =>
+    Array.from({ length: size.players * size.picksPerPlayer }, (_, made) => {
+      const turn = currentTurn(size, made)!;
+      return [turn.round, turn.seat, turn.picksLeftOnTurn];
+    });
+
+  it('makes every turn double when double picks equal picks per player', () => {
+    expect(
+      seatsAndPicksLeft({ players: 2, picksPerPlayer: 4, doublePicks: 4 }),
+    ).toEqual([
+      [1, 0, 2],
+      [1, 0, 1],
+      [1, 1, 2],
+      [1, 1, 1],
+      [2, 1, 2],
+      [2, 1, 1],
+      [2, 0, 2],
+      [2, 0, 1],
+    ]);
+  });
+
+  it('runs single rounds, then double rounds, snaking over turns', () => {
+    expect(
+      seatsAndPicksLeft({ players: 3, picksPerPlayer: 6, doublePicks: 4 }),
+    ).toEqual([
+      [1, 0, 1],
+      [1, 1, 1],
+      [1, 2, 1],
+      [2, 2, 1],
+      [2, 1, 1],
+      [2, 0, 1],
+      [3, 0, 2],
+      [3, 0, 1],
+      [3, 1, 2],
+      [3, 1, 1],
+      [3, 2, 2],
+      [3, 2, 1],
+      [4, 2, 2],
+      [4, 2, 1],
+      [4, 1, 2],
+      [4, 1, 1],
+      [4, 0, 2],
+      [4, 0, 1],
+    ]);
+  });
+
+  it('counts picks across single and double rounds', () => {
+    expect(
+      currentTurn({ players: 3, picksPerPlayer: 6, doublePicks: 4 }, 9),
+    ).toEqual({ pick: 10, round: 3, seat: 1, picksLeftOnTurn: 1 });
+  });
+
+  it('is null once every player has all their picks', () => {
+    const size = { players: 3, picksPerPlayer: 6, doublePicks: 4 };
+    expect(currentTurn(size, 17)).not.toBeNull();
+    expect(currentTurn(size, 18)).toBeNull();
+    expect(draftComplete(size, 18)).toBe(true);
   });
 });
 
 describe('nextTurn', () => {
   it('is the turn after the one making `pick`', () => {
-    expect(nextTurn({ players: 4, picksPerPlayer: 3 }, 2)).toEqual({
+    expect(
+      nextTurn({ players: 4, picksPerPlayer: 3, doublePicks: 0 }, 2),
+    ).toEqual({
       pick: 3,
       round: 1,
       seat: 2,
+      picksLeftOnTurn: 1,
     });
   });
 
   it('gives the end seat its second pick of the pair, then turns back', () => {
-    const size = { players: 3, picksPerPlayer: 3 };
-    expect(nextTurn(size, 3)).toEqual({ pick: 4, round: 2, seat: 2 });
-    expect(nextTurn(size, 4)).toEqual({ pick: 5, round: 2, seat: 1 });
+    const size = { players: 3, picksPerPlayer: 3, doublePicks: 0 };
+    expect(nextTurn(size, 3)).toEqual({
+      pick: 4,
+      round: 2,
+      seat: 2,
+      picksLeftOnTurn: 1,
+    });
+    expect(nextTurn(size, 4)).toEqual({
+      pick: 5,
+      round: 2,
+      seat: 1,
+      picksLeftOnTurn: 1,
+    });
+  });
+
+  it('keeps the turn with the player after the first pick of a double turn', () => {
+    const size = { players: 3, picksPerPlayer: 2, doublePicks: 2 };
+    expect(nextTurn(size, 1)).toEqual({
+      pick: 2,
+      round: 1,
+      seat: 0,
+      picksLeftOnTurn: 1,
+    });
+    expect(nextTurn(size, 2)).toEqual({
+      pick: 3,
+      round: 1,
+      seat: 1,
+      picksLeftOnTurn: 2,
+    });
   });
 
   it('is null after the draft’s last pick', () => {
-    expect(nextTurn({ players: 3, picksPerPlayer: 2 }, 6)).toBeNull();
+    expect(
+      nextTurn({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 6),
+    ).toBeNull();
   });
 });
 
@@ -70,11 +177,17 @@ describe('roundRunsForward', () => {
 
 describe('draftComplete', () => {
   it('is false while any player still has picks to make', () => {
-    expect(draftComplete({ players: 3, picksPerPlayer: 2 }, 0)).toBe(false);
-    expect(draftComplete({ players: 3, picksPerPlayer: 2 }, 5)).toBe(false);
+    expect(
+      draftComplete({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 0),
+    ).toBe(false);
+    expect(
+      draftComplete({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 5),
+    ).toBe(false);
   });
 
   it('is true once every player has all their picks', () => {
-    expect(draftComplete({ players: 3, picksPerPlayer: 2 }, 6)).toBe(true);
+    expect(
+      draftComplete({ players: 3, picksPerPlayer: 2, doublePicks: 0 }, 6),
+    ).toBe(true);
   });
 });

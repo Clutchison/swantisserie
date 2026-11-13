@@ -119,7 +119,12 @@ describe('bot players', () => {
 
     // Snake order: Alice, bots 1-3, then bots 3-1 and Alice again.
     const draft = await atPick(id, 8);
-    expect(draft.turn).toEqual({ pick: 8, round: 2, playerId: alice.id });
+    expect(draft.turn).toEqual({
+      pick: 8,
+      round: 2,
+      playerId: alice.id,
+      picksLeftOnTurn: 1,
+    });
     const log = (await pickLog(id)).body as { playerId: string }[];
     expect(log.map((logged) => logged.playerId)).toEqual([
       alice.id,
