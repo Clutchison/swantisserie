@@ -17,7 +17,7 @@ const PRESSES = ['pointerdown', 'keydown'] as const;
  * which a double turn's second pick shares, whether it is drafting, and
  * whether it is theirs.
  */
-interface TurnState {
+interface ViewersTurn {
   readonly pick: number | null;
   readonly drafting: boolean;
   readonly own: boolean;
@@ -34,7 +34,7 @@ interface TurnState {
 export class OwnTurnLoop {
   private readonly store = inject(DraftStore);
 
-  private readonly turnState = computed<TurnState>(
+  private readonly viewersTurn = computed<ViewersTurn>(
     () => ({
       pick: this.store.turnStartPick(),
       drafting: this.store.draft.value()?.state === 'Drafting',
@@ -51,8 +51,8 @@ export class OwnTurnLoop {
    * it, except at the turnaround: a pick they pressed to make by hand that
    * leaves the turn with them doesn't start the loop again.
    */
-  private readonly pressedOn = linkedSignal<TurnState, number | null>({
-    source: this.turnState,
+  private readonly pressedOn = linkedSignal<ViewersTurn, number | null>({
+    source: this.viewersTurn,
     computation: (now, before) => {
       const was = before?.source;
       const turnaround = !!was && was.drafting && was.own && now.drafting && now.own;
@@ -60,15 +60,15 @@ export class OwnTurnLoop {
     },
   });
 
-  /** Whether the viewer's ring is finishingBeat the beat it was on as they pressed. */
-  private readonly finishingBeat = linkedSignal<TurnState, boolean>({
-    source: this.turnState,
+  /** Whether the viewer's ring is finishing the beat it was on as they pressed. */
+  private readonly finishingBeat = linkedSignal<ViewersTurn, boolean>({
+    source: this.viewersTurn,
     computation: () => false,
   });
 
   /** Whether the viewer's turn calls for the loop: they haven't pressed since it reached them. */
   private readonly awaitingPress = computed(() => {
-    const { pick, drafting, own } = this.turnState();
+    const { pick, drafting, own } = this.viewersTurn();
     return drafting && own && this.pressedOn() !== pick;
   });
 
@@ -103,7 +103,7 @@ export class OwnTurnLoop {
 
   private press() {
     if (!this.awaitingPress()) return;
-    this.pressedOn.set(this.turnState().pick);
+    this.pressedOn.set(this.viewersTurn().pick);
     this.finishingBeat.set(true);
   }
 }

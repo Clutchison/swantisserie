@@ -138,6 +138,16 @@ export class SeatStrip {
    * seat; null once it has played, or while the viewer's own ring loops.
    */
   protected readonly pulse = signal<Pulse | null>(null);
+  /**
+   * What the turn's ring plays, as its `data-pulse` says for want of an
+   * accessible state: `loop`, the viewer's own ring pulsing until they press;
+   * `beats`, the three beats of a turn change; `loop beats`, which it should
+   * never play; or null at rest.
+   */
+  protected readonly turnPulse = computed(() => {
+    const plays = [...(this.ownLoop.looping() ? ['loop'] : []), ...(this.pulse() ? ['beats'] : [])];
+    return plays.length > 0 ? plays.join(' ') : null;
+  });
 
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
   private readonly popover = viewChild<ElementRef<HTMLElement>>('popover');

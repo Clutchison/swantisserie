@@ -229,3 +229,11 @@ export const EMPTY_PLAN: PlanView = {
   readyNotice: false,
   preferredPrintings: {},
 };
+
+/**
+ * What a turn's text adds on a double turn: the picks still to make before
+ * it passes. A single turn adds nothing, so only a double turn calls this.
+ */
+export function doubleTurnSuffix(picksBeforeTurnPasses: 1 | 2) {
+  return picksBeforeTurnPasses === 2 ? ' · 2 picks' : ' · 1 more pick';
+}

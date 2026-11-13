@@ -9,11 +9,17 @@ import {
   signal,
 } from '@angular/core';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
-import { MAX_PLAYERS, picksPerTurn } from 'engine';
+import { MAX_PLAYERS } from 'engine';
 import { isTurnState, type DraftView, type PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
-import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
+import {
+  doubleTurnSuffix,
+  hasTurn,
+  isRefusal,
+  PLAYERS_CHANGE_FAILED,
+  sendDraftChange,
+} from './drafts';
 import { Changes, FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import { Questions } from '../question-dialog';
@@ -68,12 +74,9 @@ export class DraftHeader {
     // A player no longer in the draft is the fallback, capitalized to start the sentence.
     const player = this.store.findPlayer(turn.playerId);
     const whose = this.store.yourTurn() ? 'Your' : `${player?.name ?? 'Another player'}’s`;
-    const picksOnTurnSuffix =
-      picksPerTurn(this.store.draftSize(), turn.round) === 2
-        ? doubleTurnSuffix(turn.picksBeforeTurnPasses)
-        : '';
+    const suffix = this.store.isDoubleTurn() ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
     return {
-      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}${picksOnTurnSuffix}`,
+      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}${suffix}`,
       isBot: !!player?.isBot,
     };
   });
@@ -302,12 +305,4 @@ export class DraftHeader {
     this.error.set(null);
     this.changeStarted.emit();
   }
-}
-
-/**
- * What the header's turn text adds on a double turn: the picks still to make
- * before it passes. A single turn adds nothing.
- */
-function doubleTurnSuffix(picksBeforeTurnPasses: 1 | 2) {
-  return picksBeforeTurnPasses === 2 ? ' · 2 picks' : ' · 1 more pick';
 }

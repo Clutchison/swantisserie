@@ -271,6 +271,7 @@ button {
     border-color: var(--color-raised);
     border-radius: 22px;
     color: var(--color-muted);
+    font: inherit;
     white-space: nowrap;
 
     &[aria-pressed='true'] {

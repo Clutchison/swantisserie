@@ -30,7 +30,7 @@ import type {
   ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
-import { draftSize, queuePicksBeforeAnotherPlayerPicks, turnStartPick } from 'engine';
+import { draftSize, picksPerTurn, queuePicksBeforeAnotherPlayerPicks, turnStartPick } from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
@@ -200,6 +200,11 @@ export class DraftStore implements TournamentViewer {
   readonly turnStartPick = computed(() => {
     const turn = this.turn();
     return turn && turnStartPick(this.draftSize(), turn);
+  });
+  /** Whether the turn is a double turn, on either of its picks; false with no turn. */
+  readonly isDoubleTurn = computed(() => {
+    const turn = this.turn();
+    return !!turn && picksPerTurn(this.draftSize(), turn.round) === 2;
   });
 
   /** The pool's cards wait for the snapshot. */

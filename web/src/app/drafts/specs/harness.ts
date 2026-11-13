@@ -29,6 +29,7 @@ import type {
   WebhookView,
 } from 'contract';
 import { isTurnState } from 'contract';
+import { currentTurn } from 'engine';
 import { of, Subject } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
@@ -363,15 +364,15 @@ export const drafting = (fields: DraftFixture = {}): DraftFixture => ({
  * turns, Alice, Bob, Bob, Alice; then round 3 goes Alice picks 5 and 6, Bob 7
  * and 8, and round 4 Bob 9 and 10, Alice 11 and 12.
  */
-export const withDoubleTurns = (pick: number, playerId: string): DraftFixture =>
-  drafting({
-    picksPerPlayer: 6,
-    doublePicks: 4,
-    turn:
-      pick <= 4
-        ? { pick, round: Math.ceil(pick / 2), playerId }
-        : { pick, round: pick <= 8 ? 3 : 4, playerId, picksBeforeTurnPasses: pick % 2 ? 2 : 1 },
+export const withDoubleTurns = (pick: number, playerId: string): DraftFixture => {
+  const size = { players: 2, picksPerPlayer: 6, doublePicks: 4 };
+  const { round, picksBeforeTurnPasses } = currentTurn(size, pick - 1)!;
+  return drafting({
+    picksPerPlayer: size.picksPerPlayer,
+    doublePicks: size.doublePicks,
+    turn: { pick, round, playerId, picksBeforeTurnPasses },
   });
+};
 
 /** A pool card as a queue or a plan names it: by its id and name. */
 export type NamedPoolCard = Pick<PoolCardView, 'id' | 'name'>;
