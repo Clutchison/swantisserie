@@ -61,6 +61,8 @@ export class PickImportService {
       picks: reading.picks.length,
       next: {
         pick: reading.next.pick,
+        round: reading.next.round,
+        picksBeforeTurnPasses: reading.next.picksBeforeTurnPasses,
         player: players[reading.next.seat].user.name,
       },
     };

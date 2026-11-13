@@ -38,7 +38,33 @@ describe('pick import preview', () => {
         { column: 'Ben', playerId: bob.id, player: 'Bob' },
       ],
       picks: 3,
-      next: { pick: 4, player: 'Alice' },
+      next: { pick: 4, round: 2, picksBeforeTurnPasses: 1, player: 'Alice' },
+    });
+  });
+
+  it('names the next turn partway through a double turn, with the picks still to make before it passes', async () => {
+    const id = await readyDraft(
+      [aliceCookie, await signIn(bob)],
+      3,
+      [...cards, 'Ember Stag', 'Fen Lurker'],
+      null,
+      2,
+    );
+    // A round of single turns, then Bob's double turn and the first pick of Alice's.
+    const doubles = [
+      ',Ann,Ben,',
+      '->,Ash Golem,Brine Wisp,',
+      ',Ember Stag,Cinder Hound,<-',
+      ',,Dusk Heron,<-',
+    ].join('\n');
+
+    const answer = await previewPickImport(id, doubles).expect(200);
+
+    expect(answer.body.next).toEqual({
+      pick: 6,
+      round: 2,
+      picksBeforeTurnPasses: 1,
+      player: 'Alice',
     });
   });
 
