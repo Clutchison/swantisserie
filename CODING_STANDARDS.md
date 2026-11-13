@@ -21,7 +21,7 @@ _Judgement._ In a row of action buttons, put the viewer's own buttons first and 
 - **Positive** is the one action that moves the draft, tournament or dialog forward: Start, Join, Complete round, a dialog's confirm. It goes last.
 - **Intermediate** is everything else: I'm ready, Randomize seats, Add bot, Import picks, Undo, Reopen round.
 
-Dialogs follow the rule too. Per-item icon controls (seat, queue and plan line arrows and Remove), navigation, and segmented toggles are not action rows.
+Dialogs follow the rule too. Per-item icon controls (seat and plan line arrows, Remove, and a queued card's row menu), navigation, and segmented toggles are not action rows.
 
 Why: when every row ends on the action that moves things on, players find it in the same place on every screen and are less likely to hit a destructive button by habit.
 

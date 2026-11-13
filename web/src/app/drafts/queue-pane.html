@@ -93,7 +93,7 @@
           Cards are picked for you in this order. Drag a card by its handle, or use its menu, to
           reorder.
         } @else {
-          Cards are picked for you in this order. Drag a card, or use its arrows, to reorder.
+          Cards are picked for you in this order. Drag a card, or use its menu, to reorder.
         }
         If another player picks a queued card first and no copy is left, it is lost.
         {{ stealBehaviorHelp }}
@@ -175,96 +175,54 @@
               <span class="visually-hidden">, just added</span>
             }
             @if (!readOnly()) {
-              @if (coarsePointer()) {
-                <!-- On a touchscreen, a menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
-                @let menuName = 'Move or remove ' + card.name;
-                <span class="move">
+              <!-- A menu moves or removes the card, so no move needs a drag (WCAG 2.5.7). -->
+              @let menuName = 'Move or remove ' + card.name;
+              <button
+                #rowMenu
+                class="icon"
+                type="button"
+                [attr.aria-label]="menuName"
+                [title]="menuName"
+                [cdkMenuTriggerFor]="moves"
+                [appSendsChange]="menuKey(card.poolCardId)"
+              >
+                <svg lucideEllipsisVertical size="16"></svg>
+              </button>
+              <ng-template #moves>
+                <div cdkMenu [attr.aria-label]="menuName">
                   <button
-                    #rowMenu
-                    class="icon"
                     type="button"
-                    [attr.aria-label]="menuName"
-                    [title]="menuName"
-                    [cdkMenuTriggerFor]="moves"
-                    [appSendsChange]="'menu ' + card.poolCardId"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="first"
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, 0))"
                   >
-                    <svg lucideEllipsisVertical size="16"></svg>
+                    Move to top
                   </button>
-                </span>
-                <ng-template #moves>
-                  <div cdkMenu [attr.aria-label]="menuName">
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      [cdkMenuItemDisabled]="first"
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, 0))"
-                    >
-                      Move to top
-                    </button>
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      [cdkMenuItemDisabled]="first"
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i - 1))"
-                    >
-                      Move up
-                    </button>
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      [cdkMenuItemDisabled]="last"
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i + 1))"
-                    >
-                      Move down
-                    </button>
-                    <button
-                      type="button"
-                      cdkMenuItem
-                      (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => remove(card.poolCardId))"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                </ng-template>
-              } @else {
-                <span class="move">
-                  @let upName = 'Move ' + card.name + ' up';
                   <button
-                    class="icon"
                     type="button"
-                    [attr.aria-label]="upName"
-                    [title]="upName"
-                    (click)="move(i, i - 1)"
-                    [disabled]="first"
-                    [appSendsChange]="'up ' + card.poolCardId"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="first"
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i - 1))"
                   >
-                    <svg lucideArrowUp size="16"></svg>
+                    Move up
                   </button>
-                  @let downName = 'Move ' + card.name + ' down';
                   <button
-                    class="icon"
                     type="button"
-                    [attr.aria-label]="downName"
-                    [title]="downName"
-                    (click)="move(i, i + 1)"
-                    [disabled]="last"
-                    [appSendsChange]="'down ' + card.poolCardId"
+                    cdkMenuItem
+                    [cdkMenuItemDisabled]="last"
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => move(i, i + 1))"
                   >
-                    <svg lucideArrowDown size="16"></svg>
+                    Move down
                   </button>
-                  @let removeName = 'Remove ' + card.name;
                   <button
-                    class="icon"
                     type="button"
-                    [attr.aria-label]="removeName"
-                    [title]="removeName"
-                    (click)="remove(card.poolCardId)"
-                    [appSendsChange]="'remove ' + card.poolCardId"
+                    cdkMenuItem
+                    (cdkMenuItemTriggered)="fromRowMenu(rowMenu, () => remove(card.poolCardId))"
                   >
-                    <svg lucideTrash size="16"></svg>
+                    Remove
                   </button>
-                </span>
-              }
+                </div>
+              </ng-template>
             }
           </li>
         } @empty {

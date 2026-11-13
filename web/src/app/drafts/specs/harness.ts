@@ -58,6 +58,8 @@ export { accessibleName, alertIn, alice, button, buttons, serverError, table, ta
 export { resizeTo, viewOn } from './screen-harness';
 export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
 export {
+  chooseInOpenRowMenu,
+  chooseInRowMenu,
   endJustAddedHighlight,
   findNextUpStrip,
   findQueuePane,
@@ -65,6 +67,7 @@ export {
   justAddedCards,
   nextUpStrip,
   openQueueSheet,
+  openRowMenu,
   pickChangesQueue,
   queueList,
   queueNotice,
@@ -73,6 +76,8 @@ export {
   queuePausedSwitch,
   queueSheet,
   queueStatuses,
+  rowMenu,
+  rowMenuName,
 } from './queue-harness';
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
