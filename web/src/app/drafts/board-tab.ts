@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import type { PlayerView } from 'contract';
+import { isTurnState, type PlayerView } from 'contract';
 import { currentTurn, picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
 import { LucideArrowLeft, LucideArrowRight, LucideDynamicIcon } from '@lucide/angular';
 import { LoadingAnimation } from '../loading/loading-animation';
@@ -96,6 +96,27 @@ export class BoardTab {
     }
     return rows;
   });
+
+  /**
+   * The pick numbers of the latest turn's picks made: the latest pick, or
+   * those of the latest double turn. None unless the draft is drafting or
+   * frozen.
+   */
+  private readonly latestTurnPicks = computed(() => {
+    const last = this.picks().at(-1);
+    if (!last || !isTurnState(this.store.shown().state)) return new Set<number>();
+    const start = this.store.turnStartOf(last.pick);
+    return new Set(
+      this.picks()
+        .filter(({ pick }) => pick >= start)
+        .map(({ pick }) => pick),
+    );
+  });
+
+  /** Whether the cell's `pick` is the latest pick, or one of the latest double turn's; false for an empty cell. */
+  protected isLatest(pick: PickedCard | null) {
+    return !!pick && this.latestTurnPicks().has(pick.pick);
+  }
 
   protected isOwn(player: PlayerView) {
     return player.id === this.ownId();

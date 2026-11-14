@@ -44,3 +44,9 @@ export function boardCell(page: HTMLElement, row: string, column: string) {
   if (seat < 0 || !cell) throw new Error(`boardCell: no cell in row "${row}", column "${column}"`);
   return cell;
 }
+
+/** The text of each cell of the grid marked as the latest pick, `aria-current`, in reading order. */
+export const latestPicks = (page: HTMLElement) =>
+  [...board(page).querySelectorAll(CELLS)]
+    .filter((cell) => cell.getAttribute('aria-current') === 'true')
+    .map((cell) => text(cell));
