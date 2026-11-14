@@ -174,15 +174,33 @@ export type DraftListItemView = DraftView & {
 };
 
 /**
- * What the api pushes over Socket.IO to everyone viewing a draft, by event
- * name.
+ * What the api pushes over Socket.IO, by event name: to everyone watching a
+ * draft, and to each of its players but the bots whether watching it or not.
  */
 export interface DraftSocketEvents {
   /** The draft changed: here it is as it now is. */
   changed: (draft: DraftView) => void;
-  /** The draft was cancelled, so it no longer exists. */
-  cancelled: () => void;
+  /** The draft of id `draftId` was cancelled, so it no longer exists. */
+  cancelled: (draftId: string) => void;
 }
+
+/**
+ * What a signed-in client asks of the api over Socket.IO, by event name,
+ * each answered through Socket.IO's acknowledgement. Watches last only as
+ * long as the connection: a client watches its drafts again on reconnect.
+ */
+export interface DraftSocketRequests {
+  /**
+   * Have the draft of id `draftId`'s changes pushed to this socket: refused,
+   * pushing nothing, unless the viewer may see the draft.
+   */
+  watch: (draftId: string, ack: (result: DraftWatchResult) => void) => void;
+  /** Stop pushing the draft of id `draftId`'s changes to this socket. */
+  stopWatching: (draftId: string, ack: () => void) => void;
+}
+
+/** The api's answer to a request to watch a draft. */
+export type DraftWatchResult = 'watching' | 'refused';
 
 /**
  * What the signed-in viewer may do to one draft, from

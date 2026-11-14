@@ -1,10 +1,11 @@
 import { NgTemplateOutlet } from '@angular/common';
-import { httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import type { DraftListItemView } from 'contract';
+import { Auth } from '../auth/auth';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { isActive } from './drafts';
+import { isActive, isTurnOf, pickAndRound, titleWithTurn } from './drafts';
+import { ViewerDrafts } from './viewer-drafts';
 
 /** Names a list of players as a sentence does: "Alice", "Alice and Bob", "Alice, Bob, and Carol". */
 const NAMES = new Intl.ListFormat('en', { type: 'conjunction' });
@@ -23,37 +24,64 @@ function tournamentUnderWay(draft: DraftListItemView): boolean {
   styleUrls: ['../page.scss', './drafts.scss', './draft-list-page.scss'],
 })
 export class DraftListPage {
-  /** Read once per visit: the list has no live updates, so a badge is as fresh as the visit. */
-  private readonly drafts = httpResource<DraftListItemView[]>(() => '/api/drafts');
+  private readonly viewerDrafts = inject(ViewerDrafts);
+  private readonly viewer = inject(Auth).user;
 
   /** What the page that sent the viewer here wants them told, e.g. a draft was cancelled. */
   protected readonly notice = inject(Router).currentNavigation()?.extras.state?.['notice'] as
     string | undefined;
 
-  protected readonly loading = this.drafts.isLoading;
-  protected readonly failed = computed(() => !!this.drafts.error());
   /**
-   * The active drafts, and the complete drafts whose tournament is under way, which aren't active drafts.
-   * The lists are read only once the drafts have loaded.
+   * The viewer's drafts, read only once they have loaded: none once the
+   * viewer has signed out, in the moment before the page goes.
    */
-  protected readonly active = computed(() =>
-    this.drafts.value()!.filter((draft) => isActive(draft.state) || tournamentUnderWay(draft)),
-  );
+  private readonly drafts = computed(() => this.viewerDrafts.drafts() ?? []);
+  protected readonly loading = this.viewerDrafts.loading;
+  protected readonly failed = this.viewerDrafts.failed;
+  /** The drafting drafts on the viewer's turn, which Your turn lists. */
+  protected readonly draftsOnYourTurn = this.viewerDrafts.draftsOnYourTurn;
+  /**
+   * The active drafts but those in Your turn, and the complete drafts whose
+   * tournament is under way, which aren't active drafts.
+   */
+  protected readonly active = computed(() => {
+    const onYourTurn = new Set(this.draftsOnYourTurn());
+    return this.drafts().filter(
+      (draft) => (isActive(draft.state) && !onYourTurn.has(draft)) || tournamentUnderWay(draft),
+    );
+  });
   protected readonly complete = computed(() =>
-    this.drafts
-      .value()!
-      .filter((draft) => draft.state === 'Complete' && !tournamentUnderWay(draft)),
+    this.drafts().filter((draft) => draft.state === 'Complete' && !tournamentUnderWay(draft)),
   );
   protected readonly closed = computed(() =>
-    this.drafts.value()!.filter((draft) => draft.state === 'Closed'),
+    this.drafts().filter((draft) => draft.state === 'Closed'),
   );
 
+  constructor() {
+    // The tab says so while any draft is on the viewer's turn.
+    titleWithTurn((appTitle) => ({ name: appTitle, yourTurn: this.draftsOnYourTurn().length > 0 }));
+  }
+
   /**
-   * What a card in Active drafts says of where the draft stands: its draft state, or, for a
-   * complete draft listed there, its tournament's.
+   * Where a draft in Your turn has got to, as the draft's header puts it:
+   * its pick and round, and on a double turn the picks still to make before
+   * it passes. Read only for a draft with a turn.
+   */
+  protected turnText(draft: DraftListItemView): string {
+    const text = pickAndRound(draft);
+    return text[0].toUpperCase() + text.slice(1);
+  }
+
+  /**
+   * What a card in Active drafts says of where the draft stands: its draft state, saying a
+   * frozen draft is on the viewer's turn, or, for a complete draft listed there, its tournament's.
    */
   protected listedState(draft: DraftListItemView): string {
-    return tournamentUnderWay(draft) ? `Tournament: ${draft.tournamentBadge!.state}` : draft.state;
+    if (tournamentUnderWay(draft)) return `Tournament: ${draft.tournamentBadge!.state}`;
+    if (draft.state === 'Frozen' && isTurnOf(draft, this.viewer()?.id)) {
+      return 'Your turn (frozen)';
+    }
+    return draft.state;
   }
 
   /**

@@ -8,10 +8,11 @@ import {
 import { Location } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
-import type { UserView } from 'contract';
+import type { DraftListItemView, UserView } from 'contract';
 import { App } from './app';
 import { routes } from './app.routes';
 import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
+import { type FakeDraftUpdates, fakeDraftUpdates } from './drafts/specs/updates-harness';
 
 /** A guild member who isn't an app admin. */
 export const alice: UserView = {
@@ -37,16 +38,21 @@ export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[
 
 export let http: HttpTestingController;
 export let router: Router;
+/** Stands in for the API's Socket.IO gateway. */
+export let updates: FakeDraftUpdates;
 
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useApp() {
   beforeEach(() => {
+    const fake = fakeDraftUpdates();
+    updates = fake.updates;
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(routes, withComponentInputBinding()),
         provideHttpClient(withInterceptors([signOutWhenSessionEnds])),
         provideHttpClientTesting(),
+        fake.provider,
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -68,8 +74,24 @@ export function followBack() {
 }
 
 /**
+ * The app reads the viewer's drafts as it opens for a signed-in viewer,
+ * whatever the page; answers that read with `drafts`, failing if it wasn't made.
+ */
+export function answerViewerDrafts(
+  controller: HttpTestingController,
+  drafts: DraftListItemView[] = [],
+) {
+  controller.expectOne('/api/drafts').flush(drafts);
+}
+
+/** Whether `url` opens the draft list, whose read of the drafts a test answers itself. */
+export const opensDraftList = (url: string) => url.split(/[?#]/)[0] === '/';
+
+/**
  * Opens `url` signed in as `user`, or with /api/auth/me answered by `user`
- * when it is a function. The page's own requests are left to the test.
+ * when it is a function. The page's own requests are left to the test. So
+ * is the read of the viewer's drafts on the draft list, or when `user` is a
+ * function; signed in elsewhere, it finds none.
  */
 export async function openApp(url: string, user: UserView | ((me: TestRequest) => void)) {
   const fixture = TestBed.createComponent(App);
@@ -80,6 +102,7 @@ export async function openApp(url: string, user: UserView | ((me: TestRequest) =
   else me.flush(user);
   await navigation;
   TestBed.tick();
+  if (typeof user !== 'function' && !opensDraftList(url)) answerViewerDrafts(http);
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 

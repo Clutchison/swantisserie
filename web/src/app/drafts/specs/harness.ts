@@ -30,25 +30,27 @@ import type {
 } from 'contract';
 import { isTurnState } from 'contract';
 import { currentTurn } from 'engine';
-import { of, Subject } from 'rxjs';
+import { of } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { SET_CATALOG_POLL_MS } from '../set-list-picker';
 import { EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
-import { type DraftUpdate, DraftUpdates } from '../draft-updates';
+import { type FakeDraftUpdates, fakeDraftUpdates } from './updates-harness';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import { disclosure } from './disclosure-harness';
 import {
   accessibleName,
   alertIn,
   alice,
+  answerViewerDrafts,
   button,
   buttons,
   byAriaLabel,
   byName,
   collapseWhitespace,
+  opensDraftList,
   serverError,
   table,
   tableRows,
@@ -133,8 +135,8 @@ export type AppFixture = ComponentFixture<App>;
 
 export let http: HttpTestingController;
 export let router: Router;
-/** Stands in for the API's Socket.IO gateway: push events through `events`. */
-export let updates: { events: Subject<DraftUpdate>; watch: ReturnType<typeof vi.fn> };
+/** Stands in for the API's Socket.IO gateway. */
+export let updates: FakeDraftUpdates;
 
 /**
  * What GET /api/webhooks answers with, without a test having to: every view
@@ -181,14 +183,16 @@ export function useDraftsApp() {
     // Spec files share one environment, so a choice saved by an earlier file
     // (such as the Deck tab's List mode) would otherwise carry into this one.
     localStorage.clear();
+    // The app's title, as a page that changed it may not have put it back.
+    document.title = 'Swantisserie';
     decodes = new Map();
     registeredWebhooks = [];
     registeredPowers = NO_POWERS;
     HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
       return new Promise((resolve, reject) => decodes.set(this, { resolve, reject }));
     };
-    const events = new Subject<DraftUpdate>();
-    updates = { events, watch: vi.fn(() => events) };
+    const fake = fakeDraftUpdates();
+    updates = fake.updates;
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -209,7 +213,7 @@ export function useDraftsApp() {
         provideHttpClientTesting(),
         { provide: DRAFT_POLL_MS, useValue: 5 },
         { provide: SET_CATALOG_POLL_MS, useValue: 5 },
-        { provide: DraftUpdates, useValue: updates },
+        fake.provider,
       ],
     });
     http = TestBed.inject(HttpTestingController);
@@ -238,14 +242,23 @@ export async function decodeRefused(img: HTMLImageElement) {
   TestBed.tick();
 }
 
-/** Opens `url` as `user`: Alice, unless told otherwise. */
-export async function openUrl(url: string, user: UserView = alice) {
+/**
+ * Opens `url` as `user`: Alice, unless told otherwise. The app's read of the
+ * viewer's drafts finds `viewerDrafts`, none unless given; on the draft list,
+ * whose read a test answers itself, it is left unanswered.
+ */
+export async function openUrl(
+  url: string,
+  user: UserView = alice,
+  { viewerDrafts = [] }: { viewerDrafts?: DraftListItemView[] } = {},
+) {
   const fixture = TestBed.createComponent(App);
   const navigation = router.navigateByUrl(url);
   (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
   await navigation;
   TestBed.tick();
   answerTopBar(http);
+  if (!opensDraftList(url)) answerViewerDrafts(http, viewerDrafts);
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 
@@ -265,40 +278,6 @@ export async function expectLoadingAnimation(
     expect(loading?.textContent).toContain(text);
     expect(loading?.querySelector('svg')?.getAttribute('width')).toBe(String(logoWidth));
   });
-}
-
-/**
- * Opens the draft list with GET /api/drafts answered by `drafts`, each
- * without a tournament badge unless it gives one.
- */
-export async function openList(drafts: (DraftView & Partial<DraftListItemView>)[]) {
-  const { fixture, page } = await openUrl('/');
-  http
-    .expectOne('/api/drafts')
-    .flush(drafts.map((each): DraftListItemView => ({ tournamentBadge: null, ...each })));
-  await fixture.whenStable();
-  return page;
-}
-
-/** The draft list's item for the draft named `name`, by its accessible name. */
-export function listItem(page: HTMLElement, name: string): HTMLElement {
-  const found = [...page.querySelectorAll('li')].find(
-    (li) => li.getAttribute('aria-label') === name,
-  );
-  if (!found) throw new Error(`No draft named ${name} in the list`);
-  return found;
-}
-
-/** The names of the drafts listed in the draft list's section headed `heading`. */
-export function listedDrafts(page: HTMLElement, heading: string): string[] {
-  return [...section(page, heading).querySelectorAll('li[aria-label]')].map(
-    (li) => li.getAttribute('aria-label') ?? '',
-  );
-}
-
-/** The link to draft `id`'s page inside `root`, such as a draft's card in the draft list. */
-export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | null {
-  return root.querySelector<HTMLAnchorElement>(`a[href="/drafts/${id}"]`);
 }
 
 /**
@@ -328,14 +307,6 @@ export const panelTurnSeat = (root: HTMLElement) =>
  */
 export const findPlayersBesideTabs = (page: HTMLElement) =>
   byAriaLabel(page, 'aside, [role="complementary"]', 'Players');
-
-export function section(page: HTMLElement, heading: string): HTMLElement {
-  const found = [...page.querySelectorAll('section')].find((s) =>
-    s.querySelector('h2')?.textContent?.includes(heading),
-  );
-  if (!found) throw new Error(`No section headed ${heading}`);
-  return found;
-}
 
 export const bob = {
   id: 'bob',
@@ -802,6 +773,7 @@ export async function openDraft(
     user = alice,
     powers,
     url = '/drafts/draft-1',
+    viewerDrafts,
   }: {
     cards?: PoolCardView[];
     picks?: PickView[];
@@ -812,10 +784,12 @@ export async function openDraft(
     user?: typeof alice;
     powers?: DraftPowersView;
     url?: string;
+    /** What the app's read of the viewer's drafts finds: none unless given. */
+    viewerDrafts?: DraftListItemView[];
   } = {},
 ) {
   if (powers) powersAnswer(powers);
-  const { fixture, page } = await openUrl(url, user);
+  const { fixture, page } = await openUrl(url, user, { viewerDrafts });
   const opened = draft({ snapshot, ...fields });
   http.expectOne('/api/drafts/draft-1').flush(opened);
   if (snapshot.state === 'Complete') await flushPool(cards);

@@ -3,17 +3,38 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { NavigationStart } from '@angular/router';
 import { App } from './app';
-import { alice, http, openApp, openDialog, router, useApp } from './specs-harness';
+import {
+  alice,
+  answerViewerDrafts,
+  http,
+  openApp,
+  openDialog,
+  updates,
+  router,
+  useApp,
+} from './specs-harness';
 import {
   banner,
   button,
+  drafting,
   expectLoadingAnimation,
   expectSignedOut,
   loadingAnimation,
   midNavigation,
 } from './drafts/specs/harness';
 import { answerUnreviewedCount, link } from './feedback/specs-harness';
-import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
+import {
+  appAdminButton,
+  answerAppVersion,
+  isShown,
+  narrowMenuButton,
+  showNarrowTopBar,
+  turnLink,
+  turnLinkShown,
+} from './top-bar/specs-harness';
+import { alicesTurnItem, listItemOf } from './drafts/specs/draft-list-harness';
+import { pushToOwnRoom } from './drafts/specs/updates-harness';
+import type { DraftListItemView, DraftView } from 'contract';
 
 describe('App', () => {
   useApp();
@@ -150,6 +171,96 @@ describe('App', () => {
       expect(page.querySelector('header')!.textContent).not.toContain('App version');
       // Nor do they ask which version is live.
       expect(http.match('/api/admin/app-version')).toEqual([]);
+    });
+  });
+
+  describe('Turn link', () => {
+    /** A drafting draft of Alice and Bob whose turn is Bob's. */
+    const bobsTurn = (id: string, name: string) => listItemOf({ id, name, ...drafting() });
+
+    /**
+     * Opens `url` as Alice, with the read of her drafts answered by `drafts`,
+     * and the page's own requests by `answerPage`.
+     */
+    async function openWithDrafts(
+      url: string,
+      drafts: DraftListItemView[],
+      answerPage: () => void = () => undefined,
+    ) {
+      const { fixture, page } = await openApp(url, (me) => me.flush(alice));
+      answerViewerDrafts(http, drafts);
+      answerPage();
+      await fixture.whenStable();
+      return page;
+    }
+
+    it('names the one draft on the viewer’s turn, and goes to its page', async () => {
+      const page = await openWithDrafts('/', [
+        bobsTurn('b', 'Arena cube'),
+        alicesTurnItem('a', 'Red dragons'),
+      ]);
+
+      expect(turnLinkShown(page)).toEqual({ text: 'Your turn in Red dragons', href: '/drafts/a' });
+    });
+
+    it('gives the count when it is the viewer’s turn in several drafts, and goes to the draft list', async () => {
+      const page = await openWithDrafts(
+        '/status',
+        [
+          alicesTurnItem('a', 'Red dragons'),
+          bobsTurn('b', 'Arena cube'),
+          alicesTurnItem('c', 'Blue sphinxes'),
+          alicesTurnItem('f', 'Taking a break', 'Frozen'),
+        ],
+        () => http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' }),
+      );
+
+      expect(turnLinkShown(page)).toEqual({ text: 'Your turn in 2 drafts', href: '/' });
+    });
+
+    it('shows on a narrow screen in the bar itself, not in the menu', async () => {
+      const page = await openWithDrafts('/', [alicesTurnItem('a', 'Red dragons')]);
+
+      // Places it only: jsdom can't apply the narrow screen's media query, so this stands in for it.
+      showNarrowTopBar(page);
+
+      expect(narrowMenuButton(page).getAttribute('aria-expanded')).toBe('false');
+      expect(isShown(turnLink(page)!)).toBe(true);
+    });
+
+    it('isn’t there for a signed-out visitor, nor are their drafts read', async () => {
+      const { fixture, page } = await openApp('/', (me) =>
+        me.flush(null, { status: 401, statusText: 'Unauthorized' }),
+      );
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/sign-in');
+      expect(turnLink(page)).toBeNull();
+      http.expectNone('/api/drafts');
+    });
+
+    it.each([
+      ['no draft is on the viewer’s turn', [bobsTurn('b', 'Arena cube')]],
+      ['the only one on their turn is frozen', [alicesTurnItem('f', 'Taking a break', 'Frozen')]],
+      ['they are in no drafts', []],
+    ])('isn’t there when %s', async (_, drafts) => {
+      const page = await openWithDrafts('/', drafts);
+
+      expect(turnLink(page)).toBeNull();
+    });
+
+    it('appears as the turn reaches the viewer, and goes as it passes, on any page', async () => {
+      const page = await openWithDrafts('/status', [bobsTurn('a', 'Red dragons')], () =>
+        http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' }),
+      );
+      const pushChanged = (draft: DraftView, version: number) =>
+        pushToOwnRoom(updates, { type: 'changed', draft: { ...draft, version } });
+
+      pushChanged(alicesTurnItem('a', 'Red dragons'), 1);
+      expect(turnLinkShown(page)).toEqual({ text: 'Your turn in Red dragons', href: '/drafts/a' });
+
+      pushChanged(bobsTurn('a', 'Red dragons'), 2);
+      expect(turnLink(page)).toBeNull();
     });
   });
 
@@ -413,6 +524,20 @@ describe('App', () => {
     expect(banner(page)?.textContent ?? '').not.toContain('Alice');
   });
 
+  it('stops hearing of the viewer’s drafts once logged out', async () => {
+    const page = await openSettled('/', alice);
+    expect(updates.close).not.toHaveBeenCalled();
+
+    clickLogOut(page);
+    (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    expect(updates.close).toHaveBeenCalled();
+  });
+
   it('signs the user out locally even when the logout request fails', async () => {
     const page = await openSettled('/', alice);
 
@@ -490,6 +615,16 @@ describe('App', () => {
       expect(toSignIn()).toBe(1);
     });
 
+    it('signs the viewer out when the socket finds the session gone, off the draft page too', async () => {
+      const { fixture, drafts } = await openDraftList();
+      drafts.flush([]);
+      await fixture.whenStable();
+
+      pushToOwnRoom(updates, { type: 'unauthorized' });
+
+      await expectSignedOut(fixture, { router, http, user: alice });
+    });
+
     it('keeps the page’s own error when a request fails for another reason', async () => {
       const { fixture, page, drafts } = await openDraftList();
 
@@ -530,8 +665,11 @@ describe('App', () => {
     const serverError: Answer = (req) =>
       req.flush(null, { status: 500, statusText: 'Server Error' });
 
-    /** Opens /status with /api/auth/me answered by `me` and /api/health by `health`. */
-    async function openStatus(me: Answer, health: Answer) {
+    /**
+     * Opens /status with /api/auth/me answered by `me` and /api/health by
+     * `health`, and, for a viewer `signedIn`, the read of their drafts with none.
+     */
+    async function openStatus(me: Answer, health: Answer, { signedIn = false } = {}) {
       const fixture = TestBed.createComponent(App);
       const navigation = router.navigateByUrl('/status');
       me(await vi.waitFor(() => http.expectOne('/api/auth/me')));
@@ -541,6 +679,7 @@ describe('App', () => {
       health(await vi.waitFor(() => http.expectOne('/api/health')));
       answerUnreviewedCount(http);
       answerAppVersion(http, { commit: sha });
+      if (signedIn) answerViewerDrafts(http);
       await fixture.whenStable();
       return fixture.nativeElement as HTMLElement;
     }
@@ -577,6 +716,7 @@ describe('App', () => {
       const page = await openStatus(
         (req) => req.flush(alice),
         (req) => req.flush({ api: 'ok', db: 'ok' }),
+        { signedIn: true },
       );
 
       expect(page.textContent).toContain('API ok');
@@ -587,6 +727,7 @@ describe('App', () => {
       const page = await openStatus(
         (req) => req.flush(alice),
         (req) => req.flush({ api: 'ok', db: 'ok' }),
+        { signedIn: true },
       );
 
       clickLogOut(page);

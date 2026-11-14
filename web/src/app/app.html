@@ -28,6 +28,9 @@
       </div>
     </div>
     <div class="right-group">
+      @if (turnLink(); as turn) {
+        <a class="button compact turn-link" [routerLink]="turn.url">{{ turn.text }}</a>
+      }
       <app-top-bar-menu class="shrinks" [label]="user.name" align="end">
         <a class="menu-item" routerLink="/my-stats">My stats</a>
         <button class="menu-item" type="button" (click)="logout()">Log out</button>

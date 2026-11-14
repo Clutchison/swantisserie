@@ -1,19 +1,38 @@
+import { ApplicationRef } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import type { DraftListItemView, TournamentBadgeView } from 'contract';
+import { App } from '../../app';
+import { alice } from '../../specs-harness';
 import {
   alicePlayer,
   bob,
   useDraftsApp,
   draft,
-  draftLink,
-  listItem,
+  drafting,
   expectLoadingAnimation,
   http,
   link,
-  listedDrafts,
-  openList,
   openUrl,
-  section,
+  router,
+  serverError,
+  updates,
+  withDoubleTurns,
+  type DraftFixture,
 } from './harness';
+import {
+  alicesTurnItem,
+  draftLink,
+  findSection,
+  listedDrafts,
+  listItem,
+  listItemOf,
+  openList,
+  section,
+} from './draft-list-harness';
+import { pushToOwnRoom } from './updates-harness';
+
+/** The turn of a drafting draft of Alice and Bob that is Alice's, the viewer's: pick 2, round 1. */
+const yourTurn: DraftFixture = { turn: { pick: 2, round: 1, playerId: alice.id } };
 
 useDraftsApp();
 
@@ -31,7 +50,7 @@ describe('draft list', () => {
   it('shows active and complete drafts separately', async () => {
     const page = await openList([
       draft({ id: 'a', name: 'Red dragons', state: 'Lobby' }),
-      draft({ id: 'b', name: 'Arena cube', state: 'Drafting' }),
+      draft({ id: 'b', name: 'Arena cube', ...drafting() }),
       draft({ id: 'c', name: 'Last month', state: 'Complete' }),
     ]);
 
@@ -207,8 +226,9 @@ describe('draft list', () => {
     it('lists each draft in one section only', async () => {
       const page = await openList([
         draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
-        draft({ id: 'd', name: 'Picking', state: 'Drafting' }),
-        draft({ id: 'p', name: 'Taking a break', state: 'Frozen' }),
+        draft({ id: 'd', name: 'Picking', ...drafting() }),
+        draft({ id: 'y', name: 'Over to you', ...drafting(yourTurn) }),
+        draft({ id: 'p', name: 'Taking a break', ...drafting({ state: 'Frozen' }) }),
         draft({ id: 's', name: 'Shut early', state: 'Closed' }),
         withBadge(null, { id: 'n', name: 'No tournament' }),
         withBadge(registration, { id: 'r', name: 'Registering' }),
@@ -217,6 +237,7 @@ describe('draft list', () => {
         withBadge({ ...finished, trophyHolders: [bob.id] }, { id: 't', name: 'Bob won' }),
       ]);
 
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Over to you']);
       expect(listedDrafts(page, 'Active drafts').sort()).toEqual(
         ['In the lobby', 'Picking', 'Registering', 'Taking a break', 'Under way'].sort(),
       );
@@ -263,4 +284,333 @@ describe('draft list', () => {
       expect(section(page, heading).querySelector('a')).toBeNull();
     }
   });
+
+  describe('the Your turn section', () => {
+    // The app's title, as index.html sets it; the test document has none of its own.
+    it('lists each drafting draft on the viewer’s turn, and not again under Active drafts', async () => {
+      const page = await openList([
+        draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) }),
+        draft({ id: 'b', name: 'Arena cube', ...drafting() }),
+        draft({ id: 'c', name: 'Blue sphinxes', ...drafting(yourTurn) }),
+        draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
+      ]);
+
+      expect(listedDrafts(page, 'Your turn').sort()).toEqual(['Blue sphinxes', 'Red dragons']);
+      expect(listedDrafts(page, 'Active drafts').sort()).toEqual(['Arena cube', 'In the lobby']);
+    });
+
+    it('links each draft in it to its page, with the turn’s pick and round', async () => {
+      const page = await openList([
+        draft({
+          id: 'a',
+          name: 'Red dragons',
+          ...drafting({ turn: { ...yourTurn.turn!, pick: 4, round: 2 } }),
+        }),
+      ]);
+
+      const card = draftLink(section(page, 'Your turn'), 'a');
+      expect(card?.textContent).toContain('Red dragons');
+      expect(card?.textContent).toContain('Pick 4, round 2');
+      expect(card?.textContent).toContain('Organized by');
+    });
+
+    it.each([
+      ['2 picks at its start', 5, 'Pick 5, round 3 · 2 picks'],
+      ['1 more pick after its first', 6, 'Pick 6, round 3 · 1 more pick'],
+    ])('tells the viewer on a double turn of %s', async (_, pick, turnText) => {
+      const page = await openList([
+        draft({ id: 'a', name: 'Red dragons', ...withDoubleTurns(pick, alice.id) }),
+      ]);
+
+      expect(draftLink(section(page, 'Your turn'), 'a')?.textContent).toContain(turnText);
+    });
+
+    it('adds nothing to a single turn’s text in a draft with double turns', async () => {
+      const page = await openList([
+        draft({ id: 'a', name: 'Red dragons', ...withDoubleTurns(4, alice.id) }),
+      ]);
+
+      const shown = draftLink(section(page, 'Your turn'), 'a')?.textContent;
+      expect(shown).toContain('Pick 4, round 2');
+      expect(shown).not.toMatch(/·\s*(2 picks|1 more pick)/);
+    });
+
+    it('isn’t there when it is no drafting draft’s turn of the viewer', async () => {
+      const page = await openList([
+        draft({ id: 'b', name: 'Arena cube', ...drafting() }),
+        draft({ id: 'p', name: 'Taking a break', ...drafting({ ...yourTurn, state: 'Frozen' }) }),
+      ]);
+
+      expect(findSection(page, 'Your turn')).toBeNull();
+    });
+
+    it('leaves a frozen draft on the viewer’s turn in Active drafts, saying so', async () => {
+      const page = await openList([
+        draft({ id: 'p', name: 'Taking a break', ...drafting({ ...yourTurn, state: 'Frozen' }) }),
+      ]);
+
+      expect(listedDrafts(page, 'Active drafts')).toEqual(['Taking a break']);
+      expect(draftLink(section(page, 'Active drafts'), 'p')?.textContent).toContain(
+        'Your turn (frozen)',
+      );
+    });
+
+    it('says only Frozen of a frozen draft on another player’s turn', async () => {
+      const page = await openList([
+        draft({ id: 'p', name: 'Taking a break', ...drafting({ state: 'Frozen' }) }),
+      ]);
+
+      const card = draftLink(section(page, 'Active drafts'), 'p');
+      expect(card?.textContent).toContain('Frozen');
+      expect(card?.textContent).not.toContain('Your turn');
+    });
+
+    it('starts the page title with “Your turn · ” while it lists a draft', async () => {
+      await openList([draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })]);
+
+      expect(document.title).toBe('Your turn · Swantisserie');
+    });
+
+    it('leaves the page title be while it isn’t there', async () => {
+      await openList([
+        draft({ id: 'p', name: 'Taking a break', ...drafting({ ...yourTurn, state: 'Frozen' }) }),
+      ]);
+
+      expect(document.title).toBe('Swantisserie');
+    });
+
+    it('takes the prefix off the page title on leaving the list', async () => {
+      const { fixture } = await openUrl('/');
+      http.expectOne('/api/drafts').flush([alicesTurnItem('a', 'Red dragons')]);
+      await fixture.whenStable();
+
+      await router.navigateByUrl('/my-stats');
+      (await vi.waitFor(() => http.expectOne('/api/my-stats'))).flush(null, {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await fixture.whenStable();
+
+      expect(document.title).toBe('Swantisserie');
+    });
+  });
+
+  describe('live, as the viewer’s drafts are pushed', () => {
+    /** Arena cube, a draft of Alice and Bob drafting on the turn `turn`, with `fields` changed. */
+    const arenaCube = (turn: DraftFixture['turn'], fields: DraftFixture = {}) =>
+      draft({ id: 'a', name: 'Arena cube', ...drafting({ turn, ...fields }) });
+    const alicesTurn = yourTurn.turn;
+    const bobsTurn = { pick: 3, round: 2, playerId: bob.id };
+
+    it('moves a draft into Your turn as the turn reaches the viewer', async () => {
+      const page = await openList([arenaCube(bobsTurn)]);
+
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn) });
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(listedDrafts(page, 'Active drafts')).toEqual([]);
+      expect(document.title).toBe('Your turn · Swantisserie');
+    });
+
+    it('moves it out again as the turn passes', async () => {
+      const page = await openList([arenaCube(alicesTurn)]);
+
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(bobsTurn) });
+
+      expect(findSection(page, 'Your turn')).toBeNull();
+      expect(listedDrafts(page, 'Active drafts')).toEqual(['Arena cube']);
+      expect(document.title).toBe('Swantisserie');
+    });
+
+    it.each([
+      ['frozen', { state: 'Frozen' }, 'Active drafts'],
+      ['completed', { state: 'Complete', turn: null }, 'Complete drafts'],
+      ['closed', { state: 'Closed', turn: null }, 'Closed drafts'],
+    ] as const)('moves a draft %s to its section', async (_, fields, heading) => {
+      const page = await openList([arenaCube(alicesTurn)]);
+
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, fields) });
+
+      expect(findSection(page, 'Your turn')).toBeNull();
+      expect(listedDrafts(page, heading)).toEqual(['Arena cube']);
+    });
+
+    it('keeps the tournament badge it read', async () => {
+      const page = await openList([
+        {
+          ...arenaCube(alicesTurn),
+          tournamentBadge: { state: 'Registration', canJoin: true, trophyHolders: [] },
+        },
+      ]);
+
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(bobsTurn) });
+
+      expect(listItem(page, 'Arena cube').textContent).toContain('Registration');
+    });
+
+    it('lists a draft it hadn’t, without a tournament badge', async () => {
+      const page = await openList([]);
+
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn) });
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(listItem(page, 'Arena cube').textContent).not.toContain('Tournament');
+    });
+
+    it('drops a cancelled draft', async () => {
+      const page = await openList([
+        arenaCube(alicesTurn),
+        draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
+      ]);
+
+      pushToOwnRoom(updates, { type: 'cancelled', draftId: 'l' });
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(page.textContent).not.toContain('In the lobby');
+    });
+
+    it('lays a push over a read that lands after it, the read made before the push', async () => {
+      const { fixture, page } = await openUrl('/');
+
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, { version: 2 }) });
+      pushToOwnRoom(updates, { type: 'cancelled', draftId: 'l' });
+      http
+        .expectOne('/api/drafts')
+        .flush([
+          listItemOf(arenaCube(bobsTurn, { version: 1 })),
+          listItemOf({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
+        ]);
+      await fixture.whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(page.textContent).not.toContain('In the lobby');
+    });
+
+    it('keeps a push over a re-read on connecting that was made before it', async () => {
+      const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
+
+      connect();
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 2 }))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+
+    it('lists a draft as its newest version, pushed or read', async () => {
+      const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
+
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(bobsTurn, { version: 2 }) });
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+
+      connect();
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 4 }))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+      expect(findSection(page, 'Your turn')).toBeNull();
+    });
+
+    it('reads the drafts again on first connecting, as one may change before the socket hears of it', async () => {
+      const page = await openList([arenaCube(bobsTurn)]);
+
+      pushToOwnRoom(updates, { type: 'connected' });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+
+    it('reads them again once the first read lands, on connecting while it is on its way', async () => {
+      const { fixture, page } = await openUrl('/');
+      const firstRead = http.expectOne('/api/drafts');
+
+      pushToOwnRoom(updates, { type: 'connected' });
+      http.expectNone('/api/drafts');
+      firstRead.flush([listItemOf(arenaCube(bobsTurn))]);
+      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([
+        listItemOf(arenaCube(alicesTurn)),
+      ]);
+      await fixture.whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+
+    it('reads them again on every reconnect', async () => {
+      const page = await openList([arenaCube(bobsTurn)]);
+      pushToOwnRoom(updates, { type: 'connected' });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      pushToOwnRoom(updates, { type: 'disconnected' });
+      pushToOwnRoom(updates, { type: 'connected' });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+  });
+
+  describe('the viewer’s drafts', () => {
+    it('are read as the app opens for a signed-in viewer, whatever page it opens on', async () => {
+      // openUrl expects the one read, answering it.
+      await openUrl('/trophy-hall');
+      answerTrophyHall();
+    });
+
+    it('aren’t read for a signed-out visitor', async () => {
+      TestBed.createComponent(App);
+      const navigation = router.navigateByUrl('/');
+      (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(null, {
+        status: 401,
+        statusText: 'Unauthorized',
+      });
+      await navigation;
+      TestBed.tick();
+
+      http.expectNone('/api/drafts');
+    });
+
+    it('opening on another page, are shown as read when the list opens, without reading them again', async () => {
+      const { fixture, page } = await openUrl('/trophy-hall', alice, {
+        viewerDrafts: [alicesTurnItem('a', 'Red dragons')],
+      });
+      answerTrophyHall();
+
+      await router.navigateByUrl('/');
+      await fixture.whenStable();
+
+      http.expectNone('/api/drafts');
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+    });
+
+    it('stay as last read when reading them again fails', async () => {
+      const page = await openList([draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })]);
+
+      connect();
+      http.expectOne('/api/drafts').flush(null, serverError);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+      expect(page.textContent).not.toContain("Couldn't load the drafts.");
+      expect(document.title).toBe('Your turn · Swantisserie');
+    });
+
+    it('say so when their first read fails', async () => {
+      const { fixture, page } = await openUrl('/');
+      http.expectOne('/api/drafts').flush(null, serverError);
+      await fixture.whenStable();
+
+      expect(page.textContent).toContain("Couldn't load the drafts.");
+    });
+  });
 });
+
+/** The socket connects, which has the drafts read again. */
+const connect = () => pushToOwnRoom(updates, { type: 'connected' });
+
+/** Fails the Trophy Hall's read, if it was made: the spec has no use for what it shows. */
+function answerTrophyHall() {
+  for (const req of http.match('/api/trophy-hall')) {
+    req.flush(null, { status: 503, statusText: 'Service Unavailable' });
+  }
+}

@@ -695,7 +695,6 @@ describe('basic lands on the plan tab', () => {
     await openBasics(fixture, await openPlan(fixture, page));
 
     await router.navigateByUrl('/');
-    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();

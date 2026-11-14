@@ -25,6 +25,7 @@ import { DialogShell } from './dialog-shell';
 import { FEEDBACK_HEADING, FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
 import { TopBarMenu } from './top-bar/top-bar-menu';
+import { ViewerDrafts } from './drafts/viewer-drafts';
 
 @Component({
   imports: [LoadingAnimation, NgTemplateOutlet, RouterLink, RouterOutlet, TopBarMenu],
@@ -68,6 +69,20 @@ export class App {
           url: `https://github.com/Clutchison/swantisserie/commit/${commit}`,
         }
       : { label: 'App version unknown', url: null };
+  });
+
+  /** Read as the app opens, whatever the page, so a viewer can be told it is their turn anywhere. */
+  private readonly draftsOnYourTurn = inject(ViewerDrafts).draftsOnYourTurn;
+  /**
+   * The Turn link: to the one draft on the viewer's turn, or to the draft
+   * list when it is their turn in several; none while it is in none.
+   */
+  protected readonly turnLink = computed(() => {
+    const drafts = this.draftsOnYourTurn();
+    if (drafts.length === 0) return null;
+    if (drafts.length > 1) return { text: `Your turn in ${drafts.length} drafts`, url: ['/'] };
+    const [only] = drafts;
+    return { text: `Your turn in ${only.name}`, url: ['/drafts', only.id] };
   });
 
   /** Pages say how they are loading once shown; this covers the wait for one, and its failure. */

@@ -245,8 +245,8 @@ export class DraftsController {
     @Param('id') id: string,
   ): Promise<void> {
     await this.access.asOrganizer(user, id);
-    await this.lobby.cancel(id);
-    this.publisher.cancelled(id);
+    const players = await this.lobby.cancel(id);
+    this.publisher.cancelled(id, players);
   }
 
   /** Starts the pool snapshot over; for the organizer, after a failure. */

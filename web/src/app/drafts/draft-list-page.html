@@ -13,13 +13,30 @@
   } @else if (failed()) {
     <p class="error">Couldn't load the drafts. Try reloading the page.</p>
   } @else {
+    @if (draftsOnYourTurn().length) {
+      <section class="your-turn">
+        <h2>Your turn</h2>
+        <ul>
+          @for (draft of draftsOnYourTurn(); track draft.id) {
+            <li [attr.aria-label]="draft.name">
+              <ng-container
+                *ngTemplateOutlet="draftLink; context: { $implicit: draft, state: turnText(draft) }"
+              />
+            </li>
+          }
+        </ul>
+      </section>
+    }
     <section>
       <h2>Active drafts</h2>
       <ul>
         @for (draft of active(); track draft.id) {
           <li [attr.aria-label]="draft.name">
             <ng-container
-              *ngTemplateOutlet="draftLink; context: { $implicit: draft, showState: true }"
+              *ngTemplateOutlet="
+                draftLink;
+                context: { $implicit: draft, state: listedState(draft) }
+              "
             />
             @if (draft.tournamentBadge?.canJoin) {
               <p class="tournament-badge">
@@ -60,12 +77,12 @@
   }
 </main>
 
-<!-- One draft in a list, all of it a link to the draft's page. -->
-<ng-template #draftLink let-draft let-showState="showState">
+<!-- One draft in a list, all of it a link to the draft's page, with where it stands if given. -->
+<ng-template #draftLink let-draft let-state="state">
   <a class="draft-link" [routerLink]="['/drafts', draft.id]">
     <span class="name">{{ draft.name }}</span>
-    @if (showState) {
-      <span class="state">{{ listedState(draft) }}</span>
+    @if (state) {
+      <span class="state">{{ state }}</span>
     }
     <span class="detail"
       ><span class="platform">{{ draft.platform }}</span> · Organized by

@@ -1,13 +1,8 @@
-import type {
-  DraftSocketEvents,
-  DraftView,
-  ViewerTournamentView,
-} from 'contract';
-import { io, type Socket } from 'socket.io-client';
+import type { ViewerTournamentView } from 'contract';
+import { useSockets } from './socket-harness.js';
 import {
   alice,
   aliceCookie,
-  app,
   announcementsSettled,
   bob,
   cancelTournament,
@@ -297,38 +292,11 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
   });
 
   describe('pushed to another viewer', () => {
-    const sockets: Socket<DraftSocketEvents>[] = [];
-
-    beforeEach(async () => {
-      await app.listen(0);
-    });
-
-    afterEach(() => {
-      for (const socket of sockets.splice(0)) socket.disconnect();
-    });
-
-    /** The drafts pushed to whoever `cookie` signs in as, viewing draft `id`, from once they are connected. */
-    async function watchAs(id: string, cookie = aliceCookie) {
-      const socket: Socket<DraftSocketEvents> = io(await app.getUrl(), {
-        path: '/api/socket.io',
-        transports: ['websocket'],
-        auth: { draftId: id },
-        extraHeaders: { Cookie: cookie },
-        reconnection: false,
-      });
-      sockets.push(socket);
-      const pushed: DraftView[] = [];
-      socket.on('changed', (draft) => pushed.push(draft));
-      await new Promise<void>((resolve, reject) => {
-        socket.on('connect', resolve);
-        socket.on('connect_error', reject);
-      });
-      return pushed;
-    }
+    const { watch } = useSockets();
 
     it('pushes the draft, its version bumped, to another viewer when ready clears', async () => {
       const id = await bobReady();
-      const pushed = await watchAs(id);
+      const pushed = await watch(id, aliceCookie);
       const before = await version(id);
 
       await shrinkDeck(id, bobCookie).expect(200);
@@ -341,7 +309,7 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
     it('pushes the draft to the player’s other device, whose plan read then shows the Ready notice', async () => {
       const id = await bobReady();
       const otherDevice = await signIn(bob);
-      const pushed = await watchAs(id, otherDevice);
+      const pushed = await watch(id, otherDevice);
       const before = await version(id);
 
       await shrinkDeck(id, bobCookie).expect(200);

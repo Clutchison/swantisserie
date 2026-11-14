@@ -111,7 +111,6 @@ describe('reviewing feedback', () => {
 
     expect(router.url).toBe('/');
     http.expectNone('/api/admin/feedback');
-    http.expectOne('/api/drafts').flush([]);
   });
 
   it('shows who sent each item, when, its message and its page', async () => {
