@@ -10,8 +10,8 @@ import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
 /**
  * Registration opening for the draft's players, in seat order, all of whom
- * setup joined. Each of these reads inside a change's
- * transaction, once it is written.
+ * setup joined. Each event here is read inside a change's transaction, once
+ * the change is written.
  */
 export async function tournamentSetUp(
   tx: Transaction,

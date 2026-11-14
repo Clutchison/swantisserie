@@ -114,7 +114,7 @@ type MatchRow = TournamentRow['matches'][number];
 
 /**
  * The tournament as everyone who sees its draft reads it: its entries in
- * join order, its rounds in order, each round's matches and byes in
+ * join order, its tournament rounds in order, each one's matches and byes in
  * bracket place order in single elimination, and otherwise in the order of
  * their first players' joining, and its standings and trophy holders. Swiss
  * and single elimination standings count only completed tournament rounds,

@@ -36,8 +36,9 @@ export class TrophyHallService {
   ) {}
 
   /**
-   * The Trophy Hall of every complete tournament, worked out on each read
-   * from their standings, of the complete tournaments that count. Nor does one with a trophy holder whose decklist wasn't
+   * The Trophy Hall of the complete tournaments that count, worked out on
+   * each read from their standings. A tournament with no trophy holder
+   * doesn't appear, nor does one with a trophy holder whose decklist wasn't
    * kept at Start (ADR 0017), as the engine's `onTrophyHall` decides.
    */
   async read(): Promise<TrophyHallView> {

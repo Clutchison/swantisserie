@@ -73,7 +73,7 @@ The organizer picks one **pool source** when creating the draft: a **pool query*
 
 Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171).
 
-- Each player has a **private plan** for each draft: a **mainboard** and a **sideboard**. It is private, including from organizers and app admins, unless a tournament with public decklists shows it as a decklist ([ADR 0005](docs/adr/0005-public-decklists-amend-plan-privacy.md)).
+- Each player has a **private plan** for each draft: a **mainboard** and a **sideboard**. It is private, including from organizers and app admins, unless its tournament shows it as a decklist: under public decklists once the tournament starts, and for every tournament once it is complete ([ADR 0005](docs/adr/0005-public-decklists-amend-plan-privacy.md), [ADR 0017](docs/adr/0017-every-deck-is-kept-at-start-and-shown-once-complete.md)).
 - Every pick lands on the mainboard and can move to the sideboard; a pick can't leave the plan.
 - **Add to Plan** on the card detail adds an unpicked pool card to the mainboard, as many copies as are available. Unpicked cards are dimmed, can be removed, and board counts show the total and how many are picked (basics count as picked).
 - **Basic lands:** − / a number / + for Plains, Island, Swamp, Mountain and Forest, plus Clear basics. They go on the mainboard and move like any card.
