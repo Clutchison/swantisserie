@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, vi } from 'vitest';
+import { afterEach, beforeEach, onTestFinished, vi } from 'vitest';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -294,6 +294,24 @@ export function openMenu(trigger: HTMLElement, name: string) {
   trigger.click();
   TestBed.tick();
   return menuItems(name);
+}
+
+/**
+ * Stands in for `scrollIntoView`, which jsdom lacks, until the test finishes.
+ * Returns each element scrolled into view so far, in order, with how.
+ */
+export function stubScrollIntoView() {
+  const scrolls: { element: Element; options: unknown }[] = [];
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    configurable: true,
+    value(this: Element, options: unknown) {
+      scrolls.push({ element: this, options });
+    },
+  });
+  onTestFinished(() => {
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  });
+  return scrolls;
 }
 
 /**

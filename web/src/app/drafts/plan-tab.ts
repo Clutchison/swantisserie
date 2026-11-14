@@ -69,16 +69,16 @@ import {
   sideboardStack,
   stacks,
 } from './plan-stacks';
+import type { ScrollIntoContainerOptions } from './scroll-options';
 import { stackMovesOf } from './stack-moves';
 import { stackElement, stripLocation } from './strip-location';
 import { LoadingAnimation } from '../loading/loading-animation';
 
 /**
  * How a stack is scrolled to in the strip: to its start, scrolling only the
- * strip. `container` is newer than TypeScript's DOM types; a browser without
- * it scrolls the page as little as it takes.
+ * strip where the browser allows, else the page as little as it takes.
  */
-const TO_STACK: ScrollIntoViewOptions & { container?: 'all' | 'nearest' } = {
+const TO_STACK: ScrollIntoContainerOptions = {
   inline: 'start',
   block: 'nearest',
   container: 'nearest',

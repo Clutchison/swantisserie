@@ -36,7 +36,7 @@ export class OwnTurnLoop {
 
   private readonly viewersTurn = computed<ViewersTurn>(
     () => ({
-      pick: this.store.turnStartPick(),
+      pick: this.store.currentTurnStartPick(),
       drafting: this.store.draft.value()?.state === 'Drafting',
       own: this.store.yourTurn(),
     }),

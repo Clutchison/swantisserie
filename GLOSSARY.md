@@ -139,7 +139,7 @@ A player the app controls, which picks a random available card on its turn. Only
 _Avoid_: AI, dummy, CPU
 
 **Seat**:
-A player's position in a draft's seat order. The organizer sets the seat order in the lobby, and it is fixed once the draft starts.
+A player's position in a draft's seat order. The organizer sets the seat order in the lobby, and it is fixed once the draft starts. The Seat strip and the Board tab show each seat as its player's avatar, which names the player on hover or focus.
 _Avoid_: Slot, position
 
 **Players panel**:
@@ -199,8 +199,8 @@ A draft's picks in the order they were made, each with its pick number, player a
 _Avoid_: History, pick history, feed
 
 **Board tab**:
-The part of a draft's page that shows every player's picks, in seat order, and the pick log. The Lists tab takes its place once a tournament with public decklists is playing, or once any tournament whose decklists were kept is complete, and for good unless that tournament is cancelled.
-_Avoid_: Picks page, draft board
+The part of a draft's page that shows a draft's picks as a grid: a column for each seat, in seat order, and a row for each round that has begun, read in snake order, with a round of double turns taking two rows. It marks the viewer's own column and the latest pick. The Lists tab takes its place once a tournament with public decklists is playing, or once any tournament whose decklists were kept is complete, and for good unless that tournament is cancelled.
+_Avoid_: Picks page, draft board, pick grid
 
 **Queue**:
 A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold; otherwise the card is lost, and the player's steal behavior decides what happens to the rest of the queue.

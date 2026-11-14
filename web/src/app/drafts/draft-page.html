@@ -246,7 +246,7 @@
           [hidden]="selectedTab() !== 'Board'"
         >
           <h2>Board</h2>
-          <app-board-tab />
+          <app-board-tab [open]="selectedTab() === 'Board'" />
         </section>
       }
 

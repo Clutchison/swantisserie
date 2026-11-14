@@ -1,0 +1,17 @@
+/* Laid out as its name alone, placed against the nearest positioned ancestor. */
+:host {
+  display: contents;
+}
+
+.hint {
+  position: absolute;
+  top: calc(100% + var(--space-xs));
+  z-index: 1;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: 0.25rem;
+  background: var(--color-text);
+  color: var(--color-bg);
+  font-size: var(--font-size-sm);
+  white-space: nowrap;
+  pointer-events: none;
+}

@@ -8,7 +8,6 @@ import {
   alicePlayer,
   bob,
   tabButton,
-  panel,
   openDraft,
   completeSnapshot,
   button,
@@ -22,7 +21,8 @@ import {
 } from './harness';
 import { disclosure } from './disclosure-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
-import { clickOn, pressEscape } from '../../specs-harness';
+import { boardColumns } from './board-tab-harness';
+import { clickOn, pressEscape, text } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -34,11 +34,7 @@ describe('bots', () => {
     isBot: true,
   };
 
-  /** The text of each badge in `root`. */
-  const badges = (root: Element | null) =>
-    [...(root?.querySelectorAll('.badge') ?? [])].map((badge) => badge.textContent?.trim());
-
-  it('marks bots with a badge in the players, turn, board and pick log', async () => {
+  it('marks bots with a badge in the players and turn, and as a bot on the board', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       {
@@ -62,22 +58,15 @@ describe('bots', () => {
     );
 
     clickOn(playersButton(page));
-    const seats = panelSeats(playersSheet()!);
-    expect(badges(seats[0])).toEqual(['Bot']);
-    expect(badges(seats[1])).toEqual([]);
+    const [botSeat, aliceSeat] = panelSeats(playersSheet()!).map((seat) => text(seat));
+    expect(botSeat).toMatch(/Bot 1\s*Bot$/);
+    expect(aliceSeat).not.toContain('Bot');
     pressEscape();
-    expect(page.querySelector('.turn')?.textContent).toContain('Bot 1’s turn');
-    expect(badges(page.querySelector('.turn'))).toEqual(['Bot']);
+    expect(text(page)).toMatch(/Bot 1’s turn: pick 3, round 2\s*Bot/);
 
     tabButton(page, 'Board').click();
     await fixture.whenStable();
-    const columns = panel(page).querySelectorAll('.player-picks h3');
-    expect(badges(columns[0])).toEqual(['Bot']);
-    expect(badges(columns[1])).toEqual([]);
-    const log = panel(page).querySelectorAll('.log li');
-    expect(log[0].textContent).toContain('Bot 1');
-    expect(badges(log[0])).toEqual(['Bot']);
-    expect(badges(log[1])).toEqual([]);
+    expect(boardColumns(page)).toEqual(['Bot 1, bot', 'Alice, you']);
   });
 
   it('lets a viewer who may only add bots add a bot, then remove it', async () => {

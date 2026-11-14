@@ -1,6 +1,7 @@
 import type { DraftState, DraftChangeRefusal } from 'contract';
 import { openDialog } from '../../specs-harness';
 import {
+  bob,
   button,
   completeSnapshot,
   controlByLabel,
@@ -159,15 +160,15 @@ describe('switching a draft’s announcements', () => {
   it('re-reads the pick log when catching up as it opens finds a newer draft', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
-      { state: 'Drafting', webhook: main, version: 3 },
+      { state: 'Drafting', players: [bob], webhook: main, version: 3 },
       { cards: [poolCardOf('shock', 'Shock')] },
     );
 
     button(page, 'Announcements')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
-      draft({ state: 'Drafting', webhook: main, version: 4 }),
+      draft({ state: 'Drafting', players: [bob], webhook: main, version: 4 }),
     );
-    await flushPicks([pickOf({ poolCardId: 'shock-card' })]);
+    await flushPicks([pickOf({ playerId: bob.id, poolCardId: 'shock-card' })]);
     await fixture.whenStable();
 
     button(openDialog()!, 'Close')!.click();
