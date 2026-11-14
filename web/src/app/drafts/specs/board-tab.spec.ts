@@ -1,5 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PoolCardView } from 'contract';
+import { carol, openDialog } from '../../specs-harness';
 import {
   useDraftsApp,
   alice,
@@ -16,18 +17,21 @@ import {
   type DraftFixture,
   pickOf,
   poolCardOf,
-  namedList,
+  findNamedList,
   updates,
   flushQueueAndPlan,
+  cardName,
+  image,
+  previewImage,
+  tap,
 } from './harness';
+import { boardCell, boardColumns, boardRows, findBoard } from './board-tab-harness';
+import { costBefore } from './card-previews-harness';
 
 useDraftsApp();
 
-/** The text of each of a list row's cells: a pick log row's, or a player's pick's. */
-const rowText = (li: Element) =>
-  [...li.querySelectorAll(':scope > span, :scope > app-card-name')].map((cell) =>
-    cell.textContent?.trim(),
-  );
+const FORWARD = 'first seat to last';
+const BACK = 'last seat to first';
 
 describe('board tab', () => {
   const cards: PoolCardView[] = [
@@ -37,39 +41,40 @@ describe('board tab', () => {
     poolCardOf('bolt-1', 'Lightning Bolt'),
     poolCardOf('bolt-2', 'Lightning Bolt'),
     poolCardOf('bolt-3', 'Lightning Bolt'),
+    poolCardOf('helix', 'Lightning Helix'),
+    poolCardOf('blast', 'Fireblast'),
+    poolCardOf('chain', 'Chain Lightning'),
   ];
   const picks: PickView[] = [
-    pickOf({
-      playerId: bob.id,
-      poolCardId: 'shock-card',
-    }),
-    pickOf({
-      pick: 2,
-      poolCardId: 'bolt-card',
-    }),
-    pickOf({
-      pick: 3,
-      poolCardId: 'spike-card',
-    }),
+    pickOf({ playerId: bob.id, poolCardId: 'shock-card' }),
+    pickOf({ pick: 2, poolCardId: 'bolt-card' }),
+    pickOf({ pick: 3, poolCardId: 'spike-card' }),
   ];
+  /** Bob in seat 0 and Alice in seat 1, with the first three picks made: round 2 has begun. */
+  const drafting: DraftFixture = {
+    state: 'Drafting',
+    players: [bob, alicePlayer],
+    turn: { pick: 4, round: 2, playerId: bob.id },
+  };
 
-  async function openBoard(picks: PickView[], fields: DraftFixture = {}) {
+  async function openBoard(
+    picks: PickView[],
+    fields: DraftFixture = {},
+    { user = alice }: { user?: typeof alice } = {},
+  ) {
     const opened = await openDraft(
       completeSnapshot,
+      { ...drafting, ...fields },
       {
-        ...fields,
-        state: 'Drafting',
-        players: [bob, alicePlayer],
-        turn: { pick: 4, round: 2, playerId: bob.id },
+        cards,
+        picks,
+        user,
       },
-      { cards, picks },
     );
     tabButton(opened.page, 'Board').click();
     await opened.fixture.whenStable();
     return opened;
   }
-
-  const pickLog = (root: HTMLElement) => namedList(panel(root), 'Pick log');
 
   /** Opens the Board tab with the GETs of the pool and the picks left for the test to answer. */
   async function openBoardUnanswered(players = [bob]) {
@@ -90,6 +95,19 @@ describe('board tab', () => {
       expect(panel(page).querySelector('h2')?.textContent).toBe('Board');
     });
     return { fixture, page, req, poolReq };
+  }
+
+  /** Tells the page the draft changed to `fields`, as a pick does, and answers its re-read of the picks. */
+  async function changeTo(
+    fields: DraftFixture,
+    answer: (req: ReturnType<typeof http.expectOne>) => void,
+  ) {
+    updates.events.next({
+      type: 'changed',
+      draft: draft({ snapshot: completeSnapshot, ...drafting, ...fields, version: 1 }),
+    });
+    answer(await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks')));
+    await flushQueueAndPlan();
   }
 
   it('says the picks are loading, not that there are none, until they arrive', async () => {
@@ -113,20 +131,19 @@ describe('board tab', () => {
 
     expect(panel(page).textContent).toContain("Couldn't load the picks.");
     expect(panel(page).textContent).not.toContain('No picks yet');
+    expect(findBoard(page)).toBeNull();
   });
 
   it('says the picks are loading, not naming none of them, until the pool arrives too', async () => {
     const { fixture, page, req, poolReq } = await openBoardUnanswered();
     req.flush([picks[0]]);
     await expectLoadingAnimation(() => panel(page), 'Loading the picks…', 64);
-    expect(pickLog(page)).toBeNull();
+    expect(findBoard(page)).toBeNull();
 
     poolReq.flush(cards);
     await fixture.whenStable();
     expect(panel(page).textContent).not.toContain('Loading the picks…');
-    expect([...pickLog(page).querySelectorAll('li')].map((li) => rowText(li))).toEqual([
-      ['1', 'Bob', 'Shock'],
-    ]);
+    expect(boardRows(page)).toEqual([[`Round 1, ${FORWARD}`, 'Shock']]);
   });
 
   it('says the picks couldn’t be loaded when the pool failed to load', async () => {
@@ -137,35 +154,21 @@ describe('board tab', () => {
     await fixture.whenStable();
 
     expect(panel(page).textContent).toContain("Couldn't load the picks.");
-    expect(pickLog(page)).toBeNull();
+    expect(findBoard(page)).toBeNull();
   });
 
-  it('keeps the pick log it had when a re-read of the picks fails', async () => {
+  it('keeps the picks it had when a re-read of them fails', async () => {
     const { fixture, page } = await openBoard(picks);
 
-    updates.events.next({
-      type: 'changed',
-      draft: draft({
-        snapshot: completeSnapshot,
-        state: 'Drafting',
-        players: [bob, alicePlayer],
-        turn: { pick: 4, round: 2, playerId: bob.id },
-        version: 1,
-      }),
-    });
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(null, {
-      status: 503,
-      statusText: 'Service Unavailable',
-    });
-    await flushQueueAndPlan();
+    await changeTo({}, (req) =>
+      req.flush(null, { status: 503, statusText: 'Service Unavailable' }),
+    );
     await fixture.whenStable();
 
     expect(panel(page).textContent).not.toContain("Couldn't load the picks.");
-    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
-    expect(log).toEqual([
-      ['1', 'Bob', 'Shock'],
-      ['2', 'Alice', 'Lightning Bolt'],
-      ['3', 'Alice', 'Lava Spike'],
+    expect(boardRows(page)).toEqual([
+      [`Round 1, ${FORWARD}`, 'Shock', 'Lightning Bolt'],
+      [`Round 2, ${BACK}`, '', 'Lava Spike'],
     ]);
   });
 
@@ -181,73 +184,87 @@ describe('board tab', () => {
     expect(panel(page).querySelector('h2')?.textContent).toBe('Pool');
   });
 
-  it('shows the pick log: pick number, player and card', async () => {
-    const { page } = await openBoard(picks);
-
-    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
-    expect(log).toEqual([
-      ['1', 'Bob', 'Shock'],
-      ['2', 'Alice', 'Lightning Bolt'],
-      ['3', 'Alice', 'Lava Spike'],
-    ]);
-  });
-
-  it('names a pick log player who is no longer among the players as another player', async () => {
-    const { page } = await openBoard([{ ...picks[0]!, playerId: 'gone' }, picks[1]!]);
-
-    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
-    expect(log).toEqual([
-      ['1', 'another player', 'Shock'],
-      ['2', 'Alice', 'Lightning Bolt'],
-    ]);
-  });
-
-  it('gives a pick log player’s full name on hover, with a bot’s badge outside the name', async () => {
-    const longName = 'Bartholomew the Exceedingly Long';
-    const bot = { ...bob, id: 'bot:1', name: longName, isBot: true };
-    const { page } = await openDraft(
-      completeSnapshot,
-      {
-        state: 'Drafting',
-        players: [bot, alicePlayer],
-        turn: { pick: 3, round: 1, playerId: alice.id },
-      },
-      { cards, picks: [{ ...picks[0]!, playerId: bot.id }, picks[1]!] },
-    );
-    tabButton(page, 'Board').click();
-    await vi.waitFor(() => {
-      TestBed.tick();
-      expect(pickLog(page).querySelectorAll('li')).toHaveLength(2);
+  it('heads a column for each seat, in seat order, naming its player, a bot and the viewer', async () => {
+    const bot = { ...bob, id: 'bot:1', name: 'Bot 1', isBot: true };
+    const { page } = await openBoard([], {
+      players: [bot, alicePlayer, bob],
+      turn: { pick: 1, round: 1, playerId: bot.id },
     });
 
-    const [botRow, aliceRow] = [...pickLog(page).querySelectorAll('li')];
-    const botName = botRow!.querySelector<HTMLElement>(`[title="${longName}"]`)!;
-    expect(botName.textContent?.trim()).toBe(longName);
-    expect(botName.parentElement?.querySelector('.badge')?.textContent).toBe('Bot');
-    expect(aliceRow!.querySelector('[title="Alice"]')?.textContent?.trim()).toBe('Alice');
-    expect(aliceRow!.querySelector('.badge')).toBeNull();
+    expect(boardColumns(page)).toEqual(['Bot 1, bot', 'Alice, you', 'Bob']);
   });
 
-  it('leaves hover text off a pick log card, whose Card preview shows it in full', async () => {
-    const { page } = await openBoard(picks);
+  it('marks no column as their own for a viewer who isn’t a player', async () => {
+    const { page } = await openBoard(picks, {}, { user: carol });
 
-    const card = pickLog(page).querySelector<HTMLElement>('li app-card-name .name')!;
-    expect(card.textContent?.trim()).toBe('Shock');
-    expect(card.querySelector('[title]')).toBeNull();
-    expect(card.hasAttribute('title')).toBe(false);
+    expect(boardColumns(page)).toEqual(['Bob', 'Alice']);
   });
 
-  it('lists every player’s picks, in seat order', async () => {
+  it('shows a row for each round begun, labelled with its way, leaving picks not yet made blank', async () => {
     const { page } = await openBoard(picks);
 
-    const players = [...panel(page).querySelectorAll('.player-picks section')].map((player) => ({
-      name: player.querySelector('h3')?.textContent?.trim(),
-      picks: [...player.querySelectorAll('li')].map((li) => li.textContent?.trim()),
-    }));
-    expect(players).toEqual([
-      { name: 'Bob', picks: ['Shock'] },
-      { name: 'Alice', picks: ['Lightning Bolt', 'Lava Spike'] },
+    expect(boardRows(page)).toEqual([
+      [`Round 1, ${FORWARD}`, 'Shock', 'Lightning Bolt'],
+      [`Round 2, ${BACK}`, '', 'Lava Spike'],
     ]);
+  });
+
+  it('shows a round of double turns as two rows, each seat’s double turn in its two cells', async () => {
+    const names = ['shock', 'bolt', 'spike', 'helix', 'blast', 'chain'];
+    const { page } = await openBoard(
+      names.map((name, i) =>
+        pickOf({
+          pick: i + 1,
+          poolCardId: `${name}-card`,
+          playerId: [bob.id, alice.id, alice.id, alice.id, bob.id, bob.id][i],
+        }),
+      ),
+      {
+        picksPerPlayer: 5,
+        doublePicks: 4,
+        turn: { pick: 7, round: 3, playerId: bob.id, picksBeforeTurnPasses: 2 },
+      },
+    );
+
+    expect(boardRows(page)).toEqual([
+      [`Round 1, ${FORWARD}`, 'Shock', 'Lightning Bolt'],
+      [`Round 2, ${BACK}, first pick of each double turn`, 'Fireblast', 'Lava Spike'],
+      [`Round 2, ${BACK}, second pick of each double turn`, 'Chain Lightning', 'Lightning Helix'],
+      [`Round 3, ${FORWARD}, first pick of each double turn`, '', ''],
+      [`Round 3, ${FORWARD}, second pick of each double turn`, '', ''],
+    ]);
+  });
+
+  it('shows every round once the draft is complete', async () => {
+    const { page } = await openBoard(
+      [...picks, pickOf({ pick: 4, playerId: bob.id, poolCardId: 'helix-card' })],
+      { state: 'Complete', turn: undefined, picksPerPlayer: 2 },
+    );
+
+    expect(boardRows(page)).toEqual([
+      [`Round 1, ${FORWARD}`, 'Shock', 'Lightning Bolt'],
+      [`Round 2, ${BACK}`, 'Lightning Helix', 'Lava Spike'],
+    ]);
+  });
+
+  it('keeps a pick by a player no longer among the players in its seat’s column', async () => {
+    const { page } = await openBoard([{ ...picks[0]!, playerId: 'gone' }, picks[1]!]);
+
+    expect(boardRows(page)).toEqual([
+      [`Round 1, ${FORWARD}`, 'Shock', 'Lightning Bolt'],
+      [`Round 2, ${BACK}`, '', ''],
+    ]);
+  });
+
+  it('shows each pick as its card name with its mana cost, opening its Card preview, never a Card detail', async () => {
+    const { page } = await openBoard(picks);
+
+    const shock = cardName(boardCell(page, `Round 1, ${FORWARD}`, 'Bob'), 'Shock');
+    expect(costBefore(shock)).toEqual(['one red mana']);
+
+    tap(shock);
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+    expect(openDialog()).toBeNull();
   });
 
   it('shows each picked copy of a card as its own pick', async () => {
@@ -258,30 +275,37 @@ describe('board tab', () => {
       { ...bolt, pick: 3, poolCardId: 'bolt-3-card' },
     ]);
 
-    const log = [...pickLog(page).querySelectorAll('li')].map((li) => rowText(li));
-    expect(log).toEqual([
-      ['1', 'Bob', 'Lightning Bolt'],
-      ['2', 'Alice', 'Lightning Bolt'],
-      ['3', 'Alice', 'Lightning Bolt'],
+    expect(boardRows(page)).toEqual([
+      [`Round 1, ${FORWARD}`, 'Lightning Bolt', 'Lightning Bolt'],
+      [`Round 2, ${BACK}`, '', 'Lightning Bolt'],
     ]);
-    const alicePicks = namedList(panel(page), 'Alice’s picks');
-    expect([...alicePicks.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
-      'Lightning Bolt',
-      'Lightning Bolt',
+  });
+
+  it('fills the grid with live picks', async () => {
+    const { fixture, page } = await openBoard(picks);
+
+    await changeTo({ turn: { pick: 5, round: 3, playerId: bob.id } }, (req) =>
+      req.flush([...picks, pickOf({ pick: 4, playerId: bob.id, poolCardId: 'helix-card' })]),
+    );
+    await fixture.whenStable();
+
+    expect(boardRows(page)).toEqual([
+      [`Round 1, ${FORWARD}`, 'Shock', 'Lightning Bolt'],
+      [`Round 2, ${BACK}`, 'Lightning Helix', 'Lava Spike'],
+      [`Round 3, ${FORWARD}`, '', ''],
     ]);
+  });
+
+  it('no longer shows the pick log', async () => {
+    const { page } = await openBoard(picks);
+
+    expect(findNamedList(panel(page), 'Pick log')).toBeNull();
+    expect(panel(page).textContent).not.toContain('Pick log');
   });
 
   it('says when nobody has picked yet', async () => {
-    const { page } = await openBoard([]);
+    const { page } = await openBoard([], { turn: { pick: 1, round: 1, playerId: bob.id } });
 
-    expect(pickLog(page).textContent).toContain('No picks yet.');
-  });
-
-  it('shows player names as text, not links to their picks', async () => {
-    const { page } = await openBoard(picks);
-
-    const bobsColumn = panel(page).querySelector('.player-picks section')!;
-    expect(bobsColumn.querySelector('h3')?.textContent?.trim()).toBe('Bob');
-    expect(bobsColumn.querySelector('h3 button, h3 a')).toBeNull();
+    expect(panel(page).textContent).toContain('No picks yet.');
   });
 });

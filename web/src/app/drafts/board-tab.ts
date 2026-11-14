@@ -1,13 +1,42 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import type { PlayerView } from 'contract';
+import { currentTurn, picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
+import { LucideArrowLeft, LucideArrowRight, LucideDynamicIcon } from '@lucide/angular';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { CardName } from './card-name';
-import { DraftStore } from './draft-store';
+import { DraftStore, type PickedCard } from './draft-store';
+import { Seat } from './seat';
+import { SeatHint, seatNameHint, type SeatNameHint } from './seat-hint';
 
-/** The draft view's Board tab: every player's picks, in seat order, and the pick log. */
+/** Which of a round of double turns' two rows: each double turn's first pick, or its second; null in a round of single turns. */
+export type RoundHalf = 'first' | 'second' | null;
+
+/**
+ * A row of the board: a round, or one half of a round of double turns, whose
+ * first row holds each double turn's first pick and whose second its second.
+ */
+export interface BoardRow {
+  /** 1-based. */
+  round: number;
+  half: RoundHalf;
+  /** Whether the round runs from the first seat to the last. */
+  forward: boolean;
+  /** What a screen reader names the row: its round, its way and its half. */
+  label: string;
+  /** Each seat's pick in the row, in seat order; null for one not yet made. */
+  cells: (PickedCard | null)[];
+}
+
+/**
+ * The draft view's Board tab: every pick on a grid of seats by rounds, a
+ * column for each seat, in seat order, and a row for each round begun, or two
+ * for a round of double turns, as a pick import file lays them out. It
+ * scrolls on both axes in its own scroller, the round labels and the seats
+ * heading the columns pinned.
+ */
 @Component({
   selector: 'app-board-tab',
-  imports: [CardName, LoadingAnimation],
+  imports: [CardName, LoadingAnimation, LucideDynamicIcon, Seat, SeatHint],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './board-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './board-tab.scss'],
@@ -15,8 +44,11 @@ import { DraftStore } from './draft-store';
 export class BoardTab {
   private readonly store = inject(DraftStore);
 
-  /** The draft's players, in seat order. */
-  private readonly players = computed(() => this.store.shown().players);
+  protected readonly forwardArrow = LucideArrowRight;
+  protected readonly backArrow = LucideArrowLeft;
+
+  /** The draft's players, in seat order: a column is a seat. */
+  protected readonly players = computed(() => this.store.shown().players);
   /** The pick log, in pick order, with each pick's pool card. */
   protected readonly picks = this.store.pickLog.value;
   /** Whether the picks, or the pool that names them, are still on their way. */
@@ -27,16 +59,67 @@ export class BoardTab {
    */
   protected readonly failed = this.store.pickLog.missing;
 
-  /** Each player, in seat order, with their picks in pick order. */
-  protected readonly board = computed(() =>
-    this.players().map((player) => ({
-      ...player,
-      picks: this.picks().filter((pick) => pick.playerId === player.id),
-    })),
-  );
+  private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
+  /** The name of the seat's player hovered or focused, and that seat's box; null while none is. */
+  protected readonly hint = signal<SeatNameHint | null>(null);
 
-  /** A player, by their id; "another player" for one no longer in the draft. */
-  protected player(id: string): PlayerView {
-    return this.store.player(id);
+  /**
+   * The grid's rows, from round 1 through the current round, or the last
+   * once the draft is complete; each pick placed by its number, with the
+   * engine's turn functions, in the seat and round that made it.
+   */
+  protected readonly rows = computed<BoardRow[]>(() => {
+    const size = this.store.draftSize();
+    const seatCount = this.players().length;
+    const lastPick = size.players * size.picksPerPlayer;
+    const currentRound = this.store.draftComplete()
+      ? (currentTurn(size, lastPick - 1)?.round ?? 0)
+      : (this.store.turn()?.round ?? 0);
+    const placed = this.picks().flatMap((pick) => {
+      const turn = currentTurn(size, pick.pick - 1);
+      return turn ? [{ pick, round: turn.round, half: halfOf(size, turn), seat: turn.seat }] : [];
+    });
+    const lastRound = Math.max(currentRound, ...placed.map(({ round }) => round));
+
+    const rows = Array.from({ length: lastRound }, (_, index) => index + 1).flatMap((round) =>
+      halvesOf(size, round).map((half): BoardRow => ({
+        round,
+        half,
+        forward: roundRunsForward(round),
+        label: rowLabel(round, half),
+        cells: Array<PickedCard | null>(seatCount).fill(null),
+      })),
+    );
+    for (const { pick, round, half, seat } of placed) {
+      const row = rows.find((row) => row.round === round && row.half === half);
+      if (row && seat < seatCount) row.cells[seat] = pick;
+    }
+    return rows;
+  });
+
+  protected isOwn(player: PlayerView) {
+    return player.id === this.ownId();
   }
+
+  /** Shows `player`'s name below their seat, at `seat`, its box; or hides it, given null. */
+  protected showHint(player: PlayerView, seat: DOMRect | null) {
+    this.hint.set(seatNameHint(player, seat));
+  }
+}
+
+/** The rows of the 1-based `round`: two halves for a round of double turns, else one. */
+function halvesOf(size: DraftSize, round: number): RoundHalf[] {
+  return picksPerTurn(size, round) === 2 ? ['first', 'second'] : [null];
+}
+
+/** Which row of its round `turn`'s pick goes in: its double turn's first pick or its second. */
+function halfOf(size: DraftSize, turn: Turn): RoundHalf {
+  if (picksPerTurn(size, turn.round) === 1) return null;
+  return turn.picksBeforeTurnPasses === 2 ? 'first' : 'second';
+}
+
+/** What a screen reader names a row: its round, the way it runs, and which half of a round of double turns it is. */
+export function rowLabel(round: number, half: RoundHalf): string {
+  const way = roundRunsForward(round) ? 'first seat to last' : 'last seat to first';
+  return [`Round ${round}`, way, ...(half ? [`${half} pick of each double turn`] : [])].join(', ');
 }

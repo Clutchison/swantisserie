@@ -33,7 +33,7 @@ import { OwnTurnLoop } from './own-turn-loop';
 import { PlayersSheet } from './players-sheet';
 import { LoadedAvatars } from './loaded-avatars';
 import { Seat } from './seat';
-import { SeatHint } from './seat-hint';
+import { SeatHint, seatNameHint, type SeatNameHint } from './seat-hint';
 
 /** Which copy of the pulse the turn's seat plays: a class of its own, so each restarts it. */
 type Pulse = 'pulse' | 'pulse-again';
@@ -122,7 +122,7 @@ export class SeatStrip {
 
   protected readonly popoverOpen = computed(() => this.panelOpen() && this.panelIn() === 'popover');
   /** The name of the seat's player hovered or focused, and that seat's box; null while none is. */
-  protected readonly hint = signal<{ name: string; seat: DOMRect } | null>(null);
+  protected readonly hint = signal<SeatNameHint | null>(null);
   /**
    * Which of the two copies of the three-beat pulse the turn's seat plays,
    * alternating so that each turn change starts it afresh, even on the same
@@ -183,7 +183,7 @@ export class SeatStrip {
 
   /** Shows `player`'s name below their seat, at `seat`, its box; or hides it, given null. */
   protected showHint(player: PlayerView, seat: DOMRect | null) {
-    this.hint.set(seat ? { name: player.name, seat } : null);
+    this.hint.set(seatNameHint(player, seat));
   }
 
   /** Whether `player` has the turn. */

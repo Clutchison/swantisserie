@@ -34,7 +34,9 @@ import {
   heading,
   openUrl,
   chooseInRowMenu,
+  text,
 } from './harness';
+import { board } from './board-tab-harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 import { openPlan } from './plan-tab-harness';
 
@@ -96,7 +98,7 @@ describe('live updates', () => {
     expect(page.querySelector('.tile')?.classList).toContain('picked');
     tabButton(page, 'Board').click();
     await fixture.whenStable();
-    expect(panel(page).querySelector('.log')?.textContent).toContain('Shivan Dragon');
+    expect(text(board(page))).toContain('Shivan Dragon');
   });
 
   it('follows the draft out of the lobby when the organizer starts it', async () => {

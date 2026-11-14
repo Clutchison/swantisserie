@@ -81,3 +81,18 @@ export function unhover(name: HTMLElement) {
   name.dispatchEvent(pointer('pointerleave', 'mouse'));
   TestBed.tick();
 }
+
+/**
+ * The symbols a viewer reads before the card name `name`, beside it: its mana
+ * cost, each symbol by its alt text, or its text if it has no SVG.
+ */
+export const costBefore = (name: HTMLElement) =>
+  [...name.parentElement!.querySelectorAll<HTMLElement>('img, span')]
+    .filter(
+      (symbol) =>
+        symbol.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING &&
+        !name.contains(symbol) &&
+        (symbol instanceof HTMLImageElement ||
+          (symbol.children.length === 0 && symbol.textContent.trim() !== '')),
+    )
+    .map((symbol) => (symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent));

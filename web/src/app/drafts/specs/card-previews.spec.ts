@@ -36,7 +36,6 @@ import {
   cardNames,
   queueList,
   queueNotice,
-  namedList,
   startDrag,
   button,
   chooseInOpenRowMenu,
@@ -61,7 +60,9 @@ import {
   openBoard,
   openPicked,
   openQueueWithoutBolt,
+  costBefore,
 } from './card-previews-harness';
+import { board } from './board-tab-harness';
 
 useDraftsApp();
 
@@ -94,21 +95,6 @@ describe('card previews', () => {
   }
 
   afterEach(() => vi.useRealTimers());
-
-  /**
-   * The symbols a viewer reads before `name`, beside it in its card name: each
-   * by its alt text, or its text if it has no SVG.
-   */
-  const costBefore = (name: HTMLElement) =>
-    [...name.parentElement!.querySelectorAll<HTMLElement>('img, span')]
-      .filter(
-        (symbol) =>
-          symbol.compareDocumentPosition(name) & Node.DOCUMENT_POSITION_FOLLOWING &&
-          !name.contains(symbol) &&
-          (symbol instanceof HTMLImageElement ||
-            (symbol.children.length === 0 && symbol.textContent.trim() !== '')),
-      )
-      .map((symbol) => (symbol instanceof HTMLImageElement ? symbol.alt : symbol.textContent));
 
   /** Starts dragging a queue row by its `handle`, with the mouse. */
   function pressHandle(handle: HTMLElement) {
@@ -309,10 +295,9 @@ describe('card previews', () => {
   it('requests no image until it opens', async () => {
     const { page } = await openBoard();
 
-    // Only the names' mana symbols, which aren't card images.
-    expect(
-      [...page.querySelectorAll('#board-panel img')].filter((img) => !img.closest('.cost')),
-    ).toEqual([]);
+    // Mana symbols and avatars are images too, but no card's image is among them.
+    const images = [...panel(page).querySelectorAll('img')].map((img) => img.src);
+    expect(images.filter((src) => src.startsWith('https://cards.scryfall.io'))).toEqual([]);
     expect(previewImage()).toBeNull();
   });
 
@@ -389,10 +374,10 @@ describe('card previews', () => {
     expect(previewImage()).toBeNull();
   });
 
-  it('shows on names in the pick log', async () => {
+  it('shows on names on the board', async () => {
     const { page } = await openBoard();
 
-    tap(cardNames(namedList(page, 'Pick log'))[0]!);
+    tap(cardNames(board(page))[0]!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
@@ -485,10 +470,10 @@ describe('card previews', () => {
       expect(costBefore(cardName(sheet, 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
-    it('show before names in the pick log', async () => {
+    it('show before names on the board', async () => {
       const { page } = await openBoard();
 
-      expect(costBefore(cardNames(namedList(page, 'Pick log'))[0]!)).toEqual(['one red mana']);
+      expect(costBefore(cardNames(board(page))[0]!)).toEqual(['one red mana']);
     });
   });
 
