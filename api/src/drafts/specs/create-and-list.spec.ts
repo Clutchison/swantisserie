@@ -436,9 +436,15 @@ it('lists active and complete drafts, newest first', async () => {
 });
 
 describe('a draft whose view cannot be built', () => {
+  let bobCookie: string;
+
+  beforeEach(async () => {
+    bobCookie = await signIn(bob);
+  });
+
   // No pick leaves a draft Drafting once every pick is made, so only a future
   // bug could write this row: a Drafting draft with no one whose turn it is.
-  async function draftingWithEveryPickMade(bobCookie: string) {
+  async function idOfDraftingWithEveryPickMade(): Promise<string> {
     const id = await completeDraft([aliceCookie, bobCookie]);
     await app
       .get(PrismaService)
@@ -446,15 +452,20 @@ describe('a draft whose view cannot be built', () => {
     return id;
   }
 
-  it('is left off the draft list, which shows every other draft and its tournament badge', async () => {
-    const bobCookie = await signIn(bob);
+  it('is left off the draft list, which shows every other draft, newest first, with its tournament badge', async () => {
     const withTournament = await inRegistration([aliceCookie, bobCookie]);
-    const bad = await draftingWithEveryPickMade(bobCookie);
+    const bad = await idOfDraftingWithEveryPickMade();
+    const withoutTournament = await completeDraft([aliceCookie, bobCookie]);
     const warn = vi.spyOn(Logger.prototype, 'warn');
 
     const res = await listDrafts().expect(200);
 
     expect(res.body).toEqual([
+      expect.objectContaining({
+        id: withoutTournament,
+        state: 'Complete',
+        tournamentBadge: null,
+      }),
       expect.objectContaining({
         id: withTournament,
         state: 'Complete',
@@ -467,12 +478,12 @@ describe('a draft whose view cannot be built', () => {
     ]);
     expect(warn).toHaveBeenCalledWith(
       expect.stringContaining(bad),
-      expect.any(Error),
+      expect.objectContaining({ message: expect.stringContaining(bad) }),
     );
   });
 
   it('still fails to open on its own page', async () => {
-    const bad = await draftingWithEveryPickMade(await signIn(bob));
+    const bad = await idOfDraftingWithEveryPickMade();
 
     await getDraft(bad).expect(500);
   });
