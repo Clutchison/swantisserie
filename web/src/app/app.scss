@@ -23,7 +23,7 @@ header {
   align-self: stretch;
 }
 
-/* The only part of the bar that gives way: a long name on the user menu truncates, so nothing else has to. */
+/* The only part of the bar that gives way: a long draft name on the Turn link and a long name on the user menu truncate, so nothing else has to. */
 .right-group {
   display: flex;
   flex: 0 1 auto;

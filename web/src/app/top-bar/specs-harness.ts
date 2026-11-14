@@ -14,11 +14,17 @@ export function appAdminButton(page: HTMLElement) {
  * media queries never match one, and it won't focus what isn't shown.
  */
 export function narrowMenuButton(page: HTMLElement) {
-  const menu = [...page.querySelectorAll<HTMLButtonElement>('header button')].find(
+  showNarrowOnly(page);
+  return [...page.querySelectorAll<HTMLButtonElement>('header button')].find(
     (button) => button.getAttribute('aria-label') === 'Menu',
   )!;
-  menu.closest<HTMLElement>('.narrow-only')!.style.display = 'flex';
-  return menu;
+}
+
+/** Shows what only a narrow top bar shows, the Menu: jsdom's media queries never match a narrow screen. */
+function showNarrowOnly(page: HTMLElement) {
+  for (const narrow of page.querySelectorAll<HTMLElement>('header .narrow-only')) {
+    narrow.style.display = 'flex';
+  }
 }
 
 /** App admins' menus ask which version of the app is live; answers that, if it was asked. */
@@ -38,22 +44,28 @@ export function answerTopBar(http: HttpTestingController) {
   answerAppVersion(http);
 }
 
-/** The top bar's Turn link, by what it says: "Your turn" and where; null while it isn't there. */
+/** The top bar's Turn link, a link in the banner saying "Your turn"; null while it isn't there. */
 export const turnLink = (page: HTMLElement) =>
-  [...page.querySelectorAll<HTMLAnchorElement>('header a[href]')].find((a) =>
+  [...page.querySelectorAll<HTMLAnchorElement>('[role="banner"] a[href]')].find((a) =>
     a.textContent?.trim().startsWith('Your turn'),
   ) ?? null;
 
+/** What the top bar's Turn link says and where it goes; null while it isn't there. */
+export function turnLinkShown(page: HTMLElement) {
+  const found = turnLink(page);
+  return found && { text: found.textContent?.trim(), href: found.getAttribute('href') };
+}
+
 /**
  * Shows the top bar as on a narrow screen: what only a wide one shows
- * hidden, and the narrow-only Menu shown. jsdom's media queries never match
- * a narrow screen.
+ * hidden, and what only a narrow one shows, the Menu, shown. jsdom's media
+ * queries never match a narrow screen.
  */
 export function showNarrowTopBar(page: HTMLElement) {
   for (const wide of page.querySelectorAll<HTMLElement>('header .wide-only')) {
     wide.style.display = 'none';
   }
-  narrowMenuButton(page);
+  showNarrowOnly(page);
 }
 
 /** Whether `element` is shown: neither it nor anything holding it is hidden by `display: none`. */

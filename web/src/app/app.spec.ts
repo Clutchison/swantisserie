@@ -29,8 +29,9 @@ import {
   narrowMenuButton,
   showNarrowTopBar,
   turnLink,
+  turnLinkShown,
 } from './top-bar/specs-harness';
-import { listItemOf } from './drafts/specs/draft-list-harness';
+import { alicesTurnItem, listItemOf } from './drafts/specs/draft-list-harness';
 import type { DraftListItemView } from 'contract';
 
 describe('App', () => {
@@ -172,13 +173,6 @@ describe('App', () => {
   });
 
   describe('Turn link', () => {
-    /** A drafting draft of Alice and Bob whose turn is Alice's, the viewer's. */
-    const alicesTurn = (id: string, name: string, state: 'Drafting' | 'Frozen' = 'Drafting') =>
-      listItemOf({
-        id,
-        name,
-        ...drafting({ state, turn: { pick: 2, round: 1, playerId: alice.id } }),
-      });
     /** A drafting draft of Alice and Bob whose turn is Bob's. */
     const bobsTurn = (id: string, name: string) => listItemOf({ id, name, ...drafting() });
 
@@ -201,41 +195,51 @@ describe('App', () => {
     it('names the one draft on the viewer’s turn, and goes to its page', async () => {
       const page = await openWithDrafts('/', [
         bobsTurn('b', 'Arena cube'),
-        alicesTurn('a', 'Red dragons'),
+        alicesTurnItem('a', 'Red dragons'),
       ]);
 
-      expect(turnLink(page)?.textContent?.trim()).toBe('Your turn in Red dragons');
-      expect(turnLink(page)?.getAttribute('href')).toBe('/drafts/a');
+      expect(turnLinkShown(page)).toEqual({ text: 'Your turn in Red dragons', href: '/drafts/a' });
     });
 
     it('gives the count when it is the viewer’s turn in several drafts, and goes to the draft list', async () => {
       const page = await openWithDrafts(
         '/status',
         [
-          alicesTurn('a', 'Red dragons'),
+          alicesTurnItem('a', 'Red dragons'),
           bobsTurn('b', 'Arena cube'),
-          alicesTurn('c', 'Blue sphinxes'),
-          alicesTurn('f', 'Taking a break', 'Frozen'),
+          alicesTurnItem('c', 'Blue sphinxes'),
+          alicesTurnItem('f', 'Taking a break', 'Frozen'),
         ],
         () => http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' }),
       );
 
-      expect(turnLink(page)?.textContent?.trim()).toBe('Your turn in 2 drafts');
-      expect(turnLink(page)?.getAttribute('href')).toBe('/');
+      expect(turnLinkShown(page)).toEqual({ text: 'Your turn in 2 drafts', href: '/' });
     });
 
     it('shows on a narrow screen in the bar itself, not in the menu', async () => {
-      const page = await openWithDrafts('/', [alicesTurn('a', 'Red dragons')]);
+      const page = await openWithDrafts('/', [alicesTurnItem('a', 'Red dragons')]);
 
+      // Places it only: jsdom can't apply the narrow screen's media query, so this stands in for it.
       showNarrowTopBar(page);
 
       expect(narrowMenuButton(page).getAttribute('aria-expanded')).toBe('false');
       expect(isShown(turnLink(page)!)).toBe(true);
     });
 
+    it('isn’t there for a signed-out visitor, nor are their drafts read', async () => {
+      const { fixture, page } = await openApp('/', (me) =>
+        me.flush(null, { status: 401, statusText: 'Unauthorized' }),
+      );
+      await fixture.whenStable();
+
+      expect(router.url).toBe('/sign-in');
+      expect(turnLink(page)).toBeNull();
+      http.expectNone('/api/drafts');
+    });
+
     it.each([
       ['no draft is on the viewer’s turn', [bobsTurn('b', 'Arena cube')]],
-      ['the only one on their turn is frozen', [alicesTurn('f', 'Taking a break', 'Frozen')]],
+      ['the only one on their turn is frozen', [alicesTurnItem('f', 'Taking a break', 'Frozen')]],
       ['they are in no drafts', []],
     ])('isn’t there when %s', async (_, drafts) => {
       const page = await openWithDrafts('/', drafts);
