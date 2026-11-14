@@ -92,7 +92,7 @@ export class CardPreviews implements OnDestroy {
       ({ target }) => {
         if (this.shown && !this.shown.anchor.contains(target as Node)) this.close();
       },
-      // Stryker disable next-line ObjectLiteral,BooleanLiteral: capturing differs only if a handler stops a press's propagation, and the app's only `stopPropagation`, in the set combobox, isn't on a pointer event.
+      // Stryker disable next-line ObjectLiteral,BooleanLiteral: capturing differs only if a handler stops a press's propagation, and the app's `stopPropagation`s, in the set combobox and the Queue pane, are on a keydown and a click, never a pointerdown.
       { capture: true, signal },
     );
     // Doesn't stop the event, so a dialog under the preview closes on the same press.
@@ -106,9 +106,9 @@ export class CardPreviews implements OnDestroy {
     );
     // Rather than the drag's own end, which never comes if its card is lost and its row removed.
     for (const released of ['pointerup', 'pointercancel']) {
-      // Stryker disable next-line ObjectLiteral: capturing differs only if a handler stops a pointer event's propagation, and the app's only `stopPropagation`, in the set combobox, isn't on one; a listener left running after teardown only clears `dragging` on a destroyed service.
+      // Stryker disable next-line ObjectLiteral: capturing differs only if a handler stops a pointer release's propagation, and the app's `stopPropagation`s, in the set combobox and the Queue pane, are on a keydown and a click, never a release; a listener left running after teardown only clears `dragging` on a destroyed service.
       document.addEventListener(released, () => (this.dragging = false), {
-        // Stryker disable next-line BooleanLiteral: capturing differs only if a handler stops a pointer event's propagation, and the app's only `stopPropagation`, in the set combobox, isn't on one.
+        // Stryker disable next-line BooleanLiteral: capturing differs only if a handler stops a pointer release's propagation, and the app's `stopPropagation`s, in the set combobox and the Queue pane, are on a keydown and a click, never a release.
         capture: true,
         signal,
       });

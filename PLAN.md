@@ -125,7 +125,7 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 - Load directly from Scryfall's CDN (`cards.scryfall.io`): no rate limit, CORS `*`, one-year cache. Don't download, store or proxy them.
 - URLs are captured in the pool snapshot.
-- Pool grid uses `normal` with `loading="lazy"` and a card-name placeholder. Card detail uses `large`, with a flip button for double-faced cards.
+- Pool grid uses `small` or `normal`, whichever fits the tile's width, with a card-name placeholder. A tile requests its image only once it has stayed on screen briefly, so a fast scroll starts no requests for the tiles it passes. Card detail uses `large`, with a flip button for double-faced cards.
 - **Fallback:** if an image fails to load, use `https://api.scryfall.com/cards/{id}?format=image&version=normal` (`version=large` in card detail, plus `&face=back` for a back face).
 - Don't crop or alter images, beyond rounding their square corners to the card's shape. Credit the artist if `art_crop` is ever used.
 - Later, not v1: a nightly refresh of URLs for cards whose `image_status` is `lowres`, in active drafts only.
@@ -191,7 +191,7 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, guild setup and guild settings (guild admins), webhooks (app admins and guild admins).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
   - **Queue pane:** a player's queue, on every tab while the draft is drafting or frozen, and once it is closed only in the sheet below 1024px: drag or a card's row menu to reorder, an arrow on the next-up card, the Queue cutoff, lost cards named in the Queue notice, the queue's play/pause button, and the steal behavior toggle. On desktop it is a column beside the tabs that collapses to a rail, marked while the queue is queue paused. Below 1024px a "next up" strip above the bottom tabs shows the queue's size, picks left, the next card, or "Queue paused" in its place while the queue is queue paused, and a dot for an unseen Queue notice, and opens the pane as a sheet.
-  - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, **Add to Plan**, and **Add to queue** off your turn or **Remove from queue** for a queued card
+  - **Pool:** pool search, card grid, tap for its Card detail with **Pick** while drafting, **Add to Deck**, and **Add to queue** off your turn or **Remove from queue** for a queued card
   - **Plan:** your mainboard and sideboard, in stacks (by mana value, color or type, then the sideboard's one stack; a strip that scrolls sideways where the stacks area is narrower than 760px, and the default mode where it is that wide or wider) or list mode (the default where it is narrower), the basic lands control, the Deck notice and Queue unpicked
   - **Board:** every player's picks as a grid of seats by rounds, in snake order
   - **Export:** your picks and export buttons
