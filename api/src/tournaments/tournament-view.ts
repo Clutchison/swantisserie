@@ -171,20 +171,31 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   }));
   const humans = row.entries.filter((entry) => !entry.player.user.isBot);
   const dropped = droppedPlayers(entries);
-  const counted = rounds.filter((round) => countsInStandings(row, round.round));
   const paired = pairedPlayers(rounds);
   const nextRoundPlayers = (round: number) => paired.get(round + 1) ?? [];
-  const matches = counted.flatMap((round) =>
+  const matches = rounds.flatMap((round) =>
     round.matches.map((match) => ({
       ...toTournamentMatch(match),
+      round: round.round,
       nextRoundPlayers: nextRoundPlayers(round.round),
     })),
   );
+  const completed = {
+    lastCompletedRound: row.lastCompletedRound,
+    complete: row.state === 'Complete',
+  };
   const table =
     row.state === 'Registration'
       ? []
       : row.format === 'Swiss'
-        ? swissStandings(players, matches, byesOf(counted))
+        ? swissStandings(
+            players,
+            matches,
+            rounds.flatMap((round) =>
+              round.byes.map((playerId) => ({ playerId, round: round.round })),
+            ),
+            completed,
+          )
         : row.format === 'SingleElimination'
           ? singleEliminationStandings(
               [...row.entries]
@@ -192,12 +203,14 @@ export function toTournamentView(row: TournamentRow): TournamentView {
                 .map((entry) => entry.player.userId),
               matches,
               byesSendingOn(
-                counted.map((round) => ({
+                rounds.map((round) => ({
+                  round: round.round,
                   byes: round.byes,
                   nextRoundPlayers: nextRoundPlayers(round.round),
                 })),
                 dropped,
               ),
+              completed,
               dropped,
             )
           : standings(players, matches);
@@ -246,22 +259,6 @@ function pairedPlayers(
       round.round,
       [...round.matches.flatMap((match) => match.players), ...round.byes],
     ]),
-  );
-}
-
-/**
- * Whether tournament round `round` counts in the standings: always where
- * the format's standings don't wait for completed tournament rounds, as in
- * round robin; otherwise once it's completed, or once the tournament is.
- */
-function countsInStandings(
-  row: Pick<TournamentRow, 'format' | 'state' | 'lastCompletedRound'>,
-  round: number,
-): boolean {
-  return (
-    !FORMAT_RULES[row.format].standingsAwaitCompletedRounds ||
-    row.state === 'Complete' ||
-    round <= row.lastCompletedRound
   );
 }
 

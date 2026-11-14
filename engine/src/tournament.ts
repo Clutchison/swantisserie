@@ -115,6 +115,38 @@ export interface TournamentMatch {
   outcome: MatchOutcome | null;
 }
 
+/** A tournament match with the tournament round it was paired in. */
+export type RoundMatch<M extends TournamentMatch = TournamentMatch> = M & {
+  round: number;
+};
+
+/** The player with a bye, and the tournament round they had it in. */
+export interface RoundBye {
+  playerId: string;
+  round: number;
+}
+
+/**
+ * How far a Swiss or single elimination tournament has got, which its
+ * standings count up to: its last completed tournament round (0 before
+ * round 1 is completed), and whether the tournament is complete.
+ */
+export interface CompletedRounds {
+  lastCompletedRound: number;
+  complete: boolean;
+}
+
+/**
+ * Whether tournament round `round`'s results count in Swiss or single
+ * elimination standings: once it's completed, or once the tournament is.
+ */
+export function countsInStandings(
+  round: number,
+  { lastCompletedRound, complete }: CompletedRounds,
+): boolean {
+  return complete || round <= lastCompletedRound;
+}
+
 /** Matches or games won, lost and drawn. */
 export interface Tally {
   won: number;

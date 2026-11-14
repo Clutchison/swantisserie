@@ -1,8 +1,12 @@
 import {
+  countsInStandings,
   ranked,
   standingOf,
+  type CompletedRounds,
   type DecidedMatch,
   type MatchOutcome,
+  type RoundBye,
+  type RoundMatch,
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
@@ -370,6 +374,7 @@ function unpairedAdvancing(
  * in the tournament round after it.
  */
 export interface RoundByes {
+  round: number;
   byes: readonly string[];
   nextRoundPlayers: readonly string[];
 }
@@ -383,18 +388,23 @@ export interface RoundByes {
 export function byesSendingOn(
   rounds: readonly RoundByes[],
   dropped: readonly string[],
-): string[] {
-  return rounds.flatMap(({ byes, nextRoundPlayers }) =>
-    byes.filter(
-      (id) => !droppedBeforeNextRoundPaired(id, dropped, nextRoundPlayers),
-    ),
+): RoundBye[] {
+  return rounds.flatMap(({ round, byes, nextRoundPlayers }) =>
+    byes
+      .filter(
+        (id) => !droppedBeforeNextRoundPaired(id, dropped, nextRoundPlayers),
+      )
+      .map((playerId) => ({ playerId, round })),
   );
 }
 
 /**
  * The standings of a single elimination tournament's `players`, in seed
- * order, after `matches`, with `byes` holding the player with each bye: by
- * the tournament round each reached, as counted by the matches they won,
+ * order, after `matches`, with `byes` holding the player with each bye.
+ * They count only the matches and byes of the tournament rounds `completed`
+ * says are completed, or of every tournament round once the tournament is
+ * complete, so every player is level until round 1 is completed. Players
+ * rank by the tournament round each reached, as counted by the matches they won,
  * byes included, so the winner of the final ranks first alone. Players out
  * in the same tournament round, or still in it, share a rank and keep seed
  * order, the rank after a shared one skipping, as in 1, 1, 3. Unreported
@@ -408,13 +418,20 @@ export function byesSendingOn(
  */
 export function singleEliminationStandings(
   players: readonly string[],
-  matches: readonly SingleEliminationMatch[],
-  byes: readonly string[],
+  matches: readonly RoundMatch<SingleEliminationMatch>[],
+  byes: readonly RoundBye[],
+  completed: CompletedRounds,
   // Stryker disable next-line ArrayDeclaration: an extra id in the default `dropped` changes nothing.
   dropped: readonly string[] = [],
 ): Standing[] {
-  const decided = matches.filter(
-    (match): match is DecidedMatch =>
+  const counted = matches.filter(({ round }) =>
+    countsInStandings(round, completed),
+  );
+  const countedByes = byes.filter(({ round }) =>
+    countsInStandings(round, completed),
+  );
+  const decided = counted.filter(
+    (match): match is RoundMatch<SingleEliminationMatch> & DecidedMatch =>
       match.outcome !== null &&
       !nobodyWins(
         { players: match.players, outcome: match.outcome },
@@ -423,11 +440,15 @@ export function singleEliminationStandings(
       ),
   );
   const table = players.map((playerId) =>
-    standingOf(playerId, decided, byes.filter((id) => id === playerId).length),
+    standingOf(
+      playerId,
+      decided,
+      countedByes.filter((bye) => bye.playerId === playerId).length,
+    ),
   );
   const standings = ranked(table, (a, b) => b.matches.won - a.matches.won);
   const out = new Set(
-    matches.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
+    counted.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
       // Stryker disable next-line ArrayDeclaration: an extra id in the empty list changes nothing.
       if (outcome === null) return [];
       const match: DecidedMatch = { players: pair, outcome };

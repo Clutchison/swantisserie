@@ -8,15 +8,22 @@ import {
 } from './swiss.js';
 import {
   GAME_SCORES,
+  type RoundBye,
+  type RoundMatch,
   type ScheduledRound,
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
 import {
+  byesIn,
+  COMPLETE_TOURNAMENT,
+  completedThrough,
   grantedDraw,
+  inRound,
   placings,
   played,
   unreported,
+  won,
 } from './tournament.fixtures.js';
 
 describe('swissRoundCount', () => {
@@ -286,11 +293,18 @@ describe('pairSwissRound', () => {
       it.each([1, 2, 3, 4, 5])('with RNG seed %i', (rngSeed) => {
         const players = Array.from({ length: count }, (_, i) => `p${i + 1}`);
         const random = seededRandom(rngSeed * 1000 + count);
-        const matchesSoFar: TournamentMatch[] = [];
-        const byes: string[] = [];
+        const matchesSoFar: RoundMatch[] = [];
+        const roundByes: RoundBye[] = [];
 
         for (let r = 0; r < swissRoundCount(count, 'UntilWinner'); r++) {
-          const standings = swissStandings(players, matchesSoFar, byes);
+          // Each tournament round is completed before the next is paired.
+          const standings = swissStandings(
+            players,
+            matchesSoFar,
+            roundByes,
+            completedThrough(r),
+          );
+          const byes = roundByes.map(({ playerId }) => playerId);
           const round = pairSwissRound({
             standings,
             pastMatches: matchesSoFar.map((match) => match.players),
@@ -330,7 +344,7 @@ describe('pairSwissRound', () => {
             const bye = standings.find((s) => s.playerId === round.bye)!;
             expect(byes).not.toContain(round.bye);
             expect(bye.rank).toBe(lowestWithout.rank);
-            byes.push(round.bye!);
+            roundByes.push({ playerId: round.bye!, round: r + 1 });
           } else {
             expect(round.bye).toBeNull();
           }
@@ -340,6 +354,7 @@ describe('pairSwissRound', () => {
             matchesSoFar.push({
               players: match,
               outcome: { kind: 'GameScore', games: [...games], draws: 0 },
+              round: r + 1,
             });
           }
         }
@@ -349,10 +364,79 @@ describe('pairSwissRound', () => {
 });
 
 describe('swissStandings', () => {
+  /** The standings of a complete tournament of `players` after `matches` and `byes`, all of one tournament round. */
+  const completeStandings = (
+    players: string[],
+    matches: TournamentMatch[],
+    byes: string[],
+  ) =>
+    swissStandings(
+      players,
+      inRound(1, ...matches),
+      byesIn(1, ...byes),
+      COMPLETE_TOURNAMENT,
+    );
+
+  describe('over tournament rounds', () => {
+    // Round 1: a beat b, c had a bye. Round 2: c beat a, b had a bye.
+    const matches = [
+      ...inRound(1, won('a', 'b')),
+      ...inRound(2, won('c', 'a')),
+    ];
+    const byes = [...byesIn(1, 'c'), ...byesIn(2, 'b')];
+    const points = (standings: Standing[]) =>
+      Object.fromEntries(standings.map((s) => [s.playerId, s.matchPoints]));
+
+    it('counts only the completed tournament rounds', () => {
+      const ranked = swissStandings(
+        ['a', 'b', 'c'],
+        matches,
+        byes,
+        completedThrough(1),
+      );
+      expect(points(ranked)).toEqual({ a: 3, b: 0, c: 3 });
+    });
+
+    it('counts every tournament round once the tournament is complete', () => {
+      const ranked = swissStandings(
+        ['a', 'b', 'c'],
+        matches,
+        byes,
+        COMPLETE_TOURNAMENT,
+      );
+      expect(points(ranked)).toEqual({ a: 3, b: 3, c: 6 });
+    });
+
+    it('lists every player level until tournament round 1 is completed', () => {
+      const ranked = swissStandings(
+        ['a', 'b', 'c'],
+        matches,
+        byes,
+        completedThrough(0),
+      );
+      expect(placings(ranked)).toEqual([
+        ['a', 1],
+        ['b', 1],
+        ['c', 1],
+      ]);
+      expect(points(ranked)).toEqual({ a: 0, b: 0, c: 0 });
+    });
+
+    it('leaves out a bye in a tournament round not yet completed', () => {
+      const [b] = swissStandings(
+        ['b'],
+        [],
+        byesIn(2, 'b'),
+        completedThrough(1),
+      );
+      expect(b).toMatchObject({ matchPoints: 0, games: { won: 0 } });
+    });
+  });
+
   it('counts a bye as a 2–0 win', () => {
     // a and c are level on opponents' match-win % (33%, floored), and c's
     // bye gives the better game-win %.
-    const ranked = swissStandings(
+    const ranked = completeStandings(
       ['a', 'b', 'c'],
       [played('a', 'b', [2, 1])],
       ['c'],
@@ -375,7 +459,7 @@ describe('swissStandings', () => {
 
   it('ranks by match points first, before any tiebreaker', () => {
     // c has the better tiebreakers, but a has the match points.
-    const [a, c] = swissStandings(
+    const [a, c] = completeStandings(
       ['b', 'c', 'a'],
       [played('a', 'c', [2, 0])],
       [],
@@ -385,7 +469,7 @@ describe('swissStandings', () => {
   });
 
   it('ignores a match that hasn’t been reported', () => {
-    const ranked = swissStandings(
+    const ranked = completeStandings(
       ['a', 'b', 'c', 'd'],
       [played('a', 'b', [2, 0]), unreported('c', 'd')],
       [],
@@ -412,7 +496,7 @@ describe('swissStandings', () => {
       played('a', 'c', [2, 0]),
       played('b', 'd', [2, 1]),
     ];
-    const ranked = swissStandings(['a', 'b', 'd', 'c'], matches, []);
+    const ranked = completeStandings(['a', 'b', 'd', 'c'], matches, []);
     const c = standingFor(ranked, 'c');
     const d = standingFor(ranked, 'd');
     expect(c.opponentsMatchWinPercent).toBeCloseTo(66.5);
@@ -435,7 +519,7 @@ describe('swissStandings', () => {
       played('a', 'c', [2, 0]),
       played('b', 'd', [2, 1]),
     ];
-    const ranked = swissStandings(['a', 'b', 'c', 'd'], matches, []);
+    const ranked = completeStandings(['a', 'b', 'c', 'd'], matches, []);
     expect(
       ranked.map(({ playerId, gameWinPercent }) => [playerId, gameWinPercent]),
     ).toEqual([
@@ -445,7 +529,7 @@ describe('swissStandings', () => {
       ['d', 33],
     ]);
     expect(
-      swissStandings(['a', 'b'], [played('a', 'b', [2, 0], 1)], [])[0]
+      completeStandings(['a', 'b'], [played('a', 'b', [2, 0], 1)], [])[0]
         .gameWinPercent,
     ).toBeCloseTo((100 * 7) / 9);
   });
@@ -462,7 +546,7 @@ describe('swissStandings', () => {
       played('p', 'r', [2, 0]),
       played('q', 's', [2, 1]),
     ];
-    const [first, second] = swissStandings(
+    const [first, second] = completeStandings(
       ['y', 'x', 'p', 'q', 'r', 's'],
       matches,
       [],
@@ -488,7 +572,7 @@ describe('swissStandings', () => {
       played('a', 'd', [2, 0]),
       played('c', 'b', [2, 0]),
     ];
-    const ranked = swissStandings(['a', 'b', 'c', 'd'], matches, []);
+    const ranked = completeStandings(['a', 'b', 'c', 'd'], matches, []);
     const d = standingFor(ranked, 'd');
     expect(d.opponentsMatchWinPercent).toBeCloseTo(83.3, 1);
     expect(d.opponentsGameWinPercent).toBeCloseTo(73.3, 1);
@@ -496,7 +580,7 @@ describe('swissStandings', () => {
 
   it("leaves byes out of opponents' percentages, but not out of the bye's player's own", () => {
     // a had a bye, then beat c; b beat c, then had a bye.
-    const ranked = swissStandings(
+    const ranked = completeStandings(
       ['a', 'b', 'c'],
       [played('b', 'c', [2, 0]), played('a', 'c', [2, 0])],
       ['a', 'b'],
@@ -517,7 +601,7 @@ describe('swissStandings', () => {
   it('measures a player who stopped playing over the tournament rounds they played', () => {
     // d beat a in tournament round 1 and played no more; a beat c in
     // tournament round 2.
-    const ranked = swissStandings(
+    const ranked = completeStandings(
       ['a', 'b', 'c', 'd'],
       [
         played('d', 'a', [2, 0]),
@@ -538,7 +622,9 @@ describe('swissStandings', () => {
       played('a', 'c', [2, 0]),
       played('b', 'd', [2, 0]),
     ];
-    expect(placings(swissStandings(['a', 'b', 'c', 'd'], level, []))).toEqual([
+    expect(
+      placings(completeStandings(['a', 'b', 'c', 'd'], level, [])),
+    ).toEqual([
       ['a', 1],
       ['b', 2],
       ['c', 2],
@@ -546,7 +632,7 @@ describe('swissStandings', () => {
     ]);
     const levelOnPoints = [...level.slice(0, 3), played('b', 'd', [2, 1])];
     expect(
-      placings(swissStandings(['a', 'b', 'c', 'd'], levelOnPoints, [])),
+      placings(completeStandings(['a', 'b', 'c', 'd'], levelOnPoints, [])),
     ).toEqual([
       ['a', 1],
       ['c', 2],
@@ -570,7 +656,7 @@ describe('swissStandings', () => {
       played('a', 'e', [1, 1], 1),
       played('d', 'h', [2, 1]),
     ];
-    const ranked = swissStandings(
+    const ranked = completeStandings(
       ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'],
       matches,
       [],
@@ -585,7 +671,7 @@ describe('swissStandings', () => {
   it('floors each percentage at 33%, even before a player has played a game or met an opponent', () => {
     // a has only had a bye; b and c have only a granted draw, with no games,
     // which is 1 of 3 match points: 33.3%, above the floor.
-    const ranked = swissStandings(
+    const ranked = completeStandings(
       ['a', 'b', 'c'],
       [grantedDraw('b', 'c')],
       ['a'],
@@ -600,7 +686,7 @@ describe('swissStandings', () => {
       opponentsMatchWinPercent: expect.closeTo(100 / 3),
       opponentsGameWinPercent: 33,
     });
-    expect(swissStandings(['a', 'b'], [], [])[0]).toMatchObject({
+    expect(completeStandings(['a', 'b'], [], [])[0]).toMatchObject({
       rank: 1,
       gameWinPercent: 33,
       opponentsMatchWinPercent: 33,

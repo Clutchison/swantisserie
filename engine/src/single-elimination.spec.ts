@@ -12,6 +12,7 @@ import {
   winnerOf,
   type Advancing,
   type PlayedBracketMatch,
+  type SingleEliminationMatch,
 } from './single-elimination.js';
 import {
   trophyHolders,
@@ -19,12 +20,36 @@ import {
   type MatchOutcome,
 } from './tournament.js';
 import {
+  byesIn,
+  COMPLETE_TOURNAMENT,
+  completedThrough,
   forfeited,
   grantedWin,
+  inRound,
   placings,
   unreported,
   won,
 } from './tournament.fixtures.js';
+
+/**
+ * The standings of a complete single elimination tournament of `players`
+ * after `matches` and `byes`, all read as one tournament round's, with
+ * `dropped` holding every player who has dropped.
+ */
+function completeStandings(
+  players: string[],
+  matches: SingleEliminationMatch[],
+  byes: string[],
+  dropped?: string[],
+) {
+  return singleEliminationStandings(
+    players,
+    inRound(1, ...matches),
+    byesIn(1, ...byes),
+    COMPLETE_TOURNAMENT,
+    dropped,
+  );
+}
 
 /** Seed order s1, s2, … sN: each player is named after their seed. */
 function seeds(count: number): string[] {
@@ -145,15 +170,86 @@ describe('nextBracketRound', () => {
 });
 
 describe('singleEliminationStandings', () => {
+  describe('over tournament rounds', () => {
+    // Round 1: s1 beat s4, s2 beat s3. Round 2, the final: s1 beat s2.
+    const matches = [
+      ...inRound(1, won('s1', 's4'), won('s2', 's3')),
+      ...inRound(2, won('s1', 's2')),
+    ];
+
+    it('counts only the completed tournament rounds', () => {
+      const standings = singleEliminationStandings(
+        seeds(4),
+        matches,
+        [],
+        completedThrough(1),
+      );
+      expect(placings(standings)).toEqual([
+        ['s1', 1],
+        ['s2', 1],
+        ['s3', 3],
+        ['s4', 3],
+      ]);
+    });
+
+    it('counts every tournament round once the tournament is complete', () => {
+      const standings = singleEliminationStandings(
+        seeds(4),
+        matches,
+        [],
+        COMPLETE_TOURNAMENT,
+      );
+      expect(placings(standings)).toEqual([
+        ['s1', 1],
+        ['s2', 2],
+        ['s3', 3],
+        ['s4', 3],
+      ]);
+    });
+
+    it('lists every player level until tournament round 1 is completed', () => {
+      const standings = singleEliminationStandings(
+        seeds(4),
+        matches,
+        [],
+        completedThrough(0),
+      );
+      expect(placings(standings)).toEqual([
+        ['s1', 1],
+        ['s2', 1],
+        ['s3', 1],
+        ['s4', 1],
+      ]);
+    });
+
+    it('leaves out a bye in a tournament round not yet completed', () => {
+      // s1 had a bye in round 1; s2 and s3 haven't reported their match.
+      const round1 = inRound(1, unreported('s2', 's3'));
+      const byes = byesIn(1, 's1');
+      const [before] = singleEliminationStandings(
+        seeds(3),
+        round1,
+        byes,
+        completedThrough(0),
+      );
+      const [after] = singleEliminationStandings(
+        seeds(3),
+        round1,
+        byes,
+        completedThrough(1),
+      );
+      expect(before).toMatchObject({ playerId: 's1', matches: { won: 0 } });
+      expect(after).toMatchObject({ playerId: 's1', matches: { won: 1 } });
+    });
+  });
+
   // s1, s2 and s3 had byes; s4 beat s5, then s1 beat s4 and s3 beat s2.
   const reached = [won('s4', 's5'), won('s1', 's4'), won('s3', 's2')];
   const final = grantedWin('s1', 's3', 's3');
   const byes = ['s1', 's2', 's3'];
 
   it('ranks players by the tournament round they reached, sharing a rank within it', () => {
-    expect(
-      placings(singleEliminationStandings(seeds(5), reached, byes)),
-    ).toEqual([
+    expect(placings(completeStandings(seeds(5), reached, byes))).toEqual([
       ['s1', 1],
       ['s3', 1],
       ['s2', 3],
@@ -163,11 +259,7 @@ describe('singleEliminationStandings', () => {
   });
 
   it('ranks the winner of the final alone first', () => {
-    const standings = singleEliminationStandings(
-      seeds(5),
-      [...reached, final],
-      byes,
-    );
+    const standings = completeStandings(seeds(5), [...reached, final], byes);
     expect(placings(standings)).toEqual([
       ['s3', 1],
       ['s1', 2],
@@ -178,7 +270,7 @@ describe('singleEliminationStandings', () => {
   });
 
   it('counts a granted win as a won match with no games', () => {
-    const [winner] = singleEliminationStandings(
+    const [winner] = completeStandings(
       ['a', 'b'],
       [grantedWin('a', 'b', 'b')],
       [],
@@ -191,7 +283,7 @@ describe('singleEliminationStandings', () => {
   });
 
   it('counts a forfeit both players dropped from for neither', () => {
-    const standings = singleEliminationStandings(
+    const standings = completeStandings(
       ['a', 'b', 'c', 'd'],
       [forfeited('a', 'b', 'a'), won('c', 'd')],
       [],
@@ -207,7 +299,7 @@ describe('singleEliminationStandings', () => {
 
   it('ranks nobody first when both finalists dropped, the finalists sharing second', () => {
     // s1 beat s4 and s2 beat s3, then both dropped: the final is a forfeit.
-    const standings = singleEliminationStandings(
+    const standings = completeStandings(
       seeds(4),
       [won('s1', 's4'), won('s2', 's3'), forfeited('s1', 's2', 's1')],
       [],
@@ -224,7 +316,7 @@ describe('singleEliminationStandings', () => {
 
   it('keeps a forfeit win once its winner played on, though both its players dropped', () => {
     // s4 dropped in tournament round 1, so s1 advanced on the forfeit, lost the final to s2, then dropped.
-    const standings = singleEliminationStandings(
+    const standings = completeStandings(
       seeds(4),
       [
         { ...forfeited('s1', 's4', 's4'), nextRoundPlayers: ['s1', 's2'] },
@@ -243,11 +335,7 @@ describe('singleEliminationStandings', () => {
   });
 
   it('leaves unreported matches out', () => {
-    const standings = singleEliminationStandings(
-      ['a', 'b'],
-      [unreported('a', 'b')],
-      [],
-    );
+    const standings = completeStandings(['a', 'b'], [unreported('a', 'b')], []);
     expect(placings(standings)).toEqual([
       ['a', 1],
       ['b', 1],
@@ -691,12 +779,16 @@ describe('byesSendingOn', () => {
     // s1 had a bye in round 1 and was paired in round 2; s5 had one in round 2 and dropped.
     const sent = byesSendingOn(
       [
-        { byes: ['s1', 's2'], nextRoundPlayers: ['s1', 's2', 's3'] },
-        { byes: ['s5'], nextRoundPlayers: [] },
+        {
+          round: 1,
+          byes: ['s1', 's2'],
+          nextRoundPlayers: ['s1', 's2', 's3'],
+        },
+        { round: 2, byes: ['s5'], nextRoundPlayers: [] },
       ],
       ['s1', 's5'],
     );
-    expect(sent).toEqual(['s1', 's2']);
+    expect(sent).toEqual(byesIn(1, 's1', 's2'));
   });
 });
 
@@ -704,7 +796,7 @@ describe('the single elimination trophy', () => {
   const semifinals = [won('s1', 's4'), won('s2', 's3')];
 
   it('is the winner of the final', () => {
-    const standings = singleEliminationStandings(
+    const standings = completeStandings(
       seeds(4),
       [...semifinals, won('s2', 's1')],
       [],
@@ -713,7 +805,7 @@ describe('the single elimination trophy', () => {
   });
 
   it('is the other finalist alone when one finalist dropped', () => {
-    const standings = singleEliminationStandings(
+    const standings = completeStandings(
       seeds(4),
       [...semifinals, forfeited('s1', 's2', 's1')],
       [],
@@ -723,7 +815,7 @@ describe('the single elimination trophy', () => {
   });
 
   it('is nobody when both finalists dropped', () => {
-    const standings = singleEliminationStandings(
+    const standings = completeStandings(
       seeds(4),
       [...semifinals, forfeited('s1', 's2', 's1')],
       [],
@@ -734,7 +826,7 @@ describe('the single elimination trophy', () => {
 
   it('is the one player left when the tournament completes before its final', () => {
     // 4 players, completed after round 1: s1 won, s2 v s3 both dropped.
-    const standings = singleEliminationStandings(
+    const standings = completeStandings(
       seeds(4),
       [won('s1', 's4'), forfeited('s2', 's3', 's2')],
       [],
