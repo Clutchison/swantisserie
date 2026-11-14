@@ -28,8 +28,8 @@ import { toOutcome } from './tournament-view.js';
  * Single elimination's round steps: Start seeds the bracket; Complete round
  * gives each listed unreported match a granted win for the winner the
  * organizer picked, or drops the players they picked from it, and pairs
- * the players who advance into the next round by bracket place. Its
- * corrections are SINGLE_ELIMINATION_CHANGES, in bracket-changes.ts.
+ * the players who advance into the next round by bracket place. When it
+ * refuses Reinstate is SINGLE_ELIMINATION_CHANGES, in bracket-changes.ts.
  * Throws InvalidTournamentRequestError for granted draws, as single
  * elimination never has a draw.
  */
