@@ -7,8 +7,9 @@ import type { TournamentProgress } from './round-steps.js';
 import { TournamentRefusedError } from './tournament-errors.js';
 
 /**
- * What an organizer's correction or clear writes to a match: its new
- * outcome, every field only another outcome uses back to its default.
+ * What a player's report, or an organizer's correction or clear, writes to
+ * a match: its new outcome, every field only another outcome uses back to
+ * its default.
  */
 export interface MatchChange {
   outcome: MatchOutcomeKind;

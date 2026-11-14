@@ -180,7 +180,7 @@ describe('cascade', () => {
     ]);
   });
 
-  it('stops at a seat whose queue is paused, as at an empty queue', () => {
+  it('stops at a seat with its queue paused, as at an empty queue', () => {
     expect(
       picks(
         { players: 3, picksPerPlayer: 2, doublePicks: 0, picked: [] },

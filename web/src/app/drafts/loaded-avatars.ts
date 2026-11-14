@@ -3,9 +3,9 @@ import { Injectable, signal } from '@angular/core';
 /**
  * The avatar images that have loaded, by URL, so a seat shows its player's
  * avatar at once, in place of the disc and initial, as it is re-created or
- * its avatar changes back to one that has loaded. One per page by default; a
- * component that provides its own, as the Seat strip does, keeps its seats'
- * to itself.
+ * its avatar changes back to one that has loaded. One for the whole app by
+ * default; a component that provides its own, as the Seat strip does, keeps
+ * its seats' to itself.
  */
 @Injectable({ providedIn: 'root' })
 export class LoadedAvatars {

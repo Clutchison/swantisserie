@@ -35,12 +35,12 @@ export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
 
 /**
  * The Printing picker, opened on the dialog shell from a copy of a basic land
- * on a plan board of the signed-in player's own plan or deck, locked or not.
+ * on a plan board of the signed-in player's own plan, locked or not.
  * It shows a large image of a printing of the land, which they browse set by
  * set, newest set first, finding a set by typing part of its code or name,
  * and make their preferred printing, or go back to the default printing. It
  * opens on the printing the land shows now. Browsing changes only the
- * picker. In an unlocked plan or deck it also offers Remove, which takes the
+ * picker. In an unlocked plan it also offers Remove, which takes the
  * copy it opened from off that plan board. Each choice closes it once made,
  * and a failed one is said in it; Cancel, Escape and the backdrop close it
  * with no change.

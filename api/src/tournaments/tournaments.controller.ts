@@ -98,7 +98,7 @@ export class TournamentsController {
     return this.change(id, () => this.registration.cancel(id));
   }
 
-  /** Joins the signed-in player to the draft's tournament, locking their deck. */
+  /** Joins the signed-in player to the draft's tournament again, during registration; their deck locks only at Start (ADR 0010). */
   @Post('entries')
   async join(
     @CurrentUser() user: SessionUser,
@@ -324,7 +324,7 @@ export class TournamentsController {
 }
 
 /**
- * The format, for Swiss the round option, and whether it has public
+ * The format, for Swiss its Swiss round option, and whether it has public
  * decklists, as tournament setup chose them, or a 400 if one isn't on offer.
  */
 function parseSetup(body: unknown): TournamentSetupRequest {

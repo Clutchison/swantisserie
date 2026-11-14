@@ -7,6 +7,7 @@ import type {
   Platform,
   PoolSnapshotState,
   PoolSourceKind,
+  QueueLoss,
   StealBehavior,
   SwissRoundOption,
   TournamentFormat,
@@ -15,6 +16,7 @@ import type {
 import type {
   BracketSide as EngineBracketSide,
   MatchOutcome as EngineMatchOutcome,
+  QueueLoss as EngineQueueLoss,
   StealBehavior as EngineStealBehavior,
   SwissRoundOption as EngineSwissRoundOption,
 } from 'engine';
@@ -45,6 +47,8 @@ export type ContractMatchesSchema = [
   >,
   Expect<Same<StealBehavior, Schema.StealBehavior>>,
   Expect<Same<EngineStealBehavior, Schema.StealBehavior>>,
+  Expect<Same<QueueLoss, Schema.QueueLoss>>,
+  Expect<Same<EngineQueueLoss, Schema.QueueLoss>>,
   Expect<Same<TournamentFormat, Schema.TournamentFormat>>,
   Expect<Same<TournamentState, Schema.TournamentState>>,
   Expect<Same<SwissRoundOption, Schema.SwissRoundOption>>,

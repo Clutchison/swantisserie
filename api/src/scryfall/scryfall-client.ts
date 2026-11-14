@@ -78,7 +78,7 @@ export interface ScryfallCardFace {
   image_uris?: CardImages;
 }
 
-/** One page of a search's results (unique cards, 175 per page). */
+/** One page of a search's results, 175 cards or printings per page. */
 export interface ScryfallSearchPage {
   totalCards: number;
   hasMore: boolean;
