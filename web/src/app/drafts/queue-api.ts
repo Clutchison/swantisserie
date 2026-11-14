@@ -20,7 +20,7 @@ export class QueueApi {
     return this.http.post<QueueView>(url(draftId), { poolCardId } satisfies PoolCardRequest);
   }
 
-  /** Adds the deck's unpicked cards to the end of the queue: the mainboard's, and the sideboard's if `includeSideboard`. */
+  /** Adds the plan's unpicked cards to the end of the queue: the mainboard's, and the sideboard's if `includeSideboard`. */
   addUnpicked(draftId: string, includeSideboard: boolean): Observable<QueueView> {
     return this.http.post<QueueView>(`${url(draftId)}/unpicked`, {
       includeSideboard,
