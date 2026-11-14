@@ -1,13 +1,7 @@
 import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import {
-  GuardsCheckEnd,
-  NavigationEnd,
-  provideRouter,
-  Router,
-  withComponentInputBinding,
-} from '@angular/router';
+import { GuardsCheckEnd, NavigationEnd, Router } from '@angular/router';
 import type {
   CardFace,
   DecklistView,
@@ -32,7 +26,7 @@ import { isTurnState } from 'contract';
 import { currentTurn } from 'engine';
 import { of } from 'rxjs';
 import { App } from '../../app';
-import { routes } from '../../app.routes';
+import { provideAppRouter } from '../../app.router';
 import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { SET_CATALOG_POLL_MS } from '../set-list-picker';
@@ -86,6 +80,10 @@ export {
 
 /** What the draft page alerts when the organizer's Retry of a failed snapshot fails. */
 export const RETRY_FAILED = "Couldn't restart the snapshot. Try again in a moment.";
+
+/** The note inside `root` saying a re-read of the loaded draft failed; undefined if none shows. */
+export const couldntRefresh = (root: HTMLElement) =>
+  statusMessage(root, "Couldn't refresh this draft. What's shown may be out of date.");
 
 export const completeSnapshot: PoolSnapshotView = { state: 'Complete', cards: 540, total: 540 };
 
@@ -196,7 +194,7 @@ export function useDraftsApp() {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter(routes, withComponentInputBinding()),
+        provideAppRouter(),
         provideHttpClient(
           withInterceptors([
             signOutWhenSessionEnds,
@@ -792,11 +790,7 @@ export async function openDraft(
   const { fixture, page } = await openUrl(url, user, { viewerDrafts });
   const opened = draft({ snapshot, ...fields });
   http.expectOne('/api/drafts/draft-1').flush(opened);
-  if (snapshot.state === 'Complete') await flushPool(cards);
-  if (opened.state !== 'Lobby') await flushPicks(picks);
-  if (opened.players.some((player) => player.id === user.id)) {
-    await flushQueueAndPlan(queue, plan);
-  }
+  await answerOpening(opened, { cards, picks, queue, plan, user });
   if (opened.tournament) {
     if (!tournament) throw new Error('A draft with a tournament needs `tournament` to read.');
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament'))).flush(tournament);
@@ -810,6 +804,34 @@ export async function openDraft(
   return { fixture, page };
 }
 
+/**
+ * Answers the reads a draft page makes as `opened` loads, after the draft
+ * itself: its pool by `cards` once the snapshot is complete, its picks by
+ * `picks` once started, and `user`'s queue and plan if they play in it.
+ */
+export async function answerOpening(
+  opened: DraftView,
+  {
+    cards = [],
+    picks = [],
+    queue = EMPTY_QUEUE,
+    plan = EMPTY_PLAN,
+    user = alice,
+  }: {
+    cards?: PoolCardView[];
+    picks?: PickView[];
+    queue?: QueueView;
+    plan?: PlanView;
+    user?: UserView;
+  } = {},
+) {
+  if (opened.snapshot.state === 'Complete') await flushPool(cards, opened.id);
+  if (opened.state !== 'Lobby') await flushPicks(picks, opened.id);
+  if (opened.players.some((player) => player.id === user.id)) {
+    await flushQueueAndPlan(queue, plan, opened.id);
+  }
+}
+
 /** Answers the page's GET of draft-1's decklists with `decklists`. */
 export async function flushDecklists(decklists: DecklistView[]) {
   (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/decklists'))).flush(
@@ -821,24 +843,24 @@ export async function flushDecklists(decklists: DecklistView[]) {
  * Answers the page's GETs of the signed-in player's queue and plan, which it
  * makes on opening a draft they play in and again on every version change.
  */
-export async function flushQueueAndPlan(queue = EMPTY_QUEUE, plan = EMPTY_PLAN) {
-  await flushQueue(queue);
-  await flushPlan(plan);
+export async function flushQueueAndPlan(queue = EMPTY_QUEUE, plan = EMPTY_PLAN, id = 'draft-1') {
+  await flushQueue(queue, id);
+  await flushPlan(plan, id);
 }
 
-/** Answers the page's GET of the signed-in player's plan with `plan`. */
-export async function flushPlan(plan: PlanView) {
-  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(plan);
+/** Answers the page's GET of the signed-in player's plan in draft `id` (draft-1 unless given) with `plan`. */
+export async function flushPlan(plan: PlanView, id = 'draft-1') {
+  (await vi.waitFor(() => http.expectOne(`/api/drafts/${id}/plan`))).flush(plan);
 }
 
-/** Answers the page's GET of the signed-in player's queue with `queue`. */
-export async function flushQueue(queue: QueueView) {
-  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(queue);
+/** Answers the page's GET of the signed-in player's queue in draft `id` (draft-1 unless given) with `queue`. */
+export async function flushQueue(queue: QueueView, id = 'draft-1') {
+  (await vi.waitFor(() => http.expectOne(`/api/drafts/${id}/queue`))).flush(queue);
 }
 
-/** Answers the page's GET of draft-1's pick log with `picks`. */
-export async function flushPicks(picks: PickView[]) {
-  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'))).flush(picks);
+/** Answers the page's GET of draft `id`'s pick log (draft-1's unless given) with `picks`. */
+export async function flushPicks(picks: PickView[], id = 'draft-1') {
+  (await vi.waitFor(() => http.expectOne(`/api/drafts/${id}/picks`))).flush(picks);
 }
 
 /**
@@ -856,11 +878,11 @@ export async function startDraft(fixture: AppFixture, fields: DraftFixture = {})
 }
 
 /**
- * Answers the page's GET of draft-1's pool cards with `cards`. The page
- * isn't stable until it's answered.
+ * Answers the page's GET of draft `id`'s pool cards (draft-1's unless given)
+ * with `cards`. The page isn't stable until it's answered.
  */
-export async function flushPool(cards: PoolCardView[] = []) {
-  (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/pool'))).flush(cards);
+export async function flushPool(cards: PoolCardView[] = [], id = 'draft-1') {
+  (await vi.waitFor(() => http.expectOne(`/api/drafts/${id}/pool`))).flush(cards);
 }
 
 /** The next poll of the draft, answered with `snapshot`. */
