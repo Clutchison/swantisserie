@@ -126,6 +126,14 @@ export interface RoundBye {
   round: number;
 }
 
+/** A bye in tournament round `round` for each of `players`. */
+export function roundByes(
+  round: number,
+  players: readonly string[],
+): RoundBye[] {
+  return players.map((playerId) => ({ playerId, round }));
+}
+
 /**
  * How far a Swiss or single elimination tournament has got, which its
  * standings count up to: its last completed tournament round (0 before
@@ -137,14 +145,22 @@ export interface CompletedRounds {
 }
 
 /**
- * Whether tournament round `round`'s results count in Swiss or single
- * elimination standings: once it's completed, or once the tournament is.
+ * The matches and byes among `matches` and `byes` that Swiss and single
+ * elimination standings count: a tournament round's once it's completed,
+ * and every tournament round's once the tournament is complete. The byes
+ * come back as the player with each, once per bye.
  */
-export function countsInStandings(
-  round: number,
+export function countedInStandings<M extends RoundMatch>(
+  matches: readonly M[],
+  byes: readonly RoundBye[],
   { lastCompletedRound, complete }: CompletedRounds,
-): boolean {
-  return complete || round <= lastCompletedRound;
+): { matches: M[]; byes: string[] } {
+  const counts = ({ round }: { round: number }) =>
+    complete || round <= lastCompletedRound;
+  return {
+    matches: matches.filter(counts),
+    byes: byes.filter(counts).map(({ playerId }) => playerId),
+  };
 }
 
 /** Matches or games won, lost and drawn. */

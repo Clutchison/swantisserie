@@ -14,6 +14,7 @@ import {
   byesSendingOn,
   droppedPlayers,
   placeIn,
+  roundByes,
   singleEliminationRoundCount,
   singleEliminationStandings,
   standings,
@@ -191,9 +192,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
         ? swissStandings(
             players,
             matches,
-            rounds.flatMap((round) =>
-              round.byes.map((playerId) => ({ playerId, round: round.round })),
-            ),
+            rounds.flatMap((round) => roundByes(round.round, round.byes)),
             completed,
           )
         : row.format === 'SingleElimination'

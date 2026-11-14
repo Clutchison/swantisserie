@@ -1,5 +1,6 @@
 import {
-  countsInStandings,
+  countedInStandings,
+  roundByes,
   ranked,
   standingOf,
   type CompletedRounds,
@@ -418,22 +419,23 @@ export function byesSendingOn(
   dropped: readonly string[],
 ): RoundBye[] {
   return rounds.flatMap(({ round, byes, nextRoundPlayers }) =>
-    byes
-      .filter(
+    roundByes(
+      round,
+      byes.filter(
         (id) => !droppedBeforeNextRoundPaired(id, dropped, nextRoundPlayers),
-      )
-      .map((playerId) => ({ playerId, round })),
+      ),
+    ),
   );
 }
 
 /**
  * The standings of a single elimination tournament's `players`, in seed
  * order, after `matches`, with `byes` holding the player with each bye.
- * They count only the matches and byes of the tournament rounds `completed`
- * says are completed, or of every tournament round once the tournament is
- * complete, so every player is level until round 1 is completed. Players
- * rank by the tournament round each reached, as counted by the matches they won,
- * byes included, so the winner of the final ranks first alone. Players out
+ * The standings count a tournament round's matches and byes only once
+ * `completed` says it is completed, or once the tournament is complete, so
+ * every player is level until round 1 is completed. Players rank by the
+ * tournament round each reached, as counted by the matches they won, byes
+ * included, so the winner of the final ranks first alone. Players out
  * in the same tournament round, or still in it, share a rank and keep seed
  * order, the rank after a shared one skipping, as in 1, 1, 3. Unreported
  * matches count for nothing, and so does a forfeit whose players both
@@ -452,13 +454,8 @@ export function singleEliminationStandings(
   // Stryker disable next-line ArrayDeclaration: an extra id in the default `dropped` changes nothing.
   dropped: readonly string[] = [],
 ): Standing[] {
-  const counted = matches.filter(({ round }) =>
-    countsInStandings(round, completed),
-  );
-  const countedByes = byes.filter(({ round }) =>
-    countsInStandings(round, completed),
-  );
-  const decided = counted.filter(
+  const counted = countedInStandings(matches, byes, completed);
+  const decided = counted.matches.filter(
     (match): match is RoundMatch<SingleEliminationMatch> & DecidedMatch =>
       match.outcome !== null &&
       !nobodyWins(
@@ -471,12 +468,12 @@ export function singleEliminationStandings(
     standingOf(
       playerId,
       decided,
-      countedByes.filter((bye) => bye.playerId === playerId).length,
+      counted.byes.filter((id) => id === playerId).length,
     ),
   );
   const standings = ranked(table, (a, b) => b.matches.won - a.matches.won);
   const out = new Set(
-    counted.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
+    counted.matches.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
       // Stryker disable next-line ArrayDeclaration: an extra id in the empty list changes nothing.
       if (outcome === null) return [];
       const match: DecidedMatch = { players: pair, outcome };

@@ -1,6 +1,6 @@
 import { seededRandom, shuffle } from './shuffle.js';
 import {
-  countsInStandings,
+  countedInStandings,
   ranked,
   standingOf,
   type CompletedRounds,
@@ -40,10 +40,10 @@ export const SWISS_PERCENT_FLOOR = 33;
 /**
  * The standings of a Swiss tournament's `players` after `matches`, best
  * first, with `byes` holding the player with each bye so far, once per bye.
- * They count only the matches and byes of the tournament rounds `completed`
- * says are completed, or of every tournament round once the tournament is
- * complete, so every player is level until round 1 is completed. A bye
- * counts as a 2–0 win. Players rank by the MTR's order (Appendix C):
+ * The standings count a tournament round's matches and byes only once
+ * `completed` says it is completed, or once the tournament is complete, so
+ * every player is level until round 1 is completed. A bye counts as a 2–0
+ * win. Players rank by the MTR's order (Appendix C):
  * match points, then opponents' match-win %, game-win %, then opponents'
  * game-win %.
  *
@@ -66,19 +66,16 @@ export function swissStandings(
   byes: readonly RoundBye[],
   completed: CompletedRounds,
 ): Standing[] {
-  const counts = ({ round }: { round: number }) =>
-    countsInStandings(round, completed);
-  const decided = matches.filter(
-    (match): match is RoundMatch<DecidedMatch> =>
-      match.outcome !== null && counts(match),
+  const counted = countedInStandings(matches, byes, completed);
+  const decided = counted.matches.filter(
+    (match): match is RoundMatch<DecidedMatch> => match.outcome !== null,
   );
-  const countedByes = byes.filter(counts);
   const all = new Map(
     players.map((playerId) => {
       const standing = standingOf(
         playerId,
         decided,
-        countedByes.filter((bye) => bye.playerId === playerId).length,
+        counted.byes.filter((id) => id === playerId).length,
       );
       const { won, lost, drawn } = standing.games;
       const played = won + lost + drawn;

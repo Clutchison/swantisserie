@@ -13,12 +13,10 @@ import {
   type TournamentMatch,
 } from './tournament.js';
 import {
-  byesIn,
-  COMPLETE_TOURNAMENT,
   forfeited,
   grantedDraw,
   grantedWin,
-  inRound,
+  oneCompleteRound,
   placings,
   played,
   unreported,
@@ -436,9 +434,7 @@ describe('roundCompletion', () => {
         const holders = trophyHolders(
           singleEliminationStandings(
             input.entries.map((entry) => entry.playerId),
-            inRound(1, ...matches),
-            byesIn(1, ...byes),
-            COMPLETE_TOURNAMENT,
+            ...oneCompleteRound(matches, byes),
             droppedPlayers(input.entries),
           ),
         );
