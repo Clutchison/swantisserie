@@ -88,8 +88,8 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 ### Live updates
 
-- Socket.IO room per draft. After each change (a pick, a lobby change, a state change) the draft as it now is is pushed to everyone viewing, and they re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
-- On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, so nothing missed while it was away stays missing.
+- One Socket.IO connection per signed-in tab, joined to a room of the viewer's own, and to a room per draft it watches. After each change (a pick, a lobby change, a state change) the draft as it now is is pushed to everyone viewing it and to the own room of each of its players, bots excluded, so the draft list, the Turn link and the page title keep up with the drafts a viewer plays in. Viewers re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
+- On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, and the draft list, so nothing missed while it was away stays missing.
 - The pushed draft is the only event besides a cancel. Every pick, undo and state change bumps the draft's version, and on a version change the client re-reads the pick log and the signed-in player's queue and plan, which is how it learns of an undo or a lost card.
 
 ## Discord (Discord bot and webhooks)
@@ -170,7 +170,7 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 2. Under the draft row lock, the api checks that the draft is Drafting. The engine checks the pick (your turn, card available), and works out the cascade after it and what every pick does to queues and plans.
 3. The api persists the picks and their effects on queues and plans, then commits.
 4. **After commit**, the api builds the announcements' events itself and passes them to `DiscordModule` → `DraftNotifier`. It formats one webhook message and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
-5. Push the draft as it now is to the draft's Socket.IO room.
+5. Push the draft as it now is to the draft's Socket.IO room and to its players' own rooms.
 
 ### Where the Discord code lives
 
