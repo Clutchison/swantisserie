@@ -170,6 +170,14 @@ _Avoid_: Snake turn, wheel, the turn (alone)
 A player's chance to make the next pick, or the next two on a double turn. The draft says whose turn it is and which pick and round it is.
 _Avoid_: Go, move
 
+**Turn banner**:
+The bar under a draft's header telling the viewer it is their turn, and which pick and round it is, from when the turn comes to them until it passes. While the draft is frozen it says so, and doesn't stand out.
+_Avoid_: Turn alert, turn notification, turn indicator
+
+**Turn link**:
+The link in the top bar, on every page, while it is the viewer's turn in a draft that is drafting: to that draft, or to the draft list when it is their turn in several.
+_Avoid_: Turn badge, turn counter, notification
+
 **Double turn**:
 A turn on which the player makes two picks before it passes. Snake order runs over turns, so a round of double turns goes from each seat's two picks to the next seat's.
 _Avoid_: Double pick (for the turn), two-pick, bonus pick, extra turn
