@@ -19,6 +19,7 @@ import {
   heading,
   link,
   loadingAnimation,
+  region,
 } from '../drafts/specs/harness';
 import { describedTerms } from '../drafts/specs/outline-harness';
 
@@ -104,9 +105,13 @@ describe('the My stats page', () => {
   /** Each stat shown, as its name and its value. */
   const stats = (page: HTMLElement) => describedTerms(page, 'My stats');
 
+  /** The results table, in its region; null if there is none. */
+  const resultsTable = (page: HTMLElement) =>
+    region(page, 'Results')?.querySelector<HTMLElement>('table') ?? null;
+
   /** The text of each row of the results table, its header row left out; null if there is none. */
   function results(page: HTMLElement) {
-    const found = table(page, 'Results');
+    const found = resultsTable(page);
     return found && tableRows(found);
   }
 
@@ -190,7 +195,7 @@ describe('the My stats page', () => {
   it('lists each result newest first with its date, draft, pool source, place, standings record and trophy', async () => {
     const page = await openMyStats();
 
-    expect(tableColumns(table(page, 'Results')!)).toEqual([
+    expect(tableColumns(resultsTable(page)!)).toEqual([
       'Completed',
       'Draft',
       'Pool source',
@@ -207,7 +212,7 @@ describe('the My stats page', () => {
 
   it('links each result to its draft, a cube to CubeCobra and a pool query to Scryfall', async () => {
     const page = await openMyStats();
-    const found = table(page, 'Results')!;
+    const found = resultsTable(page)!;
 
     expect(link(found, 'Cube night')?.getAttribute('href')).toBe('/drafts/d3');
     expect(link(found, 'Red')?.getAttribute('href')).toBe('/drafts/d1');
@@ -216,6 +221,15 @@ describe('the My stats page', () => {
     );
     expect(link(found, 'c:r')?.getAttribute('href')).toBe('https://scryfall.com/search?q=c%3Ar');
     expect(link(found, 'Bloomburrow (+ Special Guests)')).toBeUndefined();
+  });
+
+  it('scrolls the results sideways in their own region, which a keyboard can reach and which alone names them', async () => {
+    const page = await openMyStats();
+
+    const scroller = region(page, 'Results')!;
+    expect(scroller.contains(resultsTable(page))).toBe(true);
+    expect(scroller.tabIndex).toBe(0);
+    expect(table(page, 'Results')).toBeNull();
   });
 
   it('says so for a player who has joined no complete tournament', async () => {
