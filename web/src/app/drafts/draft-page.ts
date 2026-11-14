@@ -3,7 +3,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  DestroyRef,
   effect,
   inject,
   linkedSignal,
@@ -13,7 +12,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { NgTemplateOutlet } from '@angular/common';
-import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { LucideChevronLeft } from '@lucide/angular';
@@ -25,7 +23,7 @@ import { ListsTab } from './lists-tab';
 import { TournamentViewer } from './tournament-viewer';
 import { DraftStore } from './draft-store';
 import { OwnTurnLoop } from './own-turn-loop';
-import { DESKTOP_QUERY, hasTurn, matching, setListText } from './drafts';
+import { DESKTOP_QUERY, hasTurn, matching, setListText, titleWithTurn } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
 import { Changes } from './changes';
@@ -89,7 +87,6 @@ export class DraftPage {
   private readonly auth = inject(Auth);
   private readonly updates = inject(DraftUpdates);
   private readonly router = inject(Router);
-  private readonly title = inject(Title);
   protected readonly store = inject(DraftStore);
   protected readonly setListText = setListText;
 
@@ -230,16 +227,12 @@ export class DraftPage {
   constructor() {
     // The page title is the draft's name, so a viewer can find it among their browser tabs,
     // and the app's again once they leave. It starts "Your turn · " while the viewer can pick.
-    const appTitle = this.title.getTitle();
-    inject(DestroyRef).onDestroy(() => this.title.setTitle(appTitle));
-    // The last draft stays shown while another draft id's loads, but its name isn't this page's.
-    effect(() => {
+    titleWithTurn((appTitle) => {
       const draft = this.draft();
-      if (draft?.id !== this.store.id()) {
-        this.title.setTitle(appTitle);
-      } else {
-        this.title.setTitle(this.store.yourTurnToPick() ? `Your turn · ${draft.name}` : draft.name);
-      }
+      // The last draft stays shown while another draft id's loads, but its name isn't this page's.
+      return draft?.id === this.store.id()
+        ? { name: draft.name, yourTurn: this.store.yourTurnToPick() }
+        : { name: appTitle, yourTurn: false };
     });
     // Opening or closing the Deck tab forgets any copy.
     effect(() => {

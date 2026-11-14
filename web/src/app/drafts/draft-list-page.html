@@ -13,11 +13,11 @@
   } @else if (failed()) {
     <p class="error">Couldn't load the drafts. Try reloading the page.</p>
   } @else {
-    @if (yourTurn().length) {
+    @if (draftsOnYourTurn().length) {
       <section class="your-turn">
         <h2>Your turn</h2>
         <ul>
-          @for (draft of yourTurn(); track draft.id) {
+          @for (draft of draftsOnYourTurn(); track draft.id) {
             <li [attr.aria-label]="draft.name">
               <ng-container
                 *ngTemplateOutlet="draftLink; context: { $implicit: draft, state: turnText(draft) }"

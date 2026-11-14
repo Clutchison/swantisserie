@@ -67,7 +67,7 @@ export class ViewerDrafts {
   /** Whether the latest read failed, leaving no drafts to show. */
   readonly failed = computed(() => !!this.read.error() && !this.drafts());
   /** The drafts drafting on the viewer's turn, those they can pick in now, in the order read; none until read. */
-  readonly yourTurn = computed(() => {
+  readonly draftsOnYourTurn = computed(() => {
     const viewer = this.user()?.id;
     return (this.drafts() ?? []).filter(
       (draft) => draft.state === 'Drafting' && isTurnOf(draft, viewer),
@@ -132,7 +132,9 @@ function withPushes(
     if (!pushed.has(draft.id)) return [draft];
     const push = pushed.get(draft.id);
     if (!push) return [];
-    return push.version < draft.version ? [draft] : [{ ...push, tournamentBadge: draft.tournamentBadge }];
+    return push.version < draft.version
+      ? [draft]
+      : [{ ...push, tournamentBadge: draft.tournamentBadge }];
   });
   const readIds = new Set(read.map((draft) => draft.id));
   const added = [...pushed.values()].filter(

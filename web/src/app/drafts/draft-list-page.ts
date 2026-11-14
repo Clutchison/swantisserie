@@ -1,18 +1,10 @@
 import { NgTemplateOutlet } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  DestroyRef,
-  effect,
-  inject,
-} from '@angular/core';
-import { Title } from '@angular/platform-browser';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import type { DraftListItemView } from 'contract';
 import { Auth } from '../auth/auth';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { doubleTurnSuffix, isActive, isDoubleTurn, isTurnOf } from './drafts';
+import { isActive, isTurnOf, pickAndRound, titleWithTurn } from './drafts';
 import { ViewerDrafts } from './viewer-drafts';
 
 /** Names a list of players as a sentence does: "Alice", "Alice and Bob", "Alice, Bob, and Carol". */
@@ -46,16 +38,16 @@ export class DraftListPage {
   private readonly drafts = computed(() => this.viewerDrafts.drafts() ?? []);
   protected readonly loading = this.viewerDrafts.loading;
   protected readonly failed = this.viewerDrafts.failed;
-  /** The drafting drafts on the viewer's turn. */
-  protected readonly yourTurn = this.viewerDrafts.yourTurn;
+  /** The drafting drafts on the viewer's turn, which Your turn lists. */
+  protected readonly draftsOnYourTurn = this.viewerDrafts.draftsOnYourTurn;
   /**
    * The active drafts but those in Your turn, and the complete drafts whose
    * tournament is under way, which aren't active drafts.
    */
   protected readonly active = computed(() => {
-    const yourTurn = new Set(this.yourTurn());
+    const onYourTurn = new Set(this.draftsOnYourTurn());
     return this.drafts().filter(
-      (draft) => (isActive(draft.state) && !yourTurn.has(draft)) || tournamentUnderWay(draft),
+      (draft) => (isActive(draft.state) && !onYourTurn.has(draft)) || tournamentUnderWay(draft),
     );
   });
   protected readonly complete = computed(() =>
@@ -66,12 +58,8 @@ export class DraftListPage {
   );
 
   constructor() {
-    // The tab says so while any draft is on the viewer's turn, so a viewer can
-    // tell from their browser's tabs.
-    const title = inject(Title);
-    const appTitle = title.getTitle();
-    inject(DestroyRef).onDestroy(() => title.setTitle(appTitle));
-    effect(() => title.setTitle(this.yourTurn().length ? `Your turn · ${appTitle}` : appTitle));
+    // The tab says so while any draft is on the viewer's turn.
+    titleWithTurn((appTitle) => ({ name: appTitle, yourTurn: this.draftsOnYourTurn().length > 0 }));
   }
 
   /**
@@ -80,9 +68,8 @@ export class DraftListPage {
    * it passes. Read only for a draft with a turn.
    */
   protected turnText(draft: DraftListItemView): string {
-    const turn = draft.turn!;
-    const suffix = isDoubleTurn(draft) ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
-    return `Pick ${turn.pick}, round ${turn.round}${suffix}`;
+    const text = pickAndRound(draft);
+    return text[0].toUpperCase() + text.slice(1);
   }
 
   /**

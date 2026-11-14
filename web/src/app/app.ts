@@ -72,13 +72,13 @@ export class App {
   });
 
   /** Read as the app opens, whatever the page, so a viewer can be told it is their turn anywhere. */
-  private readonly yourTurn = inject(ViewerDrafts).yourTurn;
+  private readonly draftsOnYourTurn = inject(ViewerDrafts).draftsOnYourTurn;
   /**
    * The Turn link: to the one draft on the viewer's turn, or to the draft
    * list when it is their turn in several; none while it is in none.
    */
   protected readonly turnLink = computed(() => {
-    const drafts = this.yourTurn();
+    const drafts = this.draftsOnYourTurn();
     if (drafts.length === 0) return null;
     if (drafts.length > 1) return { text: `Your turn in ${drafts.length} drafts`, url: ['/'] };
     const [only] = drafts;

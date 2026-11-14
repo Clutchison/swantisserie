@@ -33,7 +33,6 @@ import { MIN_MAINBOARD_CARDS } from 'contract';
 import {
   currentTurn,
   draftSize,
-  picksPerTurn,
   queuePicksBeforeAnotherPlayerPicks,
   turnStartPick,
   type Turn,
@@ -48,6 +47,7 @@ import {
   hasTurn,
   isActive,
   isRefusal,
+  isTurnOf,
   NO_POWERS,
   queueStateName,
 } from './drafts';
@@ -201,7 +201,10 @@ export class DraftStore implements TournamentViewer {
   /** The draft's turn, if it is someone's, and whether it is the signed-in player's. */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   readonly turn = computed(() => this.draft.value()?.turn ?? null);
-  readonly yourTurn = computed(() => this.turn()?.playerId === this.user()?.id);
+  readonly yourTurn = computed(() => {
+    const draft = this.draft.value();
+    return !!draft && isTurnOf(draft, this.user()?.id);
+  });
   /** Whether the signed-in player can pick now: it is their turn and the draft is drafting, not frozen. */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   readonly yourTurnToPick = computed(
@@ -231,11 +234,6 @@ export class DraftStore implements TournamentViewer {
     const turn = this.turnOfPick(pick);
     return turn ? turnStartPick(this.draftSize(), turn) : pick;
   }
-  /** Whether the turn is a double turn, on either of its picks; false with no turn. */
-  readonly isDoubleTurn = computed(() => {
-    const turn = this.turn();
-    return !!turn && picksPerTurn(this.draftSize(), turn.round) === 2;
-  });
 
   /** The pool's cards wait for the snapshot. */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.

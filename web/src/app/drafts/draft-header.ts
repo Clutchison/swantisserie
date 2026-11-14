@@ -12,16 +12,10 @@ import {
 } from '@angular/core';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import { MAX_PLAYERS } from 'engine';
-import { isTurnState, type DraftView, type PickView, type TurnView } from 'contract';
+import { isTurnState, type DraftView, type PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
-import {
-  doubleTurnSuffix,
-  hasTurn,
-  isRefusal,
-  PLAYERS_CHANGE_FAILED,
-  sendDraftChange,
-} from './drafts';
+import { hasTurn, isRefusal, pickAndRound, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
 import { Changes, FocusKey, SendsChange } from './changes';
 import { DraftStore } from './draft-store';
 import { Questions } from '../question-dialog';
@@ -77,7 +71,7 @@ export class DraftHeader {
     // A player no longer in the draft is the fallback, capitalized to start the sentence.
     const player = this.store.findPlayer(turn.playerId);
     return {
-      text: `${player?.name ?? 'Another player'}’s turn: ${this.pickAndRound(turn)}`,
+      text: `${player?.name ?? 'Another player'}’s turn: ${pickAndRound(this.draft())}`,
       isBot: !!player?.isBot,
     };
   });
@@ -92,7 +86,7 @@ export class DraftHeader {
     if (!turn || !this.store.yourTurn()) return null;
     const standsOut = this.store.yourTurnToPick();
     const frozen = standsOut ? '' : ', but the draft is frozen';
-    return { text: `Your turn: ${this.pickAndRound(turn)}${frozen}`, standsOut };
+    return { text: `Your turn: ${pickAndRound(this.draft())}${frozen}`, standsOut };
   });
 
   /**
@@ -113,12 +107,6 @@ export class DraftHeader {
         this.bannerReady.set(true);
       }
     });
-  }
-
-  /** `turn`'s pick and round, and on a double turn the picks still to make before it passes. */
-  private pickAndRound(turn: TurnView) {
-    const suffix = this.store.isDoubleTurn() ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
-    return `pick ${turn.pick}, round ${turn.round}${suffix}`;
   }
 
   /** Joining and leaving, starting and cancelling are only possible in Lobby. */

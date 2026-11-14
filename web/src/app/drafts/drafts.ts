@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { DestroyRef, inject, signal, type Signal } from '@angular/core';
+import { DestroyRef, effect, inject, signal, type Signal } from '@angular/core';
+import { Title } from '@angular/platform-browser';
 import type {
   DraftCreationProblem,
   DraftPowersView,
@@ -221,6 +222,22 @@ export function queueStateChangeName(queuePaused: boolean): string {
   return queuePaused ? 'Set queue picking' : 'Set queue paused';
 }
 
+/**
+ * Keeps the page title as `page` names it, starting "Your turn · " while it
+ * says it is the viewer's turn, so a viewer can tell from their browser's
+ * tabs; and puts the app's title back as the page goes. `page` is given the
+ * app's title. Call it in a page's injection context.
+ */
+export function titleWithTurn(page: (appTitle: string) => { name: string; yourTurn: boolean }) {
+  const title = inject(Title);
+  const appTitle = title.getTitle();
+  inject(DestroyRef).onDestroy(() => title.setTitle(appTitle));
+  effect(() => {
+    const { name, yourTurn } = page(appTitle);
+    title.setTitle(yourTurn ? `Your turn · ${name}` : name);
+  });
+}
+
 /** A plan with nothing on either plan board, nothing lost from it, and no preferred printings. */
 export const EMPTY_PLAN: PlanView = {
   mainboard: [],
@@ -249,4 +266,15 @@ export function isDoubleTurn(draft: DraftView): boolean {
   return (
     !!draft.turn && picksPerTurn(draftSize(draft, draft.players.length), draft.turn.round) === 2
   );
+}
+
+/**
+ * Where a draft with a turn has got to: its pick and round, and on a double
+ * turn the picks still to make before it passes, as in "pick 5, round 3 · 2
+ * picks". It starts lower case, for the middle of a sentence.
+ */
+export function pickAndRound(draft: DraftView): string {
+  const turn = draft.turn!;
+  const suffix = isDoubleTurn(draft) ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
+  return `pick ${turn.pick}, round ${turn.round}${suffix}`;
 }
