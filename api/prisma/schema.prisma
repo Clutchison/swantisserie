@@ -35,6 +35,7 @@ model User {
   preferredPrintings PreferredPrinting[]
 }
 
+/// A signed-in user's session, which their session cookie names. It lasts 30 days from sign-in, however much they use it, and logging out ends it.
 model Session {
   /// SHA-256 of the token in the session cookie, so a database leak can't be replayed.
   id        String   @id
@@ -84,7 +85,7 @@ model Draft {
   /// Where the draft's announcements are posted; null for none.
   webhookId      String?
   webhook        Webhook?          @relation(fields: [webhookId], references: [id], onDelete: SetNull)
-  /// Goes up with every change to the draft's players, seats, state, picks or webhook, so viewers can tell which copy is newest.
+  /// Goes up with every change to the draft's players, seats, state, picks, webhook or tournament, so viewers can tell which copy is newest.
   version        Int               @default(0)
   pool           PoolCard[]
   players        Player[]

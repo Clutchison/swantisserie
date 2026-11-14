@@ -14,7 +14,10 @@ export const SESSION_COOKIE = 'session';
 
 /** The signed-in user, as @CurrentUser() supplies them. */
 export interface SessionUser extends User {
-  /** Read from config on each request, so a change applies without re-login. */
+  /**
+   * Worked out from config on each request, never stored, so a change to
+   * ADMIN_DISCORD_IDS applies once the app restarts, without signing in again.
+   */
   isAppAdmin: boolean;
 }
 
