@@ -243,9 +243,9 @@ export function placeIn<T extends { rank: number }>(
 
 /**
  * Every game score a best-of-three match can end at, each player's games
- * won in the match's player order: 2–0 or 2–1 for either side. Of whole,
- * non-negative games, which the api's parser checks first, these are
- * exactly the game scores `reportProblem` accepts.
+ * won in the match's player order: 2–0 or 2–1 for either side. These are
+ * exactly the game scores `reportProblem` accepts, given whole,
+ * non-negative game counts, which the api's parser checks first.
  */
 export const GAME_SCORES: readonly (readonly [number, number])[] = [
   [2, 0],
