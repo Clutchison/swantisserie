@@ -31,7 +31,9 @@ import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
 import { OwnTurnLoop } from './own-turn-loop';
 import { PlayersSheet } from './players-sheet';
-import { Seat, type SeatHint, SeatHintLabel } from './seat';
+import { LoadedAvatars } from './loaded-avatars';
+import { Seat } from './seat';
+import { SeatHint } from './seat-hint';
 
 /** Which copy of the pulse the turn's seat plays: a class of its own, so each restarts it. */
 type Pulse = 'pulse' | 'pulse-again';
@@ -57,7 +59,9 @@ const ARROW_SIZE = 14;
  */
 @Component({
   selector: 'app-seat-strip',
-  imports: [LucideDynamicIcon, LucideUsers, NgTemplateOutlet, Seat, SeatHintLabel],
+  imports: [LucideDynamicIcon, LucideUsers, NgTemplateOutlet, Seat, SeatHint],
+  // Its seats' loaded avatars are its own, as they were before the seat was shared.
+  providers: [LoadedAvatars],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './seat-strip.html',
   styleUrl: './seat-strip.scss',
@@ -117,10 +121,8 @@ export class SeatStrip {
   });
 
   protected readonly popoverOpen = computed(() => this.panelOpen() && this.panelIn() === 'popover');
-  /** The strip, which a seat's player's name shows within, below it. */
-  protected readonly hostElement = this.host.nativeElement;
-  /** Where the name of the seat's player hovered or focused shows; null while none is. */
-  protected readonly hint = signal<SeatHint | null>(null);
+  /** The name of the seat's player hovered or focused, and that seat's box; null while none is. */
+  protected readonly hint = signal<{ name: string; seat: DOMRect } | null>(null);
   /**
    * Which of the two copies of the three-beat pulse the turn's seat plays,
    * alternating so that each turn change starts it afresh, even on the same
@@ -177,6 +179,11 @@ export class SeatStrip {
         );
       }
     });
+  }
+
+  /** Shows `player`'s name below their seat, at `seat`, its box; or hides it, given null. */
+  protected showHint(player: PlayerView, seat: DOMRect | null) {
+    this.hint.set(seat ? { name: player.name, seat } : null);
   }
 
   /** Whether `player` has the turn. */

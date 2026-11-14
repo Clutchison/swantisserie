@@ -1,5 +1,7 @@
+@use 'seat-focus';
+
 /*
- * The avatar, `size` in `seat.ts`, read as `--avatar-size`, filling the seat
+ * The avatar, `AVATAR_SIZE` in `seat.ts`, read as `--avatar-size`, filling the seat
  * once it has loaded; until then, or if it fails or is missing, a disc with
  * the player's initial. The avatar's host lays out as its image alone, so the
  * image is the seat's only grid item, with the initial laid over the seat out
@@ -17,7 +19,7 @@
 
   /* Focus: an outline in the text colour, not an accent one, which would look like a ring marking a turn. */
   &:focus-visible {
-    outline: 2px solid var(--color-text);
+    outline: seat-focus.$width solid var(--color-text);
     outline-offset: var(--seat-focus-offset, 2px);
   }
 }

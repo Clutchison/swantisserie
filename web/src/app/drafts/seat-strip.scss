@@ -1,5 +1,6 @@
 @use 'side-pane';
 @use 'scrollbar';
+@use 'seat-focus';
 
 /* The turn's ring: a bg gap, then an accent band, reaching $ring-reach out from the avatar. */
 $ring-gap: 2px;
@@ -7,8 +8,7 @@ $ring-band: 2px;
 $ring-reach: $ring-gap + $ring-band;
 /* At the height of its pulse, the band is twice as wide, reaching this far. */
 $pulse-reach: $ring-gap + 2 * $ring-band;
-/* A focused seat's outline is this wide, in `seat.scss`. */
-$focus-width: 2px;
+$focus-width: seat-focus.$width;
 /*
  * A focused seat's outline sits outside the ring, even at the height of its
  * pulse, so reaches this far: the farthest anything reaches from a seat.

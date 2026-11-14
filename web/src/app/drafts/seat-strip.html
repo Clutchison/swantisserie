@@ -24,16 +24,15 @@
         <app-seat
           #seat
           [player]="player"
-          [you]="isOwn(player)"
-          [also]="hasTheTurn(player) ? ['picking'] : []"
-          [hintWithin]="hostElement"
+          [own]="isOwn(player)"
+          [extraNameParts]="hasTheTurn(player) ? ['picking'] : []"
           [class.turn]="hasTheTurn(player)"
           [class.pulse]="hasTheTurn(player) && pulse() === 'pulse'"
           [class.pulse-again]="hasTheTurn(player) && pulse() === 'pulse-again'"
           [class.pulse-loop]="hasTheTurn(player) && ownLoop.looping()"
           [attr.data-pulse]="hasTheTurn(player) ? turnPulse() : null"
           [attr.aria-current]="hasTheTurn(player) ? 'true' : null"
-          (hint)="hint.set($event)"
+          (nameHint)="showHint(player, $event)"
           (animationend)="pulse.set(null)"
           (animationiteration)="ownLoop.beatEnded()"
         />
@@ -43,7 +42,7 @@
 </section>
 <!-- Outside the seats' scroller, so it isn't clipped; the seat's name is its accessible name already. -->
 @if (hint(); as hint) {
-  <app-seat-hint [hint]="hint" />
+  <app-seat-hint [name]="hint.name" [seat]="hint.seat" />
 }
 @if (popoverOpen()) {
   <div
