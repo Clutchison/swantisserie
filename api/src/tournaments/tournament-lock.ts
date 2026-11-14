@@ -142,9 +142,9 @@ export async function findMatch(
 
 /**
  * The tournament entry of the draft's player `userId`, to take them out of
- * the tournament or put them back in, `own` when the request is about the
- * signed-in player's own entry. Throws TournamentRefusedError if they
- * haven't joined it, worded as `own` says, or are a bot, which stays in.
+ * the tournament or put them back in. Throws TournamentRefusedError if they
+ * haven't joined it, worded as `own` says (see notJoined), or are a bot,
+ * which stays in.
  */
 export async function entryOf(
   tx: Transaction,

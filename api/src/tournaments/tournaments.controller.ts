@@ -176,10 +176,9 @@ export class TournamentsController {
     @Param('id') id: string,
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
+    const own = playerId === user.id;
     await this.access.asOrganizer(user, id);
-    return this.change(id, () =>
-      this.progression.reinstate(id, playerId, playerId === user.id),
-    );
+    return this.change(id, () => this.progression.reinstate(id, playerId, own));
   }
 
   /** Starts the draft's tournament once 2 or more players have joined; for the organizer. */

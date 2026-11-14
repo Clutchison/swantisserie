@@ -126,8 +126,7 @@ export class TournamentProgressionService {
    * match of theirs becomes a forfeit by them, and their played matches
    * stand. Their deck stays locked. Throws TournamentRefusedError if they
    * haven't joined, are a bot or have dropped already, or the tournament
-   * isn't playing; worded to the player when `own`, it being the
-   * signed-in player's own entry.
+   * isn't playing, worded as `own` says (see notJoined).
    */
   async drop(draftId: string, userId: string, own: boolean): Promise<void> {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
@@ -151,8 +150,8 @@ export class TournamentProgressionService {
    * they haven't joined, are a bot or haven't dropped, the tournament isn't
    * playing, or their drop has fed a later pairing, as their format's round
    * steps decide, by default once a tournament round was paired without
-   * them. The joined and dropped refusals are worded to the player when
-   * `own`, it being the signed-in organizer's own entry.
+   * them. The joined and dropped refusals are worded as `own` says (see
+   * notJoined).
    */
   async reinstate(
     draftId: string,

@@ -206,6 +206,16 @@ describe('ready refusals', () => {
     expect(await refusedMark(id, carolCookie)).toBe('not-joined');
   });
 
+  it('tells a player an organizer removed that they haven’t joined, marking ready', async () => {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    await removeEntry(id, bob.id, aliceCookie).expect(200);
+
+    expect((await markReady(id, bobCookie).expect(409)).body).toEqual({
+      error: 'not-joined',
+      message: 'You haven’t joined this tournament.',
+    });
+  });
+
   it('refuses a bot marking itself ready', async () => {
     const { id, botIds } = await completeDraftWithBots([aliceCookie], 1);
     await setUpTournament(id).expect(201);
