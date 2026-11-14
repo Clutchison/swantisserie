@@ -87,7 +87,10 @@ export interface PickRefusal {
   message: string;
 }
 
-/** Why the organizer can't undo a pick; sent to them as is. */
+/**
+ * Why the organizer can't undo a pick; sent to them as is. `not-drafting`:
+ * the draft is neither drafting nor frozen, as undo works in both.
+ */
 export interface UndoRefusal {
   error: 'not-drafting' | 'not-latest';
   message: string;
