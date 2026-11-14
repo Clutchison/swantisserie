@@ -205,9 +205,8 @@ function parseIncludeSideboard(body: unknown): boolean {
  * lists cards.
  */
 function parseQueuePaused(body: unknown): QueuePausedRequest {
-  const { queuePaused, poolCardIds } = bodyFields<
-    QueuePausedRequest & { poolCardIds?: string[] }
-  >(body);
+  const { queuePaused, poolCardIds } =
+    bodyFields<Extract<QueuePausedRequest, { queuePaused: false }>>(body);
   if (typeof queuePaused !== 'boolean') {
     throw new BadRequestException({
       error: 'invalid',
