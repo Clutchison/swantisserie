@@ -1,5 +1,6 @@
 @use 'side-pane';
 @use 'scrollbar';
+@use 'seat-focus';
 
 /* The turn's ring: a bg gap, then an accent band, reaching $ring-reach out from the avatar. */
 $ring-gap: 2px;
@@ -7,7 +8,7 @@ $ring-band: 2px;
 $ring-reach: $ring-gap + $ring-band;
 /* At the height of its pulse, the band is twice as wide, reaching this far. */
 $pulse-reach: $ring-gap + 2 * $ring-band;
-$focus-width: 2px;
+$focus-width: seat-focus.$width;
 /*
  * A focused seat's outline sits outside the ring, even at the height of its
  * pulse, so reaches this far: the farthest anything reaches from a seat.
@@ -154,48 +155,11 @@ li {
 }
 
 /*
- * The avatar, `AVATAR_SIZE` in `seat-strip.ts`, filling the seat once it has
- * loaded; until then, or if it fails or is missing, a disc with the player's
- * initial. The avatar's host lays out as its image alone, so the image is the
- * seat's only grid item, with the initial laid over the seat out of the grid.
+ * A focused seat's outline, in the shared seat's own style, sits outside the
+ * turn's ring even as it pulses, so it still shows.
  */
-.seat {
-  position: relative;
-  display: grid;
-  flex: none;
-  place-items: center;
-  inline-size: var(--avatar-size);
-  block-size: var(--avatar-size);
-  border-radius: 50%;
-  background: var(--color-raised);
-
-  &.avatar-shown {
-    background: none;
-  }
-
-  /*
-   * Focus: an outline in the text colour, not an accent one, which would
-   * look like the turn's ring. Outside that ring even as it pulses, so it
-   * still shows.
-   */
-  &:focus-visible {
-    outline: $focus-width solid var(--color-text);
-    outline-offset: $pulse-reach;
-  }
-}
-
-.initial {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--color-muted);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-
-  .avatar-shown > & {
-    visibility: hidden;
-  }
+app-seat {
+  --seat-focus-offset: #{$pulse-reach};
 }
 
 /* Whose turn it is: a ring, the bg gap keeping the accent clear of the avatar. */
@@ -241,20 +205,6 @@ li {
   50% {
     @include turn-ring($pulse-reach);
   }
-}
-
-/* Below the strip, under the seat hovered or focused, lined up with its start or end. */
-.hint {
-  position: absolute;
-  top: calc(100% + var(--space-xs));
-  z-index: 1;
-  padding: var(--space-xs) var(--space-sm);
-  border-radius: 0.25rem;
-  background: var(--color-text);
-  color: var(--color-bg);
-  font-size: var(--font-size-sm);
-  white-space: nowrap;
-  pointer-events: none;
 }
 
 /* The full Players panel, under the strip at its end, over the tab content. */

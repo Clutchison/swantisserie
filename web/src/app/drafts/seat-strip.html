@@ -21,47 +21,28 @@
         @if (!first && arrow(); as icon) {
           <svg class="arrow" aria-hidden="true" [lucideIcon]="icon" [size]="arrowSize"></svg>
         }
-        <!-- Focusable, so a keyboard user can bring up the player's name as a mouse user does. -->
-        <span
+        <app-seat
           #seat
-          class="seat"
-          role="img"
-          tabindex="0"
-          [class.avatar-shown]="avatarShown(player)"
+          [player]="player"
+          [own]="isOwn(player)"
+          [extraNameParts]="hasTheTurn(player) ? ['picking'] : []"
           [class.turn]="hasTheTurn(player)"
           [class.pulse]="hasTheTurn(player) && pulse() === 'pulse'"
           [class.pulse-again]="hasTheTurn(player) && pulse() === 'pulse-again'"
           [class.pulse-loop]="hasTheTurn(player) && ownLoop.looping()"
           [attr.data-pulse]="hasTheTurn(player) ? turnPulse() : null"
-          [attr.aria-label]="seatName(player)"
           [attr.aria-current]="hasTheTurn(player) ? 'true' : null"
-          (mouseenter)="showHint(player, seat)"
-          (mouseleave)="hideHint()"
-          (focus)="showHint(player, seat)"
-          (blur)="hideHint()"
+          (nameHint)="showHint(player, $event)"
           (animationend)="pulse.set(null)"
           (animationiteration)="ownLoop.beatEnded()"
-        >
-          <span class="initial">{{ initial(player) }}</span>
-          <app-player-avatar
-            [src]="player.avatarUrl"
-            [size]="avatarSize"
-            (loaded)="avatarLoaded(player)"
-          />
-        </span>
+        />
       </li>
     }
   </ol>
 </section>
 <!-- Outside the seats' scroller, so it isn't clipped; the seat's name is its accessible name already. -->
 @if (hint(); as hint) {
-  <span
-    class="hint"
-    aria-hidden="true"
-    [style.left.px]="hintStart(hint)"
-    [style.right.px]="hintEnd(hint)"
-    >{{ hint.name }}</span
-  >
+  <app-seat-hint [name]="hint.name" [seat]="hint.seat" />
 }
 @if (popoverOpen()) {
   <div
