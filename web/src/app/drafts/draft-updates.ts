@@ -6,16 +6,12 @@ import { io, type Socket } from 'socket.io-client';
 /** How long to wait before retrying a handshake the API refused for its own reasons. */
 const RETRY_MS = 5000;
 
-/** What the API pushes about a draft being watched. */
-export type DraftUpdate =
-  /** The draft changed: here it is as it now is. */
-  | { type: 'changed'; draft: DraftView }
-  /** The draft was cancelled, so it no longer exists. */
-  | { type: 'cancelled' }
+/** What the tab's socket says of its connection, to each stream. */
+type ConnectionUpdate =
   /**
-   * The socket (re)connected and the draft is watched again. Changes may
-   * have been missed while it was down, e.g. while the server slept, so the
-   * draft should be re-read.
+   * The socket (re)connected, and the stream's drafts are pushed again.
+   * Changes may have been missed while it was down, e.g. while the server
+   * slept, so they should be re-read.
    */
   | { type: 'connected' }
   /**
@@ -28,6 +24,17 @@ export type DraftUpdate =
   | { type: 'unauthorized' };
 
 /**
+ * What the API pushes about a draft being watched. Its `connected` comes
+ * once the draft is watched again.
+ */
+export type DraftUpdate =
+  /** The draft changed: here it is as it now is. */
+  | { type: 'changed'; draft: DraftView }
+  /** The draft was cancelled, so it no longer exists. */
+  | { type: 'cancelled' }
+  | ConnectionUpdate;
+
+/**
  * What the API pushes about the drafts the viewer plays in, without their
  * being watched. Each changed draft is the one everyone is sent, so it has
  * nothing of the viewer's own, such as a tournament badge.
@@ -37,26 +44,13 @@ export type OwnDraftUpdate =
   | { type: 'changed'; draft: DraftView }
   /** The draft of id `draftId`, which the viewer played in, was cancelled. */
   | { type: 'cancelled'; draftId: string }
-  /**
-   * The socket (re)connected. Changes may have been missed while it was down,
-   * so the viewer's drafts should be re-read.
-   */
-  | { type: 'connected' }
-  /** As for a watched draft: the socket dropped and is retrying. */
-  | { type: 'disconnected' }
-  /** As for a watched draft: the session has ended, and it stops retrying. */
-  | { type: 'unauthorized' };
+  | ConnectionUpdate;
 
 /** The tab's socket of the API's drafts gateway. */
 type DraftSocket = Socket<DraftSocketEvents, DraftSocketRequests>;
 
 /** What the one socket says, for each stream to pass on as it needs. */
-type SocketEvent =
-  | { type: 'connect' }
-  | { type: 'changed'; draft: DraftView }
-  | { type: 'cancelled'; draftId: string }
-  | { type: 'disconnected' }
-  | { type: 'unauthorized' };
+type SocketEvent = { type: 'connect' } | Exclude<OwnDraftUpdate, { type: 'connected' }>;
 
 /**
  * Pushed updates of drafts, over the API's Socket.IO gateway. The tab has
