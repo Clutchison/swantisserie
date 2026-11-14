@@ -56,7 +56,7 @@ describe('pool snapshot', () => {
     expect(scryfall.search).toHaveBeenCalledWith(query, 2);
   });
 
-  it('leaves the basic lands out of the pool, as a plan adds them by count', async () => {
+  it('leaves the basic lands out of the pool, as a player adds them to their plan one copy at a time', async () => {
     scryfallAnswers({
       't:land': page('Plains', 'Snow-Covered Plains'),
       '(t:land) -in:arena': null,

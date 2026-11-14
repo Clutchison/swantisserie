@@ -291,7 +291,7 @@ describe('the pool snapshot of a cube link', () => {
     expect(scryfall.printingsOn).toHaveBeenCalledTimes(1);
   });
 
-  it('leaves the cube’s basic lands out of the pool, as a plan adds them by count, but puts its Wastes in', async () => {
+  it('leaves the cube’s basic lands out of the pool, as a player adds them to their plan one copy at a time, but puts its Wastes in', async () => {
     cubesAre({
       landcube: cube('Land Cube', 'Lightning Bolt', 'Mountain', 'Wastes'),
     });

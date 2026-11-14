@@ -231,7 +231,8 @@ export class PoolSnapshotService
   ): Promise<void> {
     // game:arena picks the Arena printing of each card, game:mtgo the MTGO
     // one; the pool query was already checked to have no cards off the
-    // platform. The basic lands are left out: a plan adds them by count.
+    // platform. The basic lands are left out: a player adds them to their
+    // plan one copy at a time.
     const query = `(${poolQuery}) ${NO_BASIC_LANDS} game:${SCRYFALL_GAME[platform]} unique:cards`;
     for (let page = 1; ; page++) {
       const result = await this.scryfall.search(query, page);
