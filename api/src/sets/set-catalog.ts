@@ -9,7 +9,7 @@ import {
 import { NO_BASIC_LANDS } from '../drafts/basic-lands.js';
 import { SCRYFALL_GAME } from '../drafts/platform.js';
 
-/** The Scryfall set types of a main set, when it has no parent set. */
+/** The Scryfall set types of a main set, when it comes with no other set. */
 const MAIN_SET_TYPES = new Set([
   'expansion',
   'core',
