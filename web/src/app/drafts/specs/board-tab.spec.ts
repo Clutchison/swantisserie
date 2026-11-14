@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PoolCardView } from 'contract';
-import { carol } from '../../specs-harness';
+import { carol, openDialog } from '../../specs-harness';
 import {
   useDraftsApp,
   alice,
@@ -20,9 +20,13 @@ import {
   findNamedList,
   updates,
   flushQueueAndPlan,
-  cardNames,
+  cardName,
+  image,
+  previewImage,
+  tap,
 } from './harness';
-import { board, boardCell, boardColumns, boardRows, findBoard } from './board-tab-harness';
+import { boardCell, boardColumns, boardRows, findBoard } from './board-tab-harness';
+import { costBefore } from './card-previews-harness';
 
 useDraftsApp();
 
@@ -252,13 +256,15 @@ describe('board tab', () => {
     ]);
   });
 
-  it('shows each pick as its card name with a Card preview, never a Card detail', async () => {
+  it('shows each pick as its card name with its mana cost, opening its Card preview, never a Card detail', async () => {
     const { page } = await openBoard(picks);
 
-    const [shock] = cardNames(boardCell(page, 0, 0));
-    expect(shock?.textContent?.trim()).toBe('Shock');
-    expect(board(page).querySelector('button')).toBeNull();
-    expect(shock?.hasAttribute('title')).toBe(false);
+    const shock = cardName(boardCell(page, `Round 1, ${FORWARD}`, 'Bob'), 'Shock');
+    expect(costBefore(shock)).toEqual(['one red mana']);
+
+    tap(shock);
+    expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
+    expect(openDialog()).toBeNull();
   });
 
   it('shows each picked copy of a card as its own pick', async () => {

@@ -6,6 +6,17 @@ import {
   input,
   viewChild,
 } from '@angular/core';
+import type { PlayerView } from 'contract';
+
+/** A seat's player's name and the seat's box, for a `SeatHint` to show the name under. */
+export interface SeatNameHint {
+  name: string;
+  seat: DOMRect;
+}
+
+/** The hint for `player`'s seat at `seat`, its box as its `nameHint` gave it; null, given null, for none. */
+export const seatNameHint = (player: PlayerView, seat: DOMRect | null): SeatNameHint | null =>
+  seat ? { name: player.name, seat } : null;
 
 /**
  * A seat's player's name, shown below the seat hovered or focused, as its
