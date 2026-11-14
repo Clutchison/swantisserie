@@ -88,9 +88,9 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 ### Live updates
 
-- One Socket.IO connection per signed-in tab, joined to a room of the viewer's own, and to a room per draft it watches. After each change (a pick, a lobby change, a state change) the draft as it now is is pushed to everyone viewing it and to the own room of each of its players, bots excluded, so the draft list, the Turn link and the page title keep up with the drafts a viewer plays in. Viewers re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
+- One Socket.IO connection per signed-in tab, joined to a room of the viewer's own, and to a room per draft it watches. After each change (a pick, a lobby change, a state change or a tournament change) the draft as it now is is pushed to everyone viewing it and to the own room of each of its players, bots excluded, so the draft list, the Turn link and the page title keep up with the drafts a viewer plays in. Viewers re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
 - On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, and the draft list, so nothing missed while it was away stays missing.
-- The pushed draft is the only event besides a cancel. Every pick, undo and state change bumps the draft's version, and on a version change the client re-reads the pick log and the signed-in player's queue and deck, which is how it learns of an undo or a lost card.
+- The pushed draft is the only event besides a cancel. Every pick, undo, state change and tournament change bumps the draft's version, and on a version change the client re-reads the pick log, the signed-in player's queue and deck, and the tournament, which is how it learns of an undo or a lost card.
 
 ## Discord (Discord bot and webhooks)
 
@@ -161,7 +161,7 @@ Copy to clipboard, from the Deck tab's Export menu, for your own deck: picked ca
 
 | Layer    | Choice                                                                                                                                                                                                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repo     | npm workspaces monorepo: `contract`, `engine`, `api`, `web`. `contract` holds the view and request types the api and web share.                                                                                                                                        |
+| Repo     | npm workspaces monorepo: `contract`, `engine`, `api`, `web`. `contract` holds the view and request types the api and web share, and the shared limits (ADR 0004).                                                                                                      |
 | `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turns and double turns, pick checks, cascades, pick imports, what a pick does to queues and decks and what an undo does to queues, and tournament pairing, standings and trophies. Built test-first. |
 | `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                                                                                                                        |
 | `web`    | Angular + CDK, mobile-first                                                                                                                                                                                                                                            |

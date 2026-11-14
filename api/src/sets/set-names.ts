@@ -7,8 +7,9 @@ const logger = new Logger('SetNames');
 /**
  * Every Scryfall set's name, by its code, when any of `sources` is a set
  * list, as the Trophy Hall and My stats name its sets; none otherwise. None
- * either when Scryfall can't list them, so a set list is shown by its
- * codes rather than the read failing.
+ * either when Scryfall answers with a failure, so a set list is shown by its
+ * codes rather than the read failing. A Scryfall that hangs still holds the
+ * read for as long as the client's retries take.
  */
 export async function setNamesFor(
   sets: SetCatalog,

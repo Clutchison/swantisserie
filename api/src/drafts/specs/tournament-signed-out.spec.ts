@@ -25,6 +25,8 @@ describe('signed out', () => {
       ['delete', ''],
       ['post', '/entries'],
       ['delete', `/entries/${bob.id}`],
+      ['put', '/ready'],
+      ['delete', '/ready'],
       ['post', `/entries/${bob.id}/drop`],
       ['delete', `/entries/${bob.id}/drop`],
       ['post', '/start'],

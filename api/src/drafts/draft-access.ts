@@ -14,8 +14,8 @@ type DraftForAccess = { id: string; organizerId: string | null };
 
 /**
  * Answers every question about who may see or change a draft. Every drafts,
- * queues and plans route and the socket gateway ask it, so a rule changes
- * here only. Each check throws CannotSeeDraftError for a draft the viewer may
+ * queues, plans and tournament route but the draft list (#208 will add it),
+ * and the socket gateway, ask it, so a rule changes here only. Each check throws CannotSeeDraftError for a draft the viewer may
  * not see, before NoDraftPowerError for a power they lack.
  */
 @Injectable()
