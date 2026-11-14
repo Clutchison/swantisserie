@@ -18,17 +18,25 @@ export const BOT_ENTRY: TournamentRefusal = {
 };
 
 /**
+ * Who a request on a tournament entry comes from, which decides a refusal's
+ * wording: `self` when the signed-in player acts on their own entry (an
+ * organizer included), `organizer` when an organizer acts on another
+ * player's.
+ */
+export type EntryActor = 'self' | 'organizer';
+
+/**
  * The refusal of taking a player out of the tournament, putting them back
  * in, or changing their ready, when they haven't joined it: worded to the
- * player when `own`, the request being about the signed-in player's own
- * entry, and otherwise to the organizer acting on them.
+ * player for `self`, and to the organizer acting on them otherwise.
  */
-export function notJoined(own: boolean): TournamentRefusal {
+export function notJoined(actor: EntryActor): TournamentRefusal {
   return {
     error: 'not-joined',
-    message: own
-      ? 'You haven’t joined this tournament.'
-      : 'That player hasn’t joined this tournament.',
+    message:
+      actor === 'self'
+        ? 'You haven’t joined this tournament.'
+        : 'That player hasn’t joined this tournament.',
   };
 }
 
@@ -36,12 +44,13 @@ export function notJoined(own: boolean): TournamentRefusal {
  * The refusal of dropping a player who has already dropped, worded as
  * `notJoined` is.
  */
-export function alreadyDropped(own: boolean): TournamentRefusal {
+export function alreadyDropped(actor: EntryActor): TournamentRefusal {
   return {
     error: 'already-dropped',
-    message: own
-      ? 'You’ve already dropped.'
-      : 'That player has already dropped.',
+    message:
+      actor === 'self'
+        ? 'You’ve already dropped.'
+        : 'That player has already dropped.',
   };
 }
 
@@ -49,10 +58,11 @@ export function alreadyDropped(own: boolean): TournamentRefusal {
  * The refusal of reinstating a player who hasn't dropped, worded as
  * `notJoined` is.
  */
-export function notDropped(own: boolean): TournamentRefusal {
+export function notDropped(actor: EntryActor): TournamentRefusal {
   return {
     error: 'not-dropped',
-    message: own ? 'You haven’t dropped.' : 'That player hasn’t dropped.',
+    message:
+      actor === 'self' ? 'You haven’t dropped.' : 'That player hasn’t dropped.',
   };
 }
 

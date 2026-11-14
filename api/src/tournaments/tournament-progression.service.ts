@@ -10,6 +10,7 @@ import { forfeitUnplayed, takeBackDrops } from './tournament-matches.js';
 import { roundCompletedOrTournamentCompleted } from './tournament-events.js';
 import {
   alreadyDropped,
+  type EntryActor,
   InvalidTournamentRequestError,
   notDropped,
   TournamentRefusedError,
@@ -126,12 +127,17 @@ export class TournamentProgressionService {
    * match of theirs becomes a forfeit by them, and their played matches
    * stand. Their deck stays locked. Throws TournamentRefusedError if they
    * haven't joined, are a bot or have dropped already, or the tournament
-   * isn't playing, worded as `own` says (see notJoined).
+   * isn't playing, worded for `actor` (see notJoined).
    */
-  async drop(draftId: string, userId: string, own: boolean): Promise<void> {
+  async drop(
+    draftId: string,
+    userId: string,
+    actor: EntryActor,
+  ): Promise<void> {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
-      const entry = await entryOf(tx, tournament, draftId, userId, own);
-      if (entry.dropped) throw new TournamentRefusedError(alreadyDropped(own));
+      const entry = await entryOf(tx, tournament, draftId, userId, actor);
+      if (entry.dropped)
+        throw new TournamentRefusedError(alreadyDropped(actor));
       await tx.tournamentEntry.update({
         where: { id: entry.id },
         data: {
@@ -150,17 +156,17 @@ export class TournamentProgressionService {
    * they haven't joined, are a bot or haven't dropped, the tournament isn't
    * playing, or their drop has fed a later pairing, as their format's round
    * steps decide, by default once a tournament round was paired without
-   * them. The joined and dropped refusals are worded as `own` says (see
+   * them. The joined and dropped refusals are worded for `actor` (see
    * notJoined).
    */
   async reinstate(
     draftId: string,
     userId: string,
-    own: boolean,
+    actor: EntryActor,
   ): Promise<void> {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
-      const entry = await entryOf(tx, tournament, draftId, userId, own);
-      if (!entry.dropped) throw new TournamentRefusedError(notDropped(own));
+      const entry = await entryOf(tx, tournament, draftId, userId, actor);
+      if (!entry.dropped) throw new TournamentRefusedError(notDropped(actor));
       await CHANGE_STEPS[tournament.format].refuseReinstate(
         tx,
         tournament,
