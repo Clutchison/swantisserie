@@ -55,6 +55,7 @@ import {
   roundRobinOfFour,
   roundLabels,
   standing,
+  standingsTable,
   threePlayers,
   withDrops,
   withTournament,
@@ -435,7 +436,7 @@ describe('Play tab while the tournament is played', () => {
         ['2', 'Alice', 'D', '—', '', '1', '0–0–1', '0%'],
         ['3', 'Bob', '1–2?', '', '—', '0', '0–1–0', '33%'],
       ]);
-      expect(table(tab, 'Standings')).toBeNull();
+      expect(standingsTable(tab)).toBeNull();
       expect(roundLabels(tab)).toEqual([]);
       expect(text(tab)).not.toContain('Tournament round');
     });
