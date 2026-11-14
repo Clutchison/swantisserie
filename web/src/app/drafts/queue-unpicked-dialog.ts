@@ -15,7 +15,7 @@ export interface QueueUnpickedResult {
   error: string | null;
 }
 
-/** The pool card ids Queue unpicked adds from each plan board: its unpicked copies the queue doesn't hold. */
+/** The pool card ids Queue unpicked adds from each deck board: its unpicked copies the queue doesn't hold. */
 export function unpickedToQueue(plan: PlanView, queued: ReadonlySet<string>) {
   const toAdd = (cards: PlannedCardView[]) =>
     cards.filter((card) => !card.picked && !queued.has(card.poolCardId));
@@ -24,7 +24,7 @@ export function unpickedToQueue(plan: PlanView, queued: ReadonlySet<string>) {
 
 /**
  * The Deck tab's Queue unpicked dialog, opened on the dialog shell: it adds
- * the plan's unpicked cards the queue doesn't hold to the end of the queue,
+ * the deck's unpicked cards the queue doesn't hold to the end of the queue,
  * the mainboard's and, if the player includes it, the sideboard's. It
  * opens on Cancel, with the sideboard left out, and closes once it has
  * sent, with how that went.
