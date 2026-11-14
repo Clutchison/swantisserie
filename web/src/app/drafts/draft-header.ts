@@ -28,7 +28,8 @@ import { ANNOUNCEMENTS_HEADING, AnnouncementsDialog } from './announcements-dial
  * under it when the turn is the viewer's), and the actions
  * that move the draft on. Joining and leaving, starting, undo,
  * freeze and unfreeze, and reopening are buttons; closing and cancelling, which
- * are rarer, are in its More menu.
+ * are rarer, are in its More menu. Announcements opens the Announcements
+ * dialog, for a viewer who may switch the draft's announcements.
  */
 @Component({
   selector: 'app-draft-header',
