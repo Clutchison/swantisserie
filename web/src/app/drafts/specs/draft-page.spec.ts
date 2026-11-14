@@ -39,6 +39,8 @@ import {
   drafting,
 } from './harness';
 import { pushDraft } from './turn-harness';
+import { alicesTurnItem } from './draft-list-harness';
+import { turnLinkShown } from '../../top-bar/specs-harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
@@ -202,6 +204,32 @@ describe('draft page', () => {
       const { page } = await openDraft(completeSnapshot, { webhook: { ...webhook, gone: false } });
 
       expect(statusTexts(page)).not.toContain(goneNotice);
+    });
+  });
+
+  describe('the top bar’s Turn link, as every page shows it', () => {
+    it('is there on the page of the draft it goes to', async () => {
+      const { page } = await openDraft(
+        completeSnapshot,
+        drafting({ turn: { pick: 2, round: 1, playerId: alice.id } }),
+        { viewerDrafts: [alicesTurnItem('draft-1', 'Red dragons')] },
+      );
+
+      expect(turnLinkShown(page)).toEqual({
+        text: 'Your turn in Red dragons',
+        href: '/drafts/draft-1',
+      });
+    });
+
+    it('goes to another draft on the viewer’s turn', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting(), {
+        viewerDrafts: [alicesTurnItem('draft-2', 'Blue sphinxes')],
+      });
+
+      expect(turnLinkShown(page)).toEqual({
+        text: 'Your turn in Blue sphinxes',
+        href: '/drafts/draft-2',
+      });
     });
   });
 

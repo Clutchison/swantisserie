@@ -1,5 +1,5 @@
 import type { DraftListItemView, DraftView } from 'contract';
-import { draft, type DraftFixture, http, openUrl } from './harness';
+import { alice, draft, drafting, type DraftFixture, http, openUrl } from './harness';
 
 /**
  * Opens the draft list with GET /api/drafts answered by `drafts`, each
@@ -51,4 +51,20 @@ export function section(page: HTMLElement, heading: string): HTMLElement {
 /** A draft as the draft list lists it, without a tournament badge. */
 export function listItemOf(fields: DraftFixture): DraftListItemView {
   return { ...draft(fields), tournamentBadge: null };
+}
+
+/**
+ * A draft of Alice and Bob as the draft list lists it, on the turn of Alice,
+ * the viewer: drafting unless `state` says frozen.
+ */
+export function alicesTurnItem(
+  id: string,
+  name: string,
+  state: 'Drafting' | 'Frozen' = 'Drafting',
+): DraftListItemView {
+  return listItemOf({
+    id,
+    name,
+    ...drafting({ state, turn: { pick: 2, round: 1, playerId: alice.id } }),
+  });
 }
