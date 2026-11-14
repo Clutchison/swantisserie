@@ -183,6 +183,8 @@ export function useDraftsApp() {
     // Spec files share one environment, so a choice saved by an earlier file
     // (such as the Deck tab's List mode) would otherwise carry into this one.
     localStorage.clear();
+    // The app's title, as a page that changed it may not have put it back.
+    document.title = 'Swantisserie';
     decodes = new Map();
     registeredWebhooks = [];
     registeredPowers = NO_POWERS;

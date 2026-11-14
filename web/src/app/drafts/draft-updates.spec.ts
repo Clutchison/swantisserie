@@ -348,11 +348,7 @@ describe('draft updates', () => {
       socket.push('disconnect');
       socket.push('connect');
 
-      expect(own).toEqual([
-        { type: 'connected' },
-        { type: 'disconnected' },
-        { type: 'connected' },
-      ]);
+      expect(own).toEqual([{ type: 'connected' }, { type: 'disconnected' }, { type: 'connected' }]);
     });
 
     it('say they are connected on subscribing once the socket already is, and again on reconnecting', () => {
@@ -364,11 +360,7 @@ describe('draft updates', () => {
       socket.push('disconnect');
       socket.push('connect');
 
-      expect(own).toEqual([
-        { type: 'connected' },
-        { type: 'disconnected' },
-        { type: 'connected' },
-      ]);
+      expect(own).toEqual([{ type: 'connected' }, { type: 'disconnected' }, { type: 'connected' }]);
     });
 
     it('pass on every draft changed or cancelled, with its id', () => {

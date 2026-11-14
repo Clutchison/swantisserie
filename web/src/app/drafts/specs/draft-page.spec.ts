@@ -235,7 +235,6 @@ describe('draft page', () => {
 
   describe('the page title', () => {
     // The app's title, as index.html sets it; the test document has none of its own.
-    beforeEach(() => (document.title = 'Swantisserie'));
     /** The viewer Alice's turn, on the draft's first pick. */
     const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
 

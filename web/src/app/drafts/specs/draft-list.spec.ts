@@ -2,7 +2,6 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { DraftListItemView, TournamentBadgeView } from 'contract';
 import { App } from '../../app';
-import type { OwnDraftUpdate } from '../draft-updates';
 import { alice } from '../../specs-harness';
 import {
   alicePlayer,
@@ -21,6 +20,7 @@ import {
   type DraftFixture,
 } from './harness';
 import {
+  alicesTurnItem,
   draftLink,
   findSection,
   listedDrafts,
@@ -287,8 +287,6 @@ describe('draft list', () => {
 
   describe('the Your turn section', () => {
     // The app's title, as index.html sets it; the test document has none of its own.
-    beforeEach(() => (document.title = 'Swantisserie'));
-
     it('lists each drafting draft on the viewer’s turn, and not again under Active drafts', async () => {
       const page = await openList([
         draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) }),
@@ -383,7 +381,7 @@ describe('draft list', () => {
 
     it('takes the prefix off the page title on leaving the list', async () => {
       const { fixture } = await openUrl('/');
-      http.expectOne('/api/drafts').flush([listItemOf({ ...drafting(yourTurn) })]);
+      http.expectOne('/api/drafts').flush([alicesTurnItem('a', 'Red dragons')]);
       await fixture.whenStable();
 
       await router.navigateByUrl('/my-stats');
@@ -398,8 +396,6 @@ describe('draft list', () => {
   });
 
   describe('live, as the viewer’s drafts are pushed', () => {
-    beforeEach(() => (document.title = 'Swantisserie'));
-
     /** Arena cube, a draft of Alice and Bob drafting on the turn `turn`, with `fields` changed. */
     const arenaCube = (turn: DraftFixture['turn'], fields: DraftFixture = {}) =>
       draft({ id: 'a', name: 'Arena cube', ...drafting({ turn, ...fields }) });
@@ -409,7 +405,7 @@ describe('draft list', () => {
     it('moves a draft into Your turn as the turn reaches the viewer', async () => {
       const page = await openList([arenaCube(bobsTurn)]);
 
-      push({ type: 'changed', draft: arenaCube(alicesTurn) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn) });
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
       expect(listedDrafts(page, 'Active drafts')).toEqual([]);
@@ -419,7 +415,7 @@ describe('draft list', () => {
     it('moves it out again as the turn passes', async () => {
       const page = await openList([arenaCube(alicesTurn)]);
 
-      push({ type: 'changed', draft: arenaCube(bobsTurn) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(bobsTurn) });
 
       expect(findSection(page, 'Your turn')).toBeNull();
       expect(listedDrafts(page, 'Active drafts')).toEqual(['Arena cube']);
@@ -433,7 +429,7 @@ describe('draft list', () => {
     ] as const)('moves a draft %s to its section', async (_, fields, heading) => {
       const page = await openList([arenaCube(alicesTurn)]);
 
-      push({ type: 'changed', draft: arenaCube(alicesTurn, fields) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, fields) });
 
       expect(findSection(page, 'Your turn')).toBeNull();
       expect(listedDrafts(page, heading)).toEqual(['Arena cube']);
@@ -447,7 +443,7 @@ describe('draft list', () => {
         },
       ]);
 
-      push({ type: 'changed', draft: arenaCube(bobsTurn) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(bobsTurn) });
 
       expect(listItem(page, 'Arena cube').textContent).toContain('Registration');
     });
@@ -455,7 +451,7 @@ describe('draft list', () => {
     it('lists a draft it hadn’t, without a tournament badge', async () => {
       const page = await openList([]);
 
-      push({ type: 'changed', draft: arenaCube(alicesTurn) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn) });
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
       expect(listItem(page, 'Arena cube').textContent).not.toContain('Tournament');
@@ -467,7 +463,7 @@ describe('draft list', () => {
         draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
       ]);
 
-      push({ type: 'cancelled', draftId: 'l' });
+      pushToOwnRoom(updates, { type: 'cancelled', draftId: 'l' });
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
       expect(page.textContent).not.toContain('In the lobby');
@@ -476,8 +472,8 @@ describe('draft list', () => {
     it('lays a push over a read that lands after it, the read made before the push', async () => {
       const { fixture, page } = await openUrl('/');
 
-      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 2 }) });
-      push({ type: 'cancelled', draftId: 'l' });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, { version: 2 }) });
+      pushToOwnRoom(updates, { type: 'cancelled', draftId: 'l' });
       http
         .expectOne('/api/drafts')
         .flush([
@@ -494,7 +490,7 @@ describe('draft list', () => {
       const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
 
       connect();
-      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 2 }))]);
       await TestBed.inject(ApplicationRef).whenStable();
 
@@ -504,8 +500,8 @@ describe('draft list', () => {
     it('lists a draft as its newest version, pushed or read', async () => {
       const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
 
-      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
-      push({ type: 'changed', draft: arenaCube(bobsTurn, { version: 2 }) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(bobsTurn, { version: 2 }) });
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
 
       connect();
@@ -517,7 +513,7 @@ describe('draft list', () => {
     it('reads the drafts again on first connecting, as one may change before the socket hears of it', async () => {
       const page = await openList([arenaCube(bobsTurn)]);
 
-      push({ type: 'connected' });
+      pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
       await TestBed.inject(ApplicationRef).whenStable();
 
@@ -528,7 +524,7 @@ describe('draft list', () => {
       const { fixture, page } = await openUrl('/');
       const firstRead = http.expectOne('/api/drafts');
 
-      push({ type: 'connected' });
+      pushToOwnRoom(updates, { type: 'connected' });
       http.expectNone('/api/drafts');
       firstRead.flush([listItemOf(arenaCube(bobsTurn))]);
       (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([
@@ -541,12 +537,12 @@ describe('draft list', () => {
 
     it('reads them again on every reconnect', async () => {
       const page = await openList([arenaCube(bobsTurn)]);
-      push({ type: 'connected' });
+      pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn))]);
       await TestBed.inject(ApplicationRef).whenStable();
 
-      push({ type: 'disconnected' });
-      push({ type: 'connected' });
+      pushToOwnRoom(updates, { type: 'disconnected' });
+      pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
       await TestBed.inject(ApplicationRef).whenStable();
 
@@ -576,7 +572,7 @@ describe('draft list', () => {
 
     it('opening on another page, are shown as read when the list opens, without reading them again', async () => {
       const { fixture, page } = await openUrl('/trophy-hall', alice, {
-        viewerDrafts: [listItemOf({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })],
+        viewerDrafts: [alicesTurnItem('a', 'Red dragons')],
       });
       answerTrophyHall();
 
@@ -588,7 +584,6 @@ describe('draft list', () => {
     });
 
     it('stay as last read when reading them again fails', async () => {
-      document.title = 'Swantisserie';
       const page = await openList([draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })]);
 
       connect();
@@ -610,11 +605,8 @@ describe('draft list', () => {
   });
 });
 
-/** The API pushes `update` to the viewer's own room, and the app renders it. */
-const push = (update: OwnDraftUpdate) => pushToOwnRoom(updates, update);
-
 /** The socket connects, which has the drafts read again. */
-const connect = () => push({ type: 'connected' });
+const connect = () => pushToOwnRoom(updates, { type: 'connected' });
 
 /** Fails the Trophy Hall's read, if it was made: the spec has no use for what it shows. */
 function answerTrophyHall() {
