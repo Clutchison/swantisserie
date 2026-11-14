@@ -35,7 +35,10 @@ import {
   midNavigation,
   serverError,
   RETRY_FAILED,
+  bob,
+  drafting,
 } from './harness';
+import { pushDraft } from './turn-harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
@@ -205,11 +208,44 @@ describe('draft page', () => {
   describe('the page title', () => {
     // The app's title, as index.html sets it; the test document has none of its own.
     beforeEach(() => (document.title = 'Swantisserie'));
+    /** The viewer Alice's turn, on the draft's first pick. */
+    const alicesTurn = { pick: 1, round: 1, playerId: alice.id };
 
     it('is the draft’s name alone once the draft has loaded', async () => {
       await openDraft(completeSnapshot, { name: 'Cube Draft #4' });
 
       expect(document.title).toBe('Cube Draft #4');
+    });
+
+    it('starts with “Your turn · ” while it is the viewer’s turn in a drafting draft', async () => {
+      await openDraft(completeSnapshot, drafting({ name: 'Cube Draft #4', turn: alicesTurn }));
+
+      expect(document.title).toBe('Your turn · Cube Draft #4');
+    });
+
+    it.each([
+      ['on another player’s turn', drafting({ name: 'Cube Draft #4' })],
+      [
+        'while the draft is frozen',
+        drafting({ name: 'Cube Draft #4', state: 'Frozen', turn: alicesTurn }),
+      ],
+    ])('is the draft’s name alone %s', async (_, fields) => {
+      await openDraft(completeSnapshot, fields);
+
+      expect(document.title).toBe('Cube Draft #4');
+    });
+
+    it('gains “Your turn · ” as the turn reaches the viewer, and loses it as it passes', async () => {
+      const { fixture } = await openDraft(completeSnapshot, drafting({ name: 'Cube Draft #4' }));
+
+      for (const [turn, title] of [
+        [alicesTurn, 'Your turn · Cube Draft #4'],
+        [{ pick: 2, round: 1, playerId: bob.id }, 'Cube Draft #4'],
+      ] as const) {
+        await pushDraft(fixture, drafting({ name: 'Cube Draft #4', turn }));
+
+        expect(document.title).toBe(title);
+      }
     });
 
     it('stays the app’s while the draft loads', async () => {
