@@ -179,9 +179,9 @@ export class DraftLobbyService {
   }
 
   /**
-   * Adds a new bot to the draft's players, named after the highest-numbered
-   * bot it has had. Throws DraftFullError if the draft has as many players
-   * as it can, and DraftStartedError once it has left Lobby.
+   * Adds a new bot to the draft's players, numbered one past the
+   * highest-numbered bot it has. Throws DraftFullError if the draft has as
+   * many players as it can, and DraftStartedError once it has left Lobby.
    */
   async addBot(draftId: string): Promise<void> {
     await this.lock.inLobby(draftId, async ({ tx }) => {
@@ -328,7 +328,8 @@ export class DraftLobbyService {
         message: 'No public cube on CubeCobra has that id.',
       });
     }
-    // The basic lands are left out: a plan adds them by count.
+    // The basic lands are left out: a player adds them to their plan one
+    // copy at a time.
     const cube = {
       ...found,
       mainboard: found.mainboard.filter((card) => !isBasicLand(card.name)),
