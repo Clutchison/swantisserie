@@ -38,6 +38,7 @@ import type { DraftEvent } from '../drafts/draft-events.js';
 import { DraftPublisher } from '../drafts/draft-publisher.js';
 import { bodyFields } from '../request-body.js';
 import { DecklistsService } from './decklists.service.js';
+import type { EntryActor } from './tournament-errors.js';
 import { TournamentErrorsFilter } from './tournament-errors.filter.js';
 import { TournamentProgressionService } from './tournament-progression.service.js';
 import { TournamentReadsService } from './tournament-reads.service.js';
@@ -118,9 +119,12 @@ export class TournamentsController {
     @Param('id') id: string,
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
-    if (playerId === user.id) await this.access.canSee(user, id);
+    const actor = entryActor(user, playerId);
+    if (actor === 'self') await this.access.canSee(user, id);
     else await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.registration.removeEntry(id, playerId));
+    return this.change(id, () =>
+      this.registration.removeEntry(id, playerId, actor),
+    );
   }
 
   /**
@@ -160,9 +164,10 @@ export class TournamentsController {
     @Param('id') id: string,
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
-    if (playerId === user.id) await this.access.canSee(user, id);
+    const actor = entryActor(user, playerId);
+    if (actor === 'self') await this.access.canSee(user, id);
     else await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.progression.drop(id, playerId));
+    return this.change(id, () => this.progression.drop(id, playerId, actor));
   }
 
   /** Reinstates the dropped player `playerId` (a Discord user id); for the organizer. */
@@ -172,8 +177,11 @@ export class TournamentsController {
     @Param('id') id: string,
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
+    const actor = entryActor(user, playerId);
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.progression.reinstate(id, playerId));
+    return this.change(id, () =>
+      this.progression.reinstate(id, playerId, actor),
+    );
   }
 
   /** Starts the draft's tournament once 2 or more players have joined; for the organizer. */
@@ -321,6 +329,11 @@ export class TournamentsController {
     if (!draft) throw new NotFoundException();
     return draft;
   }
+}
+
+/** Who a request on the entry of the player `playerId` comes from. */
+function entryActor(user: SessionUser, playerId: string): EntryActor {
+  return playerId === user.id ? 'self' : 'organizer';
 }
 
 /**

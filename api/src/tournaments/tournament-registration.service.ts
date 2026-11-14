@@ -21,7 +21,11 @@ import {
 } from './ready-rules.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
-import { NOT_JOINED, TournamentRefusedError } from './tournament-errors.js';
+import {
+  type EntryActor,
+  notJoined,
+  TournamentRefusedError,
+} from './tournament-errors.js';
 import { entryOf, TournamentLock } from './tournament-lock.js';
 
 /**
@@ -109,15 +113,19 @@ export class TournamentRegistrationService {
 
   /**
    * Takes the draft's player `userId` out of its tournament: they leave,
-   * or an organizer removes them. Throws
-   * TournamentRefusedError if they haven't joined or are a bot, or the
-   * tournament is past registration.
+   * or an organizer removes them. Throws TournamentRefusedError if they
+   * haven't joined, worded for `actor` (see notJoined), or are a bot, or
+   * the tournament is past registration.
    */
-  async removeEntry(draftId: string, userId: string): Promise<void> {
+  async removeEntry(
+    draftId: string,
+    userId: string,
+    actor: EntryActor,
+  ): Promise<void> {
     await this.tournamentLock.inRegistration(
       draftId,
       async (tx, tournament) => {
-        const entry = await entryOf(tx, tournament, draftId, userId);
+        const entry = await entryOf(tx, tournament, draftId, userId, actor);
         await tx.tournamentEntry.delete({ where: { id: entry.id } });
       },
     );
@@ -144,7 +152,7 @@ export class TournamentRegistrationService {
         select: READYING_PLAYER,
       });
       const entry = player?.tournamentEntry;
-      if (!entry) throw new TournamentRefusedError(NOT_JOINED);
+      if (!entry) throw new TournamentRefusedError(notJoined('self'));
       const refusal = ready ? readyRefusal(player) : null;
       if (refusal) throw new TournamentRefusedError(refusal);
       await setEntryReady(tx, entry.id, ready);
