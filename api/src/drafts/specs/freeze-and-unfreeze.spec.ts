@@ -18,6 +18,7 @@ import {
   fourCards,
   registerWebhook,
   queueInLobby,
+  failNextPublish,
 } from './harness.js';
 
 useDraftsApp();
@@ -52,6 +53,19 @@ describe('freeze and unfreeze', () => {
     });
     await pick(id, ids.Shock).expect(200);
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
+  });
+
+  it('still refuses a retry of a freeze whose publish failed', async () => {
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
+    await start(id).expect(200);
+    failNextPublish();
+
+    await post(id, 'freeze').expect(500);
+
+    // The freeze stands.
+    expect((await post(id, 'freeze').expect(409)).body.error).toBe(
+      'not-drafting',
+    );
   });
 
   it('gives the same player their remaining pick on unfreeze between the two picks of a double turn', async () => {
