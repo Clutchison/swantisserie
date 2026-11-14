@@ -5,9 +5,11 @@ import type {
   Platform,
   PlanView,
 } from 'contract';
+import { Logger } from '@nestjs/common';
 import request from 'supertest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
+import { DraftPublisher } from '../draft-publisher.js';
 import {
   ScryfallCard,
   ScryfallSearchPage,
@@ -78,6 +80,18 @@ export function waitForBotPicks<T>(
   check: () => T | Promise<T>,
 ): Promise<T> {
   return vi.waitFor(check, { timeout: botPicks * WAIT_PER_BOT_PICK_MS });
+}
+
+/**
+ * Makes the next publish fail with `err`, as a database error just after a
+ * change commits would, and quiets the error that is logged. Returns the
+ * publish's spy.
+ */
+export function failNextPublish(err = new Error('Connection dropped')) {
+  vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+  return vi
+    .spyOn(DraftPublisher.prototype, 'publish')
+    .mockRejectedValueOnce(err);
 }
 
 /**
