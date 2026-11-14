@@ -121,14 +121,16 @@ export class DraftUpdates {
 
   /**
    * The changes of every draft the viewer plays in, which the API pushes
-   * over the tab's one socket without being asked, until unsubscribed.
+   * over the tab's one socket without being asked, until unsubscribed. Says
+   * it is connected straight away if the socket already is, as when a
+   * watched draft opened it, and again on every reconnect.
    */
   own(): Observable<OwnDraftUpdate> {
     return new Observable((subscriber) => {
       const passOn = this.socketEvents.subscribe((event) =>
         subscriber.next(event.type === 'connect' ? { type: 'connected' } : event),
       );
-      this.open();
+      if (this.open().connected) subscriber.next({ type: 'connected' });
       return () => passOn.unsubscribe();
     });
   }

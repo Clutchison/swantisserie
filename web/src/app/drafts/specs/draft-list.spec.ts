@@ -29,6 +29,7 @@ import {
   openList,
   section,
 } from './draft-list-harness';
+import { pushToOwnRoom } from './updates-harness';
 
 /** The turn of a drafting draft of Alice and Bob that is Alice's, the viewer's: pick 2, round 1. */
 const yourTurn: DraftFixture = { turn: { pick: 2, round: 1, playerId: alice.id } };
@@ -472,6 +473,47 @@ describe('draft list', () => {
       expect(page.textContent).not.toContain('In the lobby');
     });
 
+    it('lays a push over a read that lands after it, the read made before the push', async () => {
+      const { fixture, page } = await openUrl('/');
+
+      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 2 }) });
+      push({ type: 'cancelled', draftId: 'l' });
+      http
+        .expectOne('/api/drafts')
+        .flush([
+          listItemOf(arenaCube(bobsTurn, { version: 1 })),
+          listItemOf({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
+        ]);
+      await fixture.whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(page.textContent).not.toContain('In the lobby');
+    });
+
+    it('keeps a push over a re-read on reconnecting that was made before it', async () => {
+      const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
+
+      reconnect();
+      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 2 }))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+
+    it('lists a draft as its newest version, pushed or read', async () => {
+      const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
+
+      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      push({ type: 'changed', draft: arenaCube(bobsTurn, { version: 2 }) });
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+
+      reconnect();
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 4 }))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+      expect(findSection(page, 'Your turn')).toBeNull();
+    });
+
     it('reads the drafts again on reconnecting, but not on first connecting', async () => {
       const page = await openList([arenaCube(bobsTurn)]);
 
@@ -542,11 +584,8 @@ describe('draft list', () => {
   });
 });
 
-/** The API pushes `pushed` to the viewer's own room, and the app renders it. */
-function push(pushed: OwnDraftUpdate) {
-  updates.ownEvents.next(pushed);
-  TestBed.tick();
-}
+/** The API pushes `update` to the viewer's own room, and the app renders it. */
+const push = (update: OwnDraftUpdate) => pushToOwnRoom(updates, update);
 
 /** The socket connects, drops and connects again, as when the API restarts. */
 function reconnect() {

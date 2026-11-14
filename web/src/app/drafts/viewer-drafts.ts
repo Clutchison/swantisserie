@@ -1,8 +1,8 @@
 import { httpResource } from '@angular/common/http';
-import { computed, effect, inject, Injectable, linkedSignal } from '@angular/core';
+import { computed, effect, inject, Injectable, linkedSignal, signal } from '@angular/core';
 import type { DraftListItemView, DraftView } from 'contract';
 import { Auth } from '../auth/auth';
-import { DraftUpdates, type OwnDraftUpdate } from './draft-updates';
+import { DraftUpdates } from './draft-updates';
 import { isTurnOf } from './drafts';
 
 /**
@@ -20,7 +20,8 @@ export class ViewerDrafts {
     this.user() ? '/api/drafts' : undefined,
   );
 
-  private readonly listed = linkedSignal<
+  /** The drafts as last read: kept through a failed read again. */
+  private readonly lastRead = linkedSignal<
     { read?: DraftListItemView[]; failed: boolean },
     DraftListItemView[] | undefined
   >({
@@ -31,11 +32,21 @@ export class ViewerDrafts {
     computation: ({ read, failed }, previous) => read ?? (failed ? previous?.value : undefined),
   });
   /**
-   * The drafts as last read, with every push since: undefined until the
-   * first read lands, or if it fails. A failed read again keeps those
-   * already listed, rather than leave the viewer told nothing of their turns.
+   * The newest push of each draft the viewer plays in, by id: the draft as
+   * pushed, or null once cancelled. Kept through every read, so a push that
+   * lands while a read is on its way isn't lost to it.
    */
-  readonly drafts = this.listed.asReadonly();
+  private readonly pushed = signal(new Map<string, DraftView | null>());
+  /**
+   * The drafts as last read, each as its newest version read or pushed, the
+   * cancelled ones dropped: undefined until the first read lands, or if it
+   * fails. A failed read again keeps those already listed, rather than leave
+   * the viewer told nothing of their turns.
+   */
+  readonly drafts = computed(() => {
+    const read = this.lastRead();
+    return read && withPushes(read, this.pushed());
+  });
   /** Whether the drafts are being read with none to show meanwhile. */
   readonly loading = computed(() => this.read.isLoading() && !this.drafts());
   /** Whether the latest read failed, leaving no drafts to show. */
@@ -51,39 +62,55 @@ export class ViewerDrafts {
   constructor() {
     const updates = inject(DraftUpdates);
     effect((onCleanup) => {
+      // Another viewer's pushes aren't this one's.
+      this.pushed.set(new Map());
       if (!this.user()) return;
       let connectedBefore = false;
       const pushes = updates.own().subscribe((update) => {
-        if (update.type === 'connected') {
-          if (connectedBefore) this.read.reload();
-          connectedBefore = true;
-        } else {
-          this.apply(update);
+        switch (update.type) {
+          case 'connected':
+            if (connectedBefore) this.read.reload();
+            connectedBefore = true;
+            break;
+          case 'changed':
+            this.keepNewest(update.draft.id, update.draft);
+            break;
+          case 'cancelled':
+            this.keepNewest(update.draftId, null);
         }
       });
       onCleanup(() => pushes.unsubscribe());
     });
   }
 
-  /**
-   * Lists a pushed draft as it now is, keeping the tournament badge read with
-   * it, as pushes don't carry it; or drops a cancelled one. Nothing is
-   * pushed into a list not yet read: its read will have it.
-   */
-  private apply(update: OwnDraftUpdate) {
-    if (update.type === 'changed') {
-      this.listed.update((drafts) => drafts && withPushed(drafts, update.draft));
-    } else if (update.type === 'cancelled') {
-      this.listed.update((drafts) => drafts?.filter((draft) => draft.id !== update.draftId));
-    }
+  /** Notes draft `draftId` as pushed (null once cancelled), unless an older version than one pushed before. */
+  private keepNewest(draftId: string, draft: DraftView | null) {
+    this.pushed.update((pushed) => {
+      const before = pushed.get(draftId);
+      if (before === null || (before && draft && draft.version < before.version)) return pushed;
+      return new Map(pushed).set(draftId, draft);
+    });
   }
 }
 
-/** `drafts` with `pushed` in place of the draft it is, or added if it isn't listed, without a badge. */
-function withPushed(drafts: DraftListItemView[], pushed: DraftView): DraftListItemView[] {
-  const listed = drafts.find((draft) => draft.id === pushed.id);
-  if (!listed) return [...drafts, { ...pushed, tournamentBadge: null }];
-  return drafts.map((draft) =>
-    draft === listed ? { ...pushed, tournamentBadge: listed.tournamentBadge } : draft,
+/**
+ * The drafts `read`, each replaced by its push in `pushed` when that is no
+ * older, keeping the tournament badge read, as pushes don't carry it; the
+ * cancelled dropped, and the drafts pushed but not read added, without a badge.
+ */
+function withPushes(
+  read: DraftListItemView[],
+  pushed: Map<string, DraftView | null>,
+): DraftListItemView[] {
+  const listed = read.flatMap((draft): DraftListItemView[] => {
+    if (!pushed.has(draft.id)) return [draft];
+    const push = pushed.get(draft.id);
+    if (!push) return [];
+    return push.version < draft.version ? [draft] : [{ ...push, tournamentBadge: draft.tournamentBadge }];
+  });
+  const readIds = new Set(read.map((draft) => draft.id));
+  const added = [...pushed.values()].filter(
+    (push): push is DraftView => !!push && !readIds.has(push.id),
   );
+  return [...listed, ...added.map((push) => ({ ...push, tournamentBadge: null }))];
 }

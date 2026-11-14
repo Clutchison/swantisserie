@@ -318,6 +318,22 @@ describe('draft updates', () => {
       ]);
     });
 
+    it('say they are connected on subscribing once the socket already is, and again on reconnecting', () => {
+      owning.unsubscribe();
+      socket.push('connect');
+      own = [];
+
+      owning = updates.own().subscribe((update) => own.push(update));
+      socket.push('disconnect');
+      socket.push('connect');
+
+      expect(own).toEqual([
+        { type: 'connected' },
+        { type: 'disconnected' },
+        { type: 'connected' },
+      ]);
+    });
+
     it('pass on every draft changed or cancelled, with its id', () => {
       const mine = draft({ id: 'draft-2', name: 'Pushed' });
       socket.push('connect');

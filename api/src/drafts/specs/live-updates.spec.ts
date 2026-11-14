@@ -351,8 +351,8 @@ describe('live updates', () => {
       const id = await readyDraft([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
       const elsewhere = await readyDraft([]);
-      const bobs = await listening(bobCookie);
-      const carols = await listening(await signIn(carol));
+      const bobsRoom = await listening(bobCookie);
+      const carolsRoom = await listening(await signIn(carol));
 
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
@@ -366,7 +366,7 @@ describe('live updates', () => {
 
       await vi.waitFor(() =>
         expect(
-          bobs.changes.map(({ state, turn }) => [state, turn?.playerId]),
+          bobsRoom.changes.map(({ state, turn }) => [state, turn?.playerId]),
         ).toEqual([
           ['Drafting', alice.id],
           ['Drafting', bob.id],
@@ -379,8 +379,8 @@ describe('live updates', () => {
           ['Complete', undefined],
         ]),
       );
-      expect(bobs.changes.every((draft) => draft.id === id)).toBe(true);
-      expect(carols.changes).toEqual([]);
+      expect(bobsRoom.changes.every((draft) => draft.id === id)).toBe(true);
+      expect(carolsRoom.changes).toEqual([]);
     });
 
     it('pushes a draft after a pick with its cascade made', async () => {
@@ -389,12 +389,12 @@ describe('live updates', () => {
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-      const bobs = await listening(bobCookie);
+      const bobsRoom = await listening(bobCookie);
 
       await pick(id, ids.Shock).expect(200);
 
       await vi.waitFor(() =>
-        expect(bobs.changes).toEqual([
+        expect(bobsRoom.changes).toEqual([
           expect.objectContaining({
             turn: expect.objectContaining({ pick: 3, playerId: bob.id }),
           }),
@@ -421,17 +421,17 @@ describe('live updates', () => {
     it('starts pushing a draft to a player who joins it, and stops once they leave', async () => {
       const id = await readyDraft([aliceCookie]);
       const bobCookie = await signIn(bob);
-      const bobs = await listening(bobCookie);
+      const bobsRoom = await listening(bobCookie);
       const carolCookie = await signIn(carol);
       const carolSees = await watch(id, carolCookie);
 
       await join(id, bobCookie).expect(201);
-      await vi.waitFor(() => expect(bobs.changes).toHaveLength(1));
+      await vi.waitFor(() => expect(bobsRoom.changes).toHaveLength(1));
       await leave(id, bobCookie).expect(200);
       await join(id, carolCookie).expect(201);
 
       await vi.waitFor(() => expect(carolSees).toHaveLength(3));
-      expect(bobs.changes).toEqual([
+      expect(bobsRoom.changes).toEqual([
         expect.objectContaining({
           id,
           players: [
@@ -445,17 +445,17 @@ describe('live updates', () => {
     it('tells each player a draft was cancelled, with its id, and no one else', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie]);
-      const bobs = await listening(bobCookie);
-      const carols = await listening(await signIn(carol));
-      const carolSees = await watching(id, await signIn(carol));
+      const bobsRoom = await listening(bobCookie);
+      const carolsRoom = await listening(await signIn(carol));
+      const { socket: carolWatching } = await watching(id, await signIn(carol));
       const carolWatchingHeard = vi.fn();
-      carolSees.socket.on('cancelled', carolWatchingHeard);
+      carolWatching.on('cancelled', carolWatchingHeard);
 
       await cancelDraft(id).expect(204);
 
-      await vi.waitFor(() => expect(bobs.cancelled).toEqual([id]));
-      await vi.waitFor(() => expect(carolWatchingHeard).toHaveBeenCalled());
-      expect(carols.cancelled).toEqual([]);
+      await vi.waitFor(() => expect(bobsRoom.cancelled).toEqual([id]));
+      await vi.waitFor(() => expect(carolWatchingHeard).toHaveBeenCalledExactlyOnceWith(id));
+      expect(carolsRoom.cancelled).toEqual([]);
     });
   });
 });
