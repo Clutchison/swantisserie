@@ -44,3 +44,27 @@ export function boardCell(page: HTMLElement, row: string, column: string) {
   if (seat < 0 || !cell) throw new Error(`boardCell: no cell in row "${row}", column "${column}"`);
   return cell;
 }
+
+/**
+ * Stands in for `scrollIntoView`, which jsdom lacks, until the test finishes.
+ * Returns what has been scrolled into view so far, in order: each row of the
+ * grid by its round label's accessible name, anything else by its tag name.
+ */
+export function stubBoardScrolling() {
+  const scrolled: Element[] = [];
+  Object.defineProperty(Element.prototype, 'scrollIntoView', {
+    configurable: true,
+    value(this: Element) {
+      scrolled.push(this);
+    },
+  });
+  onTestFinished(() => {
+    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
+  });
+  return () =>
+    scrolled.map((element) =>
+      element.querySelector(ROW_HEADERS)
+        ? rowName(element as HTMLElement)
+        : element.tagName.toLowerCase(),
+    );
+}

@@ -1,4 +1,15 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  afterRenderEffect,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  ElementRef,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChildren,
+} from '@angular/core';
 import type { PlayerView } from 'contract';
 import { currentTurn, picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
 import { LucideArrowLeft, LucideArrowRight, LucideDynamicIcon } from '@lucide/angular';
@@ -8,7 +19,19 @@ import { DraftStore, type PickedCard } from './draft-store';
 import { Seat } from './seat';
 import { SeatHint, seatNameHint, type SeatNameHint } from './seat-hint';
 
-/** Which of a round of double turns' two rows: each double turn's first pick, or its second; null in a round of single turns. */
+/**
+ * How the Board tab is scrolled to a row on opening: to the top of the
+ * scroller, below the pinned seats, scrolling only the scroller. `container`
+ * is newer than TypeScript's DOM types; a browser without it scrolls the page
+ * too.
+ */
+const TO_ROW: ScrollIntoViewOptions & { container?: 'all' | 'nearest' } = {
+  block: 'start',
+  inline: 'nearest',
+  container: 'nearest',
+};
+
+/** Which of a round of double turns' two rows:each double turn's first pick, or its second; null in a round of single turns. */
 export type RoundHalf = 'first' | 'second' | null;
 
 /**
@@ -96,6 +119,33 @@ export class BoardTab {
     }
     return rows;
   });
+
+  /**
+   * Whether the Board tab is the one open. It stays rendered while another
+   * is, so opening it is this turning true.
+   */
+  readonly open = input(false);
+  private readonly rowElements = viewChildren('row', { read: ElementRef<HTMLElement> });
+
+  constructor() {
+    // Once each time the tab opens, as soon as the grid is shown: the latest
+    // round's first row while the draft is drafting or frozen, round 1 once
+    // it is complete. Never again until it is next opened, so live picks
+    // fill the grid without moving it.
+    let scrolled = false;
+    afterRenderEffect(() => {
+      if (!this.open()) {
+        scrolled = false;
+        return;
+      }
+      const elements = this.rowElements();
+      if (scrolled || elements.length === 0) return;
+      const rows = untracked(this.rows);
+      const round = untracked(this.store.draftComplete) ? 1 : rows.at(-1)!.round;
+      elements[rows.findIndex((row) => row.round === round)]?.nativeElement.scrollIntoView(TO_ROW);
+      scrolled = true;
+    });
+  }
 
   protected isOwn(player: PlayerView) {
     return player.id === this.ownId();
