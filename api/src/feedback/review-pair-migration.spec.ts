@@ -13,22 +13,30 @@ async function databaseWith(rows: string) {
   return database;
 }
 
+/** The SQL that inserts feedback from alice, each row its id, reviewer and review time as SQL. */
+const feedbackInsert = (
+  ...rows: [id: string, reviewedById: string, reviewedAt: string][]
+) =>
+  `INSERT INTO "Feedback" ("id", "message", "senderId", "pagePath", "reviewedById", "reviewedAt")
+     VALUES ${rows.map((row) => `(${row[0]}, 'Hi', 'alice', '/', ${row[1]}, ${row[2]})`).join(', ')};`;
+
 describe('the feedback review pair migration', () => {
   it(
     'keeps every feedback, reviewed or not, as it was',
     async () => {
-      const { db, applyMigration } = await databaseWith(`
-        INSERT INTO "Feedback" ("id", "message", "senderId", "pagePath", "reviewedById", "reviewedAt")
-          VALUES ('a', 'Hi', 'alice', '/', NULL, NULL),
-                 ('b', 'Hi', 'alice', '/', 'admin', '2026-11-01 12:00:00');
-      `);
+      const { db, applyMigration } = await databaseWith(
+        feedbackInsert(
+          ["'a'", 'NULL', 'NULL'],
+          ["'b'", "'admin'", "'2026-11-01 12:00:00'"],
+        ),
+      );
 
       await applyMigration();
 
-      const feedback = await db.query(
+      const kept = await db.query(
         `SELECT "id", "reviewedById", "reviewedAt"::text FROM "Feedback" ORDER BY "id"`,
       );
-      expect(feedback.rows).toEqual([
+      expect(kept.rows).toEqual([
         { id: 'a', reviewedById: null, reviewedAt: null },
         { id: 'b', reviewedById: 'admin', reviewedAt: '2026-11-01 12:00:00' },
       ]);
@@ -40,12 +48,13 @@ describe('the feedback review pair migration', () => {
   it(
     'fails, naming each feedback with a reviewer and no review time, or the reverse',
     async () => {
-      const { db, applyMigration } = await databaseWith(`
-        INSERT INTO "Feedback" ("id", "message", "senderId", "pagePath", "reviewedById", "reviewedAt")
-          VALUES ('fine', 'Hi', 'alice', '/', NULL, NULL),
-                 ('no-time', 'Hi', 'alice', '/', 'admin', NULL),
-                 ('no-reviewer', 'Hi', 'alice', '/', NULL, now());
-      `);
+      const { db, applyMigration } = await databaseWith(
+        feedbackInsert(
+          ["'fine'", 'NULL', 'NULL'],
+          ["'no-time'", "'admin'", 'NULL'],
+          ["'no-reviewer'", 'NULL', 'now()'],
+        ),
+      );
 
       await expect(applyMigration()).rejects.toThrow(
         /feedback no-reviewer, no-time\b/,
@@ -61,16 +70,20 @@ describe('the feedback review pair migration', () => {
       const { db, applyMigration } = await databaseWith('');
       await applyMigration();
 
-      const feedback = (reviewedById: string | null, reviewedAt: Date | null) =>
-        db.query(
-          `INSERT INTO "Feedback" ("id", "message", "senderId", "pagePath", "reviewedById", "reviewedAt")
-           VALUES (gen_random_uuid(), 'Hi', 'alice', '/', $1, $2)`,
-          [reviewedById, reviewedAt],
-        );
-      await expect(feedback(null, null)).resolves.toBeTruthy();
-      await expect(feedback('admin', new Date())).resolves.toBeTruthy();
-      await expect(feedback('admin', null)).rejects.toThrow(/check constraint/);
-      await expect(feedback(null, new Date())).rejects.toThrow(
+      const insertFeedback = (
+        reviewedById: string | null,
+        reviewedAt: Date | null,
+      ) =>
+        db.query(feedbackInsert(['gen_random_uuid()', '$1', '$2']), [
+          reviewedById,
+          reviewedAt,
+        ]);
+      await expect(insertFeedback(null, null)).resolves.toBeTruthy();
+      await expect(insertFeedback('admin', new Date())).resolves.toBeTruthy();
+      await expect(insertFeedback('admin', null)).rejects.toThrow(
+        /check constraint/,
+      );
+      await expect(insertFeedback(null, new Date())).rejects.toThrow(
         /check constraint/,
       );
       await db.close();
