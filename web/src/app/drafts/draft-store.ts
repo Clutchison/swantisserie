@@ -36,6 +36,7 @@ import {
   picksPerTurn,
   queuePicksBeforeAnotherPlayerPicks,
   turnStartPick,
+  type Turn,
 } from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
@@ -179,6 +180,10 @@ export class DraftStore implements TournamentViewer {
     const id = this.user()?.id;
     return this.players().find((player) => player.id === id) ?? null;
   });
+  /** Whether `player` is the signed-in player: the viewer's own seat. */
+  isOwn(player: PlayerView): boolean {
+    return player.id === this.ownPlayer()?.id;
+  }
 
   /** A player in the draft, by their id, or undefined for an id that isn't among its players. */
   findPlayer(id: string): PlayerView | undefined {
@@ -200,22 +205,26 @@ export class DraftStore implements TournamentViewer {
   /** The engine's size of the draft, once it has loaded, as the api works it out. */
   readonly draftSize = computed(() => draftSize(this.shown(), this.players().length));
   /**
-   * The pick that started the turn, which both picks of a double turn share,
-   * so a change to it is the turn passing; null with no turn.
+   * The pick that started the current turn, which both picks of a double
+   * turn share, so a change to it is the turn passing; null with no turn.
    */
-  readonly turnStartPick = computed(() => {
+  readonly currentTurnStartPick = computed(() => {
     const turn = this.turn();
     return turn && turnStartPick(this.draftSize(), turn);
   });
+
+  /** The turn the 1-based `pick` is made on, in seat and round; null if it is past the draft's last. */
+  turnOfPick(pick: number): Turn | null {
+    return currentTurn(this.draftSize(), pick - 1);
+  }
 
   /**
    * The pick that started the turn the 1-based `pick` was made on, which both
    * picks of a double turn share; `pick` itself if it is past the draft's last.
    */
-  turnStartOf(pick: number): number {
-    const size = this.draftSize();
-    const turn = currentTurn(size, pick - 1);
-    return turn ? turnStartPick(size, turn) : pick;
+  turnStartPickOf(pick: number): number {
+    const turn = this.turnOfPick(pick);
+    return turn ? turnStartPick(this.draftSize(), turn) : pick;
   }
   /** Whether the turn is a double turn, on either of its picks; false with no turn. */
   readonly isDoubleTurn = computed(() => {

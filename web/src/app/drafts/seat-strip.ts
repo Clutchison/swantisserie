@@ -33,7 +33,7 @@ import { OwnTurnLoop } from './own-turn-loop';
 import { PlayersSheet } from './players-sheet';
 import { LoadedAvatars } from './loaded-avatars';
 import { Seat } from './seat';
-import { SeatHint, seatNameHint, type SeatNameHint } from './seat-hint';
+import { SeatHint, SeatHintState } from './seat-hint';
 
 /** Which copy of the pulse the turn's seat plays: a class of its own, so each restarts it. */
 type Pulse = 'pulse' | 'pulse-again';
@@ -60,7 +60,7 @@ const ARROW_SIZE = 14;
 @Component({
   selector: 'app-seat-strip',
   imports: [LucideDynamicIcon, LucideUsers, NgTemplateOutlet, Seat, SeatHint],
-  // Its seats' loaded avatars are its own, as they were before the seat was shared.
+  // Its seats' loaded avatars are its own.
   providers: [LoadedAvatars],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './seat-strip.html',
@@ -88,9 +88,9 @@ export class SeatStrip {
   readonly panelOpen = model(false);
 
   protected readonly arrowSize = ARROW_SIZE;
-  protected readonly seats = computed(() => this.store.shown().players);
+  /** The draft's players, in seat order. */
+  protected readonly players = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
-  private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
 
   /**
    * The player who picks after the turn passes, by the snake order: the
@@ -100,7 +100,7 @@ export class SeatStrip {
     const turn = this.store.turn();
     if (!turn) return null;
     const next = turnAfter(this.store.draftSize(), turn);
-    return next ? (this.seats()[next.seat] ?? null) : null;
+    return next ? (this.players()[next.seat] ?? null) : null;
   });
 
   /**
@@ -121,8 +121,8 @@ export class SeatStrip {
   });
 
   protected readonly popoverOpen = computed(() => this.panelOpen() && this.panelIn() === 'popover');
-  /** The name of the seat's player hovered or focused, and that seat's box; null while none is. */
-  protected readonly hint = signal<SeatNameHint | null>(null);
+  /** The seats' name hint, which follows its seat as the seats scroll sideways. */
+  protected readonly hint = new SeatHintState();
   /**
    * Which of the two copies of the three-beat pulse the turn's seat plays,
    * alternating so that each turn change starts it afresh, even on the same
@@ -157,7 +157,7 @@ export class SeatStrip {
     // ring, looping, plays the loop instead.
     let shownPick: number | undefined;
     effect(() => {
-      const pick = this.store.turnStartPick() ?? undefined;
+      const pick = this.store.currentTurnStartPick() ?? undefined;
       if (shownPick !== undefined && pick !== undefined && pick !== shownPick) {
         untracked(() =>
           this.pulse.update((copy) =>
@@ -170,7 +170,7 @@ export class SeatStrip {
     // Once the seats are laid out, and as the turn changes, the turn's seat and the next one scroll into view.
     afterRenderEffect(() => {
       const seatOf = (id: string | null) =>
-        this.seatElements()[this.seats().findIndex((p) => p.id === id)]?.nativeElement;
+        this.seatElements()[this.players().findIndex((p) => p.id === id)]?.nativeElement;
       const turnSeat = seatOf(this.turnPlayerId());
       const nextSeat = seatOf(this.nextPlayer()?.id ?? null);
       if (turnSeat) {
@@ -181,18 +181,13 @@ export class SeatStrip {
     });
   }
 
-  /** Shows `player`'s name below their seat, at `seat`, its box; or hides it, given null. */
-  protected showHint(player: PlayerView, seat: DOMRect | null) {
-    this.hint.set(seatNameHint(player, seat));
-  }
-
   /** Whether `player` has the turn. */
   protected hasTheTurn(player: PlayerView) {
     return player.id === this.turnPlayerId();
   }
 
   protected isOwn(player: PlayerView) {
-    return player.id === this.ownId();
+    return this.store.isOwn(player);
   }
 
   /** Opens the Players sheet, or the popover with focus moved into it; or closes the popover. */

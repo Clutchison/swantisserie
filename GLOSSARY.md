@@ -139,7 +139,7 @@ A player the app controls, which picks a random available card on its turn. Only
 _Avoid_: AI, dummy, CPU
 
 **Seat**:
-A player's position in a draft's seat order. The organizer sets the seat order in the lobby, and it is fixed once the draft starts.
+A player's position in a draft's seat order. The organizer sets the seat order in the lobby, and it is fixed once the draft starts. The Seat strip and the Board tab show each seat as its player's avatar, which names the player on hover or focus.
 _Avoid_: Slot, position
 
 **Players panel**:

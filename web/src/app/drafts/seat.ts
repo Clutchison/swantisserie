@@ -18,7 +18,7 @@ const AVATAR_SIZE = 24;
  * A seat, as the Seat strip and the Board tab show it: its player's avatar,
  * or a disc with their initial until the avatar loads, or if it fails or is
  * missing. Focusable, so a keyboard user can bring up the player's name as a
- * mouse user does: hovered or focused, it gives its box as `nameHint`, for a
+ * mouse user does: hovered or focused, it gives itself as `nameHint`, for a
  * `SeatHint` to show the name under. A screen reader names it by its player,
  * whether they are a bot or the viewer's own, then its `extraNameParts`, such
  * as the Seat strip's "picking". Its host marks anything else, such as whose
@@ -60,8 +60,8 @@ export class Seat {
   readonly own = input(false);
   /** What else a screen reader names the seat, after who its player is. */
   readonly extraNameParts = input<readonly string[]>([]);
-  /** The seat's box as it is hovered or focused, to show its player's name under; null as it no longer is. */
-  readonly nameHint = output<DOMRect | null>();
+  /** The seat as it is hovered or focused, to show its player's name under; null as it no longer is. */
+  readonly nameHint = output<HTMLElement | null>();
 
   protected readonly accessibleName = computed(() => {
     const player = this.player();
@@ -80,6 +80,6 @@ export class Seat {
   });
 
   protected showName() {
-    this.nameHint.emit(this.element.getBoundingClientRect());
+    this.nameHint.emit(this.element);
   }
 }

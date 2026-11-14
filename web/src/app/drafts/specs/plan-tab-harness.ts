@@ -176,7 +176,7 @@ const stackHeadersNavigation = (plan: HTMLElement) =>
  * `IntersectionObserver` requests its image straight away. The stubs go once
  * the test finishes.
  */
-export function stubScrolling() {
+export function stubStackScrolling() {
   const observers = new Set<{ callback: IntersectionObserverCallback; watched: Set<Element> }>();
   const scrolls = stubScrollIntoView();
   vi.stubGlobal(

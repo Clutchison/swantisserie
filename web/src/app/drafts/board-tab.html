@@ -8,7 +8,7 @@
   }
   <!-- The seat hint's anchor, outside the scroller so the name under a seat isn't clipped. -->
   <div class="board">
-    <div class="scroller">
+    <div class="scroller" (scroll)="hint.follow()">
       <table aria-label="Picks by round" [style.--seats]="players().length">
         <thead>
           <tr>
@@ -18,7 +18,7 @@
                 <app-seat
                   [player]="player"
                   [own]="isOwn(player)"
-                  (nameHint)="showHint(player, $event)"
+                  (nameHint)="hint.show(player, $event)"
                 />
               </th>
             }
@@ -35,9 +35,9 @@
                   [size]="14"
                 ></svg>
               </th>
-              @for (pick of row.cells; track $index; let seat = $index) {
+              @for (pick of row.cells; track $index; let column = $index) {
                 <td
-                  [class.own]="isOwn(players()[seat]!)"
+                  [class.own]="isOwn(players()[column]!)"
                   [attr.aria-current]="isLatest(pick) ? 'true' : null"
                 >
                   @if (pick) {
@@ -51,8 +51,8 @@
       </table>
     </div>
     <div class="hint-anchor">
-      @if (hint(); as hint) {
-        <app-seat-hint [name]="hint.name" [seat]="hint.seat" />
+      @if (hint.shown(); as shown) {
+        <app-seat-hint [name]="shown.name" [seatBox]="shown.seatBox" />
       }
     </div>
   </div>

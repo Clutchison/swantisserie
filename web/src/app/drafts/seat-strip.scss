@@ -8,12 +8,11 @@ $ring-band: 2px;
 $ring-reach: $ring-gap + $ring-band;
 /* At the height of its pulse, the band is twice as wide, reaching this far. */
 $pulse-reach: $ring-gap + 2 * $ring-band;
-$focus-width: seat-focus.$width;
 /*
  * A focused seat's outline sits outside the ring, even at the height of its
  * pulse, so reaches this far: the farthest anything reaches from a seat.
  */
-$focus-reach: $pulse-reach + $focus-width;
+$focus-reach: $pulse-reach + seat-focus.$width;
 /*
  * The arrow between two seats is `ARROW_SIZE` in `seat-strip.ts`, read as
  * `--arrow-size`. Lucide's chevron fills only the middle third of its box, so

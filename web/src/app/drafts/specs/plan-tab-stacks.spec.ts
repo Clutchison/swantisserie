@@ -43,7 +43,7 @@ import {
   stackHeader,
   stackHeaderContents,
   stackHeaders,
-  stubScrolling,
+  stubStackScrolling,
   planDropLists,
   dropListNamed,
   dragOf,
@@ -506,7 +506,7 @@ describe('plan tab', () => {
       });
 
       it('end with the sideboard’s, labelled SB, which scrolls the strip to the sideboard’s stack', async () => {
-        const scrolling = stubScrolling();
+        const scrolling = stubStackScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf({
@@ -642,7 +642,7 @@ describe('plan tab', () => {
       });
 
       it('scroll the strip to the stack whose header is tapped, to its start', async () => {
-        const scrolling = stubScrolling();
+        const scrolling = stubStackScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
@@ -656,7 +656,7 @@ describe('plan tab', () => {
       });
 
       it('mark the tapped stack header current, through the strip’s scroll to its stack, until the player next scrolls the strip', async () => {
-        const scrolling = stubScrolling();
+        const scrolling = stubStackScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf({
@@ -710,7 +710,7 @@ describe('plan tab', () => {
       });
 
       it('mark one current, the leftmost stack mostly in view, as the strip scrolls and the plan changes', async () => {
-        const scrolling = stubScrolling();
+        const scrolling = stubStackScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),
@@ -757,7 +757,7 @@ describe('plan tab', () => {
       });
 
       it('keep marking one current once the grouping changes, and once the stacks area widens to the wide layout and narrows again', async () => {
-        const scrolling = stubScrolling();
+        const scrolling = stubStackScrolling();
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
           plan: planOf(),

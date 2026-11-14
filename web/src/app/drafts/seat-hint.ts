@@ -4,6 +4,7 @@ import {
   Component,
   ElementRef,
   input,
+  signal,
   viewChild,
 } from '@angular/core';
 import type { PlayerView } from 'contract';
@@ -11,12 +12,32 @@ import type { PlayerView } from 'contract';
 /** A seat's player's name and the seat's box, for a `SeatHint` to show the name under. */
 export interface SeatNameHint {
   name: string;
-  seat: DOMRect;
+  seatBox: DOMRect;
 }
 
-/** The hint for `player`'s seat at `seat`, its box as its `nameHint` gave it; null, given null, for none. */
-export const seatNameHint = (player: PlayerView, seat: DOMRect | null): SeatNameHint | null =>
-  seat ? { name: player.name, seat } : null;
+/**
+ * The name hint of a row of seats, such as the Seat strip's or the Board
+ * tab's: the name of the seat's player hovered or focused, and that seat's
+ * box, measured again as the seats scroll; none while no seat is.
+ */
+export class SeatHintState {
+  private readonly hint = signal<SeatNameHint | null>(null);
+  private seat: HTMLElement | null = null;
+  /** The hint to show, or null for none. */
+  readonly shown = this.hint.asReadonly();
+
+  /** Shows `player`'s name below `seat`, as its `nameHint` gave it; or hides it, given null. */
+  show(player: PlayerView, seat: HTMLElement | null) {
+    this.seat = seat;
+    this.hint.set(seat ? { name: player.name, seatBox: seat.getBoundingClientRect() } : null);
+  }
+
+  /** Places the hint under its seat again, as when the seats scroll, so it moves with the seat. */
+  follow() {
+    const { seat } = this;
+    this.hint.update((hint) => hint && seat && { ...hint, seatBox: seat.getBoundingClientRect() });
+  }
+}
 
 /**
  * A seat's player's name, shown below the seat hovered or focused, as its
@@ -36,15 +57,15 @@ export const seatNameHint = (player: PlayerView, seat: DOMRect | null): SeatName
 export class SeatHint {
   /** The seat's player's name. */
   readonly name = input.required<string>();
-  /** The seat's box, as its `nameHint` gave it. */
-  readonly seat = input.required<DOMRect>();
+  /** The seat's box, where the page shows it. */
+  readonly seatBox = input.required<DOMRect>();
 
   private readonly label = viewChild.required<ElementRef<HTMLElement>>('label');
 
   constructor() {
     afterRenderEffect(() => {
       const label = this.label().nativeElement;
-      const box = this.seat();
+      const box = this.seatBox();
       const within = (label.offsetParent ?? label.parentElement)?.getBoundingClientRect();
       if (!within) return;
       const firstHalf = box.left + box.width / 2 <= within.left + within.width / 2;

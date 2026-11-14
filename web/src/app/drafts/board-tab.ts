@@ -7,19 +7,18 @@ import {
   ElementRef,
   inject,
   input,
-  signal,
   untracked,
   viewChildren,
 } from '@angular/core';
 import { isTurnState, type PlayerView } from 'contract';
-import { currentTurn, picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
+import { picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
 import { LucideArrowLeft, LucideArrowRight, LucideDynamicIcon } from '@lucide/angular';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { CardName } from './card-name';
 import { DraftStore, type PickedCard } from './draft-store';
 import { Seat } from './seat';
 import type { ScrollIntoContainerOptions } from './scroll-options';
-import { SeatHint, seatNameHint, type SeatNameHint } from './seat-hint';
+import { SeatHint, SeatHintState } from './seat-hint';
 
 /**
  * How the Board tab brings a row into view on opening: as little as it
@@ -90,9 +89,8 @@ export class BoardTab {
    */
   protected readonly failed = this.store.pickLog.missing;
 
-  private readonly ownId = computed(() => this.store.ownPlayer()?.id ?? null);
-  /** The name of the seat's player hovered or focused, and that seat's box; null while none is. */
-  protected readonly hint = signal<SeatNameHint | null>(null);
+  /** The name hint of the seats heading the columns, which follows its seat as the board scrolls. */
+  protected readonly hint = new SeatHintState();
 
   /**
    * The grid's rows, from round 1 through the current round, or the last
@@ -104,10 +102,10 @@ export class BoardTab {
     const seatCount = this.players().length;
     const lastPick = size.players * size.picksPerPlayer;
     const currentRound = this.store.draftComplete()
-      ? (currentTurn(size, lastPick - 1)?.round ?? 0)
+      ? (this.store.turnOfPick(lastPick)?.round ?? 0)
       : (this.store.turn()?.round ?? 0);
     const placed = this.picks().flatMap((pick) => {
-      const turn = currentTurn(size, pick.pick - 1);
+      const turn = this.store.turnOfPick(pick.pick);
       return turn ? [{ pick, round: turn.round, half: halfOf(size, turn), seat: turn.seat }] : [];
     });
     const lastRound = Math.max(currentRound, ...placed.map(({ round }) => round));
@@ -136,7 +134,7 @@ export class BoardTab {
   private readonly latestTurnPicks = computed(() => {
     const last = this.picks().at(-1);
     if (!last || !isTurnState(this.store.shown().state)) return new Set<number>();
-    const start = this.store.turnStartOf(last.pick);
+    const start = this.store.turnStartPickOf(last.pick);
     return new Set(
       this.picks()
         .filter(({ pick }) => pick >= start)
@@ -181,12 +179,7 @@ export class BoardTab {
   }
 
   protected isOwn(player: PlayerView) {
-    return player.id === this.ownId();
-  }
-
-  /** Shows `player`'s name below their seat, at `seat`, its box; or hides it, given null. */
-  protected showHint(player: PlayerView, seat: DOMRect | null) {
-    this.hint.set(seatNameHint(player, seat));
+    return this.store.isOwn(player);
   }
 }
 
