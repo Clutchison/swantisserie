@@ -2,6 +2,7 @@ import {
   Ack,
   ConnectedSocket,
   MessageBody,
+  type OnGatewayConnection,
   type OnGatewayInit,
   SubscribeMessage,
   WebSocketGateway,
@@ -48,15 +49,19 @@ type DraftSocket = Socket<
 /** The room of everyone watching one draft. */
 const room = (draftId: string) => `draft:${draftId}`;
 
+/** The room of every socket of one signed-in user, their own room. */
+const ownRoom = (userId: string) => `user:${userId}`;
+
 /**
  * Pushes each draft's changes to everyone watching it, over Socket.IO. A
  * signed-in client connects once, then asks to watch each draft it shows
  * (`DraftSocketRequests`). Watches don't outlast the connection, so on
  * every reconnect it watches them again; it should then re-read them, as it
- * may have missed changes meanwhile.
+ * may have missed changes meanwhile. Each socket is also in its viewer's own
+ * room, which is pushed every draft they play in without asking.
  */
 @WebSocketGateway({ path: `/${API_PREFIX}/socket.io` })
-export class DraftsGateway implements OnGatewayInit {
+export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
   @WebSocketServer()
   private readonly server!: Server<DraftSocketRequests, DraftSocketEvents>;
 
@@ -87,6 +92,14 @@ export class DraftsGateway implements OnGatewayInit {
     const user = token ? await this.sessions.findUser(token) : null;
     if (user) socket.data = { user, pendingWatches: new Map() };
     return user;
+  }
+
+  /**
+   * Joins the socket to its viewer's own room. Nothing is awaited between
+   * admitting it and joining, so it can miss no push meanwhile.
+   */
+  handleConnection(socket: DraftSocket): void {
+    void socket.join(ownRoom(socket.data.user.id));
   }
 
   /**
@@ -140,13 +153,24 @@ export class DraftsGateway implements OnGatewayInit {
     ack();
   }
 
-  /** Tells everyone watching the draft how it now is. */
+  /**
+   * Tells everyone watching the draft, and each of its players but the bots,
+   * how it now is: once each, even a player also watching it.
+   */
   changed(draft: DraftView): void {
-    this.server.to(room(draft.id)).emit('changed', draft);
+    const players = draft.players.filter((player) => !player.isBot);
+    this.server
+      .to([room(draft.id), ...players.map((player) => ownRoom(player.id))])
+      .emit('changed', draft);
   }
 
-  /** Tells everyone watching the draft that it no longer exists. */
-  cancelled(draftId: string): void {
-    this.server.to(room(draftId)).emit('cancelled', draftId);
+  /**
+   * Tells everyone watching the draft, and each of `playerIds`, its players
+   * but the bots, that it no longer exists.
+   */
+  cancelled(draftId: string, playerIds: string[]): void {
+    this.server
+      .to([room(draftId), ...playerIds.map(ownRoom)])
+      .emit('cancelled', draftId);
   }
 }

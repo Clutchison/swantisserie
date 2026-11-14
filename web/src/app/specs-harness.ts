@@ -12,6 +12,8 @@ import type { DraftListItemView, UserView } from 'contract';
 import { App } from './app';
 import { routes } from './app.routes';
 import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
+import { NEVER, Subject } from 'rxjs';
+import { DraftUpdates, type OwnDraftUpdate } from './drafts/draft-updates';
 
 /** A guild member who isn't an app admin. */
 export const alice: UserView = {
@@ -37,16 +39,23 @@ export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[
 
 export let http: HttpTestingController;
 export let router: Router;
+/** Stands in for the API's pushes of the viewer's own drafts: push through it. */
+export let ownUpdates: Subject<OwnDraftUpdate>;
 
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useApp() {
   beforeEach(() => {
+    ownUpdates = new Subject();
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(routes, withComponentInputBinding()),
         provideHttpClient(withInterceptors([signOutWhenSessionEnds])),
         provideHttpClientTesting(),
+        {
+          provide: DraftUpdates,
+          useValue: { own: () => ownUpdates, watch: () => NEVER },
+        },
       ],
     });
     http = TestBed.inject(HttpTestingController);

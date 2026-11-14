@@ -37,7 +37,7 @@ import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { SET_CATALOG_POLL_MS } from '../set-list-picker';
 import { EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
-import { type DraftUpdate, DraftUpdates } from '../draft-updates';
+import { type DraftUpdate, DraftUpdates, type OwnDraftUpdate } from '../draft-updates';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import { disclosure } from './disclosure-harness';
 import {
@@ -135,8 +135,16 @@ export type AppFixture = ComponentFixture<App>;
 
 export let http: HttpTestingController;
 export let router: Router;
-/** Stands in for the API's Socket.IO gateway: push events through `events`. */
-export let updates: { events: Subject<DraftUpdate>; watch: ReturnType<typeof vi.fn> };
+/**
+ * Stands in for the API's Socket.IO gateway: push a watched draft's events
+ * through `events`, and the viewer's own drafts' through `ownEvents`.
+ */
+export let updates: {
+  events: Subject<DraftUpdate>;
+  watch: ReturnType<typeof vi.fn>;
+  ownEvents: Subject<OwnDraftUpdate>;
+  own: () => Subject<OwnDraftUpdate>;
+};
 
 /**
  * What GET /api/webhooks answers with, without a test having to: every view
@@ -190,7 +198,8 @@ export function useDraftsApp() {
       return new Promise((resolve, reject) => decodes.set(this, { resolve, reject }));
     };
     const events = new Subject<DraftUpdate>();
-    updates = { events, watch: vi.fn(() => events) };
+    const ownEvents = new Subject<OwnDraftUpdate>();
+    updates = { events, watch: vi.fn(() => events), ownEvents, own: () => ownEvents };
     TestBed.configureTestingModule({
       imports: [App],
       providers: [

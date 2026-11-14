@@ -9,6 +9,7 @@ import {
   http,
   openApp,
   openDialog,
+  ownUpdates,
   router,
   useApp,
 } from './specs-harness';
@@ -244,6 +245,22 @@ describe('App', () => {
     ])('isn’t there when %s', async (_, drafts) => {
       const page = await openWithDrafts('/', drafts);
 
+      expect(turnLink(page)).toBeNull();
+    });
+
+    it('appears as the turn reaches the viewer, and goes as it passes, on any page', async () => {
+      const page = await openWithDrafts('/status', [bobsTurn('a', 'Red dragons')], () =>
+        http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' }),
+      );
+      const pushed = (draft: DraftListItemView) => {
+        ownUpdates.next({ type: 'changed', draft });
+        TestBed.tick();
+      };
+
+      pushed(alicesTurnItem('a', 'Red dragons'));
+      expect(turnLinkShown(page)).toEqual({ text: 'Your turn in Red dragons', href: '/drafts/a' });
+
+      pushed(bobsTurn('a', 'Red dragons'));
       expect(turnLink(page)).toBeNull();
     });
   });

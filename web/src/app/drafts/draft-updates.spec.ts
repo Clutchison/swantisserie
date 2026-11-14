@@ -1,7 +1,7 @@
 import type { DraftView } from 'contract';
 import type { Subscription } from 'rxjs';
 import { vi } from 'vitest';
-import type { DraftUpdate, DraftUpdates } from './draft-updates';
+import type { DraftUpdate, DraftUpdates, OwnDraftUpdate } from './draft-updates';
 import { draft } from './specs/harness';
 
 /** Stands in for Socket.IO's client: `io` answers the socket a test drives. */
@@ -53,6 +53,8 @@ const RETRY_MS = 5000;
 
 describe('draft updates', () => {
   let updates: DraftUpdates;
+  /** Makes the updates afresh, as the app's root injector does once. */
+  let makeUpdates: () => DraftUpdates;
   let socket: FakeSocket;
   let received: DraftUpdate[];
   let watching: Subscription;
@@ -73,7 +75,8 @@ describe('draft updates', () => {
   beforeEach(async () => {
     vi.useFakeTimers();
     const { DraftUpdates } = await import('./draft-updates');
-    updates = new DraftUpdates();
+    makeUpdates = () => new DraftUpdates();
+    updates = makeUpdates();
     socket = new FakeSocket();
     io.mockReset().mockReturnValue(socket);
     received = [];
@@ -274,6 +277,76 @@ describe('draft updates', () => {
       vi.advanceTimersByTime(RETRY_MS);
 
       expect(socket.connect).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('the viewer’s own drafts', () => {
+    let own: OwnDraftUpdate[];
+    let owning: Subscription;
+
+    beforeEach(() => {
+      own = [];
+      owning = updates.own().subscribe((update) => own.push(update));
+    });
+
+    afterEach(() => owning.unsubscribe());
+
+    it('come over the socket the watched drafts use, asking to watch nothing', () => {
+      socket.push('connect');
+
+      expect(io).toHaveBeenCalledOnce();
+      expect(socket.asked('watch')).toEqual(['draft-1']);
+    });
+
+    it('open the socket when nothing is watched', () => {
+      io.mockClear();
+
+      makeUpdates().own().subscribe();
+
+      expect(io).toHaveBeenCalledExactlyOnceWith({ path: '/api/socket.io' });
+    });
+
+    it('say they are connected on every connect, without waiting on any watch', () => {
+      socket.push('connect');
+      socket.push('disconnect');
+      socket.push('connect');
+
+      expect(own).toEqual([
+        { type: 'connected' },
+        { type: 'disconnected' },
+        { type: 'connected' },
+      ]);
+    });
+
+    it('pass on every draft changed or cancelled, with its id', () => {
+      const mine = draft({ id: 'draft-2', name: 'Pushed' });
+      socket.push('connect');
+
+      socket.push('changed', mine);
+      socket.push('cancelled', 'draft-3');
+
+      expect(own).toEqual([
+        { type: 'connected' },
+        { type: 'changed', draft: mine },
+        { type: 'cancelled', draftId: 'draft-3' },
+      ]);
+    });
+
+    it('stop when the session ends', () => {
+      socket.refuse('unauthorized', { active: false });
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(own).toEqual([{ type: 'unauthorized' }]);
+      expect(socket.connect).not.toHaveBeenCalled();
+    });
+
+    it('ask nothing of the API once unsubscribed', () => {
+      socket.push('connect');
+
+      owning.unsubscribe();
+
+      expect(socket.asked('stopWatching')).toEqual([]);
+      expect(socket.disconnect).not.toHaveBeenCalled();
     });
   });
 });

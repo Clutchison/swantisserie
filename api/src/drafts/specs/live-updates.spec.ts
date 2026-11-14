@@ -29,7 +29,7 @@ import { useSockets } from './socket-harness.js';
 useDraftsApp();
 
 describe('live updates', () => {
-  const { socketFor, connected, watching, watch } = useSockets();
+  const { socketFor, connected, watching, watch, listening } = useSockets();
 
   it('tells everyone watching a draft that it was cancelled, with its id', async () => {
     const id = await readyDraft([aliceCookie]);
@@ -343,5 +343,119 @@ describe('live updates', () => {
       gone: false,
     });
     expect(changes[0].version).toBeGreaterThan(before.body.version);
+  });
+
+  describe('to each player, watching no draft', () => {
+    it('pushes every change of a draft they play in, and none of one they don’t', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      const ids = await poolCardIds(id);
+      const elsewhere = await readyDraft([]);
+      const bobs = await listening(bobCookie);
+      const carols = await listening(await signIn(carol));
+
+      await start(id).expect(200);
+      await pick(id, ids.Shock).expect(200);
+      await undo(id, 1).expect(200);
+      for (const action of ['freeze', 'unfreeze', 'close', 'reopen']) {
+        await post(id, action).expect(200);
+      }
+      await pick(id, ids.Shock).expect(200);
+      await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+      await join(elsewhere).expect(201);
+
+      await vi.waitFor(() =>
+        expect(
+          bobs.changes.map(({ state, turn }) => [state, turn?.playerId]),
+        ).toEqual([
+          ['Drafting', alice.id],
+          ['Drafting', bob.id],
+          ['Drafting', alice.id],
+          ['Frozen', alice.id],
+          ['Drafting', alice.id],
+          ['Closed', undefined],
+          ['Drafting', alice.id],
+          ['Drafting', bob.id],
+          ['Complete', undefined],
+        ]),
+      );
+      expect(bobs.changes.every((draft) => draft.id === id)).toBe(true);
+      expect(carols.changes).toEqual([]);
+    });
+
+    it('pushes a draft after a pick with its cascade made', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
+      const ids = await poolCardIds(id);
+      await start(id).expect(200);
+      await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+      const bobs = await listening(bobCookie);
+
+      await pick(id, ids.Shock).expect(200);
+
+      await vi.waitFor(() =>
+        expect(bobs.changes).toEqual([
+          expect.objectContaining({
+            turn: expect.objectContaining({ pick: 3, playerId: bob.id }),
+          }),
+        ]),
+      );
+    });
+
+    it('pushes the draft once to a player also watching it', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      const bobSees = await watch(id, bobCookie);
+
+      await start(id).expect(200);
+      await post(id, 'freeze').expect(200);
+
+      await vi.waitFor(() =>
+        expect(bobSees.map((draft) => draft.state)).toEqual([
+          'Drafting',
+          'Frozen',
+        ]),
+      );
+    });
+
+    it('starts pushing a draft to a player who joins it, and stops once they leave', async () => {
+      const id = await readyDraft([aliceCookie]);
+      const bobCookie = await signIn(bob);
+      const bobs = await listening(bobCookie);
+      const carolCookie = await signIn(carol);
+      const carolSees = await watch(id, carolCookie);
+
+      await join(id, bobCookie).expect(201);
+      await vi.waitFor(() => expect(bobs.changes).toHaveLength(1));
+      await leave(id, bobCookie).expect(200);
+      await join(id, carolCookie).expect(201);
+
+      await vi.waitFor(() => expect(carolSees).toHaveLength(3));
+      expect(bobs.changes).toEqual([
+        expect.objectContaining({
+          id,
+          players: [
+            expect.objectContaining({ id: alice.id }),
+            expect.objectContaining({ id: bob.id }),
+          ],
+        }),
+      ]);
+    });
+
+    it('tells each player a draft was cancelled, with its id, and no one else', async () => {
+      const bobCookie = await signIn(bob);
+      const id = await readyDraft([aliceCookie, bobCookie]);
+      const bobs = await listening(bobCookie);
+      const carols = await listening(await signIn(carol));
+      const carolSees = await watching(id, await signIn(carol));
+      const carolWatchingHeard = vi.fn();
+      carolSees.socket.on('cancelled', carolWatchingHeard);
+
+      await cancelDraft(id).expect(204);
+
+      await vi.waitFor(() => expect(bobs.cancelled).toEqual([id]));
+      await vi.waitFor(() => expect(carolWatchingHeard).toHaveBeenCalled());
+      expect(carols.cancelled).toEqual([]);
+    });
   });
 });
