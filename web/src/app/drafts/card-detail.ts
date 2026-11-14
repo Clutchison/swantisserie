@@ -30,9 +30,10 @@ import { PlayerAvatar } from './player-avatar';
 import { QueueApi } from './queue-api';
 
 /**
- * Which actions a Card detail offers, as its host decides. Each is offered
- * only where the draft's state allows it as well: Pick on the player's
- * turn, Remove from Deck for an unpicked copy in the plan, and so on.
+ * Which actions a Card detail offers, as its host decides. Each is offered,
+ * or enabled, only where the draft's state allows it as well: Pick is
+ * enabled on the player's turn, Remove from Deck is offered for an unpicked
+ * copy in the plan, and so on.
  */
 export interface CardDetailActions {
   pick: boolean;
@@ -273,12 +274,8 @@ export class CardDetail {
       await this.store.pick(this.card().id);
       if (this.closesOnPick()) this.close('picked');
     } catch (err) {
-      if (isRefusal(err)) {
-        // The draft has moved on, e.g. another pick was made: show why. The store catches up with it.
-        this.pickError.set(err.error?.message ?? PICK_FAILED);
-      } else {
-        this.pickError.set(PICK_FAILED);
-      }
+      // A refusal says why, e.g. another pick was made; the store catches up with it.
+      this.pickError.set(changeFailure(err, PICK_FAILED));
     } finally {
       this.picking.set(false);
     }
