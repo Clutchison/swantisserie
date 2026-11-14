@@ -29,7 +29,8 @@ import { useSockets } from './socket-harness.js';
 useDraftsApp();
 
 describe('live updates', () => {
-  const { socketFor, connected, watching, watch, listening } = useSockets();
+  const { socketFor, connected, watching, watch, listeningToOwnRoom } =
+    useSockets();
 
   it('tells everyone watching a draft that it was cancelled, with its id', async () => {
     const id = await readyDraft([aliceCookie]);
@@ -351,8 +352,8 @@ describe('live updates', () => {
       const id = await readyDraft([aliceCookie, bobCookie]);
       const ids = await poolCardIds(id);
       const elsewhere = await readyDraft([]);
-      const bobsRoom = await listening(bobCookie);
-      const carolsRoom = await listening(await signIn(carol));
+      const bobsRoom = await listeningToOwnRoom(bobCookie);
+      const carolsRoom = await listeningToOwnRoom(await signIn(carol));
 
       await start(id).expect(200);
       await pick(id, ids.Shock).expect(200);
@@ -389,7 +390,7 @@ describe('live updates', () => {
       const ids = await poolCardIds(id);
       await start(id).expect(200);
       await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
-      const bobsRoom = await listening(bobCookie);
+      const bobsRoom = await listeningToOwnRoom(bobCookie);
 
       await pick(id, ids.Shock).expect(200);
 
@@ -421,7 +422,7 @@ describe('live updates', () => {
     it('starts pushing a draft to a player who joins it, and stops once they leave', async () => {
       const id = await readyDraft([aliceCookie]);
       const bobCookie = await signIn(bob);
-      const bobsRoom = await listening(bobCookie);
+      const bobsRoom = await listeningToOwnRoom(bobCookie);
       const carolCookie = await signIn(carol);
       const carolSees = await watch(id, carolCookie);
 
@@ -445,8 +446,8 @@ describe('live updates', () => {
     it('tells each player a draft was cancelled, with its id, and no one else', async () => {
       const bobCookie = await signIn(bob);
       const id = await readyDraft([aliceCookie, bobCookie]);
-      const bobsRoom = await listening(bobCookie);
-      const carolsRoom = await listening(await signIn(carol));
+      const bobsRoom = await listeningToOwnRoom(bobCookie);
+      const carolsRoom = await listeningToOwnRoom(await signIn(carol));
       const { socket: carolWatching } = await watching(id, await signIn(carol));
       const carolWatchingHeard = vi.fn();
       carolWatching.on('cancelled', carolWatchingHeard);
@@ -454,7 +455,9 @@ describe('live updates', () => {
       await cancelDraft(id).expect(204);
 
       await vi.waitFor(() => expect(bobsRoom.cancelled).toEqual([id]));
-      await vi.waitFor(() => expect(carolWatchingHeard).toHaveBeenCalledExactlyOnceWith(id));
+      await vi.waitFor(() =>
+        expect(carolWatchingHeard).toHaveBeenCalledExactlyOnceWith(id),
+      );
       expect(carolsRoom.cancelled).toEqual([]);
     });
   });

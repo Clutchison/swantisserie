@@ -39,7 +39,7 @@ interface SocketData {
   pendingWatches: Map<string, symbol>;
 }
 
-type DraftSocket = Socket<
+type DraftServerSocket = Socket<
   DraftSocketRequests,
   DraftSocketEvents,
   never,
@@ -76,7 +76,7 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     server.use((socket, next) => {
       const req = socket.request as Request;
       parseCookies(req, {} as Response, () => {
-        this.admit(socket as DraftSocket, sessionToken(req)).then(
+        this.admit(socket as DraftServerSocket, sessionToken(req)).then(
           (user) => next(user ? undefined : new Error('unauthorized')),
           next,
         );
@@ -86,7 +86,7 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
 
   /** The socket's signed-in user, noted on the socket, if it has one. */
   private async admit(
-    socket: DraftSocket,
+    socket: DraftServerSocket,
     token: string | undefined,
   ): Promise<User | null> {
     const user = token ? await this.sessions.findUser(token) : null;
@@ -98,7 +98,7 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
    * Joins the socket to its viewer's own room. Nothing is awaited between
    * admitting it and joining, so it can miss no push meanwhile.
    */
-  handleConnection(socket: DraftSocket): void {
+  handleConnection(socket: DraftServerSocket): void {
     void socket.join(ownRoom(socket.data.user.id));
   }
 
@@ -110,7 +110,7 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
    */
   @SubscribeMessage('watch')
   async watch(
-    @ConnectedSocket() socket: DraftSocket,
+    @ConnectedSocket() socket: DraftServerSocket,
     @MessageBody() draftId: unknown,
   ): Promise<DraftWatchResult> {
     if (typeof draftId !== 'string') return 'refused';
@@ -142,7 +142,7 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
    */
   @SubscribeMessage('stopWatching')
   async stopWatching(
-    @ConnectedSocket() socket: DraftSocket,
+    @ConnectedSocket() socket: DraftServerSocket,
     @MessageBody() draftId: unknown,
     @Ack() ack: () => void,
   ): Promise<void> {

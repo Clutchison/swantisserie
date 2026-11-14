@@ -67,11 +67,11 @@ export function useSockets() {
   }
 
   /**
-   * A client signed in with `cookie`, connected and watching no draft, and
-   * what is pushed to it from then on: each draft changed, and the id of each
-   * draft cancelled.
+   * A client signed in with `cookie`, connected and watching no draft, so in
+   * its own room alone, and what is pushed to it from then on: each draft
+   * changed, and the id of each draft cancelled.
    */
-  async function listening(cookie: string) {
+  async function listeningToOwnRoom(cookie: string) {
     const socket = await connected(cookie);
     const changes: DraftView[] = [];
     const cancelled: string[] = [];
@@ -80,5 +80,5 @@ export function useSockets() {
     return { socket, changes, cancelled };
   }
 
-  return { socketFor, connected, watching, watch, listening };
+  return { socketFor, connected, watching, watch, listeningToOwnRoom };
 }
