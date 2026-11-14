@@ -96,7 +96,7 @@
           >
             Deck
           </button>
-          <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or any tournament is complete. -->
+          <!-- The Lists tab takes the Board tab's place once a tournament with public decklists has started, or one whose decklists were kept is complete. -->
           @if (showBoardTab()) {
             <button
               id="board-tab"
@@ -250,7 +250,7 @@
         </section>
       }
 
-      <!-- A tournament has a Lists tab under public decklists once it has started, and always once it is complete. -->
+      <!-- A tournament has a Lists tab under public decklists once it has started, and once it is complete if its decklists were kept. -->
       @if (showListsTab()) {
         <section
           id="lists-panel"
