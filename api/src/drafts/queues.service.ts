@@ -77,9 +77,11 @@ export class QueuesService {
 
   /**
    * Adds the pool card `poolCardId` to the end of the user's queue, and
-   * off its Queue notice; a no-op if it is already queued. Throws QueueRefusedError if it can't be
-   * queued: in the lobby, or on the player's own turn, drafting or frozen, when
-   * they make that pick by hand. Throws NotAPlayerError if the user isn't in the draft.
+   * off its Queue notice; a no-op if it is already queued. Throws
+   * QueueRefusedError if it can't be queued: in the lobby, on the player's
+   * own turn, drafting or frozen, when they make that pick by hand, and once
+   * the draft is closed or complete. Throws NotAPlayerError if the user
+   * isn't in the draft.
    */
   async add(
     draftId: string,
@@ -150,6 +152,7 @@ export class QueuesService {
   /**
    * Puts the user's queue in the order of `poolCardIds`, which must list each
    * queued card once; throws QueueChangedError if it doesn't. Throws
+   * QueueRefusedError once the draft is closed or complete, and
    * NotAPlayerError if the user isn't in the draft.
    */
   async reorder(
@@ -183,8 +186,9 @@ export class QueuesService {
 
   /**
    * Takes the pool card `poolCardId` out of the user's queue, recording its
-   * queue order; a no-op if it isn't there. Throws NotAPlayerError if the
-   * user isn't in the draft.
+   * queue order; a no-op if it isn't there. Throws QueueRefusedError once
+   * the draft is closed or complete, and NotAPlayerError if the user isn't
+   * in the draft.
    */
   async remove(
     draftId: string,
@@ -205,8 +209,9 @@ export class QueuesService {
   }
 
   /**
-   * Stops listing the user's lost cards. An undo still restores
-   * them. Throws NotAPlayerError if the user isn't in the draft.
+   * Stops listing the user's lost cards. An undo still restores them.
+   * Throws QueueRefusedError once the draft is closed or complete, and
+   * NotAPlayerError if the user isn't in the draft.
    */
   async dismissNotice(draftId: string, userId: string): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
