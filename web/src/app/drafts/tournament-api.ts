@@ -43,10 +43,9 @@ export class TournamentApi {
 
   /** Reports a match's game score, `games` in its player order; for its players. */
   report(draftId: string, matchId: string, games: GameScore): Observable<DraftView> {
-    return this.http.post<DraftView>(
-      `${url(draftId)}/matches/${encodeURIComponent(matchId)}/report`,
-      { games } satisfies MatchReportRequest,
-    );
+    return this.http.post<DraftView>(`${matchUrl(draftId, matchId)}/report`, {
+      games,
+    } satisfies MatchReportRequest);
   }
 
   /** Confirms a reported match's game score; for the player of it who didn't report it. */
