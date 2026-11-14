@@ -6,7 +6,7 @@ Research behind these decisions: [docs/research/](docs/research/) — `mtgrotiss
 
 ## Access
 
-Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/0001-many-guilds-through-a-rest-only-discord-bot.md), #169). Not yet built (#169).
+Any guild can use the app, through a REST-only Discord bot ([ADR 0001](docs/adr/0001-many-guilds-through-a-rest-only-discord-bot.md)). Not yet built (#169).
 
 Today, only members of the one guild in `DISCORD_GUILD_ID` can sign in, with the scopes `identify guilds.members.read`. So an app admin outside that guild can't sign in, and nothing about a user's guilds is recorded.
 
@@ -96,7 +96,7 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 ## Discord (Discord bot and webhooks)
 
-Today, announcements go only to registered webhooks. The organizer switches their draft's announcements between webhooks, and app admins keep the one webhook registry for the whole app.
+Today, announcements go only to registered webhooks. The organizer switches their draft's announcements between webhooks, and app admins keep one webhook registry for the whole app, not one per guild.
 
 - Creating a draft makes the Discord bot create a **draft channel** in the guild's draft category, named after the draft, with a webhook in it. The draft's announcements go there by default. If Discord refuses, the draft isn't created and the organizer sees why. Not yet built (#213).
 - A draft channel belongs to its draft and is never offered to other drafts. Not yet built (#213).
