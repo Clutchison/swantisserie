@@ -17,9 +17,9 @@ export type TournamentEvent = Extract<
 /**
  * The announcement of a tournament event, as one message, which may yet be
  * split across posts. Each ends with a link to the draft's Play tab.
- * Only players named to play are pinged: the draft's players when
- * registration opens, and each tournament round's match players. Bots are
- * named, never pinged.
+ * Only players named to play are pinged: the draft's players at tournament
+ * setup, which joins them all, and each tournament round's match players.
+ * Bots are named, never pinged.
  */
 export function tournamentMessage(
   draft: AnnouncedDraft,

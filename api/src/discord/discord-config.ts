@@ -16,7 +16,7 @@ export class DiscordConfig {
     return this.required('DISCORD_REDIRECT_URI');
   }
 
-  /** Our server: only its members may sign in. */
+  /** Our guild: only its members may sign in. */
   get guildId(): string {
     return this.required('DISCORD_GUILD_ID');
   }

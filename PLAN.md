@@ -100,19 +100,24 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 - Only app admins and the guild's admins can switch a draft's announcements to one of its guild's webhooks, or back to its draft channel.
 - **Archive chat:** the organizer, guild admins or app admins can move a complete or closed draft's channel to the archive category. Permissions aren't changed: a bot can't mute channels for members. Reopening the draft moves the channel back, and cancelling a lobby draft deletes it.
 - If a draft or archive category was deleted in Discord, the Discord bot recreates it when it's next needed and DMs the guild admin who last ran setup. A failed DM is ignored.
-- **Text only, no card image embeds.** An announcement links to the draft exactly when it names someone as up: the up line ends with a masked link, `[Open draft](<draft url>)`, whose angle brackets stop Discord showing a preview. The raw URL never gets a line of its own.
+- **Text only, no card image embeds.** A draft announcement links to the draft exactly when it names someone as up: the up line ends with a masked link, `[Open draft](<draft url>)`, whose angle brackets stop Discord showing a preview. The raw URL never gets a line of its own.
 
-| Event                   | Message                                                                                                           |
-| ----------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Draft started           | "**Draft** has started. Seat order:" + the seats + "@Alice you're up. `[Open draft](<…>)`"                        |
-| Manual pick, no cascade | "23- **Alice** picked **Card**" + "@Bob you're up. `[Open draft](<…>)`"                                           |
-| Pick + cascade          | One message listing every pick in order, then "@Bob you're up. `[Open draft](<…>)`" for the next player up        |
-| Undo                    | "Undone: 23- **Alice** picked **Card**" + "@Alice you're up. `[Open draft](<…>)`"                                 |
-| Unfrozen / reopened     | "**Draft** has been unfrozen" / "**Draft** has reopened", any cascade, then "@Bob you're up. `[Open draft](<…>)`" |
-| Frozen / closed         | "**Draft** is frozen" / "**Draft** has been closed", with no link                                                 |
-| Draft complete          | "**Draft** is complete", with no link                                                                             |
+| Event                      | Message                                                                                                                                                                                                                       |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Draft started              | "**Draft** has started. Seat order:" + the seats + "@Alice you're up. `[Open draft](<…>)`"                                                                                                                                    |
+| Manual pick, no cascade    | "23- **Alice** picked **Card**" + "@Bob you're up. `[Open draft](<…>)`"                                                                                                                                                       |
+| Pick + cascade             | One message listing every pick in order, then "@Bob you're up. `[Open draft](<…>)`" for the next player up                                                                                                                    |
+| Undo                       | "Undone: 23- **Alice** picked **Card**" + "@Alice you're up. `[Open draft](<…>)`"                                                                                                                                             |
+| Unfrozen / reopened        | "**Draft** has been unfrozen" / "**Draft** has reopened", any cascade, then "@Bob you're up. `[Open draft](<…>)`"                                                                                                             |
+| Frozen / closed            | "**Draft** is frozen" / "**Draft** has been closed", with no link                                                                                                                                                             |
+| Draft complete             | "**Draft** is complete", with no link                                                                                                                                                                                         |
+| Tournament set up          | "**Draft**’s Swiss tournament is in registration, and every player has joined." + "@Alice @Bob you’re in. If you won’t play, leave on the Play tab. Decks lock when the tournament starts. `[Open tournament](<…?tab=play>)`" |
+| Tournament started         | "**Draft**’s Swiss tournament has started with **Alice**, **Bob** and **Carol**." + `[Open tournament](<…?tab=play>)`                                                                                                         |
+| Tournament round completed | "Tournament round 1 of **Draft**’s tournament is complete. Tournament round 2:" + a line per match ("@Alice vs @Bob") and per bye ("**Carol** has a bye.") + `[Open tournament](<…?tab=play>)`                                |
+| Tournament complete        | "**Draft**’s Swiss tournament is complete. The trophy goes to **Alice**." + `[Open tournament](<…?tab=play>)`                                                                                                                 |
 
-- Pings use `allowed_mentions: { parse: [], users: [nextId] }`. The mention goes in `content`.
+- Pings use `allowed_mentions: { parse: [], users: [nextId] }`, or every pinged player's id in a tournament announcement. The mention goes in `content`.
+- A tournament announcement always ends with a masked link to the draft's Play tab. Reports, confirmations, corrections, drops, Reopen round and Cancel tournament post nothing.
 - A by-hand pick that leaves the same player up, at a round boundary in snake order, doesn't ping them: "**Alice** is up. `[Open draft](<…>)`" names them, as it does a bot. A queued pick that leaves its player up, a cascade ending on anyone, and start, unfreeze, reopen and undo announcements all still ping.
 - Possible later upgrade: an HTTP interactions endpoint on the api for slash commands (changing a guild's categories, `/status`, `/pick`) and opt-in DMs to players. It needs no gateway.
 
@@ -169,7 +174,7 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 1. Open a transaction and lock the draft row (`SELECT … FOR UPDATE`).
 2. Under the draft row lock, the api checks that the draft is Drafting. The engine checks the pick (your turn, card available), and works out the cascade after it and what every pick does to queues and plans.
 3. The api persists the picks and their effects on queues and plans, then commits.
-4. **After commit**, the api builds the announcements' events itself and passes them to `DiscordModule` → `DraftNotifier`. It formats one webhook message and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
+4. **After commit**, the api builds the announcements' events itself and passes them to `DiscordModule` → `DraftNotifier`. It formats the announcement, split into several posts if it is too long for one, and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
 5. Push the draft as it now is to the draft's Socket.IO room.
 
 ### Where the Discord code lives
