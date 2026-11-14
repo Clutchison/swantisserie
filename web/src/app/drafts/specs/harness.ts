@@ -1,13 +1,7 @@
 import { HttpResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
-import {
-  GuardsCheckEnd,
-  NavigationEnd,
-  provideRouter,
-  Router,
-  withComponentInputBinding,
-} from '@angular/router';
+import { GuardsCheckEnd, NavigationEnd, Router } from '@angular/router';
 import type {
   CardFace,
   DecklistView,
@@ -32,7 +26,7 @@ import { isTurnState } from 'contract';
 import { currentTurn } from 'engine';
 import { of } from 'rxjs';
 import { App } from '../../app';
-import { routes } from '../../app.routes';
+import { provideAppRouter } from '../../app.router';
 import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { SET_CATALOG_POLL_MS } from '../set-list-picker';
@@ -196,7 +190,7 @@ export function useDraftsApp() {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter(routes, withComponentInputBinding()),
+        provideAppRouter(),
         provideHttpClient(
           withInterceptors([
             signOutWhenSessionEnds,

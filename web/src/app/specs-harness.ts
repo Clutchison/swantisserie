@@ -7,10 +7,10 @@ import {
 } from '@angular/common/http/testing';
 import { Location } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
-import { provideRouter, Router, withComponentInputBinding } from '@angular/router';
+import { Router } from '@angular/router';
 import type { DraftListItemView, UserView } from 'contract';
 import { App } from './app';
-import { routes } from './app.routes';
+import { provideAppRouter } from './app.router';
 import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
 import { type FakeDraftUpdates, fakeDraftUpdates } from './drafts/specs/updates-harness';
 
@@ -49,7 +49,7 @@ export function useApp() {
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
-        provideRouter(routes, withComponentInputBinding()),
+        provideAppRouter(),
         provideHttpClient(withInterceptors([signOutWhenSessionEnds])),
         provideHttpClientTesting(),
         fake.provider,
