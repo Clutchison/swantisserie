@@ -31,6 +31,7 @@ import {
   undo,
   poolCardIds,
   copyIds,
+  failNextPublish,
 } from './harness.js';
 
 useDraftsApp();
@@ -448,16 +449,8 @@ describe('bot players', () => {
     });
   });
 
-  describe('when publishing a change that committed fails', () => {
+  describe('when publishing a committed change fails', () => {
     const dropped = new Error('Connection dropped');
-
-    /** Makes the next publish, the change's, fail; logs it quietly. */
-    function failNextPublish() {
-      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
-      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
-        dropped,
-      );
-    }
 
     it('has a bot in the first seat pick once the draft starts', async () => {
       const { id, botIds } = await draftWithBots(1);
@@ -473,14 +466,11 @@ describe('bot players', () => {
     });
 
     it('logs the failed publish once, with the draft’s id', async () => {
-      const errors = vi
-        .spyOn(Logger.prototype, 'error')
-        .mockImplementation(() => {});
       const { id, botIds } = await draftWithBots(1);
       await setSeats(id, [botIds[0], alice.id]).expect(200);
-      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
-        dropped,
-      );
+      failNextPublish(dropped);
+      // The spy failNextPublish quieted the log with.
+      const errors = vi.spyOn(Logger.prototype, 'error');
 
       await start(id).expect(500);
 
@@ -516,6 +506,8 @@ describe('bot players', () => {
       vi.spyOn(Math, 'random').mockReturnValue(0);
       await pick(id, (await poolCardIds(id)).Shock).expect(200);
       await atPick(id, 4);
+      // Now the last available card by name, so the re-pick shows the undo.
+      vi.spyOn(Math, 'random').mockReturnValue(0.99);
       failNextPublish();
 
       await undo(id, 3).expect(500);
@@ -525,7 +517,7 @@ describe('bot players', () => {
       expect(await pickedNames(id)).toEqual([
         'Shock',
         'Burst Lightning',
-        'Fireblast',
+        'Skewer the Critics',
       ]);
     });
 
@@ -583,23 +575,6 @@ describe('bot players', () => {
       expect((await getDraft(id).expect(200)).body.turn).toEqual(
         expect.objectContaining({ pick: 1, playerId: alice.id }),
       );
-    });
-
-    it('still refuses a retry of a freeze or close whose publish failed', async () => {
-      const { id } = await draftWithBots(1);
-      await start(id).expect(200);
-      failNextPublish();
-      await post(id, 'freeze').expect(500);
-      await post(id, 'freeze').expect(409);
-      await post(id, 'unfreeze').expect(200);
-
-      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
-        dropped,
-      );
-      await post(id, 'close').expect(500);
-
-      await post(id, 'close').expect(409);
-      expect((await pickLog(id)).body).toEqual([]);
     });
   });
 

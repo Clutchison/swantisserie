@@ -1,6 +1,4 @@
-import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { DraftPublisher } from '../draft-publisher.js';
 import {
   alice,
   app,
@@ -26,6 +24,7 @@ import {
   importPicks,
   addBot,
   waitForBotPicks,
+  failNextPublish,
   poolCardIds,
   reorderQueue,
   removeFromQueue,
@@ -245,10 +244,7 @@ describe('queue paused', () => {
       await pick(id, ids.Shock).expect(200);
       // The bot picks the first available card by name.
       vi.spyOn(Math, 'random').mockReturnValue(0);
-      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
-      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
-        new Error('Connection dropped'),
-      );
+      failNextPublish();
 
       const answer = await setQueuePicking(
         id,

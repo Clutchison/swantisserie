@@ -25,16 +25,18 @@ export class DraftChanges {
     draftId: string,
     events: DraftEvent[],
   ): Promise<DraftView | null> {
-    let draft: DraftView | null;
+    // Undefined if the publish threw: the draft is taken to exist, as the
+    // bot's pick does nothing if it has gone or the turn has moved on.
+    let draft: DraftView | null | undefined;
     try {
       draft = await this.publisher.publish(draftId, events);
+      return draft;
     } catch (err) {
       this.logger.error(`Couldn’t publish a change to draft ${draftId}`, err);
-      // The bot's pick does nothing if the draft has gone or moved on.
-      this.bots.scheduleNextPick(draftId, events);
       throw err;
+    } finally {
+      // Committed by now, so the bot picks whatever the publish did.
+      if (draft !== null) this.bots.scheduleNextPick(draftId, events);
     }
-    if (draft) this.bots.scheduleNextPick(draftId, events);
-    return draft;
   }
 }
