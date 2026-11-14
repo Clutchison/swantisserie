@@ -167,7 +167,7 @@ describe('nextQueuedPick', () => {
     });
   });
 
-  it('picks nothing from a queue paused queue', () => {
+  it('picks nothing from a queue that is queue paused', () => {
     expect(
       nextQueuedPick(
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },

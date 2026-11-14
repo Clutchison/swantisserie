@@ -213,7 +213,8 @@ export interface Place {
  * `table` sorted by `compare`, best first, with ranks from 1: players
  * `compare` finds equal share a rank, and the rank after a shared one
  * skips, as in 1, 1, 3. Players sharing a rank are in `tieOrder`, or keep
- * their order without one.
+ * their order without one. It sorts `table` itself and sets each entry's
+ * rank in place, so callers pass a table of their own.
  */
 export function ranked<T extends { rank: number }>(
   table: T[],
@@ -242,7 +243,8 @@ export function placeIn<T extends { rank: number }>(
 
 /**
  * Every game score a best-of-three match can end at, each player's games
- * won in the match's player order: 2–0 or 2–1 for either side. These are
+ * won in the match's player order: 2–0 or 2–1 for either side. Of whole,
+ * non-negative games, which the api's parser checks first, these are
  * exactly the game scores `reportProblem` accepts.
  */
 export const GAME_SCORES: readonly (readonly [number, number])[] = [
