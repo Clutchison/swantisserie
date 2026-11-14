@@ -172,10 +172,12 @@ export interface PlanRefusal {
 }
 
 /**
- * Why a tournament can't be set up, joined, left, started, reported in,
- * confirmed, corrected, have its round completed, completed or cancelled;
- * sent as is. A game score is refused with
- * the engine's ReportProblem codes, `draw` and `not-best-of-three`, so
+ * Why a tournament request was refused; sent as is. It covers tournament
+ * setup, joining, leaving and removing, marking ready, Start, reporting,
+ * confirming, correcting and clearing a match, dropping and reinstating,
+ * Complete round and Reopen round, completing and cancelling the
+ * tournament, and reading its decklists. A game score is refused with the
+ * engine's ReportProblem codes, `draw` and `not-best-of-three`, so
  * typecheck ties the two.
  */
 export interface TournamentRefusal {
