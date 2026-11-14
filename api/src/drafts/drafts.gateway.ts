@@ -117,10 +117,10 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     const { pendingWatches } = socket.data;
     const request = Symbol(draftId);
     pendingWatches.set(draftId, request);
-    const visible = await this.canSee(socket.data.user, draftId);
+    const seesDraft = await this.canSee(socket.data.user, draftId);
     const stillWanted = pendingWatches.get(draftId) === request;
     if (stillWanted) pendingWatches.delete(draftId);
-    if (!stillWanted || !socket.connected || !visible) return 'refused';
+    if (!stillWanted || !socket.connected || !seesDraft) return 'refused';
     await socket.join(room(draftId));
     return 'watching';
   }
