@@ -15,7 +15,8 @@ import { isTurnOf } from './drafts';
  */
 @Injectable({ providedIn: 'root' })
 export class ViewerDrafts {
-  private readonly user = inject(Auth).user;
+  private readonly auth = inject(Auth);
+  private readonly user = this.auth.user;
   private readonly read = httpResource<DraftListItemView[]>(() =>
     this.user() ? '/api/drafts' : undefined,
   );
@@ -64,7 +65,10 @@ export class ViewerDrafts {
     effect((onCleanup) => {
       // Another viewer's pushes aren't this one's.
       this.pushed.set(new Map());
-      if (!this.user()) return;
+      const user = this.user();
+      // Signed out, the tab mustn't stay in the viewer's own room.
+      if (user === null) updates.close();
+      if (!user) return;
       let connectedBefore = false;
       const pushes = updates.own().subscribe((update) => {
         switch (update.type) {
@@ -77,6 +81,11 @@ export class ViewerDrafts {
             break;
           case 'cancelled':
             this.keepNewest(update.draftId, null);
+            break;
+          case 'unauthorized':
+            // The session has ended, whatever the page. On the draft page its
+            // own stream says so too: only the first sign-out does anything.
+            void this.auth.signedOut();
         }
       });
       onCleanup(() => pushes.unsubscribe());

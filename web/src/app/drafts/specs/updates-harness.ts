@@ -12,6 +12,8 @@ export interface FakeDraftUpdates {
   watch: ReturnType<typeof vi.fn>;
   ownEvents: Subject<OwnDraftUpdate>;
   own: () => Subject<OwnDraftUpdate>;
+  /** Closes the tab's socket: a spec asserts the app asks for it as the viewer signs out. */
+  close: ReturnType<typeof vi.fn>;
 }
 
 /** A fresh stand-in for the gateway, and the provider that puts it in place of `DraftUpdates`. */
@@ -23,6 +25,7 @@ export function fakeDraftUpdates() {
     watch: vi.fn(() => events),
     ownEvents,
     own: () => ownEvents,
+    close: vi.fn(),
   };
   return { updates, provider: { provide: DraftUpdates, useValue: updates } };
 }

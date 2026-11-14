@@ -280,6 +280,43 @@ describe('draft updates', () => {
     });
   });
 
+  describe('when closed, as the viewer signs out', () => {
+    it('disconnects the socket', () => {
+      socket.push('connect');
+
+      updates.close();
+
+      expect(socket.disconnect).toHaveBeenCalledOnce();
+    });
+
+    it('doesn’t retry a handshake the API refused before it closed', () => {
+      socket.refuse('lookup failed', { active: false });
+
+      updates.close();
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.connect).not.toHaveBeenCalled();
+    });
+
+    it('connects again for the drafts subscribed after it, as after signing in again', () => {
+      socket.push('connect');
+      updates.close();
+
+      updates.own().subscribe();
+
+      expect(io).toHaveBeenCalledOnce();
+      expect(socket.connect).toHaveBeenCalledOnce();
+    });
+
+    it('does nothing before any stream has opened the socket', () => {
+      io.mockClear();
+
+      makeUpdates().close();
+
+      expect(io).not.toHaveBeenCalled();
+    });
+  });
+
   describe('the viewer’s own drafts', () => {
     let own: OwnDraftUpdate[];
     let owning: Subscription;

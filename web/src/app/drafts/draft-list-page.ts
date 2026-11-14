@@ -39,8 +39,11 @@ export class DraftListPage {
   protected readonly notice = inject(Router).currentNavigation()?.extras.state?.['notice'] as
     string | undefined;
 
-  /** The viewer's drafts, read only once they have loaded. */
-  private readonly drafts = computed(() => this.viewerDrafts.drafts()!);
+  /**
+   * The viewer's drafts, read only once they have loaded: none once the
+   * viewer has signed out, in the moment before the page goes.
+   */
+  private readonly drafts = computed(() => this.viewerDrafts.drafts() ?? []);
   protected readonly loading = this.viewerDrafts.loading;
   protected readonly failed = this.viewerDrafts.failed;
   /** The drafting drafts on the viewer's turn. */

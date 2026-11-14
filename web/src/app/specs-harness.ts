@@ -39,13 +39,13 @@ export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[
 export let http: HttpTestingController;
 export let router: Router;
 /** Stands in for the API's Socket.IO gateway. */
-export let draftUpdates: FakeDraftUpdates;
+export let updates: FakeDraftUpdates;
 
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useApp() {
   beforeEach(() => {
     const fake = fakeDraftUpdates();
-    draftUpdates = fake.updates;
+    updates = fake.updates;
     TestBed.configureTestingModule({
       imports: [App],
       providers: [

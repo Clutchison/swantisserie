@@ -61,8 +61,8 @@ type SocketEvent =
 /**
  * Pushed updates of drafts, over the API's Socket.IO gateway. The tab has
  * one socket, opened when a stream first subscribes and kept for the tab's
- * life, which every stream shares. It stops only when the session ends,
- * until a stream subscribes again.
+ * life, which every stream shares. It stops only when the session ends or
+ * the viewer signs out, until a stream subscribes again.
  */
 @Injectable({ providedIn: 'root' })
 export class DraftUpdates {
@@ -71,8 +71,8 @@ export class DraftUpdates {
   private readonly socketEvents = new Subject<SocketEvent>();
   /** How many streams watch each draft: the API is asked to stop when none do. */
   private readonly watchers = new Map<string, number>();
-  /** Whether the socket stopped because the session ended. */
-  private ended = false;
+  /** Whether the socket stopped: the session ended, or the viewer signed out. */
+  private stopped = false;
 
   /**
    * Watches draft `draftId` on subscribe, and again on every reconnect,
@@ -135,11 +135,21 @@ export class DraftUpdates {
     });
   }
 
-  /** The tab's socket, opened the first time, or tried again if the session had ended. */
+  /**
+   * Closes the tab's socket, as the viewer signs out, so it is no longer in
+   * their own room. The next stream to subscribe connects again.
+   */
+  close() {
+    if (!this.socket || this.stopped) return;
+    this.stopped = true;
+    this.socket.disconnect();
+  }
+
+  /** The tab's socket, opened the first time, or tried again if it had stopped. */
   private open(): DraftSocket {
     if (this.socket) {
-      if (this.ended) {
-        this.ended = false;
+      if (this.stopped) {
+        this.stopped = false;
         this.socket.connect();
       }
       return this.socket;
@@ -157,10 +167,12 @@ export class DraftUpdates {
       // session is gone: a lookup can fail while the server is waking.
       if (socket.active) return;
       if (unauthorized) {
-        this.ended = true;
+        this.stopped = true;
         this.socketEvents.next({ type: 'unauthorized' });
       } else {
-        setTimeout(() => socket.connect(), RETRY_MS);
+        setTimeout(() => {
+          if (!this.stopped) socket.connect();
+        }, RETRY_MS);
       }
     });
     return socket;

@@ -9,7 +9,7 @@ import {
   http,
   openApp,
   openDialog,
-  draftUpdates,
+  updates,
   router,
   useApp,
 } from './specs-harness';
@@ -254,7 +254,7 @@ describe('App', () => {
         http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' }),
       );
       const pushChanged = (draft: DraftView, version: number) =>
-        pushToOwnRoom(draftUpdates, { type: 'changed', draft: { ...draft, version } });
+        pushToOwnRoom(updates, { type: 'changed', draft: { ...draft, version } });
 
       pushChanged(alicesTurnItem('a', 'Red dragons'), 1);
       expect(turnLinkShown(page)).toEqual({ text: 'Your turn in Red dragons', href: '/drafts/a' });
@@ -524,6 +524,20 @@ describe('App', () => {
     expect(banner(page)?.textContent ?? '').not.toContain('Alice');
   });
 
+  it('stops hearing of the viewer’s drafts once logged out', async () => {
+    const page = await openSettled('/', alice);
+    expect(updates.close).not.toHaveBeenCalled();
+
+    clickLogOut(page);
+    (await vi.waitFor(() => http.expectOne('/api/auth/logout'))).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    expect(updates.close).toHaveBeenCalled();
+  });
+
   it('signs the user out locally even when the logout request fails', async () => {
     const page = await openSettled('/', alice);
 
@@ -599,6 +613,16 @@ describe('App', () => {
       await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
       await fixture.whenStable();
       expect(toSignIn()).toBe(1);
+    });
+
+    it('signs the viewer out when the socket finds the session gone, off the draft page too', async () => {
+      const { fixture, drafts } = await openDraftList();
+      drafts.flush([]);
+      await fixture.whenStable();
+
+      pushToOwnRoom(updates, { type: 'unauthorized' });
+
+      await expectSignedOut(fixture, { router, http, user: alice });
     });
 
     it('keeps the page’s own error when a request fails for another reason', async () => {
