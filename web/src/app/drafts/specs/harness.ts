@@ -44,11 +44,13 @@ import {
   accessibleName,
   alertIn,
   alice,
+  answerViewerDrafts,
   button,
   buttons,
   byAriaLabel,
   byName,
   collapseWhitespace,
+  opensDraftList,
   serverError,
   table,
   tableRows,
@@ -238,14 +240,23 @@ export async function decodeRefused(img: HTMLImageElement) {
   TestBed.tick();
 }
 
-/** Opens `url` as `user`: Alice, unless told otherwise. */
-export async function openUrl(url: string, user: UserView = alice) {
+/**
+ * Opens `url` as `user`: Alice, unless told otherwise. The app's read of the
+ * viewer's drafts finds `viewerDrafts`: none, except on the draft list, where
+ * it is left to the test, as it is anywhere given null.
+ */
+export async function openUrl(
+  url: string,
+  user: UserView = alice,
+  viewerDrafts: DraftListItemView[] | null = opensDraftList(url) ? null : [],
+) {
   const fixture = TestBed.createComponent(App);
   const navigation = router.navigateByUrl(url);
   (await vi.waitFor(() => http.expectOne('/api/auth/me'))).flush(user);
   await navigation;
   TestBed.tick();
   answerTopBar(http);
+  if (viewerDrafts) answerViewerDrafts(http, viewerDrafts);
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 
@@ -265,40 +276,6 @@ export async function expectLoadingAnimation(
     expect(loading?.textContent).toContain(text);
     expect(loading?.querySelector('svg')?.getAttribute('width')).toBe(String(logoWidth));
   });
-}
-
-/**
- * Opens the draft list with GET /api/drafts answered by `drafts`, each
- * without a tournament badge unless it gives one.
- */
-export async function openList(drafts: (DraftView & Partial<DraftListItemView>)[]) {
-  const { fixture, page } = await openUrl('/');
-  http
-    .expectOne('/api/drafts')
-    .flush(drafts.map((each): DraftListItemView => ({ tournamentBadge: null, ...each })));
-  await fixture.whenStable();
-  return page;
-}
-
-/** The draft list's item for the draft named `name`, by its accessible name. */
-export function listItem(page: HTMLElement, name: string): HTMLElement {
-  const found = [...page.querySelectorAll('li')].find(
-    (li) => li.getAttribute('aria-label') === name,
-  );
-  if (!found) throw new Error(`No draft named ${name} in the list`);
-  return found;
-}
-
-/** The names of the drafts listed in the draft list's section headed `heading`. */
-export function listedDrafts(page: HTMLElement, heading: string): string[] {
-  return [...section(page, heading).querySelectorAll('li[aria-label]')].map(
-    (li) => li.getAttribute('aria-label') ?? '',
-  );
-}
-
-/** The link to draft `id`'s page inside `root`, such as a draft's card in the draft list. */
-export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | null {
-  return root.querySelector<HTMLAnchorElement>(`a[href="/drafts/${id}"]`);
 }
 
 /**
@@ -328,14 +305,6 @@ export const panelTurnSeat = (root: HTMLElement) =>
  */
 export const findPlayersBesideTabs = (page: HTMLElement) =>
   byAriaLabel(page, 'aside, [role="complementary"]', 'Players');
-
-export function section(page: HTMLElement, heading: string): HTMLElement {
-  const found = [...page.querySelectorAll('section')].find((s) =>
-    s.querySelector('h2')?.textContent?.includes(heading),
-  );
-  if (!found) throw new Error(`No section headed ${heading}`);
-  return found;
-}
 
 export const bob = {
   id: 'bob',

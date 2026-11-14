@@ -3,7 +3,15 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { NavigationStart } from '@angular/router';
 import { App } from './app';
-import { alice, http, openApp, openDialog, router, useApp } from './specs-harness';
+import {
+  alice,
+  answerViewerDrafts,
+  http,
+  openApp,
+  openDialog,
+  router,
+  useApp,
+} from './specs-harness';
 import {
   banner,
   button,
@@ -541,6 +549,7 @@ describe('App', () => {
       health(await vi.waitFor(() => http.expectOne('/api/health')));
       answerUnreviewedCount(http);
       answerAppVersion(http, { commit: sha });
+      answerViewerDrafts(http);
       await fixture.whenStable();
       return fixture.nativeElement as HTMLElement;
     }

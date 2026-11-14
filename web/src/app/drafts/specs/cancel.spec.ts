@@ -9,7 +9,6 @@ import {
   http,
   router,
   updates,
-  openList,
   bob,
   alicePlayer,
   openDraft,
@@ -24,6 +23,7 @@ import {
   openUrl,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore } from './draft-header-harness';
+import { openList } from './draft-list-harness';
 
 useDraftsApp();
 
