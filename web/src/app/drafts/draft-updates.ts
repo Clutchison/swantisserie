@@ -36,13 +36,14 @@ export type DraftUpdate =
 
 /**
  * What the API pushes about the drafts the viewer plays in, without their
- * being watched. Each changed draft is the one everyone is sent, so it has
- * nothing of the viewer's own, such as a tournament badge.
+ * being watched, and about any draft the tab watches. Each changed draft is
+ * the one everyone is sent, so it has nothing of the viewer's own, such as
+ * a tournament badge.
  */
 export type OwnDraftUpdate =
-  /** A draft the viewer plays in changed: here it is as it now is. */
+  /** A draft the viewer plays in, or one the tab watches, changed: here it is as it now is. */
   | { type: 'changed'; draft: DraftView }
-  /** The draft of id `draftId`, which the viewer played in, was cancelled. */
+  /** The draft of id `draftId`, which the viewer played in or the tab watched, was cancelled. */
   | { type: 'cancelled'; draftId: string }
   | ConnectionUpdate;
 
@@ -115,7 +116,8 @@ export class DraftUpdates {
 
   /**
    * The changes of every draft the viewer plays in, which the API pushes
-   * over the tab's one socket without being asked, until unsubscribed. Says
+   * over the tab's one socket without being asked, and of every draft the
+   * tab watches, as they share the socket, until unsubscribed. Says
    * it is connected straight away if the socket already is, as when a
    * watched draft opened it, and again on every reconnect.
    */
