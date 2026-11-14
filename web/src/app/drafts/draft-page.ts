@@ -229,13 +229,15 @@ export class DraftPage {
 
   constructor() {
     // The page title is the draft's name, so a viewer can find it among their browser tabs,
-    // and the app's again once they leave.
+    // and the app's again once they leave. It starts "Your turn · " while the viewer can pick.
     const appTitle = this.title.getTitle();
     inject(DestroyRef).onDestroy(() => this.title.setTitle(appTitle));
     // The last draft stays shown while another draft id's loads, but its name isn't this page's.
     effect(() => {
       const draft = this.draft();
-      this.title.setTitle(draft?.id === this.store.id() ? draft.name : appTitle);
+      if (draft?.id !== this.store.id()) return this.title.setTitle(appTitle);
+      const yours = this.store.yourTurn() && draft.state === 'Drafting';
+      this.title.setTitle(yours ? `Your turn · ${draft.name}` : draft.name);
     });
     // Opening or closing the Deck tab forgets any copy.
     effect(() => {

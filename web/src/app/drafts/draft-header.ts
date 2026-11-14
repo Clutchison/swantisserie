@@ -28,7 +28,8 @@ import { ANNOUNCEMENTS_HEADING, AnnouncementsDialog } from './announcements-dial
 
 /**
  * The draft page's header: the draft's name, after whatever the page puts
- * before it (its back link), its state, organizer and turn, and the actions
+ * before it (its back link), its state, organizer and turn (the Turn banner
+ * under it when the turn is the viewer's), and the actions
  * that move the draft on. Joining and leaving, starting, undo,
  * freeze and unfreeze, and reopening are buttons; closing and cancelling, which
  * are rarer, are in its More menu.
@@ -65,20 +66,40 @@ export class DraftHeader {
   readonly cancelled = output<void>();
 
   /**
-   * Whose turn it is, as the page puts it: "Your turn" for the signed-in
-   * user, and on a double turn the picks still to make before it passes.
+   * Another player's turn, as the header puts it: whose, and its pick and
+   * round. The viewer's own turn is the Turn banner's to tell.
    */
   protected readonly turn = computed(() => {
     const turn = this.store.turn();
-    if (!turn) return null;
+    if (!turn || this.store.yourTurn()) return null;
     // A player no longer in the draft is the fallback, capitalized to start the sentence.
     const player = this.store.findPlayer(turn.playerId);
-    const whose = this.store.yourTurn() ? 'Your' : `${player?.name ?? 'Another player'}’s`;
-    const suffix = this.store.isDoubleTurn() ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
     return {
-      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}${suffix}`,
+      text: `${player?.name ?? 'Another player'}’s turn: ${this.pickAndRound()}`,
       isBot: !!player?.isBot,
     };
+  });
+
+  /**
+   * The Turn banner, while it is the viewer's turn: its pick and round, and
+   * while the draft is frozen, that the pick waits for it to be unfrozen.
+   * Only a drafting draft's stands out.
+   */
+  protected readonly turnBanner = computed(() => {
+    if (!this.store.yourTurn()) return null;
+    const frozen = this.draft().state === 'Frozen';
+    const waits = frozen ? ', once the draft is unfrozen' : '';
+    return { text: `Your turn: ${this.pickAndRound()}${waits}`, standsOut: !frozen };
+  });
+
+  /**
+   * The turn's pick and round, and on a double turn the picks still to make
+   * before it passes. Read only while there is a turn.
+   */
+  private readonly pickAndRound = computed(() => {
+    const turn = this.store.turn()!;
+    const suffix = this.store.isDoubleTurn() ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
+    return `pick ${turn.pick}, round ${turn.round}${suffix}`;
   });
 
   /** Joining and leaving, starting and cancelling are only possible in Lobby. */

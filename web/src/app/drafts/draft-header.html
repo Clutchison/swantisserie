@@ -107,6 +107,13 @@
     }
   </div>
 </div>
+<!-- The Turn banner, in a live region that is there from the start, so the
+     turn reaching the viewer is announced; it never takes focus. -->
+<div class="turn-banner" role="status" [attr.data-stands-out]="turnBanner()?.standsOut">
+  @if (turnBanner(); as banner) {
+    <p>{{ banner.text }}</p>
+  }
+</div>
 @if (inLobby() && canOrganize() && !poolReady()) {
   <p class="detail">You can start the draft once the pool snapshot is complete.</p>
 }
