@@ -37,8 +37,8 @@ import {
   RETRY_FAILED,
   bob,
   drafting,
-  flushPicks,
 } from './harness';
+import { pushDraft } from './turn-harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
@@ -242,12 +242,7 @@ describe('draft page', () => {
         [alicesTurn, 'Your turn · Cube Draft #4'],
         [{ pick: 2, round: 1, playerId: bob.id }, 'Cube Draft #4'],
       ] as const) {
-        updates.events.next({
-          type: 'changed',
-          draft: draft(drafting({ name: 'Cube Draft #4', turn })),
-        });
-        await flushPicks([]);
-        await fixture.whenStable();
+        await pushDraft(fixture, drafting({ name: 'Cube Draft #4', turn }));
 
         expect(document.title).toBe(title);
       }

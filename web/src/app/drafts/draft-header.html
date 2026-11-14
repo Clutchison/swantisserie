@@ -107,10 +107,15 @@
     }
   </div>
 </div>
-<!-- The Turn banner, in a live region that is there from the start, so the
-     turn reaching the viewer is announced; it never takes focus. -->
-<div class="turn-banner" role="status" [attr.data-stands-out]="turnBanner()?.standsOut">
-  @if (turnBanner(); as banner) {
+<!-- The Turn banner, in a live region that is there before its text, so the
+     turn is announced on landing and as it reaches the viewer; it never takes focus. -->
+<div
+  class="turn-banner"
+  role="status"
+  aria-label="Turn"
+  [attr.data-stands-out]="bannerReady() ? turnBanner()?.standsOut : null"
+>
+  @if (bannerReady() && turnBanner(); as banner) {
     <p>{{ banner.text }}</p>
   }
 </div>

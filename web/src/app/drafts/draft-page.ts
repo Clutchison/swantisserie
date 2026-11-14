@@ -235,9 +235,11 @@ export class DraftPage {
     // The last draft stays shown while another draft id's loads, but its name isn't this page's.
     effect(() => {
       const draft = this.draft();
-      if (draft?.id !== this.store.id()) return this.title.setTitle(appTitle);
-      const yours = this.store.yourTurn() && draft.state === 'Drafting';
-      this.title.setTitle(yours ? `Your turn · ${draft.name}` : draft.name);
+      if (draft?.id !== this.store.id()) {
+        this.title.setTitle(appTitle);
+      } else {
+        this.title.setTitle(this.store.yourTurnToPick() ? `Your turn · ${draft.name}` : draft.name);
+      }
     });
     // Opening or closing the Deck tab forgets any copy.
     effect(() => {

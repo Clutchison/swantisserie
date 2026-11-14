@@ -1,36 +1,23 @@
-import type { AppFixture, DraftFixture } from './harness';
 import {
   alice,
   bob,
   completeSnapshot,
-  draft,
   drafting,
-  flushPicks,
   openDraft,
   tabButton,
   text,
-  updates,
   useDraftsApp,
   withDoubleTurns,
 } from './harness';
+import { pushDraft, turnBanner } from './turn-harness';
 
 useDraftsApp();
 
-/** The Turn banner: the status that tells the viewer it is their turn; null while none shows. */
-const turnBanner = (page: HTMLElement) =>
-  [...page.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
-    text(status).startsWith('Your turn'),
-  ) ?? null;
+/** What the Turn banner says; empty while it shows nothing. */
+const bannerText = (page: HTMLElement) => text(turnBanner(page));
 
 /** How many times the page says "Your turn" anywhere. */
 const yourTurnTexts = (page: HTMLElement) => text(page).match(/Your turn/g)?.length ?? 0;
-
-/** Pushes draft-1 with `fields` to the page, as a change to it would, and answers its pick log's re-read. */
-async function push(fixture: AppFixture, fields: DraftFixture) {
-  updates.events.next({ type: 'changed', draft: draft(fields) });
-  await flushPicks([]);
-  await fixture.whenStable();
-}
 
 const alicesTurn = (pick: number, round: number) => ({ pick, round, playerId: alice.id });
 const bobsTurn = (pick: number, round: number) => ({ pick, round, playerId: bob.id });
@@ -39,7 +26,7 @@ describe('the Turn banner', () => {
   it('tells the viewer it is their turn, with the pick and round, as a status', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn(3, 2) }));
 
-    expect(text(turnBanner(page))).toBe('Your turn: pick 3, round 2');
+    expect(bannerText(page)).toBe('Your turn: pick 3, round 2');
   });
 
   it('stands out while the draft is drafting', async () => {
@@ -54,7 +41,7 @@ describe('the Turn banner', () => {
   ])('tells the viewer on a double turn the %s', async (_, pick, banner) => {
     const { page } = await openDraft(completeSnapshot, withDoubleTurns(pick, alice.id));
 
-    expect(text(turnBanner(page))).toBe(banner);
+    expect(bannerText(page)).toBe(banner);
   });
 
   it('says the draft is frozen, and doesn’t stand out, while it is', async () => {
@@ -63,9 +50,24 @@ describe('the Turn banner', () => {
       drafting({ state: 'Frozen', turn: alicesTurn(3, 2) }),
     );
 
-    const banner = turnBanner(page);
-    expect(text(banner)).toBe('Your turn: pick 3, round 2, once the draft is unfrozen');
-    expect(banner?.dataset['standsOut']).toBe('false');
+    expect(bannerText(page)).toBe('Your turn: pick 3, round 2, but the draft is frozen');
+    expect(turnBanner(page)?.dataset['standsOut']).toBe('false');
+  });
+
+  it('is announced on landing on the viewer’s turn: the status is there, empty, before its text', async () => {
+    // A live region announces changes to it, not the text it is inserted with.
+    let firstSeen: string | null = null;
+    const observer = new MutationObserver(() => {
+      const region = turnBanner(document.body);
+      if (region && firstSeen === null) firstSeen = text(region);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    const { page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn(3, 2) }));
+    observer.disconnect();
+
+    expect(firstSeen).toBe('');
+    expect(bannerText(page)).toBe('Your turn: pick 3, round 2');
   });
 
   it('replaces the header’s turn text for the viewer, who is told once', async () => {
@@ -77,7 +79,7 @@ describe('the Turn banner', () => {
   it('isn’t shown on another player’s turn, whom the header names', async () => {
     const { page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn(2, 1) }));
 
-    expect(turnBanner(page)).toBeNull();
+    expect(bannerText(page)).toBe('');
     expect(text(page)).toContain('Bob’s turn: pick 2, round 1');
   });
 
@@ -87,7 +89,7 @@ describe('the Turn banner', () => {
   ])('isn’t shown once the draft is %s', async (_, fields) => {
     const { page } = await openDraft(completeSnapshot, drafting(fields));
 
-    expect(turnBanner(page)).toBeNull();
+    expect(bannerText(page)).toBe('');
   });
 
   it('appears as the turn reaches the viewer, without moving focus', async () => {
@@ -95,9 +97,9 @@ describe('the Turn banner', () => {
     const board = tabButton(page, 'Board');
     board.focus();
 
-    await push(fixture, drafting({ turn: alicesTurn(3, 2) }));
+    await pushDraft(fixture, drafting({ turn: alicesTurn(3, 2) }));
 
-    expect(text(turnBanner(page))).toBe('Your turn: pick 3, round 2');
+    expect(bannerText(page)).toBe('Your turn: pick 3, round 2');
     expect(document.activeElement).toBe(board);
   });
 
@@ -107,9 +109,9 @@ describe('the Turn banner', () => {
       drafting({ turn: alicesTurn(3, 2) }),
     );
 
-    await push(fixture, drafting({ turn: bobsTurn(4, 2) }));
+    await pushDraft(fixture, drafting({ turn: bobsTurn(4, 2) }));
 
-    expect(turnBanner(page)).toBeNull();
+    expect(bannerText(page)).toBe('');
     expect(text(page)).toContain('Bob’s turn: pick 4, round 2');
   });
 
@@ -119,8 +121,17 @@ describe('the Turn banner', () => {
       drafting({ turn: alicesTurn(2, 1) }),
     );
 
-    await push(fixture, drafting({ turn: alicesTurn(3, 2) }));
+    await pushDraft(fixture, drafting({ turn: alicesTurn(3, 2) }));
 
-    expect(text(turnBanner(page))).toBe('Your turn: pick 3, round 2');
+    expect(bannerText(page)).toBe('Your turn: pick 3, round 2');
+  });
+
+  it('comes back when an undo hands the turn back to the viewer', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn(4, 2) }));
+
+    // The organizer undoes pick 3, the viewer's.
+    await pushDraft(fixture, drafting({ turn: alicesTurn(3, 2) }));
+
+    expect(bannerText(page)).toBe('Your turn: pick 3, round 2');
   });
 });
