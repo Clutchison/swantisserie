@@ -97,17 +97,33 @@ export class DraftsController {
     private readonly badges: TournamentBadges,
   ) {}
 
-  /** Every draft, newest first, each with its tournament badge as the viewer sees it. */
+  /**
+   * Every draft, newest first, each with its tournament badge as the viewer
+   * sees it. A draft whose view can't be built is logged and left off, so one
+   * bad draft doesn't fail the list; failing to read the drafts or badges does.
+   */
   @Get()
   async list(@CurrentUser() user: SessionUser): Promise<DraftListItemView[]> {
     const [drafts, badges] = await Promise.all([
       this.reads.list(),
       this.badges.read(user.id),
     ]);
-    return drafts.map((draft) => ({
-      ...toDraftView(draft),
-      tournamentBadge: badges.get(draft.id) ?? null,
-    }));
+    return drafts.flatMap((draft) => {
+      try {
+        return [
+          {
+            ...toDraftView(draft),
+            tournamentBadge: badges.get(draft.id) ?? null,
+          },
+        ];
+      } catch (err) {
+        this.logger.warn(
+          `Leaving draft ${draft.id} off the draft list: its view can't be built`,
+          err,
+        );
+        return [];
+      }
+    });
   }
 
   @Get(':id')

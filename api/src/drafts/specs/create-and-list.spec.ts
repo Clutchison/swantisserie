@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import request from 'supertest';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
@@ -17,6 +18,13 @@ import {
   getDraft,
   snapshotQuery,
 } from './harness.js';
+import {
+  aliceCookie,
+  bob,
+  completeDraft,
+  inRegistration,
+  signIn,
+} from './tournament-harness.js';
 
 useDraftsApp();
 
@@ -425,6 +433,57 @@ it('lists active and complete drafts, newest first', async () => {
     expect.objectContaining({ id: old.id, state: 'Complete' }),
   ]);
   expect(res.body[1]).not.toHaveProperty('createdAt');
+});
+
+describe('a draft whose view cannot be built', () => {
+  // No pick leaves a draft Drafting once every pick is made, so only a future
+  // bug could write this row: a Drafting draft with no one whose turn it is.
+  async function draftingWithEveryPickMade(bobCookie: string) {
+    const id = await completeDraft([aliceCookie, bobCookie]);
+    await app
+      .get(PrismaService)
+      .draft.update({ where: { id }, data: { state: 'Drafting' } });
+    return id;
+  }
+
+  it('is left off the draft list, which shows every other draft and its tournament badge', async () => {
+    const bobCookie = await signIn(bob);
+    const withTournament = await inRegistration([aliceCookie, bobCookie]);
+    const bad = await draftingWithEveryPickMade(bobCookie);
+    const warn = vi.spyOn(Logger.prototype, 'warn');
+
+    const res = await listDrafts().expect(200);
+
+    expect(res.body).toEqual([
+      expect.objectContaining({
+        id: withTournament,
+        state: 'Complete',
+        tournamentBadge: {
+          state: 'Registration',
+          canJoin: false,
+          trophyHolders: [],
+        },
+      }),
+    ]);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining(bad),
+      expect.any(Error),
+    );
+  });
+
+  it('still fails to open on its own page', async () => {
+    const bad = await draftingWithEveryPickMade(await signIn(bob));
+
+    await getDraft(bad).expect(500);
+  });
+});
+
+it('fails the whole draft list when the drafts cannot be read', async () => {
+  vi.spyOn(app.get(PrismaService).draft, 'findMany').mockRejectedValueOnce(
+    new Error('connection refused'),
+  );
+
+  await listDrafts().expect(500);
 });
 
 it('is only for signed-in users', async () => {
