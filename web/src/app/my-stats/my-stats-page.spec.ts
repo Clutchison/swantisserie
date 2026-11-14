@@ -20,6 +20,7 @@ import {
   link,
   loadingAnimation,
   region,
+  regionTable,
 } from '../drafts/specs/harness';
 import { describedTerms } from '../drafts/specs/outline-harness';
 
@@ -106,8 +107,7 @@ describe('the My stats page', () => {
   const stats = (page: HTMLElement) => describedTerms(page, 'My stats');
 
   /** The results table, in its region; null if there is none. */
-  const resultsTable = (page: HTMLElement) =>
-    region(page, 'Results')?.querySelector<HTMLElement>('table') ?? null;
+  const resultsTable = (page: HTMLElement) => regionTable(page, 'Results');
 
   /** The text of each row of the results table, its header row left out; null if there is none. */
   function results(page: HTMLElement) {
