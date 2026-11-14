@@ -19,12 +19,42 @@ export const BOT_ENTRY: TournamentRefusal = {
 
 /**
  * The refusal of taking a player out of the tournament, putting them back
- * in, or changing their ready, when they haven't joined it.
+ * in, or changing their ready, when they haven't joined it: worded to the
+ * player when `own`, the request being about the signed-in player's own
+ * entry, and otherwise to the organizer acting on them.
  */
-export const NOT_JOINED: TournamentRefusal = {
-  error: 'not-joined',
-  message: 'That player hasn’t joined this tournament.',
-};
+export function notJoined(own: boolean): TournamentRefusal {
+  return {
+    error: 'not-joined',
+    message: own
+      ? 'You haven’t joined this tournament.'
+      : 'That player hasn’t joined this tournament.',
+  };
+}
+
+/**
+ * The refusal of dropping a player who has already dropped, worded as
+ * `notJoined` is.
+ */
+export function alreadyDropped(own: boolean): TournamentRefusal {
+  return {
+    error: 'already-dropped',
+    message: own
+      ? 'You’ve already dropped.'
+      : 'That player has already dropped.',
+  };
+}
+
+/**
+ * The refusal of reinstating a player who hasn't dropped, worded as
+ * `notJoined` is.
+ */
+export function notDropped(own: boolean): TournamentRefusal {
+  return {
+    error: 'not-dropped',
+    message: own ? 'You haven’t dropped.' : 'That player hasn’t dropped.',
+  };
+}
 
 /**
  * Thrown for a tournament request whose body names something it can't: a

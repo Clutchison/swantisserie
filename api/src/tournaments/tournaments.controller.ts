@@ -118,9 +118,12 @@ export class TournamentsController {
     @Param('id') id: string,
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
-    if (playerId === user.id) await this.access.canSee(user, id);
+    const own = playerId === user.id;
+    if (own) await this.access.canSee(user, id);
     else await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.registration.removeEntry(id, playerId));
+    return this.change(id, () =>
+      this.registration.removeEntry(id, playerId, own),
+    );
   }
 
   /**
@@ -160,9 +163,10 @@ export class TournamentsController {
     @Param('id') id: string,
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
-    if (playerId === user.id) await this.access.canSee(user, id);
+    const own = playerId === user.id;
+    if (own) await this.access.canSee(user, id);
     else await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.progression.drop(id, playerId));
+    return this.change(id, () => this.progression.drop(id, playerId, own));
   }
 
   /** Reinstates the dropped player `playerId` (a Discord user id); for the organizer. */
@@ -173,7 +177,9 @@ export class TournamentsController {
     @Param('playerId') playerId: string,
   ): Promise<DraftView> {
     await this.access.asOrganizer(user, id);
-    return this.change(id, () => this.progression.reinstate(id, playerId));
+    return this.change(id, () =>
+      this.progression.reinstate(id, playerId, playerId === user.id),
+    );
   }
 
   /** Starts the draft's tournament once 2 or more players have joined; for the organizer. */

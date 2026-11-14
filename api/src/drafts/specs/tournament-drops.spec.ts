@@ -5,6 +5,9 @@ import {
   carol,
   completeDraft,
   completeTournament,
+  inRegistration,
+  removeEntry,
+  startTournament,
   dropPlayer,
   matchOf,
   playingTournament,
@@ -111,13 +114,33 @@ describe('dropping from a tournament', () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     await dropPlayer(id, bob.id, bobCookie).expect(200);
 
+    expect((await dropPlayer(id, bob.id, bobCookie).expect(409)).body).toEqual({
+      error: 'already-dropped',
+      message: 'You’ve already dropped.',
+    });
     expect(
       (await dropPlayer(id, bob.id, aliceCookie).expect(409)).body,
-    ).toEqual(expect.objectContaining({ error: 'already-dropped' }));
+    ).toEqual({
+      error: 'already-dropped',
+      message: 'That player has already dropped.',
+    });
     await completeTournament(id).expect(200);
     expect(
       (await dropPlayer(id, alice.id, aliceCookie).expect(409)).body.error,
     ).toBe('not-playing');
+  });
+
+  it('tells a player who isn’t in the tournament that they haven’t joined, dropping themselves', async () => {
+    const id = await inRegistration([aliceCookie, bobCookie, carolCookie]);
+    await removeEntry(id, carol.id, carolCookie).expect(200);
+    await startTournament(id).expect(200);
+
+    expect(
+      (await dropPlayer(id, carol.id, carolCookie).expect(409)).body,
+    ).toEqual({
+      error: 'not-joined',
+      message: 'You haven’t joined this tournament.',
+    });
   });
 
   it('refuses dropping during registration', async () => {
@@ -193,8 +216,18 @@ describe('reinstating a dropped player', () => {
   it('refuses a player who hasn’t dropped', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
 
-    expect((await reinstate(id, bob.id).expect(409)).body.error).toBe(
-      'not-dropped',
-    );
+    expect((await reinstate(id, bob.id).expect(409)).body).toEqual({
+      error: 'not-dropped',
+      message: 'That player hasn’t dropped.',
+    });
+  });
+
+  it('tells an organizer who is a player that they haven’t dropped, reinstating their own entry', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+
+    expect((await reinstate(id, alice.id).expect(409)).body).toEqual({
+      error: 'not-dropped',
+      message: 'You haven’t dropped.',
+    });
   });
 });

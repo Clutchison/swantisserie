@@ -9,7 +9,9 @@ import type { RoundSteps } from './round-steps.js';
 import { forfeitUnplayed, takeBackDrops } from './tournament-matches.js';
 import { roundCompletedOrTournamentCompleted } from './tournament-events.js';
 import {
+  alreadyDropped,
   InvalidTournamentRequestError,
+  notDropped,
   TournamentRefusedError,
 } from './tournament-errors.js';
 import { entryOf, TournamentLock } from './tournament-lock.js';
@@ -124,17 +126,13 @@ export class TournamentProgressionService {
    * match of theirs becomes a forfeit by them, and their played matches
    * stand. Their deck stays locked. Throws TournamentRefusedError if they
    * haven't joined, are a bot or have dropped already, or the tournament
-   * isn't playing.
+   * isn't playing; worded to the player when `own`, it being the
+   * signed-in player's own entry.
    */
-  async drop(draftId: string, userId: string): Promise<void> {
+  async drop(draftId: string, userId: string, own: boolean): Promise<void> {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
-      const entry = await entryOf(tx, tournament, draftId, userId);
-      if (entry.dropped) {
-        throw new TournamentRefusedError({
-          error: 'already-dropped',
-          message: 'That player has already dropped.',
-        });
-      }
+      const entry = await entryOf(tx, tournament, draftId, userId, own);
+      if (entry.dropped) throw new TournamentRefusedError(alreadyDropped(own));
       await tx.tournamentEntry.update({
         where: { id: entry.id },
         data: {
@@ -153,17 +151,17 @@ export class TournamentProgressionService {
    * they haven't joined, are a bot or haven't dropped, the tournament isn't
    * playing, or their drop has fed a later pairing, as their format's round
    * steps decide, by default once a tournament round was paired without
-   * them.
+   * them. The joined and dropped refusals are worded to the player when
+   * `own`, it being the signed-in organizer's own entry.
    */
-  async reinstate(draftId: string, userId: string): Promise<void> {
+  async reinstate(
+    draftId: string,
+    userId: string,
+    own: boolean,
+  ): Promise<void> {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
-      const entry = await entryOf(tx, tournament, draftId, userId);
-      if (!entry.dropped) {
-        throw new TournamentRefusedError({
-          error: 'not-dropped',
-          message: 'That player hasn’t dropped.',
-        });
-      }
+      const entry = await entryOf(tx, tournament, draftId, userId, own);
+      if (!entry.dropped) throw new TournamentRefusedError(notDropped(own));
       await CHANGE_STEPS[tournament.format].refuseReinstate(
         tx,
         tournament,

@@ -193,8 +193,16 @@ describe('ready refusals', () => {
     await removeEntry(id, bob.id, bobCookie).expect(200);
     const carolCookie = await signIn(carol);
 
-    expect(await refusedMark(id, bobCookie)).toBe('not-joined');
-    expect(await refusedUnmark(id, bobCookie)).toBe('not-joined');
+    const youHaventJoined = {
+      error: 'not-joined',
+      message: 'You haven’t joined this tournament.',
+    };
+    expect((await markReady(id, bobCookie).expect(409)).body).toEqual(
+      youHaventJoined,
+    );
+    expect((await unmarkReady(id, bobCookie).expect(409)).body).toEqual(
+      youHaventJoined,
+    );
     expect(await refusedMark(id, carolCookie)).toBe('not-joined');
   });
 
