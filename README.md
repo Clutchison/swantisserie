@@ -44,12 +44,12 @@ The repo is an npm-workspaces monorepo with four packages: `contract`, `engine`,
 
 ### Layout
 
-| Workspace   | What it is                                                                                                                                   |
-| ----------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `contract/` | Types only: the HTTP and Socket.IO contract between `api` and `web`, as the JSON is sent. Both import it from its built `dist/`              |
-| `engine/`   | Pure TypeScript draft engine (no DB or HTTP), tested with Vitest                                                                             |
-| `api/`      | NestJS server: the JSON API under `/api`, plus the built Angular app on every other path. Prisma schema and migrations live in `api/prisma/` |
-| `web/`      | Angular app                                                                                                                                  |
+| Workspace   | What it is                                                                                                                                                |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `contract/` | Types and plain constants (ADR 0004): the HTTP and Socket.IO contract between `api` and `web`, as the JSON is sent. Both import it from its built `dist/` |
+| `engine/`   | Pure TypeScript draft engine (no DB or HTTP), tested with Vitest                                                                                          |
+| `api/`      | NestJS server: the JSON API under `/api`, plus the built Angular app on every other path. Prisma schema and migrations live in `api/prisma/`              |
+| `web/`      | Angular app                                                                                                                                               |
 
 ### Setup
 
