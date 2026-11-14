@@ -448,6 +448,29 @@ describe('bot players', () => {
     });
   });
 
+  describe('when publishing a change that committed fails', () => {
+    const dropped = new Error('Connection dropped');
+
+    /** Makes the next publish, the change's, fail; logs it quietly. */
+    function failNextPublish() {
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
+        dropped,
+      );
+    }
+
+    it('has a bot in the first seat pick once the draft starts', async () => {
+      const { id, botIds } = await draftWithBots(1);
+      await setSeats(id, [botIds[0], alice.id]).expect(200);
+      failNextPublish();
+
+      await start(id).expect(500);
+
+      expect((await atPick(id, 2)).turn?.playerId).toBe(alice.id);
+      expect(await pickerIds(id)).toEqual([botIds[0]]);
+    });
+  });
+
   describe('announcements', () => {
     it('names a bot whose turn it is without pinging it, and pings you after it picks', async () => {
       const webhookId = await registerWebhook('#roto-test');
