@@ -31,6 +31,7 @@ import { DraftChanges } from './draft-changes.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
 import { QueuesService } from './queues.service.js';
+import { isStealBehavior } from './steal-behaviors.js';
 import { TurnsService } from './turns.service.js';
 
 /**
@@ -245,7 +246,7 @@ function parseQueuePaused(body: unknown): QueuePausedRequest {
 /** The steal behavior to set, or a 400 if it isn't one. */
 function parseStealBehavior(body: unknown): StealBehavior {
   const { stealBehavior } = bodyFields<StealBehaviorRequest>(body);
-  if (stealBehavior !== 'PauseQueue' && stealBehavior !== 'PickNext') {
+  if (!isStealBehavior(stealBehavior)) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose pause queue or pick next.',

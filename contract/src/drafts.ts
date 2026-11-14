@@ -232,12 +232,6 @@ export const MIN_PICKS_PER_PLAYER = 1;
 /** The most picks per player a draft can have. */
 export const MAX_PICKS_PER_PLAYER = 100;
 
-/**
- * The double picks a draft starts with when the organizer turns them on, unless
- * picks per player are fewer (the engine's `startingDoublePicks`).
- */
-export const DEFAULT_DOUBLE_PICKS = 20;
-
 /** The create form's fields, as the web sends them to create a draft. */
 export interface NewDraftRequest {
   name: string;
