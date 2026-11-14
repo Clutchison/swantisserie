@@ -1,6 +1,6 @@
 # Swantisserie — v1 Plan
 
-A rotisserie ("roto") draft app for Discord servers (guilds), modelled on mtgrotisseriedraft.com with features dropped and added. Drafted pools are played on MTG Arena or Magic Online; each player builds their deck in the app as a private plan ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171).
+A rotisserie ("roto") draft app for Discord servers (guilds), modelled on mtgrotisseriedraft.com with features dropped and added. Drafted pools are played on MTG Arena or Magic Online; each player builds their private deck in the app from the draft's start ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171).
 
 Research behind these decisions: [docs/research/](docs/research/) — `mtgrotisserie.md`, `discord.md`, `scryfall.md`, `arena.md`.
 
@@ -63,34 +63,34 @@ The organizer picks one **pool source** when creating the draft: a **pool query*
 - **Cascade:** if the next player also has a valid queued card, theirs fires too, and so on.
 - If nothing in your queue is available, it stops and waits for you. It never picks randomly.
 - When someone else picks a card in your queue, by hand, from their queue or as a bot, and no other copy is available for it, that card is **lost**. Only the lost card leaves; the rest keeps its order. What happens to your queue is your **steal behavior** for that draft:
-  - **Pause queue** (the default): your queue is set to queue paused, even mid-cascade, which then stops at your next turn, so a stale plan never fires. A queue already queue paused stays so.
+  - **Pause queue** (the default): your queue is set to queue paused, even mid-cascade, which then stops at your next turn, so a stale queue never fires. A queue already queue paused stays so.
   - **Pick next**: your queue stays queue picking, and on your turn your next available queued card is picked as usual, even in the same cascade.
-- You set your steal behavior with a toggle in the Queue pane while the draft is drafting or frozen, including on your own turn; it's locked once the draft is closed or complete. Like the queue, it's private. Changing it affects only cards lost afterwards.
+- You set your steal behavior with the Steal behavior pill in the Queue pane while the draft is drafting or frozen, including on your own turn; it's locked once the draft is closed or complete. Like the queue, it's private. Changing it affects only cards lost afterwards.
 - Your own pick just leaves your queue. The Queue notice, in the Queue pane, names the lost cards, building up until dismissed, and says of each whether its loss set your queue to queue paused or, under pick next, left it queue picking. Losing a card is private: it adds no announcement or ping.
 - You **can't add to your queue on your own turn**, drafting or frozen: that pick is made by hand, including the second of two turns in a row at a snake round boundary. There is no queueing in the lobby: you can add once the draft has started, whenever it isn't your turn, and can always remove and reorder while the draft is active.
 
-### Plan
+### Deck
 
-Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171).
+Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md), #171). The code, the database and the api call it a plan ([ADR 0018](docs/adr/0018-players-see-a-deck-and-the-code-keeps-calling-it-a-plan.md)).
 
-- Each player has a **private plan** for each draft: a **mainboard** and a **sideboard**. It is private, including from organizers and app admins, unless its tournament shows it as a decklist: under public decklists once the tournament starts, and for every tournament once it is complete ([ADR 0005](docs/adr/0005-public-decklists-amend-plan-privacy.md), [ADR 0017](docs/adr/0017-every-deck-is-kept-at-start-and-shown-once-complete.md)).
-- Every pick lands on the mainboard and can move to the sideboard; a pick can't leave the plan.
+- Each player has a **private deck** for each draft, from its start: a **mainboard** and a **sideboard**. It is private, including from organizers and app admins, unless its tournament shows it as a decklist: under public decklists once the tournament starts, and once it is complete if its decklists were kept ([ADR 0005](docs/adr/0005-public-decklists-amend-plan-privacy.md), [ADR 0017](docs/adr/0017-every-deck-is-kept-at-start-and-shown-once-complete.md)).
+- Every pick lands on the mainboard and can move to the sideboard; a pick can't leave the deck.
 - **Add to Deck** on the card detail adds an unpicked pool card to the mainboard, as many copies as are available. Unpicked cards are dimmed, can be removed, and board counts show the total and how many are picked (basics count as picked).
 - **Basic lands:** the Basic lands dialog (Add basics) shows how many of each of Plains, Island, Swamp, Mountain and Forest the mainboard holds, with an Add for each and Clear basics. They go on the mainboard and move like any card; a copy is taken out by its line's Remove or from its Printing picker.
-- When another player picks an unpicked plan card, the plan takes another available copy it doesn't already hold; otherwise the card is lost and named in the **Deck notice**, which builds up until dismissed. Undo puts it back on its board and takes it off the notice. The queue's steal behavior doesn't apply to plans.
-- **Queue unpicked** opens a confirmation (showing how many cards it adds) with an **Include sideboard** checkbox, off by default. It adds the plan's unpicked cards to the end of the queue, first those with a queue order, in it, then the rest, mainboard first, skipping cards already queued; it never reorders or replaces the queue.
-- The plan is editable in every draft state, except while a playing tournament has its deck locked ([ADR 0010](docs/adr/0010-everyone-joins-at-setup-and-decks-lock-at-start.md)). Adding unpicked cards works only while the draft is active, and Queue unpicked only while it is drafting or frozen, off the player's own turn, as adding to the queue does. Completing the draft makes the plan a deck and takes its unpicked cards out; a closed draft keeps them ([ADR 0011](docs/adr/0011-completing-a-draft-takes-unpicked-cards-out-of-plans.md)). Cancel removes plans with the draft.
+- When another player picks an unpicked card in a deck, the deck takes another available copy it doesn't already hold; otherwise the card is lost and named in the **Deck notice**, which builds up until dismissed. Undo puts it back on its board and takes it off the notice. The queue's steal behavior doesn't apply to decks.
+- **Queue unpicked** opens a confirmation (showing how many cards it adds) with an **Include sideboard** checkbox, off by default. It adds the deck's unpicked cards to the end of the queue: first those with a queue order, from either deck board, in queue order (the cards that left the queue most recently first, and those that left together as they sat); then the rest, the mainboard's before the sideboard's, each in the deck's order. Copies already queued are skipped and stay where they are; it never reorders or replaces the queue.
+- The deck is editable in every draft state, except while a playing tournament has its deck locked ([ADR 0010](docs/adr/0010-everyone-joins-at-setup-and-decks-lock-at-start.md)). Adding unpicked cards works only while the draft is active, and Queue unpicked only while it is drafting or frozen, off the player's own turn, as adding to the queue does. Completing the draft takes the deck's unpicked cards out; a closed draft keeps them ([ADR 0011](docs/adr/0011-completing-a-draft-takes-unpicked-cards-out-of-plans.md)). Cancel removes the decks with the draft.
 
 ### Organizer tools
 
-- **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Undo restores what that pick took out of each queue, whatever the steal behavior is now, even if the notice was dismissed: a lost card goes back in its place, and a queue that pick set to queue paused is set queue picking again; a queue cleared under clear queue, before pause queue replaced it, comes back in its original order, lost card included, followed by anything queued since. Undo never triggers queued picks; queues fire only on the next real pick.
+- **Undo** removes the single most recent pick. The card returns to the pool and the turn goes back to that player. Picks made after it, including cascaded ones, stay. To unwind a cascade, undo repeatedly. Undo restores what that pick took out of each queue, whatever the steal behavior is now, even if the notice was dismissed: a lost card goes back in its place, and a queue that pick set to queue paused is set queue picking again; a queue that a pick emptied under the old steal behavior that cleared the rest of the queue, before pause queue replaced it, comes back in its original order, lost card included, followed by anything queued since. Undo never triggers queued picks; queues fire only on the next real pick.
 - **Freeze / unfreeze.**
 
 ### Live updates
 
 - One Socket.IO connection per signed-in tab, joined to a room of the viewer's own, and to a room per draft it watches. After each change (a pick, a lobby change, a state change) the draft as it now is is pushed to everyone viewing it and to the own room of each of its players, bots excluded, so the draft list, the Turn link and the page title keep up with the drafts a viewer plays in. Viewers re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
 - On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, and the draft list, so nothing missed while it was away stays missing.
-- The pushed draft is the only event besides a cancel. Every pick, undo and state change bumps the draft's version, and on a version change the client re-reads the pick log and the signed-in player's queue and plan, which is how it learns of an undo or a lost card.
+- The pushed draft is the only event besides a cancel. Every pick, undo and state change bumps the draft's version, and on a version change the client re-reads the pick log and the signed-in player's queue and deck, which is how it learns of an undo or a lost card.
 
 ## Discord (Discord bot and webhooks)
 
@@ -104,11 +104,11 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 | Event                      | Message                                                                                                                                                                                                                       |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Draft started              | "**Draft** has started. Seat order:" + the seats + "@Alice you're up. `[Open draft](<…>)`"                                                                                                                                    |
-| Manual pick, no cascade    | "23- **Alice** picked **Card**" + "@Bob you're up. `[Open draft](<…>)`"                                                                                                                                                       |
-| Pick + cascade             | One message listing every pick in order, then "@Bob you're up. `[Open draft](<…>)`" for the next player up                                                                                                                    |
-| Undo                       | "Undone: 23- **Alice** picked **Card**" + "@Alice you're up. `[Open draft](<…>)`"                                                                                                                                             |
-| Unfrozen / reopened        | "**Draft** has been unfrozen" / "**Draft** has reopened", any cascade, then "@Bob you're up. `[Open draft](<…>)`"                                                                                                             |
+| Draft started              | "**Draft** has started. Seat order:" + the seats + "@Alice you’re up. `[Open draft](<…>)`"                                                                                                                                    |
+| Manual pick, no cascade    | "23- **Alice** picked **Card**" + "@Bob you’re up. `[Open draft](<…>)`"                                                                                                                                                       |
+| Pick + cascade             | One message listing every pick in order, then "@Bob you’re up. `[Open draft](<…>)`" for the next player up                                                                                                                    |
+| Undo                       | "Undone: 23- **Alice** picked **Card**" + "@Alice you’re up. `[Open draft](<…>)`"                                                                                                                                             |
+| Unfrozen / reopened        | "**Draft** has been unfrozen" / "**Draft** has reopened", any cascade, then "@Bob you’re up. `[Open draft](<…>)`"                                                                                                             |
 | Frozen / closed            | "**Draft** is frozen" / "**Draft** has been closed", with no link                                                                                                                                                             |
 | Draft complete             | "**Draft** is complete", with no link                                                                                                                                                                                         |
 | Tournament set up          | "**Draft**’s Swiss tournament is in registration, and every player has joined." + "@Alice @Bob you’re in. If you won’t play, leave on the Play tab. Decks lock when the tournament starts. `[Open tournament](<…?tab=play>)`" |
@@ -140,7 +140,7 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 ## Export
 
-Copy to clipboard, from the Deck tab's Export menu, for your own plan: picked cards and basics, mainboard and sideboard as separate sections, never unpicked cards. A player who has never touched their plan has every pick on the mainboard.
+Copy to clipboard, from the Deck tab's Export menu, for your own deck: picked cards and basics, mainboard and sideboard as separate sections, never unpicked cards. A player who has never touched their deck has every pick on the mainboard.
 
 - **Arena:** `Deck` header, then `1 Card Name` lines, then a `Sideboard` section. Name only, no set codes, because Arena set codes differ and a named printing the player doesn't own can show as missing. Multi-face cards use Arena naming (front-face name for transform / MDFC / adventure; `A // B` for split cards).
 - **MTGO:** mainboard lines, a blank line, then sideboard lines, with no header.
@@ -162,7 +162,7 @@ Copy to clipboard, from the Deck tab's Export menu, for your own plan: picked ca
 | Layer    | Choice                                                                                                                                                                                                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Repo     | npm workspaces monorepo: `contract`, `engine`, `api`, `web`. `contract` holds the view and request types the api and web share.                                                                                                                                        |
-| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turns and double turns, pick checks, cascades, pick imports, what a pick does to queues and plans and what an undo does to queues, and tournament pairing, standings and trophies. Built test-first. |
+| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turns and double turns, pick checks, cascades, pick imports, what a pick does to queues and decks and what an undo does to queues, and tournament pairing, standings and trophies. Built test-first. |
 | `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                                                                                                                        |
 | `web`    | Angular + CDK, mobile-first                                                                                                                                                                                                                                            |
 | DB       | Neon Postgres (free tier)                                                                                                                                                                                                                                              |
@@ -172,8 +172,8 @@ Copy to clipboard, from the Deck tab's Export menu, for your own plan: picked ca
 ### Pick flow (api)
 
 1. Open a transaction and lock the draft row (`SELECT … FOR UPDATE`).
-2. Under the draft row lock, the api checks that the draft is Drafting. The engine checks the pick (your turn, card available), and works out the cascade after it and what every pick does to queues and plans.
-3. The api persists the picks and their effects on queues and plans, then commits.
+2. Under the draft row lock, the api checks that the draft is Drafting. The engine checks the pick (your turn, card available), and works out the cascade after it and what every pick does to queues and decks.
+3. The api persists the picks and their effects on queues and decks, then commits.
 4. **After commit**, the api builds the announcements' events itself and passes them to `DiscordModule` → `DraftNotifier`. It formats the announcement, split into several posts if it is too long for one, and posts it, retrying a couple of times. Failures are logged and never roll back the pick.
 5. Push the draft as it now is to the draft's Socket.IO room and to its players' own rooms.
 
@@ -190,7 +190,7 @@ Copy to clipboard, from the Deck tab's Export menu, for your own plan: picked ca
 
 - **Pages:** sign in, draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, Trophy Hall, My stats, status (open to anyone, even while the api is down), guild setup and guild settings (guild admins), webhooks (app admins and guild admins), feedback (app admins).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
-  - **Queue pane:** a player's queue, on every tab while the draft is drafting or frozen, and once it is closed only in the sheet below 1024px: drag or a card's row menu to reorder, an arrow on the next-up card, the Queue cutoff, lost cards named in the Queue notice, the queue's play/pause button, and the steal behavior toggle. On desktop it is a column beside the tabs that collapses to a rail, marked while the queue is queue paused. Below 1024px a "next up" strip above the bottom tabs shows the queue's size, picks left, the next card, or "Queue paused" in its place while the queue is queue paused, and a dot for an unseen Queue notice, and opens the pane as a sheet.
+  - **Queue pane:** a player's queue, on every tab while the draft is drafting or frozen, and once it is closed only in the sheet below 1024px: drag or a card's row menu to reorder, an arrow on the next-up card, the Queue cutoff, lost cards named in the Queue notice, the queue's play/pause button, and the Steal behavior pill. On desktop it is a column beside the tabs that collapses to a rail, marked while the queue is queue paused. Below 1024px a "next up" strip above the bottom tabs shows the queue's size, picks left, the next card, or "Queue paused" in its place while the queue is queue paused, and a dot for an unseen Queue notice, and opens the pane as a sheet.
   - **Pool:** pool search, card grid, tap for its Card detail with **Pick** while drafting, **Add to Deck**, and **Add to queue** off your turn or **Remove from queue** for a queued card
   - **Deck:** your mainboard and sideboard, in stacks (by mana value, color or type, then the sideboard's one stack; a strip that scrolls sideways where the stacks area is narrower than 760px, and the default mode where it is that wide or wider) or list mode (the default where it is narrower), the Basic lands dialog, the Deck notice, Queue unpicked and the Export menu
   - **Board:** every player's picks as a grid of seats by rounds, in snake order
