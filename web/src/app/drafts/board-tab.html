@@ -38,7 +38,7 @@
               @for (pick of row.cells; track $index; let seat = $index) {
                 <td
                   [class.own]="isOwn(players()[seat]!)"
-                  [attr.aria-current]="pick && isLatest(pick) ? 'true' : null"
+                  [attr.aria-current]="isLatest(pick) ? 'true' : null"
                 >
                   @if (pick) {
                     <app-card-name [card]="pick.card" [name]="pick.card.name" />

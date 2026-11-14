@@ -30,7 +30,13 @@ import type {
   ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
-import { draftSize, picksPerTurn, queuePicksBeforeAnotherPlayerPicks, turnStartPick } from 'engine';
+import {
+  currentTurn,
+  draftSize,
+  picksPerTurn,
+  queuePicksBeforeAnotherPlayerPicks,
+  turnStartPick,
+} from 'engine';
 import { firstValueFrom, map, type Observable } from 'rxjs';
 import { Auth } from '../auth/auth';
 import { playerIn, TournamentViewer } from './tournament-viewer';
@@ -201,6 +207,16 @@ export class DraftStore implements TournamentViewer {
     const turn = this.turn();
     return turn && turnStartPick(this.draftSize(), turn);
   });
+
+  /**
+   * The pick that started the turn the 1-based `pick` was made on, which both
+   * picks of a double turn share; `pick` itself if it is past the draft's last.
+   */
+  turnStartOf(pick: number): number {
+    const size = this.draftSize();
+    const turn = currentTurn(size, pick - 1);
+    return turn ? turnStartPick(size, turn) : pick;
+  }
   /** Whether the turn is a double turn, on either of its picks; false with no turn. */
   readonly isDoubleTurn = computed(() => {
     const turn = this.turn();
