@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import type { Platform, TrophyHallView } from 'contract';
 import request from 'supertest';
 import { Prisma } from '../../generated/prisma/client.js';
@@ -270,6 +271,48 @@ describe('the Trophy Hall', () => {
     expect(rankingOf(hall)).toEqual([
       { name: 'Bob', trophies: 1, place: { rank: 1, shared: false } },
     ]);
+  });
+
+  describe('when a trophy holder’s kept decklist can’t be read', () => {
+    /** Overwrites `playerId`'s kept decklist in `draftId`'s tournament with one that isn't a deck's boards. */
+    const malformDecklist = (draftId: string, playerId: string) =>
+      app.get(PrismaService).tournamentEntry.updateMany({
+        where: { tournament: { draftId }, player: { userId: playerId } },
+        data: { decklist: { mainboard: 'not a board' } },
+      });
+
+    it('leaves that tournament out, logging it, with every other tournament and the trophy ranking as they would be', async () => {
+      const warnings = vi.spyOn(Logger.prototype, 'warn');
+      const first = await wonBy([B(), A()]);
+      const malformed = await wonBy([A(), B()]);
+      const last = await wonBy([C(), A()]);
+      await malformDecklist(malformed, alice.id);
+
+      const hall = await trophyHall();
+
+      expect(rowsOf(hall)).toEqual([[`${last} Carol 1`, `${first} Bob 1`]]);
+      expect(rankingOf(hall)).toEqual([
+        { name: 'Carol', trophies: 1, place: { rank: 1, shared: true } },
+        { name: 'Bob', trophies: 1, place: { rank: 1, shared: true } },
+      ]);
+      expect(warnings).toHaveBeenCalledWith(expect.stringContaining(malformed));
+      expect(warnings).toHaveBeenCalledWith(expect.stringContaining(alice.id));
+    });
+
+    it('leaves out a shared first place, and counts none of its trophies, when any holder’s decklist can’t be read', async () => {
+      const counted = await wonBy([B(), A()]);
+      // Alice and Bob share first, but Bob's decklist can't be read.
+      const shared = await playingTournament([aliceCookie, bobCookie]);
+      await completeTournament(shared).expect(200);
+      expect((await tournamentView(shared)).trophyHolders).toHaveLength(2);
+      await malformDecklist(shared, bob.id);
+
+      const hall = await trophyHall();
+      expect(rowsOf(hall)).toEqual([[`${counted} Bob 1`]]);
+      expect(rankingOf(hall)).toEqual([
+        { name: 'Bob', trophies: 1, place: { rank: 1, shared: false } },
+      ]);
+    });
   });
 
   it('gives each row its holder’s deck as locked at Start, with its cards and preferred printings, even after they edit it', async () => {
