@@ -158,9 +158,10 @@ export class BoardTab {
 
   constructor() {
     // Once each time the tab opens, as soon as the grid is shown: the latest
-    // round's first row while the draft is drafting or frozen, round 1 once
-    // it is complete. Never again until it is next opened, so live picks
-    // fill the grid without moving it.
+    // round while the draft is drafting or frozen, round 1 once it is
+    // complete. Both rows of a round of double turns where they fit, else its
+    // first: its last row is brought into view, then its first. Never again
+    // until it is next opened, so live picks fill the grid without moving it.
     let scrolled = false;
     afterRenderEffect(() => {
       if (!this.open()) {
@@ -171,7 +172,10 @@ export class BoardTab {
       if (scrolled || elements.length === 0) return;
       const rounds = untracked(() => elements.map((element) => element.row().round));
       const round = untracked(this.store.draftComplete) ? 1 : Math.max(...rounds);
-      elements[rounds.indexOf(round)]?.element.scrollIntoView(TO_ROW);
+      const first = elements[rounds.indexOf(round)]?.element;
+      const last = elements[rounds.lastIndexOf(round)]?.element;
+      if (last && last !== first) last.scrollIntoView(TO_ROW);
+      first?.scrollIntoView(TO_ROW);
       scrolled = true;
     });
   }

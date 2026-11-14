@@ -446,7 +446,7 @@ describe('board tab', () => {
 
   describe('on opening', () => {
     it.each<DraftFixture['state']>(['Drafting', 'Frozen'])(
-      'brings the latest round’s first row into view while the draft is %s',
+      'brings the whole of a latest round of double turns into view, its first row preferred, while the draft is %s',
       async (state) => {
         const scrolled = stubBoardScrolling();
         await openBoard(picks, {
@@ -456,7 +456,10 @@ describe('board tab', () => {
           turn: { pick: 7, round: 3, playerId: bob.id, picksBeforeTurnPasses: 2 },
         });
 
-        expect(scrolled()).toEqual([`Round 3, ${FORWARD}, first pick of each double turn`]);
+        expect(scrolled()).toEqual([
+          `Round 3, ${FORWARD}, second pick of each double turn`,
+          `Round 3, ${FORWARD}, first pick of each double turn`,
+        ]);
       },
     );
 
