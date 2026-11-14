@@ -25,7 +25,7 @@ import {
   previewImage,
   tap,
 } from './harness';
-import { boardCell, boardColumns, boardRows, findBoard } from './board-tab-harness';
+import { boardCell, boardColumns, boardRows, findBoard, latestPicks } from './board-tab-harness';
 import { costBefore } from './card-previews-harness';
 
 useDraftsApp();
@@ -294,6 +294,91 @@ describe('board tab', () => {
       [`Round 2, ${BACK}`, 'Lightning Helix', 'Lava Spike'],
       [`Round 3, ${FORWARD}`, '', ''],
     ]);
+  });
+
+  describe('the latest pick', () => {
+    it('is marked while the draft is drafting', async () => {
+      const { page } = await openBoard(picks);
+
+      expect(latestPicks(page)).toEqual(['Lava Spike']);
+    });
+
+    it('is marked while the draft is frozen', async () => {
+      const { page } = await openBoard(picks, { state: 'Frozen' });
+
+      expect(latestPicks(page)).toEqual(['Lava Spike']);
+    });
+
+    /** Opens the Board tab on a draft whose round 2 is double turns, with `count` picks made. */
+    function openDoubleTurns(count: number, turn: DraftFixture['turn']) {
+      const names = ['shock', 'bolt', 'spike', 'helix', 'blast', 'chain'];
+      const pickers = [bob.id, alice.id, alice.id, alice.id, bob.id, bob.id];
+      return openBoard(
+        names
+          .slice(0, count)
+          .map((name, i) =>
+            pickOf({ pick: i + 1, poolCardId: `${name}-card`, playerId: pickers[i] }),
+          ),
+        { picksPerPlayer: 5, doublePicks: 4, turn },
+      );
+    }
+
+    it('marks both picks of the latest double turn', async () => {
+      const { page } = await openDoubleTurns(6, {
+        pick: 7,
+        round: 3,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 2,
+      });
+
+      expect(latestPicks(page)).toEqual(['Fireblast', 'Chain Lightning']);
+    });
+
+    it('marks the first pick of a double turn whose second is still to come', async () => {
+      const { page } = await openDoubleTurns(5, {
+        pick: 6,
+        round: 2,
+        playerId: bob.id,
+        picksBeforeTurnPasses: 1,
+      });
+
+      expect(latestPicks(page)).toEqual(['Fireblast']);
+    });
+
+    it('marks only the latest pick after a cascade, not every pick in it', async () => {
+      const { fixture, page } = await openBoard(picks);
+
+      await changeTo({ turn: { pick: 6, round: 3, playerId: alice.id } }, (req) =>
+        req.flush([
+          ...picks,
+          pickOf({ pick: 4, playerId: bob.id, poolCardId: 'helix-card' }),
+          pickOf({ pick: 5, playerId: bob.id, poolCardId: 'blast-card' }),
+        ]),
+      );
+      await fixture.whenStable();
+
+      expect(latestPicks(page)).toEqual(['Fireblast']);
+    });
+
+    it('moves to the pick that is now the latest after an undo', async () => {
+      const { fixture, page } = await openBoard(picks);
+
+      await changeTo({ turn: { pick: 3, round: 2, playerId: alice.id } }, (req) =>
+        req.flush(picks.slice(0, 2)),
+      );
+      await fixture.whenStable();
+
+      expect(latestPicks(page)).toEqual(['Lightning Bolt']);
+    });
+
+    it('is not marked once the draft is complete', async () => {
+      const { page } = await openBoard(
+        [...picks, pickOf({ pick: 4, playerId: bob.id, poolCardId: 'helix-card' })],
+        { state: 'Complete', turn: undefined, picksPerPlayer: 2 },
+      );
+
+      expect(latestPicks(page)).toEqual([]);
+    });
   });
 
   it('no longer shows the pick log', async () => {
