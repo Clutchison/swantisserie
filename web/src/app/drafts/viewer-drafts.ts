@@ -1,5 +1,13 @@
 import { httpResource } from '@angular/common/http';
-import { computed, effect, inject, Injectable, linkedSignal, signal } from '@angular/core';
+import {
+  computed,
+  effect,
+  inject,
+  Injectable,
+  linkedSignal,
+  signal,
+  untracked,
+} from '@angular/core';
 import type { DraftListItemView, DraftView } from 'contract';
 import { Auth } from '../auth/auth';
 import { DraftUpdates } from './draft-updates';
@@ -10,8 +18,12 @@ import { isTurnOf } from './drafts';
  * app: the draft list shows them, and whatever tells the viewer it is their
  * turn reads them. Read as the app opens for a signed-in viewer, whatever
  * page it opens on, and never for a signed-out one. Kept live from then on
- * by the API's pushes of the drafts they play in, and read again on each
- * reconnect, as pushes may have been missed meanwhile.
+ * by the API's pushes of the drafts they play in, and read again on every
+ * connect, the first too: a draft changed after the first read was served
+ * but before the socket joined the viewer's own room is pushed to no one,
+ * and pushes may be missed while the socket is down. A connect while the
+ * first read is on its way reads again once it lands, as a resource can't
+ * be reloaded before its first load.
  */
 @Injectable({ providedIn: 'root' })
 export class ViewerDrafts {
@@ -38,6 +50,8 @@ export class ViewerDrafts {
    * lands while a read is on its way isn't lost to it.
    */
   private readonly pushed = signal(new Map<string, DraftView | null>());
+  /** Whether the drafts are to be read again once the read on its way lands. */
+  private readonly readAgain = signal(false);
   /**
    * The drafts as last read, each as its newest version read or pushed, the
    * cancelled ones dropped: undefined until the first read lands, or if it
@@ -69,12 +83,10 @@ export class ViewerDrafts {
       // Signed out, the tab mustn't stay in the viewer's own room.
       if (user === null) updates.close();
       if (!user) return;
-      let connectedBefore = false;
       const pushes = updates.own().subscribe((update) => {
         switch (update.type) {
           case 'connected':
-            if (connectedBefore) this.read.reload();
-            connectedBefore = true;
+            this.readAgain.set(true);
             break;
           case 'changed':
             this.keepNewest(update.draft.id, update.draft);
@@ -89,6 +101,11 @@ export class ViewerDrafts {
         }
       });
       onCleanup(() => pushes.unsubscribe());
+    });
+    effect(() => {
+      if (!this.readAgain() || this.read.status() === 'loading') return;
+      this.readAgain.set(false);
+      untracked(() => this.read.reload());
     });
   }
 

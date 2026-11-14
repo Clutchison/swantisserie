@@ -490,10 +490,10 @@ describe('draft list', () => {
       expect(page.textContent).not.toContain('In the lobby');
     });
 
-    it('keeps a push over a re-read on reconnecting that was made before it', async () => {
+    it('keeps a push over a re-read on connecting that was made before it', async () => {
       const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
 
-      reconnect();
+      connect();
       push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 2 }))]);
       await TestBed.inject(ApplicationRef).whenStable();
@@ -508,17 +508,43 @@ describe('draft list', () => {
       push({ type: 'changed', draft: arenaCube(bobsTurn, { version: 2 }) });
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
 
-      reconnect();
+      connect();
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 4 }))]);
       await TestBed.inject(ApplicationRef).whenStable();
       expect(findSection(page, 'Your turn')).toBeNull();
     });
 
-    it('reads the drafts again on reconnecting, but not on first connecting', async () => {
+    it('reads the drafts again on first connecting, as one may change before the socket hears of it', async () => {
       const page = await openList([arenaCube(bobsTurn)]);
 
       push({ type: 'connected' });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+
+    it('reads them again once the first read lands, on connecting while it is on its way', async () => {
+      const { fixture, page } = await openUrl('/');
+      const firstRead = http.expectOne('/api/drafts');
+
+      push({ type: 'connected' });
       http.expectNone('/api/drafts');
+      firstRead.flush([listItemOf(arenaCube(bobsTurn))]);
+      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([
+        listItemOf(arenaCube(alicesTurn)),
+      ]);
+      await fixture.whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+
+    it('reads them again on every reconnect', async () => {
+      const page = await openList([arenaCube(bobsTurn)]);
+      push({ type: 'connected' });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
       push({ type: 'disconnected' });
       push({ type: 'connected' });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
@@ -565,7 +591,7 @@ describe('draft list', () => {
       document.title = 'Swantisserie';
       const page = await openList([draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })]);
 
-      reconnect();
+      connect();
       http.expectOne('/api/drafts').flush(null, serverError);
       await TestBed.inject(ApplicationRef).whenStable();
 
@@ -587,12 +613,8 @@ describe('draft list', () => {
 /** The API pushes `update` to the viewer's own room, and the app renders it. */
 const push = (update: OwnDraftUpdate) => pushToOwnRoom(updates, update);
 
-/** The socket connects, drops and connects again, as when the API restarts. */
-function reconnect() {
-  push({ type: 'connected' });
-  push({ type: 'disconnected' });
-  push({ type: 'connected' });
-}
+/** The socket connects, which has the drafts read again. */
+const connect = () => push({ type: 'connected' });
 
 /** Fails the Trophy Hall's read, if it was made: the spec has no use for what it shows. */
 function answerTrophyHall() {
