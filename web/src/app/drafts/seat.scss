@@ -1,0 +1,41 @@
+/*
+ * The avatar, `size` in `seat.ts`, read as `--avatar-size`, filling the seat
+ * once it has loaded; until then, or if it fails or is missing, a disc with
+ * the player's initial. The avatar's host lays out as its image alone, so the
+ * image is the seat's only grid item, with the initial laid over the seat out
+ * of the grid.
+ */
+:host {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  inline-size: var(--avatar-size);
+  block-size: var(--avatar-size);
+  border-radius: 50%;
+  background: var(--color-raised);
+
+  /* Focus: an outline in the text colour, not an accent one, which would look like a ring marking a turn. */
+  &:focus-visible {
+    outline: 2px solid var(--color-text);
+    outline-offset: var(--seat-focus-offset, 2px);
+  }
+}
+
+:host(.avatar-shown) {
+  background: none;
+}
+
+.initial {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--color-muted);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+
+  :host(.avatar-shown) & {
+    visibility: hidden;
+  }
+}

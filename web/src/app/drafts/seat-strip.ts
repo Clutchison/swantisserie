@@ -30,21 +30,11 @@ import {
 import { DialogShell } from '../dialog-shell';
 import { DraftStore } from './draft-store';
 import { OwnTurnLoop } from './own-turn-loop';
-import { PlayerAvatar } from './player-avatar';
 import { PlayersSheet } from './players-sheet';
-
-/**
- * A seat's player's name, shown below the seat hovered or focused: lined up
- * with the seat's start, this far from the strip's, or with its end, this
- * far from the strip's end, whichever keeps it inside the strip.
- */
-type Hint = { name: string } & ({ start: number } | { end: number });
+import { Seat, type SeatHint, SeatHintLabel } from './seat';
 
 /** Which copy of the pulse the turn's seat plays: a class of its own, so each restarts it. */
 type Pulse = 'pulse' | 'pulse-again';
-
-/** A seat's avatar's width and height, in CSS pixels; the strip's styles read it as `--avatar-size`. */
-const AVATAR_SIZE = 24;
 
 /** The arrow between two seats' width and height, in CSS pixels; the strip's styles read it as `--arrow-size`. */
 const ARROW_SIZE = 14;
@@ -67,7 +57,7 @@ const ARROW_SIZE = 14;
  */
 @Component({
   selector: 'app-seat-strip',
-  imports: [LucideDynamicIcon, LucideUsers, NgTemplateOutlet, PlayerAvatar],
+  imports: [LucideDynamicIcon, LucideUsers, NgTemplateOutlet, Seat, SeatHintLabel],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './seat-strip.html',
   styleUrl: './seat-strip.scss',
@@ -75,7 +65,6 @@ const ARROW_SIZE = 14;
     '(document:pointerdown)': 'closeOnPointerOutside($event)',
     '(document:keydown.escape)': 'closeOnEscape()',
     '(focusout)': 'closeOnFocusLeaving($event)',
-    '[style.--avatar-size.px]': 'avatarSize',
     '[style.--arrow-size.px]': 'arrowSize',
   },
 })
@@ -94,7 +83,6 @@ export class SeatStrip {
   /** Whether the Players panel is open, in the popover or the sheet. */
   readonly panelOpen = model(false);
 
-  protected readonly avatarSize = AVATAR_SIZE;
   protected readonly arrowSize = ARROW_SIZE;
   protected readonly seats = computed(() => this.store.shown().players);
   private readonly turnPlayerId = computed(() => this.store.turn()?.playerId ?? null);
@@ -129,9 +117,10 @@ export class SeatStrip {
   });
 
   protected readonly popoverOpen = computed(() => this.panelOpen() && this.panelIn() === 'popover');
-  protected readonly hint = signal<Hint | null>(null);
-  /** The avatar images that have loaded, by URL: a seat shows its player's in place of the disc and initial. */
-  private readonly loadedAvatars = signal<ReadonlySet<string>>(new Set());
+  /** The strip, which a seat's player's name shows within, below it. */
+  protected readonly hostElement = this.host.nativeElement;
+  /** Where the name of the seat's player hovered or focused shows; null while none is. */
+  protected readonly hint = signal<SeatHint | null>(null);
   /**
    * Which of the two copies of the three-beat pulse the turn's seat plays,
    * alternating so that each turn change starts it afresh, even on the same
@@ -152,7 +141,7 @@ export class SeatStrip {
   private readonly toggle = viewChild.required<ElementRef<HTMLButtonElement>>('toggle');
   private readonly popover = viewChild<ElementRef<HTMLElement>>('popover');
   private readonly seatList = viewChild.required<ElementRef<HTMLOListElement>>('seatList');
-  private readonly seatElements = viewChildren<ElementRef<HTMLElement>>('seat');
+  private readonly seatElements = viewChildren('seat', { read: ElementRef<HTMLElement> });
 
   constructor() {
     // The panel open as the strip came, from its other place, opens here.
@@ -190,19 +179,6 @@ export class SeatStrip {
     });
   }
 
-  /**
-   * What a screen reader names a seat: its player, whether they are a bot or
-   * the viewer, and whether they are picking: it is their turn.
-   */
-  protected seatName(player: PlayerView) {
-    return [
-      player.name,
-      ...(player.isBot ? ['bot'] : []),
-      ...(this.isOwn(player) ? ['you'] : []),
-      ...(this.hasTheTurn(player) ? ['picking'] : []),
-    ].join(', ');
-  }
-
   /** Whether `player` has the turn. */
   protected hasTheTurn(player: PlayerView) {
     return player.id === this.turnPlayerId();
@@ -210,52 +186,6 @@ export class SeatStrip {
 
   protected isOwn(player: PlayerView) {
     return player.id === this.ownId();
-  }
-
-  /** A player's initial, shown while their avatar is missing or hasn't loaded. */
-  protected initial(player: PlayerView) {
-    const [first] = new Intl.Segmenter().segment(player.name);
-    return first?.segment.toUpperCase() ?? '';
-  }
-
-  /** Whether `player`'s seat shows their avatar, loaded, in place of the disc and initial. */
-  protected avatarShown(player: PlayerView) {
-    return this.loadedAvatars().has(player.avatarUrl);
-  }
-
-  /** Notes that `player`'s avatar has loaded, so their seat shows it from now on. */
-  protected avatarLoaded(player: PlayerView) {
-    this.loadedAvatars.update((urls) => new Set(urls).add(player.avatarUrl));
-  }
-
-  /**
-   * Shows `player`'s name below their seat, hovered or focused: from the
-   * seat's start in the strip's first half, back from its end in the second,
-   * so the name stays on the page.
-   */
-  protected showHint(player: PlayerView, seat: HTMLElement) {
-    const strip = this.host.nativeElement.getBoundingClientRect();
-    const box = seat.getBoundingClientRect();
-    const firstHalf = box.left + box.width / 2 <= strip.left + strip.width / 2;
-    this.hint.set(
-      firstHalf
-        ? { name: player.name, start: box.left - strip.left }
-        : { name: player.name, end: strip.right - box.right },
-    );
-  }
-
-  /** How far the hint sits in from the strip's start, if it lines up with its seat's start. */
-  protected hintStart(hint: Hint) {
-    return 'start' in hint ? hint.start : null;
-  }
-
-  /** How far the hint sits in from the strip's end, if it lines up with its seat's end. */
-  protected hintEnd(hint: Hint) {
-    return 'end' in hint ? hint.end : null;
-  }
-
-  protected hideHint() {
-    this.hint.set(null);
   }
 
   /** Opens the Players sheet, or the popover with focus moved into it; or closes the popover. */
