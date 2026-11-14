@@ -3,7 +3,15 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { NavigationStart } from '@angular/router';
 import { App } from './app';
-import { alice, http, openApp, openDialog, router, useApp } from './specs-harness';
+import {
+  alice,
+  answerViewerDrafts,
+  http,
+  openApp,
+  openDialog,
+  router,
+  useApp,
+} from './specs-harness';
 import {
   banner,
   button,
@@ -530,8 +538,11 @@ describe('App', () => {
     const serverError: Answer = (req) =>
       req.flush(null, { status: 500, statusText: 'Server Error' });
 
-    /** Opens /status with /api/auth/me answered by `me` and /api/health by `health`. */
-    async function openStatus(me: Answer, health: Answer) {
+    /**
+     * Opens /status with /api/auth/me answered by `me` and /api/health by
+     * `health`, and, for a viewer `signedIn`, the read of their drafts with none.
+     */
+    async function openStatus(me: Answer, health: Answer, { signedIn = false } = {}) {
       const fixture = TestBed.createComponent(App);
       const navigation = router.navigateByUrl('/status');
       me(await vi.waitFor(() => http.expectOne('/api/auth/me')));
@@ -541,6 +552,7 @@ describe('App', () => {
       health(await vi.waitFor(() => http.expectOne('/api/health')));
       answerUnreviewedCount(http);
       answerAppVersion(http, { commit: sha });
+      if (signedIn) answerViewerDrafts(http);
       await fixture.whenStable();
       return fixture.nativeElement as HTMLElement;
     }
@@ -577,6 +589,7 @@ describe('App', () => {
       const page = await openStatus(
         (req) => req.flush(alice),
         (req) => req.flush({ api: 'ok', db: 'ok' }),
+        { signedIn: true },
       );
 
       expect(page.textContent).toContain('API ok');
@@ -587,6 +600,7 @@ describe('App', () => {
       const page = await openStatus(
         (req) => req.flush(alice),
         (req) => req.flush({ api: 'ok', db: 'ok' }),
+        { signedIn: true },
       );
 
       clickLogOut(page);

@@ -136,7 +136,6 @@ describe('live updates', () => {
     expect(updates.events.observed).toBe(true);
 
     await router.navigateByUrl('/');
-    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
 
     expect(updates.events.observed).toBe(false);
   });

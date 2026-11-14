@@ -333,8 +333,6 @@ describe('preloading the first results', () => {
     const running = requests.map((request) => request.image);
 
     await router.navigateByUrl('/');
-    TestBed.tick();
-    http.expectOne('/api/drafts').flush([]);
     await fixture.whenStable();
     running.forEach((image) => image.onload?.());
 

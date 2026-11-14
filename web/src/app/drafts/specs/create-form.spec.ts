@@ -86,7 +86,6 @@ describe('create form', () => {
     link(page, 'Cancel')!.click();
 
     await vi.waitFor(() => expect(router.url).toBe('/'));
-    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
     await fixture.whenStable();
   });
 

@@ -321,7 +321,6 @@ describe('webhooks page', () => {
     const { fixture, page } = await openApp('/admin/webhooks', alice);
     answerTopBar(http);
     await vi.waitFor(() => expect(router.url).toBe('/'));
-    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
     await fixture.whenStable();
 
     expect(page.querySelector('header')?.textContent).not.toContain('App admin');
