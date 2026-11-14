@@ -1,16 +1,18 @@
 import { HttpClient } from '@angular/common/http';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   inject,
   Injector,
   output,
+  PendingTasks,
   signal,
 } from '@angular/core';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
 import { MAX_PLAYERS } from 'engine';
-import { isTurnState, type DraftView, type PickView } from 'contract';
+import { isTurnState, type DraftView, type PickView, type TurnView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
 import {
@@ -28,7 +30,8 @@ import { ANNOUNCEMENTS_HEADING, AnnouncementsDialog } from './announcements-dial
 
 /**
  * The draft page's header: the draft's name, after whatever the page puts
- * before it (its back link), its state, organizer and turn, and the actions
+ * before it (its back link), its state, organizer and turn (the Turn banner
+ * under it when the turn is the viewer's), and the actions
  * that move the draft on. Joining and leaving, starting, undo,
  * freeze and unfreeze, and reopening are buttons; closing and cancelling, which
  * are rarer, are in its More menu.
@@ -65,21 +68,58 @@ export class DraftHeader {
   readonly cancelled = output<void>();
 
   /**
-   * Whose turn it is, as the page puts it: "Your turn" for the signed-in
-   * user, and on a double turn the picks still to make before it passes.
+   * Another player's turn, as the header puts it: whose, and its pick and
+   * round. The viewer's own turn is the Turn banner's to tell.
    */
   protected readonly turn = computed(() => {
     const turn = this.store.turn();
-    if (!turn) return null;
+    if (!turn || this.store.yourTurn()) return null;
     // A player no longer in the draft is the fallback, capitalized to start the sentence.
     const player = this.store.findPlayer(turn.playerId);
-    const whose = this.store.yourTurn() ? 'Your' : `${player?.name ?? 'Another player'}’s`;
-    const suffix = this.store.isDoubleTurn() ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
     return {
-      text: `${whose} turn: pick ${turn.pick}, round ${turn.round}${suffix}`,
+      text: `${player?.name ?? 'Another player'}’s turn: ${this.pickAndRound(turn)}`,
       isBot: !!player?.isBot,
     };
   });
+
+  /**
+   * The Turn banner, while it is the viewer's turn: its pick and round, and
+   * that the draft is frozen while it is. It stands out only while the viewer
+   * can pick.
+   */
+  protected readonly turnBanner = computed(() => {
+    const turn = this.store.turn();
+    if (!turn || !this.store.yourTurn()) return null;
+    const standsOut = this.store.yourTurnToPick();
+    const frozen = standsOut ? '' : ', but the draft is frozen';
+    return { text: `Your turn: ${this.pickAndRound(turn)}${frozen}`, standsOut };
+  });
+
+  /**
+   * Whether the Turn banner may say anything yet. Its live region is there
+   * before its text: a screen reader announces text put into a live region,
+   * not text it was inserted with.
+   */
+  protected readonly bannerReady = signal(false);
+
+  constructor() {
+    const pendingTasks = inject(PendingTasks);
+    afterNextRender(() => {
+      if (this.turnBanner()) {
+        // A frame on, once the browser has the empty region in its accessibility tree.
+        pendingTasks.run(() => afterTwoFrames().then(() => this.bannerReady.set(true)));
+      } else {
+        // Nothing to say yet: whatever it says later changes a region already there.
+        this.bannerReady.set(true);
+      }
+    });
+  }
+
+  /** `turn`'s pick and round, and on a double turn the picks still to make before it passes. */
+  private pickAndRound(turn: TurnView) {
+    const suffix = this.store.isDoubleTurn() ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
+    return `pick ${turn.pick}, round ${turn.round}${suffix}`;
+  }
 
   /** Joining and leaving, starting and cancelling are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
@@ -305,4 +345,11 @@ export class DraftHeader {
     this.error.set(null);
     this.changeStarted.emit();
   }
+}
+
+/** Resolves once two frames have gone by, so the browser has painted the first. */
+function afterTwoFrames() {
+  return new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  );
 }

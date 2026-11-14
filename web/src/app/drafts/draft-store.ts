@@ -202,6 +202,11 @@ export class DraftStore implements TournamentViewer {
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   readonly turn = computed(() => this.draft.value()?.turn ?? null);
   readonly yourTurn = computed(() => this.turn()?.playerId === this.user()?.id);
+  /** Whether the signed-in player can pick now: it is their turn and the draft is drafting, not frozen. */
+  // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
+  readonly yourTurnToPick = computed(
+    () => this.yourTurn() && this.draft.value()?.state === 'Drafting',
+  );
   /** The engine's size of the draft, once it has loaded, as the api works it out. */
   readonly draftSize = computed(() => draftSize(this.shown(), this.players().length));
   /**
@@ -352,7 +357,7 @@ export class DraftStore implements TournamentViewer {
    */
   readonly queuePicks = computed<QueuedCardView[]>(() => {
     const draft = this.draft.value();
-    if (draft?.state !== 'Drafting' || !this.yourTurn()) return [];
+    if (!draft || !this.yourTurnToPick()) return [];
     const seat = this.players().findIndex((player) => player.id === this.user()?.id);
     const cards = this.queue.value().cards;
     const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
