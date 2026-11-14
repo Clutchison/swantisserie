@@ -154,15 +154,15 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 
 ## Stack
 
-| Layer    | Choice                                                                                                                                                                 |
-| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Repo     | npm workspaces monorepo: `contract`, `engine`, `api`, `web`. `contract` holds the view and request types the api and web share.                                        |
-| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turns, pick checks, cascades, and what a pick or an undo does to queues and plans. Built test-first. |
-| `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                        |
-| `web`    | Angular + CDK, mobile-first                                                                                                                                            |
-| DB       | Neon Postgres (free tier)                                                                                                                                              |
-| Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.      |
-| CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                              |
+| Layer    | Choice                                                                                                                                                                                                                                                                 |
+| -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repo     | npm workspaces monorepo: `contract`, `engine`, `api`, `web`. `contract` holds the view and request types the api and web share.                                                                                                                                        |
+| `engine` | Pure TypeScript draft engine. No DB or HTTP. Handles snake order, turns and double turns, pick checks, cascades, pick imports, what a pick does to queues and plans and what an undo does to queues, and tournament pairing, standings and trophies. Built test-first. |
+| `api`    | NestJS + Prisma (Postgres) + Socket.IO gateway + Discord OAuth login (hand-rolled code flow, no Passport) with a database-backed session cookie                                                                                                                        |
+| `web`    | Angular + CDK, mobile-first                                                                                                                                                                                                                                            |
+| DB       | Neon Postgres (free tier)                                                                                                                                                                                                                                              |
+| Hosting  | One Heroku **eco dyno** (~$5/mo) serving the API, Socket.IO and the built Angular app. Sleeps after 30 min idle and wakes in ~10 s, which is fine with no timers.                                                                                                      |
+| CI/CD    | GitHub Actions runs tests on every push. Heroku auto-deploys from `main`.                                                                                                                                                                                              |
 
 ### Pick flow (api)
 
