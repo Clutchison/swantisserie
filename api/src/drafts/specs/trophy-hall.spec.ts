@@ -282,7 +282,9 @@ describe('the Trophy Hall', () => {
       });
 
     it('leaves that tournament out, logging it, with every other tournament and the trophy ranking as they would be', async () => {
-      const warnings = vi.spyOn(Logger.prototype, 'warn');
+      const warnings = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
       const first = await wonBy([B(), A()]);
       const malformed = await wonBy([A(), B()]);
       const last = await wonBy([C(), A()]);
@@ -305,6 +307,9 @@ describe('the Trophy Hall', () => {
       const shared = await playingTournament([aliceCookie, bobCookie]);
       await completeTournament(shared).expect(200);
       expect((await tournamentView(shared)).trophyHolders).toHaveLength(2);
+      const warnings = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
       await malformDecklist(shared, bob.id);
 
       const hall = await trophyHall();
@@ -312,6 +317,21 @@ describe('the Trophy Hall', () => {
       expect(rankingOf(hall)).toEqual([
         { name: 'Bob', trophies: 1, place: { rank: 1, shared: false } },
       ]);
+      expect(warnings).toHaveBeenCalledWith(expect.stringContaining(shared));
+      expect(warnings).toHaveBeenCalledWith(expect.stringContaining(bob.id));
+    });
+
+    it('still fails the whole Trophy Hall when the kept decklists can’t be read from the database', async () => {
+      await wonBy([A(), B()]);
+      vi.spyOn(
+        app.get(PrismaService).tournamentEntry,
+        'findMany',
+      ).mockRejectedValueOnce(new Error('connection refused'));
+
+      await request(app.getHttpServer())
+        .get('/api/trophy-hall')
+        .set('Cookie', aliceCookie)
+        .expect(500);
     });
   });
 

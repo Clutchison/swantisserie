@@ -157,7 +157,11 @@ export class TrophyHallService {
         byPlayer = new Map();
         decklists.set(tournament.draftId, byPlayer);
       }
-      const boards = this.decoded(decklist, tournament.draftId, player.userId);
+      const boards = this.decodeOrSkip(
+        decklist,
+        tournament.draftId,
+        player.userId,
+      );
       if (boards) byPlayer.set(player.userId, boards);
     }
     return decklists;
@@ -166,8 +170,9 @@ export class TrophyHallService {
   /**
    * `decklist` decoded, or none if it can't be, which is logged: one bad
    * decklist leaves its tournament off the Trophy Hall, not the whole of it.
+   * The decklists read for one draft refuses it instead, deliberately.
    */
-  private decoded(
+  private decodeOrSkip(
     decklist: Prisma.JsonValue,
     draftId: string,
     playerId: string,
