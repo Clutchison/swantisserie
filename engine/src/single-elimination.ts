@@ -21,6 +21,15 @@ export function singleEliminationRoundCount(joined: number): number {
 }
 
 /**
+ * How many bracket places tournament round `round` of a bracket of
+ * `roundCount` tournament rounds has: half the round before's, down to the
+ * final's one.
+ */
+function bracketPlaceCount(roundCount: number, round: number): number {
+  return 2 ** (roundCount - round);
+}
+
+/**
  * One match of a single elimination bracket at its bracket place: its place
  * in its tournament round, from 0. Bracket place p of a round is fed by the
  * players who advance from places 2p and 2p + 1 of the round before. A null
@@ -42,10 +51,13 @@ export interface BracketMatch {
 export function firstBracketRound(
   seedOrder: readonly string[],
 ): BracketMatch[] {
-  const size = 2 ** singleEliminationRoundCount(seedOrder.length);
-  const layout = seedLayout(size);
+  const places = bracketPlaceCount(
+    singleEliminationRoundCount(seedOrder.length),
+    1,
+  );
+  const layout = seedLayout(2 * places);
   const player = (seed: number) => seedOrder[seed - 1] ?? null;
-  return Array.from({ length: size / 2 }, (_, bracketPlace) => ({
+  return Array.from({ length: places }, (_, bracketPlace) => ({
     bracketPlace,
     players: [
       player(layout[2 * bracketPlace])!,
@@ -55,25 +67,41 @@ export function firstBracketRound(
 }
 
 /**
- * The next tournament round of a bracket from `advancing`, the player each
- * bracket place of the round before sends on, in bracket place order, or
- * null where nobody advances: the players advancing from neighbouring
- * bracket places meet. A player whose would-be opponent is null has a bye,
- * and a bracket place nobody reaches is left out.
+ * Who a bracket place of a tournament round sends on to the next: a
+ * player, or null when nobody advances from it.
+ */
+export interface AdvancingFrom {
+  bracketPlace: number;
+  advancing: string | null;
+}
+
+/**
+ * Tournament round `round` of a bracket of `roundCount` tournament rounds,
+ * from `previous`, who each bracket place of the round before sends on, in
+ * any order; a place it doesn't list sends nobody on. The players
+ * advancing from neighbouring bracket places meet. A player whose
+ * would-be opponent nobody sends on has a bye, and a bracket place nobody
+ * reaches is left out.
  */
 export function nextBracketRound(
-  advancing: readonly (string | null)[],
+  previous: readonly AdvancingFrom[],
+  { roundCount, round }: { roundCount: number; round: number },
 ): BracketMatch[] {
-  // Stryker disable next-line ArithmeticOperator: the extra places are `null` and filtered out.
-  return Array.from({ length: advancing.length / 2 }, (_, bracketPlace) => {
-    const [first = null, second = null] = [
-      advancing[2 * bracketPlace],
-      advancing[2 * bracketPlace + 1],
-    ].filter((id) => id !== null);
-    return first === null
-      ? null
-      : { bracketPlace, players: [first, second] as const };
-  }).filter((match) => match !== null);
+  const sentOn = new Map(
+    previous.map(({ bracketPlace, advancing }) => [bracketPlace, advancing]),
+  );
+  return Array.from(
+    { length: bracketPlaceCount(roundCount, round) },
+    (_, bracketPlace) => {
+      const [first = null, second = null] = [
+        sentOn.get(2 * bracketPlace) ?? null,
+        sentOn.get(2 * bracketPlace + 1) ?? null,
+      ].filter((id) => id !== null);
+      return first === null
+        ? null
+        : { bracketPlace, players: [first, second] as const };
+    },
+  ).filter((match) => match !== null);
 }
 
 /**
@@ -305,7 +333,7 @@ export function bracketRounds(
       return { kind: 'WinnerToCome', bracketPlace };
     };
     const places = Array.from(
-      { length: 2 ** (roundCount - round) },
+      { length: bracketPlaceCount(roundCount, round) },
       (_, bracketPlace): [BracketPlace['sides'], Advancing] => {
         const match = played.find(
           (m) => m.round === round && m.bracketPlace === bracketPlace,
