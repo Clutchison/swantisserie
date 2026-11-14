@@ -30,6 +30,7 @@ import {
 import { clickBackdrop, clickOn, pressEscape, pressKey, pressPointerOn } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
 import { disclosure } from './disclosure-harness';
+import { goToOtherDraft } from './another-draft-harness';
 import {
   findSeatStrip,
   playersButton,
@@ -407,6 +408,15 @@ describe('the Seat strip', () => {
     it('rests every ring on another player’s turn as the strip first shows', async () => {
       const { page } = await openDraft(completeSnapshot, atPick(2, bob.id));
 
+      expect(pulses(page)).toEqual([null, null]);
+    });
+
+    it('rests every ring on arriving at another draft on another player’s turn, as a fresh open does', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, atPick(1, alice.id));
+
+      await goToOtherDraft(fixture, completeSnapshot, atPick(2, bob.id));
+
+      expect(stripSeatNames(page)).toHaveLength(2);
       expect(pulses(page)).toEqual([null, null]);
     });
 
