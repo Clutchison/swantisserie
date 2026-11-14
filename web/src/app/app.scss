@@ -32,6 +32,15 @@ header {
   min-width: 0;
 }
 
+/* The Turn link: an accent button, so it stands out; a long draft name truncates rather than push the bar off the screen. */
+.turn-link {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-decoration: none;
+  text-overflow: ellipsis;
+}
+
 .home {
   display: flex;
   flex: none;

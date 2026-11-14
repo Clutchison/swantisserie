@@ -37,3 +37,29 @@ export function answerTopBar(http: HttpTestingController) {
   answerUnreviewedCount(http);
   answerAppVersion(http);
 }
+
+/** The top bar's Turn link, by what it says: "Your turn" and where; null while it isn't there. */
+export const turnLink = (page: HTMLElement) =>
+  [...page.querySelectorAll<HTMLAnchorElement>('header a[href]')].find((a) =>
+    a.textContent?.trim().startsWith('Your turn'),
+  ) ?? null;
+
+/**
+ * Shows the top bar as on a narrow screen: what only a wide one shows
+ * hidden, and the narrow-only Menu shown. jsdom's media queries never match
+ * a narrow screen.
+ */
+export function showNarrowTopBar(page: HTMLElement) {
+  for (const wide of page.querySelectorAll<HTMLElement>('header .wide-only')) {
+    wide.style.display = 'none';
+  }
+  narrowMenuButton(page);
+}
+
+/** Whether `element` is shown: neither it nor anything holding it is hidden by `display: none`. */
+export function isShown(element: Element) {
+  for (let at: Element | null = element; at; at = at.parentElement) {
+    if (getComputedStyle(at).display === 'none') return false;
+  }
+  return true;
+}

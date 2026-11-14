@@ -39,6 +39,8 @@ import {
   drafting,
 } from './harness';
 import { pushDraft } from './turn-harness';
+import { listItemOf } from './draft-list-harness';
+import { turnLink } from '../../top-bar/specs-harness';
 import { followBack, pressKey } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
@@ -203,6 +205,21 @@ describe('draft page', () => {
 
       expect(statusTexts(page)).not.toContain(goneNotice);
     });
+  });
+
+  it('shows the top bar’s Turn link, as every page does', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
+      viewerDrafts: [
+        listItemOf({
+          id: 'draft-2',
+          name: 'Blue sphinxes',
+          ...drafting({ turn: { pick: 3, round: 2, playerId: alice.id } }),
+        }),
+      ],
+    });
+
+    expect(turnLink(page)?.textContent?.trim()).toBe('Your turn in Blue sphinxes');
+    expect(turnLink(page)?.getAttribute('href')).toBe('/drafts/draft-2');
   });
 
   describe('the page title', () => {

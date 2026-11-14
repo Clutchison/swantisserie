@@ -15,13 +15,23 @@ import {
 import {
   banner,
   button,
+  drafting,
   expectLoadingAnimation,
   expectSignedOut,
   loadingAnimation,
   midNavigation,
 } from './drafts/specs/harness';
 import { answerUnreviewedCount, link } from './feedback/specs-harness';
-import { appAdminButton, answerAppVersion } from './top-bar/specs-harness';
+import {
+  appAdminButton,
+  answerAppVersion,
+  isShown,
+  narrowMenuButton,
+  showNarrowTopBar,
+  turnLink,
+} from './top-bar/specs-harness';
+import { listItemOf } from './drafts/specs/draft-list-harness';
+import type { DraftListItemView } from 'contract';
 
 describe('App', () => {
   useApp();
@@ -158,6 +168,79 @@ describe('App', () => {
       expect(page.querySelector('header')!.textContent).not.toContain('App version');
       // Nor do they ask which version is live.
       expect(http.match('/api/admin/app-version')).toEqual([]);
+    });
+  });
+
+  describe('Turn link', () => {
+    /** A drafting draft of Alice and Bob whose turn is Alice's, the viewer's. */
+    const alicesTurn = (id: string, name: string, state: 'Drafting' | 'Frozen' = 'Drafting') =>
+      listItemOf({
+        id,
+        name,
+        ...drafting({ state, turn: { pick: 2, round: 1, playerId: alice.id } }),
+      });
+    /** A drafting draft of Alice and Bob whose turn is Bob's. */
+    const bobsTurn = (id: string, name: string) => listItemOf({ id, name, ...drafting() });
+
+    /**
+     * Opens `url` as Alice, with the read of her drafts answered by `drafts`,
+     * and the page's own requests by `answerPage`.
+     */
+    async function openWithDrafts(
+      url: string,
+      drafts: DraftListItemView[],
+      answerPage: () => void = () => undefined,
+    ) {
+      const { fixture, page } = await openApp(url, (me) => me.flush(alice));
+      answerViewerDrafts(http, drafts);
+      answerPage();
+      await fixture.whenStable();
+      return page;
+    }
+
+    it('names the one draft on the viewer’s turn, and goes to its page', async () => {
+      const page = await openWithDrafts('/', [
+        bobsTurn('b', 'Arena cube'),
+        alicesTurn('a', 'Red dragons'),
+      ]);
+
+      expect(turnLink(page)?.textContent?.trim()).toBe('Your turn in Red dragons');
+      expect(turnLink(page)?.getAttribute('href')).toBe('/drafts/a');
+    });
+
+    it('gives the count when it is the viewer’s turn in several drafts, and goes to the draft list', async () => {
+      const page = await openWithDrafts(
+        '/status',
+        [
+          alicesTurn('a', 'Red dragons'),
+          bobsTurn('b', 'Arena cube'),
+          alicesTurn('c', 'Blue sphinxes'),
+          alicesTurn('f', 'Taking a break', 'Frozen'),
+        ],
+        () => http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' }),
+      );
+
+      expect(turnLink(page)?.textContent?.trim()).toBe('Your turn in 2 drafts');
+      expect(turnLink(page)?.getAttribute('href')).toBe('/');
+    });
+
+    it('shows on a narrow screen in the bar itself, not in the menu', async () => {
+      const page = await openWithDrafts('/', [alicesTurn('a', 'Red dragons')]);
+
+      showNarrowTopBar(page);
+
+      expect(narrowMenuButton(page).getAttribute('aria-expanded')).toBe('false');
+      expect(isShown(turnLink(page)!)).toBe(true);
+    });
+
+    it.each([
+      ['no draft is on the viewer’s turn', [bobsTurn('b', 'Arena cube')]],
+      ['the only one on their turn is frozen', [alicesTurn('f', 'Taking a break', 'Frozen')]],
+      ['they are in no drafts', []],
+    ])('isn’t there when %s', async (_, drafts) => {
+      const page = await openWithDrafts('/', drafts);
+
+      expect(turnLink(page)).toBeNull();
     });
   });
 

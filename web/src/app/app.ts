@@ -71,6 +71,20 @@ export class App {
       : { label: 'App version unknown', url: null };
   });
 
+  /** Read as the app opens, whatever the page, so a viewer can be told it is their turn anywhere. */
+  private readonly yourTurn = inject(ViewerDrafts).yourTurn;
+  /**
+   * The Turn link: to the one draft on the viewer's turn, or to the draft
+   * list when it is their turn in several; none while it is in none.
+   */
+  protected readonly turnLink = computed(() => {
+    const drafts = this.yourTurn();
+    if (drafts.length === 0) return null;
+    if (drafts.length > 1) return { text: `Your turn in ${drafts.length} drafts`, url: ['/'] };
+    const [only] = drafts;
+    return { text: `Your turn in ${only.name}`, url: ['/drafts', only.id] };
+  });
+
   /** Pages say how they are loading once shown; this covers the wait for one, and its failure. */
   protected readonly pageStatus = toSignal(
     this.router.events.pipe(
@@ -105,11 +119,6 @@ export class App {
         return this.narrowMenu()?.button();
       },
     });
-  }
-
-  constructor() {
-    // Read as the app opens, whatever the page, so a viewer can be told it is their turn anywhere.
-    inject(ViewerDrafts);
   }
 
   protected logout() {

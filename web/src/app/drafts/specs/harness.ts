@@ -771,6 +771,7 @@ export async function openDraft(
     user = alice,
     powers,
     url = '/drafts/draft-1',
+    viewerDrafts,
   }: {
     cards?: PoolCardView[];
     picks?: PickView[];
@@ -781,10 +782,12 @@ export async function openDraft(
     user?: typeof alice;
     powers?: DraftPowersView;
     url?: string;
+    /** What the app's read of the viewer's drafts finds: none unless given. */
+    viewerDrafts?: DraftListItemView[];
   } = {},
 ) {
   if (powers) powersAnswer(powers);
-  const { fixture, page } = await openUrl(url, user);
+  const { fixture, page } = await openUrl(url, user, { viewerDrafts });
   const opened = draft({ snapshot, ...fields });
   http.expectOne('/api/drafts/draft-1').flush(opened);
   if (snapshot.state === 'Complete') await flushPool(cards);
