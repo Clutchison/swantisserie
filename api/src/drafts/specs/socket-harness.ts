@@ -47,16 +47,24 @@ export function useSockets() {
   }
 
   /**
-   * The drafts pushed to whoever `cookie` signs in as, from once they are
-   * connected and watching draft `draftId`.
+   * A client signed in with `cookie`, connected and watching draft
+   * `draftId`, and the drafts pushed to it from then on.
    */
-  async function watch(draftId: string, cookie: string): Promise<DraftView[]> {
+  async function watching(draftId: string, cookie: string) {
     const socket = await connected(cookie);
     const changes: DraftView[] = [];
     socket.on('changed', (draft) => changes.push(draft));
     expect(await socket.emitWithAck('watch', draftId)).toBe('watching');
-    return changes;
+    return { socket, changes };
   }
 
-  return { socketFor, connected, watch };
+  /**
+   * The drafts pushed to whoever `cookie` signs in as, from once they are
+   * connected and watching draft `draftId`.
+   */
+  async function watch(draftId: string, cookie: string): Promise<DraftView[]> {
+    return (await watching(draftId, cookie)).changes;
+  }
+
+  return { socketFor, connected, watching, watch };
 }

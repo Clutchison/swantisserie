@@ -196,7 +196,7 @@ export interface DraftSocketRequests {
    */
   watch: (draftId: string, ack: (result: DraftWatchResult) => void) => void;
   /** Stop pushing the draft of id `draftId`'s changes to this socket. */
-  stopWatching: (draftId: string, ack: (result: 'stopped') => void) => void;
+  stopWatching: (draftId: string, ack: () => void) => void;
 }
 
 /** The api's answer to a request to watch a draft. */

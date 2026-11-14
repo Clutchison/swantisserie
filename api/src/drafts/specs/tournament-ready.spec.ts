@@ -1,4 +1,4 @@
-import type { DraftView, ViewerTournamentView } from 'contract';
+import type { ViewerTournamentView } from 'contract';
 import { useSockets } from './socket-harness.js';
 import {
   alice,
@@ -294,14 +294,9 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
   describe('pushed to another viewer', () => {
     const { watch } = useSockets();
 
-    /** The drafts pushed to whoever `cookie` signs in as, watching draft `id`, from once they are connected. */
-    function watchAs(id: string, cookie = aliceCookie): Promise<DraftView[]> {
-      return watch(id, cookie);
-    }
-
     it('pushes the draft, its version bumped, to another viewer when ready clears', async () => {
       const id = await bobReady();
-      const pushed = await watchAs(id);
+      const pushed = await watch(id, aliceCookie);
       const before = await version(id);
 
       await shrinkDeck(id, bobCookie).expect(200);
@@ -314,7 +309,7 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
     it('pushes the draft to the player’s other device, whose plan read then shows the Ready notice', async () => {
       const id = await bobReady();
       const otherDevice = await signIn(bob);
-      const pushed = await watchAs(id, otherDevice);
+      const pushed = await watch(id, otherDevice);
       const before = await version(id);
 
       await shrinkDeck(id, bobCookie).expect(200);

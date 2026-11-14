@@ -1,4 +1,5 @@
 import {
+  Ack,
   ConnectedSocket,
   MessageBody,
   type OnGatewayInit,
@@ -29,6 +30,12 @@ const parseCookies = cookieParser();
 interface SocketData {
   /** The socket's signed-in user, found when it was admitted. */
   user: User;
+  /**
+   * Each draft the socket asked to watch and hasn't yet joined, by a token
+   * of that request. A stop removes it and a newer watch replaces it, so
+   * the request no longer joins once its check is done.
+   */
+  pendingWatches: Map<string, symbol>;
 }
 
 type DraftSocket = Socket<
@@ -78,14 +85,15 @@ export class DraftsGateway implements OnGatewayInit {
     token: string | undefined,
   ): Promise<User | null> {
     const user = token ? await this.sessions.findUser(token) : null;
-    if (user) socket.data.user = user;
+    if (user) socket.data = { user, pendingWatches: new Map() };
     return user;
   }
 
   /**
    * Joins the socket to the room of the draft it names, if its viewer may
    * see it. A refused watch joins nothing: the client's reads of the draft
-   * already 404.
+   * already 404. Nor does one the client stopped, or dropped the connection,
+   * while it was being checked.
    */
   @SubscribeMessage('watch')
   async watch(
@@ -93,27 +101,43 @@ export class DraftsGateway implements OnGatewayInit {
     @MessageBody() draftId: unknown,
   ): Promise<DraftWatchResult> {
     if (typeof draftId !== 'string') return 'refused';
-    try {
-      await this.access.canSee(
-        toSessionUser(socket.data.user, this.appAdmins),
-        draftId,
-      );
-    } catch (err) {
-      if (err instanceof CannotSeeDraftError) return 'refused';
-      throw err;
-    }
+    const { pendingWatches } = socket.data;
+    const request = Symbol(draftId);
+    pendingWatches.set(draftId, request);
+    const visible = await this.canSee(socket.data.user, draftId);
+    const stillWanted = pendingWatches.get(draftId) === request;
+    if (stillWanted) pendingWatches.delete(draftId);
+    if (!stillWanted || !socket.connected || !visible) return 'refused';
     await socket.join(room(draftId));
     return 'watching';
   }
 
-  /** Takes the socket out of the room of the draft it names. */
+  /** Whether `user` may see the draft of id `draftId`. */
+  private async canSee(user: User, draftId: string): Promise<boolean> {
+    try {
+      await this.access.canSee(toSessionUser(user, this.appAdmins), draftId);
+      return true;
+    } catch (err) {
+      if (err instanceof CannotSeeDraftError) return false;
+      throw err;
+    }
+  }
+
+  /**
+   * Takes the socket out of the room of the draft it names, and stops any
+   * watch of it still being checked from joining.
+   */
   @SubscribeMessage('stopWatching')
   async stopWatching(
     @ConnectedSocket() socket: DraftSocket,
     @MessageBody() draftId: unknown,
-  ): Promise<'stopped'> {
-    if (typeof draftId === 'string') await socket.leave(room(draftId));
-    return 'stopped';
+    @Ack() ack: () => void,
+  ): Promise<void> {
+    if (typeof draftId === 'string') {
+      socket.data.pendingWatches.delete(draftId);
+      await socket.leave(room(draftId));
+    }
+    ack();
   }
 
   /** Tells everyone watching the draft how it now is. */

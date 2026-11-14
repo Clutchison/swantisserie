@@ -256,27 +256,24 @@ describe('draft updates', () => {
       expect(received).toEqual([]);
     });
 
-    it('disconnects the socket once no draft is watched', () => {
+    it('keeps the socket once no draft is watched, for the next draft watched', () => {
+      socket.push('connect');
       watching.unsubscribe();
 
-      expect(socket.disconnect).toHaveBeenCalledOnce();
+      watching = updates.watch('draft-2').subscribe();
+
+      expect(socket.disconnect).not.toHaveBeenCalled();
+      expect(io).toHaveBeenCalledOnce();
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-2']);
     });
 
-    it('cancels a pending retry once no draft is watched', () => {
+    it('goes on retrying once no draft is watched, so the socket is ready for the next', () => {
       socket.refuse('lookup failed', { active: false });
 
       watching.unsubscribe();
       vi.advanceTimersByTime(RETRY_MS);
 
-      expect(socket.connect).not.toHaveBeenCalled();
-    });
-
-    it('opens a new socket for the next draft watched', () => {
-      watching.unsubscribe();
-
-      watching = updates.watch('draft-2').subscribe();
-
-      expect(io).toHaveBeenCalledTimes(2);
+      expect(socket.connect).toHaveBeenCalledOnce();
     });
   });
 });

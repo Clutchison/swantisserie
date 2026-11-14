@@ -27,6 +27,9 @@ export type DraftUpdate =
   /** The API refused the socket because the session has ended. It stops retrying. */
   | { type: 'unauthorized' };
 
+/** The tab's socket of the API's drafts gateway. */
+type DraftSocket = Socket<DraftSocketEvents, DraftSocketRequests>;
+
 /** What the one socket says, for each stream to pass on as it needs. */
 type SocketEvent =
   | { type: 'connect' }
@@ -37,19 +40,17 @@ type SocketEvent =
 
 /**
  * Pushed updates of drafts, over the API's Socket.IO gateway. The tab has
- * one socket, open while any stream is subscribed, which every stream
- * shares.
+ * one socket, opened when a stream first subscribes and kept for the tab's
+ * life, which every stream shares. It stops only when the session ends,
+ * until a stream subscribes again.
  */
 @Injectable({ providedIn: 'root' })
 export class DraftUpdates {
-  private socket?: Socket<DraftSocketEvents, DraftSocketRequests>;
+  private socket?: DraftSocket;
   /** Everything the socket says, to every stream. */
-  private readonly events = new Subject<SocketEvent>();
-  /** How many streams are subscribed: the socket closes when none are. */
-  private streams = 0;
+  private readonly socketEvents = new Subject<SocketEvent>();
   /** How many streams watch each draft: the API is asked to stop when none do. */
   private readonly watchers = new Map<string, number>();
-  private retry?: ReturnType<typeof setTimeout>;
   /** Whether the socket stopped because the session ended. */
   private ended = false;
 
@@ -60,15 +61,17 @@ export class DraftUpdates {
   watch(draftId: string): Observable<DraftUpdate> {
     return new Observable((subscriber) => {
       let watching = true;
-      const ask = () =>
+      // Socket.IO drops an unanswered acknowledgement when the socket drops,
+      // and the reconnect asks again.
+      const askToWatch = () =>
         this.socket?.emit('watch', draftId, () => {
           // Refused or not, catch up: a draft the viewer can't see 404s.
           if (watching) subscriber.next({ type: 'connected' });
         });
-      const events = this.events.subscribe((event) => {
+      const passOn = this.socketEvents.subscribe((event) => {
         switch (event.type) {
           case 'connect':
-            ask();
+            askToWatch();
             break;
           case 'changed':
             if (event.draft.id === draftId) subscriber.next(event);
@@ -81,25 +84,23 @@ export class DraftUpdates {
         }
       });
       this.watchers.set(draftId, (this.watchers.get(draftId) ?? 0) + 1);
-      if (this.open().connected) ask();
+      if (this.open().connected) askToWatch();
       return () => {
         watching = false;
-        events.unsubscribe();
-        const left = (this.watchers.get(draftId) ?? 1) - 1;
-        if (left > 0) {
-          this.watchers.set(draftId, left);
+        passOn.unsubscribe();
+        const stillWatching = (this.watchers.get(draftId) ?? 1) - 1;
+        if (stillWatching > 0) {
+          this.watchers.set(draftId, stillWatching);
         } else {
           this.watchers.delete(draftId);
           if (this.socket?.connected) this.socket.emit('stopWatching', draftId, () => undefined);
         }
-        this.close();
       };
     });
   }
 
-  /** The tab's socket, opened for a stream subscribing, or tried again if the session had ended. */
-  private open(): Socket<DraftSocketEvents, DraftSocketRequests> {
-    this.streams++;
+  /** The tab's socket, opened the first time, or tried again if the session had ended. */
+  private open(): DraftSocket {
     if (this.socket) {
       if (this.ended) {
         this.ended = false;
@@ -107,34 +108,25 @@ export class DraftUpdates {
       }
       return this.socket;
     }
-    const socket: Socket<DraftSocketEvents, DraftSocketRequests> = io({ path: '/api/socket.io' });
+    const socket: DraftSocket = io({ path: '/api/socket.io' });
     this.socket = socket;
-    socket.on('connect', () => this.events.next({ type: 'connect' }));
-    socket.on('changed', (draft) => this.events.next({ type: 'changed', draft }));
-    socket.on('cancelled', (draftId) => this.events.next({ type: 'cancelled', draftId }));
-    socket.on('disconnect', () => this.events.next({ type: 'disconnected' }));
+    socket.on('connect', () => this.socketEvents.next({ type: 'connect' }));
+    socket.on('changed', (draft) => this.socketEvents.next({ type: 'changed', draft }));
+    socket.on('cancelled', (draftId) => this.socketEvents.next({ type: 'cancelled', draftId }));
+    socket.on('disconnect', () => this.socketEvents.next({ type: 'disconnected' }));
     socket.on('connect_error', (err) => {
       const unauthorized = err.message === 'unauthorized';
-      if (!unauthorized) this.events.next({ type: 'disconnected' });
+      if (!unauthorized) this.socketEvents.next({ type: 'disconnected' });
       // Socket.IO gives up after a refused handshake. Try again unless the
       // session is gone: a lookup can fail while the server is waking.
       if (socket.active) return;
       if (unauthorized) {
         this.ended = true;
-        this.events.next({ type: 'unauthorized' });
+        this.socketEvents.next({ type: 'unauthorized' });
       } else {
-        this.retry = setTimeout(() => socket.connect(), RETRY_MS);
+        setTimeout(() => socket.connect(), RETRY_MS);
       }
     });
     return socket;
-  }
-
-  /** Lets go of the socket for a stream unsubscribing, closing it once no stream is left. */
-  private close(): void {
-    if (--this.streams > 0) return;
-    clearTimeout(this.retry);
-    this.socket?.disconnect();
-    this.socket = undefined;
-    this.ended = false;
   }
 }

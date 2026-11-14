@@ -383,11 +383,6 @@ describe('completing a single elimination tournament round', () => {
 describe('single elimination’s live updates', () => {
   const { watch } = useSockets();
 
-  /** The drafts pushed to Bob, watching draft `draftId`, from once he is connected. */
-  function watchAsBob(draftId: string): Promise<DraftView[]> {
-    return watch(draftId, bobCookie);
-  }
-
   /**
    * Expects `change` to answer the draft of `id` with its version bumped
    * once and its tournament in `state`, and to push that draft to Bob.
@@ -397,7 +392,7 @@ describe('single elimination’s live updates', () => {
     change: () => Promise<{ body: DraftView }>,
     state: TournamentView['state'],
   ) {
-    const pushed = await watchAsBob(id);
+    const pushed = await watch(id, bobCookie);
     const before = (await getDraft(id).expect(200)).body as DraftView;
 
     const { body } = await change();

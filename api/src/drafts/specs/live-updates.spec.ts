@@ -29,7 +29,7 @@ import { useSockets } from './socket-harness.js';
 useDraftsApp();
 
 describe('live updates', () => {
-  const { socketFor, connected, watch } = useSockets();
+  const { socketFor, connected, watching, watch } = useSockets();
 
   it('tells everyone watching a draft that it was cancelled, with its id', async () => {
     const id = await readyDraft([aliceCookie]);
@@ -97,15 +97,11 @@ describe('live updates', () => {
 
   it('pushes nothing more of a draft once its viewer stops watching it', async () => {
     const id = await readyDraft([]);
-    const bobCookie = await signIn(bob);
-    const socket = await connected(bobCookie);
-    const bobSees: DraftView[] = [];
-    socket.on('changed', (draft) => bobSees.push(draft));
-    await socket.emitWithAck('watch', id);
+    const { socket, changes: bobSees } = await watching(id, await signIn(bob));
     await join(id).expect(201);
     await vi.waitFor(() => expect(bobSees).toHaveLength(1));
 
-    expect(await socket.emitWithAck('stopWatching', id)).toBe('stopped');
+    await socket.emitWithAck('stopWatching', id);
     await leave(id).expect(200);
     const carolSees = await watch(id, await signIn(carol));
     await join(id).expect(201);
@@ -114,19 +110,36 @@ describe('live updates', () => {
     expect(bobSees).toHaveLength(1);
   });
 
+  it('pushes nothing of a draft whose viewer stops watching it before the watch is answered', async () => {
+    const id = await readyDraft([]);
+    const socket = await connected(await signIn(bob));
+    const bobSees: DraftView[] = [];
+    socket.on('changed', (draft) => bobSees.push(draft));
+
+    const [watched] = await Promise.all([
+      socket.emitWithAck('watch', id),
+      socket.emitWithAck('stopWatching', id),
+    ]);
+    const carolSees = await watch(id, await signIn(carol));
+    await join(id).expect(201);
+
+    expect(watched).toBe('refused');
+    await vi.waitFor(() => expect(carolSees).toHaveLength(1));
+    expect(bobSees).toEqual([]);
+  });
+
   it('pushes each draft a socket watches, to that socket', async () => {
     const id = await readyDraft([]);
     const other = await readyDraft([]);
-    const socket = await connected(await signIn(bob));
-    const pushed: string[] = [];
-    socket.on('changed', (draft) => pushed.push(draft.id));
-    await socket.emitWithAck('watch', id);
+    const { socket, changes } = await watching(id, await signIn(bob));
     await socket.emitWithAck('watch', other);
 
     await join(id).expect(201);
     await join(other).expect(201);
 
-    await vi.waitFor(() => expect(pushed).toEqual([id, other]));
+    await vi.waitFor(() =>
+      expect(changes.map((draft) => draft.id)).toEqual([id, other]),
+    );
   });
 
   it('pushes the frozen draft to its viewers after a pick import', async () => {
