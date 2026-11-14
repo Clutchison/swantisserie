@@ -66,5 +66,19 @@ export function useSockets() {
     return (await watching(draftId, cookie)).changes;
   }
 
-  return { socketFor, connected, watching, watch };
+  /**
+   * A client signed in with `cookie`, connected and watching no draft, and
+   * what is pushed to it from then on: each draft changed, and the id of each
+   * draft cancelled.
+   */
+  async function listening(cookie: string) {
+    const socket = await connected(cookie);
+    const changes: DraftView[] = [];
+    const cancelled: string[] = [];
+    socket.on('changed', (draft) => changes.push(draft));
+    socket.on('cancelled', (draftId) => cancelled.push(draftId));
+    return { socket, changes, cancelled };
+  }
+
+  return { socketFor, connected, watching, watch, listening };
 }

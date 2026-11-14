@@ -34,10 +34,11 @@ export class DraftPublisher {
   }
 
   /**
-   * Tells everyone viewing the draft it was cancelled. A lobby draft has
-   * never been announced, so nothing is posted to its webhook.
+   * Tells everyone viewing the draft, and `playerIds`, its players but the
+   * bots, that it was cancelled. A lobby draft has never been announced, so
+   * nothing is posted to its webhook.
    */
-  cancelled(draftId: string): void {
-    this.gateway.cancelled(draftId);
+  cancelled(draftId: string, playerIds: string[]): void {
+    this.gateway.cancelled(draftId, playerIds);
   }
 }

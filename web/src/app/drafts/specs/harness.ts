@@ -30,14 +30,14 @@ import type {
 } from 'contract';
 import { isTurnState } from 'contract';
 import { currentTurn } from 'engine';
-import { of, Subject } from 'rxjs';
+import { of } from 'rxjs';
 import { App } from '../../app';
 import { routes } from '../../app.routes';
 import { signOutWhenSessionEnds } from '../../auth/sign-out-when-session-ends';
 import { DRAFT_POLL_MS } from '../draft-store';
 import { SET_CATALOG_POLL_MS } from '../set-list-picker';
 import { EMPTY_PLAN, EMPTY_QUEUE, NO_POWERS } from '../drafts';
-import { type DraftUpdate, DraftUpdates } from '../draft-updates';
+import { type FakeDraftUpdates, fakeDraftUpdates } from './updates-harness';
 import { answerTopBar } from '../../top-bar/specs-harness';
 import { disclosure } from './disclosure-harness';
 import {
@@ -135,8 +135,8 @@ export type AppFixture = ComponentFixture<App>;
 
 export let http: HttpTestingController;
 export let router: Router;
-/** Stands in for the API's Socket.IO gateway: push events through `events`. */
-export let updates: { events: Subject<DraftUpdate>; watch: ReturnType<typeof vi.fn> };
+/** Stands in for the API's Socket.IO gateway. */
+export let updates: FakeDraftUpdates;
 
 /**
  * What GET /api/webhooks answers with, without a test having to: every view
@@ -189,8 +189,8 @@ export function useDraftsApp() {
     HTMLImageElement.prototype.decode = function (this: HTMLImageElement) {
       return new Promise((resolve, reject) => decodes.set(this, { resolve, reject }));
     };
-    const events = new Subject<DraftUpdate>();
-    updates = { events, watch: vi.fn(() => events) };
+    const fake = fakeDraftUpdates();
+    updates = fake.updates;
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
@@ -211,7 +211,7 @@ export function useDraftsApp() {
         provideHttpClientTesting(),
         { provide: DRAFT_POLL_MS, useValue: 5 },
         { provide: SET_CATALOG_POLL_MS, useValue: 5 },
-        { provide: DraftUpdates, useValue: updates },
+        fake.provider,
       ],
     });
     http = TestBed.inject(HttpTestingController);

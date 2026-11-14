@@ -222,19 +222,24 @@ export class DraftLobbyService {
 
   /**
    * Cancels the draft: it and everything belonging to it are gone for good.
-   * Throws DraftStartedError once the draft has left Lobby.
+   * Answers with the ids of the players it had, but the bots. Throws
+   * DraftStartedError once the draft has left Lobby.
    */
-  async cancel(draftId: string): Promise<void> {
-    await this.lock.inLobby(draftId, async ({ tx }) => {
-      const bots = await tx.player.findMany({
-        where: { draftId, user: { isBot: true } },
-        select: { userId: true },
+  async cancel(draftId: string): Promise<string[]> {
+    return this.lock.inLobby(draftId, async ({ tx }) => {
+      const players = await tx.player.findMany({
+        where: { draftId },
+        select: { userId: true, user: { select: { isBot: true } } },
       });
+      const bots = players.filter((player) => player.user.isBot);
       await tx.draft.delete({ where: { id: draftId } });
       // A bot only ever plays in the draft it was added to.
       await tx.user.deleteMany({
         where: { id: { in: bots.map((bot) => bot.userId) } },
       });
+      return players
+        .filter((player) => !player.user.isBot)
+        .map((player) => player.userId);
     });
   }
 

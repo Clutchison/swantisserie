@@ -27,6 +27,26 @@ export type DraftUpdate =
   /** The API refused the socket because the session has ended. It stops retrying. */
   | { type: 'unauthorized' };
 
+/**
+ * What the API pushes about the drafts the viewer plays in, without their
+ * being watched. Each changed draft is the one everyone is sent, so it has
+ * nothing of the viewer's own, such as a tournament badge.
+ */
+export type OwnDraftUpdate =
+  /** A draft the viewer plays in changed: here it is as it now is. */
+  | { type: 'changed'; draft: DraftView }
+  /** The draft of id `draftId`, which the viewer played in, was cancelled. */
+  | { type: 'cancelled'; draftId: string }
+  /**
+   * The socket (re)connected. Changes may have been missed while it was down,
+   * so the viewer's drafts should be re-read.
+   */
+  | { type: 'connected' }
+  /** As for a watched draft: the socket dropped and is retrying. */
+  | { type: 'disconnected' }
+  /** As for a watched draft: the session has ended, and it stops retrying. */
+  | { type: 'unauthorized' };
+
 /** The tab's socket of the API's drafts gateway. */
 type DraftSocket = Socket<DraftSocketEvents, DraftSocketRequests>;
 
@@ -96,6 +116,22 @@ export class DraftUpdates {
           if (this.socket?.connected) this.socket.emit('stopWatching', draftId, () => undefined);
         }
       };
+    });
+  }
+
+  /**
+   * The changes of every draft the viewer plays in, which the API pushes
+   * over the tab's one socket without being asked, until unsubscribed. Says
+   * it is connected straight away if the socket already is, as when a
+   * watched draft opened it, and again on every reconnect.
+   */
+  own(): Observable<OwnDraftUpdate> {
+    return new Observable((subscriber) => {
+      const passOn = this.socketEvents.subscribe((event) =>
+        subscriber.next(event.type === 'connect' ? { type: 'connected' } : event),
+      );
+      if (this.open().connected) subscriber.next({ type: 'connected' });
+      return () => passOn.unsubscribe();
     });
   }
 

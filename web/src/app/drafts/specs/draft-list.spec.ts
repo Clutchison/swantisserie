@@ -2,7 +2,7 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { DraftListItemView, TournamentBadgeView } from 'contract';
 import { App } from '../../app';
-import { ViewerDrafts } from '../viewer-drafts';
+import type { OwnDraftUpdate } from '../draft-updates';
 import { alice } from '../../specs-harness';
 import {
   alicePlayer,
@@ -16,6 +16,7 @@ import {
   openUrl,
   router,
   serverError,
+  updates,
   withDoubleTurns,
   type DraftFixture,
 } from './harness';
@@ -28,6 +29,7 @@ import {
   openList,
   section,
 } from './draft-list-harness';
+import { pushToOwnRoom } from './updates-harness';
 
 /** The turn of a drafting draft of Alice and Bob that is Alice's, the viewer's: pick 2, round 1. */
 const yourTurn: DraftFixture = { turn: { pick: 2, round: 1, playerId: alice.id } };
@@ -395,6 +397,137 @@ describe('draft list', () => {
     });
   });
 
+  describe('live, as the viewer’s drafts are pushed', () => {
+    beforeEach(() => (document.title = 'Swantisserie'));
+
+    /** Arena cube, a draft of Alice and Bob drafting on the turn `turn`, with `fields` changed. */
+    const arenaCube = (turn: DraftFixture['turn'], fields: DraftFixture = {}) =>
+      draft({ id: 'a', name: 'Arena cube', ...drafting({ turn, ...fields }) });
+    const alicesTurn = yourTurn.turn;
+    const bobsTurn = { pick: 3, round: 2, playerId: bob.id };
+
+    it('moves a draft into Your turn as the turn reaches the viewer', async () => {
+      const page = await openList([arenaCube(bobsTurn)]);
+
+      push({ type: 'changed', draft: arenaCube(alicesTurn) });
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(listedDrafts(page, 'Active drafts')).toEqual([]);
+      expect(document.title).toBe('Your turn · Swantisserie');
+    });
+
+    it('moves it out again as the turn passes', async () => {
+      const page = await openList([arenaCube(alicesTurn)]);
+
+      push({ type: 'changed', draft: arenaCube(bobsTurn) });
+
+      expect(findSection(page, 'Your turn')).toBeNull();
+      expect(listedDrafts(page, 'Active drafts')).toEqual(['Arena cube']);
+      expect(document.title).toBe('Swantisserie');
+    });
+
+    it.each([
+      ['frozen', { state: 'Frozen' }, 'Active drafts'],
+      ['completed', { state: 'Complete', turn: null }, 'Complete drafts'],
+      ['closed', { state: 'Closed', turn: null }, 'Closed drafts'],
+    ] as const)('moves a draft %s to its section', async (_, fields, heading) => {
+      const page = await openList([arenaCube(alicesTurn)]);
+
+      push({ type: 'changed', draft: arenaCube(alicesTurn, fields) });
+
+      expect(findSection(page, 'Your turn')).toBeNull();
+      expect(listedDrafts(page, heading)).toEqual(['Arena cube']);
+    });
+
+    it('keeps the tournament badge it read', async () => {
+      const page = await openList([
+        {
+          ...arenaCube(alicesTurn),
+          tournamentBadge: { state: 'Registration', canJoin: true, trophyHolders: [] },
+        },
+      ]);
+
+      push({ type: 'changed', draft: arenaCube(bobsTurn) });
+
+      expect(listItem(page, 'Arena cube').textContent).toContain('Registration');
+    });
+
+    it('lists a draft it hadn’t, without a tournament badge', async () => {
+      const page = await openList([]);
+
+      push({ type: 'changed', draft: arenaCube(alicesTurn) });
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(listItem(page, 'Arena cube').textContent).not.toContain('Tournament');
+    });
+
+    it('drops a cancelled draft', async () => {
+      const page = await openList([
+        arenaCube(alicesTurn),
+        draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
+      ]);
+
+      push({ type: 'cancelled', draftId: 'l' });
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(page.textContent).not.toContain('In the lobby');
+    });
+
+    it('lays a push over a read that lands after it, the read made before the push', async () => {
+      const { fixture, page } = await openUrl('/');
+
+      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 2 }) });
+      push({ type: 'cancelled', draftId: 'l' });
+      http
+        .expectOne('/api/drafts')
+        .flush([
+          listItemOf(arenaCube(bobsTurn, { version: 1 })),
+          listItemOf({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
+        ]);
+      await fixture.whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+      expect(page.textContent).not.toContain('In the lobby');
+    });
+
+    it('keeps a push over a re-read on reconnecting that was made before it', async () => {
+      const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
+
+      reconnect();
+      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 2 }))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+
+    it('lists a draft as its newest version, pushed or read', async () => {
+      const page = await openList([arenaCube(bobsTurn, { version: 1 })]);
+
+      push({ type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
+      push({ type: 'changed', draft: arenaCube(bobsTurn, { version: 2 }) });
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+
+      reconnect();
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 4 }))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+      expect(findSection(page, 'Your turn')).toBeNull();
+    });
+
+    it('reads the drafts again on reconnecting, but not on first connecting', async () => {
+      const page = await openList([arenaCube(bobsTurn)]);
+
+      push({ type: 'connected' });
+      http.expectNone('/api/drafts');
+      push({ type: 'disconnected' });
+      push({ type: 'connected' });
+      http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
+    });
+  });
+
   describe('the viewer’s drafts', () => {
     it('are read as the app opens for a signed-in viewer, whatever page it opens on', async () => {
       // openUrl expects the one read, answering it.
@@ -432,8 +565,7 @@ describe('draft list', () => {
       document.title = 'Swantisserie';
       const page = await openList([draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })]);
 
-      TestBed.inject(ViewerDrafts).reload();
-      TestBed.tick();
+      reconnect();
       http.expectOne('/api/drafts').flush(null, serverError);
       await TestBed.inject(ApplicationRef).whenStable();
 
@@ -451,6 +583,16 @@ describe('draft list', () => {
     });
   });
 });
+
+/** The API pushes `update` to the viewer's own room, and the app renders it. */
+const push = (update: OwnDraftUpdate) => pushToOwnRoom(updates, update);
+
+/** The socket connects, drops and connects again, as when the API restarts. */
+function reconnect() {
+  push({ type: 'connected' });
+  push({ type: 'disconnected' });
+  push({ type: 'connected' });
+}
 
 /** Fails the Trophy Hall's read, if it was made: the spec has no use for what it shows. */
 function answerTrophyHall() {

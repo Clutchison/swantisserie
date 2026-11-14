@@ -174,8 +174,8 @@ export type DraftListItemView = DraftView & {
 };
 
 /**
- * What the api pushes over Socket.IO to everyone watching a draft, by event
- * name.
+ * What the api pushes over Socket.IO, by event name: to everyone watching a
+ * draft, and to each of its players but the bots whether watching it or not.
  */
 export interface DraftSocketEvents {
   /** The draft changed: here it is as it now is. */

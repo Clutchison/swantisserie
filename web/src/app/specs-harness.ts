@@ -12,6 +12,7 @@ import type { DraftListItemView, UserView } from 'contract';
 import { App } from './app';
 import { routes } from './app.routes';
 import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
+import { type FakeDraftUpdates, fakeDraftUpdates } from './drafts/specs/updates-harness';
 
 /** A guild member who isn't an app admin. */
 export const alice: UserView = {
@@ -37,16 +38,21 @@ export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[
 
 export let http: HttpTestingController;
 export let router: Router;
+/** Stands in for the API's Socket.IO gateway. */
+export let draftUpdates: FakeDraftUpdates;
 
 /** Registers the hooks that give each test a fresh app and a stand-in API. */
 export function useApp() {
   beforeEach(() => {
+    const fake = fakeDraftUpdates();
+    draftUpdates = fake.updates;
     TestBed.configureTestingModule({
       imports: [App],
       providers: [
         provideRouter(routes, withComponentInputBinding()),
         provideHttpClient(withInterceptors([signOutWhenSessionEnds])),
         provideHttpClientTesting(),
+        fake.provider,
       ],
     });
     http = TestBed.inject(HttpTestingController);

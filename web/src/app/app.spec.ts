@@ -9,6 +9,7 @@ import {
   http,
   openApp,
   openDialog,
+  draftUpdates,
   router,
   useApp,
 } from './specs-harness';
@@ -32,7 +33,8 @@ import {
   turnLinkShown,
 } from './top-bar/specs-harness';
 import { alicesTurnItem, listItemOf } from './drafts/specs/draft-list-harness';
-import type { DraftListItemView } from 'contract';
+import { pushToOwnRoom } from './drafts/specs/updates-harness';
+import type { DraftListItemView, DraftView } from 'contract';
 
 describe('App', () => {
   useApp();
@@ -244,6 +246,20 @@ describe('App', () => {
     ])('isn’t there when %s', async (_, drafts) => {
       const page = await openWithDrafts('/', drafts);
 
+      expect(turnLink(page)).toBeNull();
+    });
+
+    it('appears as the turn reaches the viewer, and goes as it passes, on any page', async () => {
+      const page = await openWithDrafts('/status', [bobsTurn('a', 'Red dragons')], () =>
+        http.expectOne('/api/health').flush({ api: 'ok', db: 'ok' }),
+      );
+      const pushChanged = (draft: DraftView, version: number) =>
+        pushToOwnRoom(draftUpdates, { type: 'changed', draft: { ...draft, version } });
+
+      pushChanged(alicesTurnItem('a', 'Red dragons'), 1);
+      expect(turnLinkShown(page)).toEqual({ text: 'Your turn in Red dragons', href: '/drafts/a' });
+
+      pushChanged(bobsTurn('a', 'Red dragons'), 2);
       expect(turnLink(page)).toBeNull();
     });
   });
