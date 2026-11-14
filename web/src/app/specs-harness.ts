@@ -69,13 +69,13 @@ export function followBack() {
 
 /**
  * The app reads the viewer's drafts as it opens for a signed-in viewer,
- * whatever the page; answers that read with `drafts`, if it was made.
+ * whatever the page; answers that read with `drafts`, failing if it wasn't made.
  */
 export function answerViewerDrafts(
   controller: HttpTestingController,
   drafts: DraftListItemView[] = [],
 ) {
-  for (const req of controller.match('/api/drafts')) req.flush(drafts);
+  controller.expectOne('/api/drafts').flush(drafts);
 }
 
 /** Whether `url` opens the draft list, whose read of the drafts a test answers itself. */
@@ -83,8 +83,9 @@ export const opensDraftList = (url: string) => url.split(/[?#]/)[0] === '/';
 
 /**
  * Opens `url` signed in as `user`, or with /api/auth/me answered by `user`
- * when it is a function. The page's own requests are left to the test, and
- * so is the viewer's drafts' read on the draft list; elsewhere it finds none.
+ * when it is a function. The page's own requests are left to the test. So
+ * is the read of the viewer's drafts on the draft list, or when `user` is a
+ * function; signed in elsewhere, it finds none.
  */
 export async function openApp(url: string, user: UserView | ((me: TestRequest) => void)) {
   const fixture = TestBed.createComponent(App);
@@ -95,7 +96,7 @@ export async function openApp(url: string, user: UserView | ((me: TestRequest) =
   else me.flush(user);
   await navigation;
   TestBed.tick();
-  if (!opensDraftList(url)) answerViewerDrafts(http);
+  if (typeof user !== 'function' && !opensDraftList(url)) answerViewerDrafts(http);
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 

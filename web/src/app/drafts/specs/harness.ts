@@ -242,13 +242,13 @@ export async function decodeRefused(img: HTMLImageElement) {
 
 /**
  * Opens `url` as `user`: Alice, unless told otherwise. The app's read of the
- * viewer's drafts finds `viewerDrafts`: none, except on the draft list, where
- * it is left to the test, as it is anywhere given null.
+ * viewer's drafts finds `viewerDrafts`, none unless given; on the draft list,
+ * whose read a test answers itself, it is left unanswered.
  */
 export async function openUrl(
   url: string,
   user: UserView = alice,
-  viewerDrafts: DraftListItemView[] | null = opensDraftList(url) ? null : [],
+  { viewerDrafts = [] }: { viewerDrafts?: DraftListItemView[] } = {},
 ) {
   const fixture = TestBed.createComponent(App);
   const navigation = router.navigateByUrl(url);
@@ -256,7 +256,7 @@ export async function openUrl(
   await navigation;
   TestBed.tick();
   answerTopBar(http);
-  if (viewerDrafts) answerViewerDrafts(http, viewerDrafts);
+  if (!opensDraftList(url)) answerViewerDrafts(http, viewerDrafts);
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 

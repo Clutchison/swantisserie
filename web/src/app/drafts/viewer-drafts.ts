@@ -1,7 +1,8 @@
 import { httpResource } from '@angular/common/http';
-import { computed, inject, Injectable } from '@angular/core';
+import { computed, inject, Injectable, linkedSignal } from '@angular/core';
 import type { DraftListItemView } from 'contract';
 import { Auth } from '../auth/auth';
+import { isTurnOf } from './drafts';
 
 /**
  * The signed-in viewer's drafts, as the draft list lists them, for the whole
@@ -16,17 +17,30 @@ export class ViewerDrafts {
     this.user() ? '/api/drafts' : undefined,
   );
 
-  /** The drafts as last read; undefined until the first read, or while a read has failed. */
-  readonly drafts = computed(() => (this.read.hasValue() ? this.read.value() : undefined));
+  /**
+   * The drafts as last read: undefined until the first read lands, or if it
+   * fails. A failed read again keeps those last read, rather than leave the
+   * viewer told nothing of their turns.
+   */
+  readonly drafts = linkedSignal<
+    { read?: DraftListItemView[]; failed: boolean },
+    DraftListItemView[] | undefined
+  >({
+    source: () => ({
+      read: this.read.hasValue() ? this.read.value() : undefined,
+      failed: !!this.read.error(),
+    }),
+    computation: ({ read, failed }, previous) => read ?? (failed ? previous?.value : undefined),
+  }).asReadonly();
   /** Whether the drafts are being read with none to show meanwhile. */
-  readonly loading = computed(() => this.read.isLoading() && !this.read.hasValue());
+  readonly loading = computed(() => this.read.isLoading() && !this.drafts());
   /** Whether the latest read failed, leaving no drafts to show. */
-  readonly failed = computed(() => !!this.read.error());
+  readonly failed = computed(() => !!this.read.error() && !this.drafts());
   /** The drafts drafting on the viewer's turn, those they can pick in now, in the order read; none until read. */
   readonly yourTurn = computed(() => {
-    const viewer = this.user();
+    const viewer = this.user()?.id;
     return (this.drafts() ?? []).filter(
-      (draft) => draft.state === 'Drafting' && draft.turn.playerId === viewer?.id,
+      (draft) => draft.state === 'Drafting' && isTurnOf(draft, viewer),
     );
   });
 

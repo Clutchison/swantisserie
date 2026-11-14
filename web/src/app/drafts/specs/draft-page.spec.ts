@@ -252,7 +252,6 @@ describe('draft page', () => {
       const { fixture } = await openDraft(completeSnapshot);
 
       await router.navigateByUrl('/');
-      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
       await fixture.whenStable();
 
       expect(document.title).toBe('Swantisserie');
@@ -262,7 +261,7 @@ describe('draft page', () => {
       const { fixture } = await openDraft(completeSnapshot);
 
       updates.events.next({ type: 'cancelled' });
-      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+      await vi.waitFor(() => expect(router.url).toBe('/'));
       await fixture.whenStable();
 
       expect(router.url).toBe('/');
@@ -717,7 +716,6 @@ describe('draft page', () => {
       back();
 
       await vi.waitFor(() => expect(router.url).toBe('/'));
-      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([opened]);
     });
 
     it('shows the URL’s tab again when the navigation to a clicked tab is cancelled', async () => {

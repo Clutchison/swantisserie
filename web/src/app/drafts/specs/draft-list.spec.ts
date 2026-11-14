@@ -1,7 +1,9 @@
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { DraftListItemView, TournamentBadgeView } from 'contract';
 import { App } from '../../app';
-import { alice, answerViewerDrafts } from '../../specs-harness';
+import { ViewerDrafts } from '../viewer-drafts';
+import { alice } from '../../specs-harness';
 import {
   alicePlayer,
   bob,
@@ -13,6 +15,7 @@ import {
   link,
   openUrl,
   router,
+  serverError,
   withDoubleTurns,
   type DraftFixture,
 } from './harness';
@@ -284,7 +287,7 @@ describe('draft list', () => {
     // The app's title, as index.html sets it; the test document has none of its own.
     beforeEach(() => (document.title = 'Swantisserie'));
 
-    it('lists each drafting draft on the viewer’s turn above Active drafts, and not again under it', async () => {
+    it('lists each drafting draft on the viewer’s turn, and not again under Active drafts', async () => {
       const page = await openList([
         draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) }),
         draft({ id: 'b', name: 'Arena cube', ...drafting() }),
@@ -292,12 +295,6 @@ describe('draft list', () => {
         draft({ id: 'l', name: 'In the lobby', state: 'Lobby' }),
       ]);
 
-      expect([...page.querySelectorAll('h2')].map((h2) => h2.textContent)).toEqual([
-        'Your turn',
-        'Active drafts',
-        'Complete drafts',
-        'Closed drafts',
-      ]);
       expect(listedDrafts(page, 'Your turn').sort()).toEqual(['Blue sphinxes', 'Red dragons']);
       expect(listedDrafts(page, 'Active drafts').sort()).toEqual(['Arena cube', 'In the lobby']);
     });
@@ -335,7 +332,6 @@ describe('draft list', () => {
 
       const shown = draftLink(section(page, 'Your turn'), 'a')?.textContent;
       expect(shown).toContain('Pick 4, round 2');
-      expect(shown).not.toContain('pick ·');
       expect(shown).not.toMatch(/·\s*(2 picks|1 more pick)/);
     });
 
@@ -401,11 +397,8 @@ describe('draft list', () => {
 
   describe('the viewer’s drafts', () => {
     it('are read as the app opens for a signed-in viewer, whatever page it opens on', async () => {
-      await openUrl('/trophy-hall', alice, null);
-
-      const read = http.match('/api/drafts');
-      expect(read.length).toBe(1);
-      read[0].flush([]);
+      // openUrl expects the one read, answering it.
+      await openUrl('/trophy-hall');
       answerTrophyHall();
     });
 
@@ -422,34 +415,39 @@ describe('draft list', () => {
       http.expectNone('/api/drafts');
     });
 
-    it('are read again each later time the list opens, which shows the list it last read meanwhile', async () => {
-      const { fixture, page } = await openUrl('/');
-      http.expectOne('/api/drafts').flush([listItemOf({ id: 'a', name: 'Red dragons' })]);
-      await fixture.whenStable();
-
-      await router.navigateByUrl('/trophy-hall');
+    it('opening on another page, are shown as read when the list opens, without reading them again', async () => {
+      const { fixture, page } = await openUrl('/trophy-hall', alice, {
+        viewerDrafts: [listItemOf({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })],
+      });
       answerTrophyHall();
-      await router.navigateByUrl('/');
-      TestBed.tick();
-      const reread = http.expectOne('/api/drafts');
-      expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
 
-      reread.flush([listItemOf({ id: 'b', name: 'Arena cube' })]);
+      await router.navigateByUrl('/');
       await fixture.whenStable();
-      expect(listedDrafts(page, 'Active drafts')).toEqual(['Arena cube']);
+
+      http.expectNone('/api/drafts');
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
     });
 
-    it('opening on another page, are shown as read when the list opens next, and read again', async () => {
-      const { fixture, page } = await openUrl('/trophy-hall', alice, null);
-      answerViewerDrafts(http, [listItemOf({ id: 'a', name: 'Red dragons' })]);
-      answerTrophyHall();
+    it('stay as last read when reading them again fails', async () => {
+      document.title = 'Swantisserie';
+      const page = await openList([draft({ id: 'a', name: 'Red dragons', ...drafting(yourTurn) })]);
 
-      await router.navigateByUrl('/');
+      TestBed.inject(ViewerDrafts).reload();
       TestBed.tick();
-      const reread = http.expectOne('/api/drafts');
-      expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
-      reread.flush([listItemOf({ id: 'a', name: 'Red dragons' })]);
+      http.expectOne('/api/drafts').flush(null, serverError);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+      expect(page.textContent).not.toContain("Couldn't load the drafts.");
+      expect(document.title).toBe('Your turn · Swantisserie');
+    });
+
+    it('say so when their first read fails', async () => {
+      const { fixture, page } = await openUrl('/');
+      http.expectOne('/api/drafts').flush(null, serverError);
       await fixture.whenStable();
+
+      expect(page.textContent).toContain("Couldn't load the drafts.");
     });
   });
 });

@@ -10,10 +10,9 @@ import {
 import { Title } from '@angular/platform-browser';
 import { Router, RouterLink } from '@angular/router';
 import type { DraftListItemView } from 'contract';
-import { draftSize, picksPerTurn } from 'engine';
 import { Auth } from '../auth/auth';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { doubleTurnSuffix, isActive } from './drafts';
+import { doubleTurnSuffix, isActive, isDoubleTurn, isTurnOf } from './drafts';
 import { ViewerDrafts } from './viewer-drafts';
 
 /** Names a list of players as a sentence does: "Alice", "Alice and Bob", "Alice, Bob, and Carol". */
@@ -35,10 +34,9 @@ function tournamentUnderWay(draft: DraftListItemView): boolean {
 export class DraftListPage {
   private readonly viewerDrafts = inject(ViewerDrafts);
   private readonly viewer = inject(Auth).user;
-  private readonly router = inject(Router);
 
   /** What the page that sent the viewer here wants them told, e.g. a draft was cancelled. */
-  protected readonly notice = this.router.currentNavigation()?.extras.state?.['notice'] as
+  protected readonly notice = inject(Router).currentNavigation()?.extras.state?.['notice'] as
     string | undefined;
 
   /** The viewer's drafts, read only once they have loaded. */
@@ -65,11 +63,6 @@ export class DraftListPage {
   );
 
   constructor() {
-    // The app read the drafts as it opened, so the first page has them fresh;
-    // a later visit reads them again, as a draft made or a badge changed
-    // since isn't pushed.
-    if (this.router.navigated) this.viewerDrafts.reload();
-
     // The tab says so while any draft is on the viewer's turn, so a viewer can
     // tell from their browser's tabs.
     const title = inject(Title);
@@ -85,8 +78,7 @@ export class DraftListPage {
    */
   protected turnText(draft: DraftListItemView): string {
     const turn = draft.turn!;
-    const doubleTurn = picksPerTurn(draftSize(draft, draft.players.length), turn.round) === 2;
-    const suffix = doubleTurn ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
+    const suffix = isDoubleTurn(draft) ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
     return `Pick ${turn.pick}, round ${turn.round}${suffix}`;
   }
 
@@ -96,7 +88,7 @@ export class DraftListPage {
    */
   protected listedState(draft: DraftListItemView): string {
     if (tournamentUnderWay(draft)) return `Tournament: ${draft.tournamentBadge!.state}`;
-    if (draft.state === 'Frozen' && draft.turn.playerId === this.viewer()?.id) {
+    if (draft.state === 'Frozen' && isTurnOf(draft, this.viewer()?.id)) {
       return 'Your turn (frozen)';
     }
     return draft.state;

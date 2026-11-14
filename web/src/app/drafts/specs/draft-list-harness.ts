@@ -35,20 +35,18 @@ export function draftLink(root: HTMLElement, id: string): HTMLAnchorElement | nu
   return root.querySelector<HTMLAnchorElement>(`a[href="/drafts/${id}"]`);
 }
 
-/** The draft list's section headed `heading`. */
+/** The draft list's section headed `heading`, or null when there is none. */
+export const findSection = (page: HTMLElement, heading: string) =>
+  [...page.querySelectorAll('section')].find(
+    (s) => s.querySelector('h2')?.textContent?.trim() === heading,
+  ) ?? null;
+
+/** The draft list's section headed `heading`, which a test expects there. */
 export function section(page: HTMLElement, heading: string): HTMLElement {
-  const found = [...page.querySelectorAll('section')].find((s) =>
-    s.querySelector('h2')?.textContent?.includes(heading),
-  );
+  const found = findSection(page, heading);
   if (!found) throw new Error(`No section headed ${heading}`);
   return found;
 }
-
-/** The draft list's section named `name`, or null when there is none. */
-export const findSection = (page: HTMLElement, name: string) =>
-  [...page.querySelectorAll('section')].find(
-    (s) => s.querySelector('h2')?.textContent?.trim() === name,
-  ) ?? null;
 
 /** A draft as the draft list lists it, without a tournament badge. */
 export function listItemOf(fields: DraftFixture): DraftListItemView {
