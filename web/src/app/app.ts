@@ -25,6 +25,7 @@ import { DialogShell } from './dialog-shell';
 import { FEEDBACK_HEADING, FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
 import { TopBarMenu } from './top-bar/top-bar-menu';
+import { ViewerDrafts } from './drafts/viewer-drafts';
 
 @Component({
   imports: [LoadingAnimation, NgTemplateOutlet, RouterLink, RouterOutlet, TopBarMenu],
@@ -104,6 +105,11 @@ export class App {
         return this.narrowMenu()?.button();
       },
     });
+  }
+
+  constructor() {
+    // Read as the app opens, whatever the page, so a viewer can be told it is their turn anywhere.
+    inject(ViewerDrafts);
   }
 
   protected logout() {

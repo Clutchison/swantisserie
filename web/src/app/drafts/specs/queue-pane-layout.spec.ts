@@ -530,7 +530,6 @@ describe('Queue pane layout', () => {
 
       // Away to the draft list, and back.
       await router.navigateByUrl('/');
-      (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
       await fixture.whenStable();
       expect(findQueuePane(page)).toBeNull();
       await router.navigateByUrl('/drafts/draft-1');

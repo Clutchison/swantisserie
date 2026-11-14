@@ -107,6 +107,18 @@
     }
   </div>
 </div>
+<!-- The Turn banner, in a live region that is there before its text, so the
+     turn is announced on landing and as it reaches the viewer; it never takes focus. -->
+<div
+  class="turn-banner"
+  role="status"
+  aria-label="Turn"
+  [attr.data-stands-out]="bannerReady() ? turnBanner()?.standsOut : null"
+>
+  @if (bannerReady() && turnBanner(); as banner) {
+    <p>{{ banner.text }}</p>
+  }
+</div>
 @if (inLobby() && canOrganize() && !poolReady()) {
   <p class="detail">You can start the draft once the pool snapshot is complete.</p>
 }

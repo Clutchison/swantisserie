@@ -37,6 +37,31 @@
   font-weight: 600;
 }
 
+/*
+ * The Turn banner, in the accent while the viewer can pick; muted while the
+ * draft is frozen. No animation, so it stands out the same under reduced motion.
+ * Its live region stays shown, as a hidden one isn't announced, and takes no room while empty.
+ */
+.turn-banner {
+  font-weight: 600;
+
+  p {
+    margin: 0 0 var(--space-md);
+    padding: var(--space-sm) var(--space-md);
+    border-radius: 0.25rem;
+  }
+
+  &[data-stands-out='true'] p {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+
+  &[data-stands-out='false'] p {
+    background: var(--color-surface);
+    color: var(--color-muted);
+  }
+}
+
 /* "This draft is full.", in Join's place among the header's actions. */
 .actions .detail {
   flex-basis: auto;

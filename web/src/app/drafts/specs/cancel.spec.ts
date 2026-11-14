@@ -9,7 +9,6 @@ import {
   http,
   router,
   updates,
-  openList,
   bob,
   alicePlayer,
   openDraft,
@@ -24,6 +23,7 @@ import {
   openUrl,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore } from './draft-header-harness';
+import { openList } from './draft-list-harness';
 
 useDraftsApp();
 
@@ -33,9 +33,9 @@ describe('cancel', () => {
   const running: PoolSnapshotView = { state: 'Running', cards: 0, total: null };
   const failed: PoolSnapshotView = { state: 'Failed', cards: 0, total: null, error: 'Nope' };
 
-  /** Answers the draft list the page was sent to, and returns its notice. */
+  /** Waits for the draft list the page sent the viewer to, and returns its notice. */
   async function flushList(fixture: AppFixture, page: HTMLElement) {
-    (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([]);
+    await vi.waitFor(() => expect(router.url).toBe('/'));
     await fixture.whenStable();
     return page.querySelector('.notice')?.textContent?.trim();
   }

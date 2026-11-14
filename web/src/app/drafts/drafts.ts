@@ -12,6 +12,7 @@ import type {
   TurnState,
 } from 'contract';
 import { isTurnState } from 'contract';
+import { draftSize, picksPerTurn } from 'engine';
 import type { Changes } from './changes';
 
 /**
@@ -236,4 +237,16 @@ export const EMPTY_PLAN: PlanView = {
  */
 export function doubleTurnSuffix(picksBeforeTurnPasses: 1 | 2) {
   return picksBeforeTurnPasses === 2 ? ' · 2 picks' : ' · 1 more pick';
+}
+
+/** Whether it is the turn of the player `playerId` in `draft`; false with no turn or no player. */
+export function isTurnOf(draft: DraftView, playerId: string | undefined): boolean {
+  return !!draft.turn && draft.turn.playerId === playerId;
+}
+
+/** Whether `draft`'s turn is a double turn, on either of its picks; false with no turn. */
+export function isDoubleTurn(draft: DraftView): boolean {
+  return (
+    !!draft.turn && picksPerTurn(draftSize(draft, draft.players.length), draft.turn.round) === 2
+  );
 }
