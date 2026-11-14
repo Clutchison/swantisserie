@@ -106,7 +106,7 @@ export class PlansController {
 
   /**
    * Moves one copy of a basic land to the plan board the body names, taking
-   * it from the other. Declared before `:poolCardId`, which would match it.
+   * it from the other.
    */
   @Put('basics/:land')
   async moveBasic(
@@ -131,7 +131,7 @@ export class PlansController {
     return this.change(user, id, () => this.plans.clearBasics(id, user.id));
   }
 
-  /** Takes one copy of a basic land off a plan board. Declared before `:poolCardId`, which would match it. */
+  /** Takes one copy of a basic land off a plan board. */
   @Delete('basics/:land/:board')
   async removeBasic(
     @CurrentUser() user: SessionUser,
