@@ -138,8 +138,8 @@ export interface TournamentRoundView {
   /**
    * The Discord user ids of the players sitting this round out: at most one
    * in Swiss, none in round robin; in single elimination, the top seeds' in
-   * round 1, and later each player whose would-be opponent nobody sent on,
-   * in bracket place order.
+   * round 1, and later each player who would have met the winner of a
+   * match nobody advances from, in bracket place order.
    */
   byes: string[];
 }
@@ -212,8 +212,9 @@ export interface StandingView {
   matches: TallyView;
   games: TallyView;
   /**
-   * From 0 to 100. In round robin, games won as a percentage of games
-   * played; 0 before any game is played. In Swiss, the MTR's: game points
+   * From 0 to 100. In round robin and single elimination, games won as a
+   * percentage of games played, a single elimination bye counting as two
+   * won; 0 before any game is played. In Swiss, the MTR's: game points
    * as a percentage of 3 per game played, floored at 33, so 33 before any
    * game is played.
    */
