@@ -109,7 +109,7 @@ describe('queuesAfterPick', () => {
     ]);
   });
 
-  it('leaves a queue paused already queue paused, under either steal behavior, and says so', () => {
+  it('leaves a queue paused when it already was, under either steal behavior, and says so', () => {
     expect(
       queuesAfterPick(
         { seat: 0, card: 'bolt-1' },
@@ -167,7 +167,7 @@ describe('nextQueuedPick', () => {
     });
   });
 
-  it('picks nothing from a queue that is queue paused', () => {
+  it('picks nothing with the queue paused', () => {
     expect(
       nextQueuedPick(
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
