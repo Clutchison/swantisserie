@@ -1,4 +1,4 @@
-import { accessibleName, table, text } from '../../specs-harness';
+import { accessibleName, stubScrollIntoView, table, text } from '../../specs-harness';
 import { panel } from './harness';
 
 /** A table's rows, column headers, row headers and cells, by their roles, native or ARIA. */
@@ -48,23 +48,12 @@ export function boardCell(page: HTMLElement, row: string, column: string) {
 /**
  * Stands in for `scrollIntoView`, which jsdom lacks, until the test finishes.
  * Returns what has been scrolled into view so far, in order: each row of the
- * grid by its round label's accessible name, anything else by its tag name.
+ * grid by its round label's accessible name, anything else as 'something else'.
  */
 export function stubBoardScrolling() {
-  const scrolled: Element[] = [];
-  Object.defineProperty(Element.prototype, 'scrollIntoView', {
-    configurable: true,
-    value(this: Element) {
-      scrolled.push(this);
-    },
-  });
-  onTestFinished(() => {
-    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
-  });
+  const scrolls = stubScrollIntoView();
   return () =>
-    scrolled.map((element) =>
-      element.querySelector(ROW_HEADERS)
-        ? rowName(element as HTMLElement)
-        : element.tagName.toLowerCase(),
+    scrolls.map(({ element }) =>
+      element.querySelector(ROW_HEADERS) ? rowName(element as HTMLElement) : 'something else',
     );
 }

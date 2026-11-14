@@ -380,5 +380,43 @@ describe('board tab', () => {
 
       expect(scrolled()).toEqual([`Round 2, ${BACK}`]);
     });
+
+    it('doesn’t scroll the board for an undo', async () => {
+      const scrolled = stubBoardScrolling();
+      const { fixture, page } = await openBoard(picks);
+
+      await changeTo({ turn: { pick: 2, round: 1, playerId: alice.id } }, (req) =>
+        req.flush([picks[0]]),
+      );
+      await fixture.whenStable();
+
+      expect(boardRows(page)).toEqual([[`Round 1, ${FORWARD}`, 'Shock', '']]);
+      expect(scrolled()).toEqual([`Round 2, ${BACK}`]);
+    });
+
+    it('doesn’t scroll the board when the draft turns complete', async () => {
+      const scrolled = stubBoardScrolling();
+      const { fixture, page } = await openBoard(picks, { picksPerPlayer: 2 });
+
+      const last = pickOf({ pick: 4, playerId: bob.id, poolCardId: 'helix-card' });
+      await changeTo({ state: 'Complete', turn: undefined, picksPerPlayer: 2 }, (req) =>
+        req.flush([...picks, last]),
+      );
+      await fixture.whenStable();
+
+      expect(boardCell(page, `Round 2, ${BACK}`, 'Bob').textContent).toContain('Lightning Helix');
+      expect(scrolled()).toEqual([`Round 2, ${BACK}`]);
+    });
+
+    it('brings the latest round into view when the page opens on the Board tab', async () => {
+      const scrolled = stubBoardScrolling();
+      await openDraft(completeSnapshot, drafting, {
+        cards,
+        picks,
+        url: '/drafts/draft-1?tab=board',
+      });
+
+      expect(scrolled()).toEqual([`Round 2, ${BACK}`]);
+    });
   });
 });
