@@ -36,7 +36,6 @@ import {
   cardNames,
   queueList,
   queueNotice,
-  namedList,
   startDrag,
   button,
   chooseInOpenRowMenu,
@@ -62,6 +61,7 @@ import {
   openPicked,
   openQueueWithoutBolt,
 } from './card-previews-harness';
+import { board } from './board-tab-harness';
 
 useDraftsApp();
 
@@ -309,9 +309,11 @@ describe('card previews', () => {
   it('requests no image until it opens', async () => {
     const { page } = await openBoard();
 
-    // Only the names' mana symbols, which aren't card images.
+    // Only the names' mana symbols and the seats' avatars, which aren't card images.
     expect(
-      [...page.querySelectorAll('#board-panel img')].filter((img) => !img.closest('.cost')),
+      [...page.querySelectorAll('#board-panel img')].filter(
+        (img) => !img.closest('.cost, [role="img"]'),
+      ),
     ).toEqual([]);
     expect(previewImage()).toBeNull();
   });
@@ -389,10 +391,10 @@ describe('card previews', () => {
     expect(previewImage()).toBeNull();
   });
 
-  it('shows on names in the pick log', async () => {
+  it('shows on names on the board', async () => {
     const { page } = await openBoard();
 
-    tap(cardNames(namedList(page, 'Pick log'))[0]!);
+    tap(cardNames(board(page))[0]!);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
   });
 
@@ -485,10 +487,10 @@ describe('card previews', () => {
       expect(costBefore(cardName(sheet, 'Lightning Bolt'))).toEqual(['one red mana']);
     });
 
-    it('show before names in the pick log', async () => {
+    it('show before names on the board', async () => {
       const { page } = await openBoard();
 
-      expect(costBefore(cardNames(namedList(page, 'Pick log'))[0]!)).toEqual(['one red mana']);
+      expect(costBefore(cardNames(board(page))[0]!)).toEqual(['one red mana']);
     });
   });
 

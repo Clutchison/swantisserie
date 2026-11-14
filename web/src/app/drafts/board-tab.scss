@@ -1,94 +1,98 @@
-h3 {
-  margin: var(--space-lg) 0 var(--space-xs);
-}
-
-ol {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.empty {
-  list-style: none;
-}
-
 /*
- * One column of picks per player, as many across as fit, up to the cap: each column is at least
- * the Board's width shared among the cap, so one more never fits. Empty tracks keep that share with
- * fewer players. Never wider than the Board, so a phone shows one column without scrolling sideways.
- * The 0.1px spares the last column from subpixel rounding.
+ * The grid scrolls on both axes in its own scroller, the round labels pinned on the left and the
+ * seats heading the columns pinned at the top. Each seat's column is at least --board-column wide and
+ * they share any extra width, so the grid fills the Board when every seat fits and scrolls
+ * sideways when they don't, on any screen.
  */
-.player-picks {
-  --player-picks-cap: 4;
-  --player-picks-gap: var(--space-lg);
-  --player-picks-share: calc(
-    (100% - (var(--player-picks-cap) - 1) * var(--player-picks-gap)) / var(--player-picks-cap) -
-      0.1px
-  );
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(min(100%, max(12rem, var(--player-picks-share))), 1fr)
-  );
-  gap: 0 var(--player-picks-gap);
+.board {
+  --board-column: 10rem;
+  /* The header row's height: room for a seat and its focus outline. */
+  --board-header: 2.75rem;
+  /* The round labels' column: room for a two-digit round and its arrow. */
+  --board-label: 3.5rem;
+  position: relative;
+  margin-block-start: var(--space-md);
 }
 
-/*
- * Each pick numbered in its player's picks, by a counter: a row of card rows is no list item.
- * A number and its '.' never wrap apart, and the number column widens past its minimum to fit the
- * widest, for every row alike.
- */
-.player-picks {
-  ol {
-    --card-row-columns: [number] minmax(var(--space-xl), max-content) [cost] max-content [name]
-      minmax(0, 1fr);
-    counter-reset: pick;
-  }
+.scroller {
+  max-block-size: calc(100dvh - var(--tab-bar-height, 0px) - var(--space-xl));
+  overflow: auto;
+  border: 1px solid var(--color-divider);
+  border-radius: 0.25rem;
+}
 
-  li:not(.empty) {
-    counter-increment: pick;
+/* A fixed layout shares the width among the seats' columns equally; --seats is how many there are. */
+table {
+  inline-size: max(100%, var(--seats) * var(--board-column) + var(--board-label));
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+}
 
-    &::before {
-      justify-self: end;
-      white-space: nowrap;
-      content: counter(pick) '.';
-    }
+th,
+td {
+  padding: var(--space-xs) var(--space-sm);
+  border-block-end: 1px solid var(--color-divider);
+  background: var(--color-bg);
+  vertical-align: middle;
+}
+
+/* The seats heading the columns, pinned at the top. */
+thead th,
+thead td {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 1;
+  block-size: var(--board-header);
+  box-sizing: border-box;
+}
+
+thead th {
+  app-seat {
+    margin-inline: auto;
   }
 }
 
-/* Capped, so a card's name sits near its pick number on a wide screen. */
-.log {
-  max-inline-size: var(--width-default);
+/* The round labels, pinned on the left; the corner over them pinned on both axes. */
+tbody th,
+.corner {
+  position: sticky;
+  inset-inline-start: 0;
+  border-inline-end: 1px solid var(--color-divider);
+  color: var(--color-muted);
+  font-weight: 600;
+  white-space: nowrap;
+}
 
-  /* The player's column fits the longest name, up to a cap that keeps the card readable. */
-  ol {
-    --card-row-columns: auto fit-content(min(12rem, 35%)) [cost] max-content [name] minmax(0, 1fr);
-    gap: 0 var(--space-sm);
-  }
+.corner {
+  z-index: 2;
+  inline-size: var(--board-label);
+}
 
-  .number {
-    min-width: 2rem;
-    color: var(--color-muted);
-    text-align: right;
-  }
+tbody th {
+  z-index: 1;
 
-  /* An explicit minimum, so that a long name can't widen the column past its cap. */
-  .player {
-    display: flex;
-    gap: var(--space-sm);
-    align-items: center;
-    min-width: 6rem;
-    font-weight: 600;
+  svg {
+    margin-inline-start: var(--space-xs);
+    vertical-align: middle;
   }
+}
 
-  .name {
-    overflow: hidden;
-    min-width: 0;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
+td {
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
 
-  .badge {
-    flex: none;
-  }
+/* The viewer's own column. */
+.own {
+  background: var(--color-surface);
+}
+
+/* Lies over the header row, outside the scroller, so the seat hint sits just under the seats. */
+.hint-anchor {
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: var(--board-header);
+  pointer-events: none;
 }

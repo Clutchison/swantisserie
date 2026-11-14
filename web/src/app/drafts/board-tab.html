@@ -3,45 +3,54 @@
 } @else if (loading()) {
   <app-loading-animation size="tab">Loading the picks…</app-loading-animation>
 } @else {
-  <div class="player-picks">
-    @for (player of board(); track player.id) {
-      <section>
-        <h3>
-          {{ player.name }}
-          @if (player.isBot) {
-            <span class="badge">Bot</span>
-          }
-        </h3>
-        <ol class="card-rows" [attr.aria-label]="player.name + '’s picks'">
-          @for (pick of player.picks; track pick.pick) {
-            <li>
-              <app-card-name [card]="pick.card" [name]="pick.card.name" />
-            </li>
-          } @empty {
-            <li class="empty">No picks yet.</li>
-          }
-        </ol>
-      </section>
-    }
-  </div>
-  <section class="log">
-    <h3>Pick log</h3>
-    <ol class="card-rows" aria-label="Pick log">
-      @for (pick of picks(); track pick.pick) {
-        <li>
-          <span class="number">{{ pick.pick }}</span>
-          @let picker = player(pick.playerId);
-          <span class="player">
-            <span class="name" [title]="picker.name">{{ picker.name }}</span>
-            @if (picker.isBot) {
-              <span class="badge">Bot</span>
+  @if (picks().length === 0) {
+    <p class="empty">No picks yet.</p>
+  }
+  <!-- The seat hint's anchor, outside the scroller so the name under a seat isn't clipped. -->
+  <div class="board">
+    <div class="scroller">
+      <table aria-label="Picks by round" [style.--seats]="players().length">
+        <thead>
+          <tr>
+            <td class="corner"></td>
+            @for (player of players(); track player.id) {
+              <th scope="col" [class.own]="isOwn(player)">
+                <app-seat
+                  [player]="player"
+                  [own]="isOwn(player)"
+                  (nameHint)="showHint(player, $event)"
+                />
+              </th>
             }
-          </span>
-          <app-card-name [card]="pick.card" [name]="pick.card.name" />
-        </li>
-      } @empty {
-        <li class="empty">No picks yet.</li>
+          </tr>
+        </thead>
+        <tbody>
+          @for (row of rows(); track row.label) {
+            <tr [attr.data-round]="row.round">
+              <th scope="row" [attr.aria-label]="row.label">
+                <span class="round">{{ row.round }}</span>
+                <svg
+                  aria-hidden="true"
+                  [lucideIcon]="row.forward ? forwardArrow : backArrow"
+                  [size]="14"
+                ></svg>
+              </th>
+              @for (pick of row.cells; track $index; let seat = $index) {
+                <td [class.own]="isOwn(players()[seat]!)">
+                  @if (pick) {
+                    <app-card-name [card]="pick.card" [name]="pick.card.name" />
+                  }
+                </td>
+              }
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+    <div class="hint-anchor">
+      @if (hint(); as hint) {
+        <app-seat-hint [name]="hint.name" [seat]="hint.seat" />
       }
-    </ol>
-  </section>
+    </div>
+  </div>
 }
