@@ -24,6 +24,7 @@ import {
   reorderQueue,
   removeFromQueue,
   queueInLobby,
+  failNextPublish,
 } from './harness.js';
 
 useDraftsApp();
@@ -79,6 +80,19 @@ describe('close and reopen', () => {
     await post(id, 'reopen').expect(200);
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+    expect((await post(id, 'close').expect(409)).body.error).toBe(
+      'not-closable',
+    );
+  });
+
+  it('still refuses a retry of a close whose publish failed', async () => {
+    const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
+    await start(id).expect(200);
+    failNextPublish();
+
+    await post(id, 'close').expect(500);
+
+    // The close stands.
     expect((await post(id, 'close').expect(409)).body.error).toBe(
       'not-closable',
     );
