@@ -20,7 +20,7 @@ import type {
   QueueLoss as EngineQueueLoss,
   StealBehavior as EngineStealBehavior,
   SwissRoundOption as EngineSwissRoundOption,
-  TurnState as EngineTurnState,
+  TurnDraftState,
 } from 'engine';
 import type { STORED_POOL_SOURCE_KIND } from './drafts/pool-source.js';
 import type * as Schema from './generated/prisma/enums.js';
@@ -41,8 +41,8 @@ export type ContractMatchesSchema = [
   Expect<Same<DraftState, Schema.DraftState>>,
   // The engine names the draft states a draft has a turn in without knowing
   // the rest, and the contract's view is split on the same two.
-  Expect<Within<EngineTurnState, Schema.DraftState>>,
-  Expect<Same<TurnState, EngineTurnState>>,
+  Expect<Within<TurnDraftState, Schema.DraftState>>,
+  Expect<Same<TurnState, TurnDraftState>>,
   Expect<Same<PlanBoard, Schema.PlanBoard>>,
   Expect<Same<Platform, Schema.Platform>>,
   Expect<Same<PoolSnapshotState, Schema.PoolSnapshotState>>,

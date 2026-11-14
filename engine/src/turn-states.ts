@@ -4,11 +4,11 @@
  * states, as the engine knows no draft states of its own.
  */
 export const TURN_STATES = ['Drafting', 'Frozen'] as const;
-export type TurnState = (typeof TURN_STATES)[number];
+export type TurnDraftState = (typeof TURN_STATES)[number];
 
 /** Whether a draft in `state` has a turn: whether it is Drafting or Frozen. */
 export function isTurnState<S extends string>(
   state: S,
-): state is Extract<S, TurnState> {
+): state is S & TurnDraftState {
   return (TURN_STATES as readonly string[]).includes(state);
 }

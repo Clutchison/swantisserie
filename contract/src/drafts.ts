@@ -10,11 +10,7 @@ import type {
 export type DraftState =
   'Lobby' | 'Drafting' | 'Frozen' | 'Complete' | 'Closed';
 
-/**
- * The states a draft has a turn in: a Closed one keeps none until reopened.
- * The engine's TURN_STATES and isTurnState are the list and the check; the
- * api's contract parity check ties this type to them.
- */
+/** The engine's TURN_STATES, as a type; the api's contract parity check ties the two. */
 export type TurnState = 'Drafting' | 'Frozen';
 
 /** The game a draft is played on, by its short name. */
