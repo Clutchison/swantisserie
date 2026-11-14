@@ -41,7 +41,10 @@ export interface QueueView {
  * either way: under pause queue the queue is set to queue paused; under
  * pick next it stays queue picking.
  */
-export type StealBehavior = 'PauseQueue' | 'PickNext';
+export const STEAL_BEHAVIORS = ['PauseQueue', 'PickNext'] as const;
+
+/** A steal behavior: pause queue or pick next. */
+export type StealBehavior = (typeof STEAL_BEHAVIORS)[number];
 
 /** The queue's order, as every queued card's pool card id. */
 export interface QueueOrderRequest {

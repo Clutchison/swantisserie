@@ -11,14 +11,15 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import type {
-  QueueOrderRequest,
-  QueuePausedRequest,
-  QueueUnpickedRequest,
-  QueueView,
-  RequestProblem,
-  StealBehavior,
-  StealBehaviorRequest,
+import {
+  STEAL_BEHAVIORS,
+  type QueueOrderRequest,
+  type QueuePausedRequest,
+  type QueueUnpickedRequest,
+  type QueueView,
+  type RequestProblem,
+  type StealBehavior,
+  type StealBehaviorRequest,
 } from 'contract';
 import { bodyFields } from '../request-body.js';
 import {
@@ -245,11 +246,16 @@ function parseQueuePaused(body: unknown): QueuePausedRequest {
 /** The steal behavior to set, or a 400 if it isn't one. */
 function parseStealBehavior(body: unknown): StealBehavior {
   const { stealBehavior } = bodyFields<StealBehaviorRequest>(body);
-  if (stealBehavior !== 'PauseQueue' && stealBehavior !== 'PickNext') {
+  if (!isStealBehavior(stealBehavior)) {
     throw new BadRequestException({
       error: 'invalid',
       message: 'Choose pause queue or pick next.',
     } satisfies RequestProblem);
   }
   return stealBehavior;
+}
+
+/** Whether `value` names a steal behavior. */
+function isStealBehavior(value: unknown): value is StealBehavior {
+  return (STEAL_BEHAVIORS as readonly unknown[]).includes(value);
 }

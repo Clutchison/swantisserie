@@ -12,7 +12,6 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { LucideCheck } from '@lucide/angular';
 import {
-  DEFAULT_DOUBLE_PICKS,
   DEFAULT_PICKS_PER_PLAYER,
   MAX_CUBE_LINK_LENGTH,
   MAX_DRAFT_NAME_LENGTH,
@@ -32,6 +31,12 @@ import { doublePicksProblem, doublePicksRule, MIN_DOUBLE_PICKS, startingDoublePi
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 import { SetListPicker } from './set-list-picker';
+
+/**
+ * The double picks a draft starts with when the organizer turns them on, unless
+ * picks per player are fewer (the engine's `startingDoublePicks`).
+ */
+const DEFAULT_DOUBLE_PICKS = 20;
 
 /** What was typed for each pool source, whichever is chosen. */
 interface PoolSourceFields {
