@@ -117,27 +117,36 @@ describe('nextBracketRound', () => {
     }));
 
   it('gives a bye to the player whose would-be opponents both dropped', () => {
-    expect(nextBracketRound(sendingOn(['s1', null, null, 's3']), 3, 2)).toEqual(
-      [
-        { bracketPlace: 0, players: ['s1', null] },
-        { bracketPlace: 1, players: ['s3', null] },
-      ],
-    );
+    expect(
+      nextBracketRound(sendingOn(['s1', null, null, 's3']), {
+        roundCount: 3,
+        round: 2,
+      }),
+    ).toEqual([
+      { bracketPlace: 0, players: ['s1', null] },
+      { bracketPlace: 1, players: ['s3', null] },
+    ]);
   });
 
   it('leaves a bracket place empty when nobody advances to it', () => {
-    expect(nextBracketRound(sendingOn([null, null, 's2', 's3']), 3, 2)).toEqual(
-      [{ bracketPlace: 1, players: ['s2', 's3'] }],
-    );
+    expect(
+      nextBracketRound(sendingOn([null, null, 's2', 's3']), {
+        roundCount: 3,
+        round: 2,
+      }),
+    ).toEqual([{ bracketPlace: 1, players: ['s2', 's3'] }]);
   });
 
   it('pairs the players who advance from neighbouring bracket places', () => {
-    expect(nextBracketRound(sendingOn(['s1', 's5', 's2', 's3']), 3, 2)).toEqual(
-      [
-        { bracketPlace: 0, players: ['s1', 's5'] },
-        { bracketPlace: 1, players: ['s2', 's3'] },
-      ],
-    );
+    expect(
+      nextBracketRound(sendingOn(['s1', 's5', 's2', 's3']), {
+        roundCount: 3,
+        round: 2,
+      }),
+    ).toEqual([
+      { bracketPlace: 0, players: ['s1', 's5'] },
+      { bracketPlace: 1, players: ['s2', 's3'] },
+    ]);
   });
 
   it('pairs round 2 of an 8 player bracket from its round 1 results in any order', () => {
@@ -147,7 +156,7 @@ describe('nextBracketRound', () => {
       { bracketPlace: 2, advancing: 's7' },
       { bracketPlace: 1, advancing: 's5' },
     ];
-    expect(nextBracketRound(results, 3, 2)).toEqual([
+    expect(nextBracketRound(results, { roundCount: 3, round: 2 })).toEqual([
       { bracketPlace: 0, players: ['s1', 's5'] },
       { bracketPlace: 1, players: ['s7', 's3'] },
     ]);
@@ -159,41 +168,24 @@ describe('nextBracketRound', () => {
       { bracketPlace: 2, advancing: 's2' },
       { bracketPlace: 3, advancing: 's3' },
     ];
-    expect(nextBracketRound(results, 3, 2)).toEqual([
+    expect(nextBracketRound(results, { roundCount: 3, round: 2 })).toEqual([
       { bracketPlace: 0, players: ['s1', null] },
       { bracketPlace: 1, players: ['s2', 's3'] },
-    ]);
-  });
-
-  it('pairs the final from the two bracket places of the round before', () => {
-    expect(nextBracketRound(sendingOn(['s4', 's2']), 3, 3)).toEqual([
-      { bracketPlace: 0, players: ['s4', 's2'] },
     ]);
   });
 
   it('reaches the final from 6 players', () => {
     const first = firstBracketRound(seeds(6));
     const second = nextBracketRound(
-      first.map(({ bracketPlace, players: [a, b] }) => ({
-        bracketPlace,
-        advancing: b === 's6' ? b : a,
-      })),
-      3,
-      2,
+      sendingOn(first.map(({ players: [a, b] }) => (b === 's6' ? b : a))),
+      { roundCount: 3, round: 2 },
     );
     expect(second).toEqual([
       { bracketPlace: 0, players: ['s1', 's4'] },
       { bracketPlace: 1, players: ['s2', 's6'] },
     ]);
     expect(
-      nextBracketRound(
-        second.map(({ bracketPlace, players: [a] }) => ({
-          bracketPlace,
-          advancing: a === 's1' ? 's4' : a,
-        })),
-        3,
-        3,
-      ),
+      nextBracketRound(sendingOn(['s4', 's2']), { roundCount: 3, round: 3 }),
     ).toEqual([{ bracketPlace: 0, players: ['s4', 's2'] }]);
   });
 });

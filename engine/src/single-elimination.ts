@@ -81,18 +81,17 @@ export interface AdvancingFrom {
  */
 export function nextBracketRound(
   previous: readonly AdvancingFrom[],
-  roundCount: number,
-  round: number,
+  { roundCount, round }: { roundCount: number; round: number },
 ): BracketMatch[] {
-  const advancing = (bracketPlace: number) =>
-    previous.find((result) => result.bracketPlace === bracketPlace)
-      ?.advancing ?? null;
+  const sentOn = new Map(
+    previous.map(({ bracketPlace, advancing }) => [bracketPlace, advancing]),
+  );
   return Array.from(
     { length: bracketPlaceCount(roundCount, round) },
     (_, bracketPlace) => {
       const [first = null, second = null] = [
-        advancing(2 * bracketPlace),
-        advancing(2 * bracketPlace + 1),
+        sentOn.get(2 * bracketPlace) ?? null,
+        sentOn.get(2 * bracketPlace + 1) ?? null,
       ].filter((id) => id !== null);
       return first === null
         ? null
