@@ -58,7 +58,7 @@ The organizer picks one **pool source** when creating the draft: a **pool query*
 
 ### Preloaded picks (queue)
 
-- Each player has a **private, ordered queue**, reordered by drag (CDK drag-drop).
+- Each player has a **private, ordered queue**, reordered by drag (CDK drag-drop) or from each card's row menu.
 - On your turn, the first card in your queue that is still available is picked for you.
 - **Cascade:** if the next player also has a valid queued card, theirs fires too, and so on.
 - If nothing in your queue is available, it stops and waits for you. It never picks randomly.
@@ -190,7 +190,7 @@ Copy to clipboard, from the Export tab, for your own plan: picked cards and basi
 
 - **Pages:** draft list (active and past), create draft (query box, validation errors, snapshot progress), lobby, draft view, guild setup and guild settings (guild admins), webhooks (app admins and guild admins).
 - **Draft view:** one panel at a time, as tabs. Bottom tabs on a phone; on desktop (from 1024px), compact tabs that sit below the draft header and stick to the top of the screen.
-  - **Queue pane:** a player's queue, on every tab while the draft is drafting or frozen, and once it is closed only in the sheet below 1024px: drag or the move buttons to reorder, the Queue cutoff, lost cards named in the Queue notice, the queue paused switch, and the steal behavior toggle. On desktop it is a column beside the tabs that collapses to a rail, marked while the queue is queue paused. Below 1024px a "next up" strip above the bottom tabs shows the queue's size, picks left, the next card, or "Queue paused" in its place while the queue is queue paused, and a dot for an unseen Queue notice, and opens the pane as a sheet.
+  - **Queue pane:** a player's queue, on every tab while the draft is drafting or frozen, and once it is closed only in the sheet below 1024px: drag or a card's row menu to reorder, an arrow on the next-up card, the Queue cutoff, lost cards named in the Queue notice, the queue's play/pause button, and the steal behavior toggle. On desktop it is a column beside the tabs that collapses to a rail, marked while the queue is queue paused. Below 1024px a "next up" strip above the bottom tabs shows the queue's size, picks left, the next card, or "Queue paused" in its place while the queue is queue paused, and a dot for an unseen Queue notice, and opens the pane as a sheet.
   - **Pool:** pool search, card grid, tap for detail with **Pick** while drafting, **Add to Plan**, and **Add to queue** off your turn or **Remove from queue** for a queued card
   - **Plan:** your mainboard and sideboard, in stacks (by mana value, color or type, then the sideboard's one stack; a strip that scrolls sideways where the stacks area is narrower than 760px, and the default mode where it is that wide or wider) or list mode (the default where it is narrower), the basic lands control, the Deck notice and Queue unpicked
   - **Board:** every player's picks as a grid of seats by rounds, in snake order

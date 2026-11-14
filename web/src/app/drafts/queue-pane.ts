@@ -88,7 +88,10 @@ const STEAL_BEHAVIOR_HELP =
   `Under ${STEAL_BEHAVIORS.PauseQueue.name}, ${STEAL_BEHAVIORS.PauseQueue.effect}; ` +
   `under ${STEAL_BEHAVIORS.PickNext.name}, it stays queue picking.`;
 
-/** Where a failed change is explained: by the queue's play/pause button, by the steal behavior pill, or under the queue. */
+/**
+ * Where a failed change is explained: under the header, for the queue's
+ * play/pause button or the steal behavior pill, or under the queue.
+ */
 type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
@@ -96,9 +99,9 @@ let panes = 0;
 
 /**
  * The Queue pane: the signed-in player's queue, which they reorder and
- * prune, under a header with its size, their picks left and their steal
- * behavior. Beside the tabs it can collapse to a rail (`collapsible`), as
- * the viewer last left it.
+ * prune, under a header with its size, their picks left, whether it is
+ * queue paused and their steal behavior. Beside the tabs it can collapse
+ * to a rail (`collapsible`), as the viewer last left it.
  */
 @Component({
   selector: 'app-queue-pane',
