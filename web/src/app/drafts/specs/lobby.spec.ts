@@ -27,6 +27,7 @@ import {
 } from './harness';
 import { moreButton, openMore } from './draft-header-harness';
 import { disclosure } from './disclosure-harness';
+import { goToOtherDraft } from './another-draft-harness';
 import { comesBefore } from '../../specs-harness';
 
 useDraftsApp();
@@ -263,6 +264,21 @@ describe('lobby', () => {
 
       join.flush(null, serverError);
       await fixture.whenStable();
+    });
+
+    it('doesn’t say a retry failed on another draft when it failed on the last', async () => {
+      const { fixture, page } = await openDraft(failedSnapshot, { players: [bob] });
+      button(page, 'Retry')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'))).flush(
+        null,
+        serverError,
+      );
+      await vi.waitFor(() => expect(page.textContent).toContain(RETRY_FAILED));
+
+      await goToOtherDraft(fixture, failedSnapshot, { players: [bob] });
+
+      expect(button(page, 'Retry')).toBeDefined();
+      expect(page.textContent).not.toContain(RETRY_FAILED);
     });
   });
 

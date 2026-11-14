@@ -16,7 +16,7 @@ import { routes } from './app.routes';
  * draft page's `?tab=`, aren't compared, so a tab change keeps the page.
  */
 @Injectable()
-export class SameParamsRouteReuseStrategy extends BaseRouteReuseStrategy {
+class SameParamsRouteReuseStrategy extends BaseRouteReuseStrategy {
   override shouldReuseRoute(future: ActivatedRouteSnapshot, curr: ActivatedRouteSnapshot) {
     return super.shouldReuseRoute(future, curr) && sameParams(future.params, curr.params);
   }
