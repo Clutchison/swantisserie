@@ -7,9 +7,20 @@
   color: var(--color-muted);
 }
 
+/* The standings scroll sideways inside this box, so the page itself never does (WCAG 1.4.10 exempts data tables). */
+.scroller {
+  max-width: 100%;
+  overflow-x: auto;
+  margin-bottom: var(--space-md);
+
+  &:focus-visible {
+    outline: 2px solid var(--color-muted);
+    outline-offset: 2px;
+  }
+}
+
 .standings {
   border-collapse: collapse;
-  margin-bottom: var(--space-md);
 
   th,
   td {

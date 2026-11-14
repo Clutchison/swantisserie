@@ -54,8 +54,10 @@
       </p>
 
       <h2>Results</h2>
-      <div class="scroll">
-        <table aria-label="Results">
+      <!-- The results scroll sideways here, not the page; focusable so a keyboard can scroll them. -->
+      <div class="scroller" role="region" aria-label="Results" tabindex="0">
+        <!-- The region names the results, so a screen reader says their name once. -->
+        <table>
           <thead>
             <tr>
               <th scope="col">Completed</th>

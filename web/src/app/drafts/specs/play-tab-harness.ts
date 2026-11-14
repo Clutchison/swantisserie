@@ -37,6 +37,7 @@ import {
   openTab,
   panel,
   region,
+  regionTable,
   tabButton,
   statusTexts,
   text,
@@ -44,7 +45,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
-import { openDialog, serverError, table, tableColumns, tableRows } from '../../specs-harness';
+import { openDialog, serverError, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -595,23 +596,26 @@ export async function openCompleteRound(
   return { ...opened, dialog: openDialog()! };
 }
 
-/** The standings table inside `root`. */
-const standingsTable = (root: HTMLElement) => table(root, 'Standings')!;
+/** The standings table inside `root`, in its region; null if there is none. */
+export const standingsTable = (root: HTMLElement) => regionTable(root, 'Standings');
+
+/** The standings table inside `root`, which shows them. */
+const shownStandings = (root: HTMLElement) => standingsTable(root)!;
 
 /** The standings' column headers inside `root`, each spelled out where it is abbreviated. */
-export const standingsColumns = (root: HTMLElement) => tableColumns(standingsTable(root));
+export const standingsColumns = (root: HTMLElement) => tableColumns(shownStandings(root));
 
 /**
  * Which tournament round the standings inside `root` are as of, as the
  * table's description reads; null if it has none.
  */
 export function standingsAsOf(root: HTMLElement): string | null {
-  const id = standingsTable(root).getAttribute('aria-describedby');
+  const id = shownStandings(root).getAttribute('aria-describedby');
   return id ? text(root.querySelector<HTMLElement>(`#${id}`)!) : null;
 }
 
 /** Each row of the standings inside `root`, best first, as its cells' text. */
-export const standingsRows = (root: HTMLElement) => tableRows(standingsTable(root));
+export const standingsRows = (root: HTMLElement) => tableRows(shownStandings(root));
 
 /** The results grid inside `root`, round robin's; null if there is none. */
 export const resultsGrid = (root: HTMLElement) =>

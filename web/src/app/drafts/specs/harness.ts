@@ -531,6 +531,10 @@ export const inLiveRegion = (element: Element | null): boolean =>
 export const region = (root: HTMLElement, name: string) =>
   byAriaLabel(root, 'section, [role="region"]', name);
 
+/** The table inside the region named `name` within `root`, as a wide table's scroller holds it; null if there is none. */
+export const regionTable = (root: HTMLElement, name: string) =>
+  region(root, name)?.querySelector<HTMLElement>('table') ?? null;
+
 /** Whether the toggle button inside `root` named `label` is pressed, such as a chosen mode or grouping; undefined if there is none. */
 export const pressed = (root: HTMLElement, label: string) =>
   button(root, label)?.getAttribute('aria-pressed');

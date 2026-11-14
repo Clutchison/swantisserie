@@ -2,44 +2,44 @@
 @if (standingsAsOf(); as asOf) {
   <p class="standings-as-of" id="standings-as-of">{{ asOf }}</p>
 }
-<table
-  class="standings"
-  aria-label="Standings"
-  [attr.aria-describedby]="standingsAsOf() ? 'standings-as-of' : null"
->
-  <thead>
-    <tr>
-      <th scope="col">Rank</th>
-      <th scope="col">Player</th>
-      <th scope="col">Match points</th>
-      <th scope="col"><abbr title="Matches won, lost and drawn">W–L–D</abbr></th>
-      @if (swiss()) {
-        <th scope="col"><abbr title="Opponents’ match-win %">OMW %</abbr></th>
-      }
-      <th scope="col">Game-win %</th>
-      @if (swiss()) {
-        <th scope="col"><abbr title="Opponents’ game-win %">OGW %</abbr></th>
-      }
-    </tr>
-  </thead>
-  <tbody>
-    @for (standing of standings(); track standing.playerId) {
+<!-- The standings scroll sideways here, not the page; focusable so a keyboard can scroll them. -->
+<div class="scroller" role="region" aria-label="Standings" tabindex="0">
+  <!-- The region names the standings, so a screen reader says their name once. -->
+  <table class="standings" [attr.aria-describedby]="standingsAsOf() ? 'standings-as-of' : null">
+    <thead>
       <tr>
-        <td>{{ standing.rank }}</td>
-        <td>{{ standing.name }}</td>
-        <td>{{ standing.matchPoints }}</td>
-        <td>{{ standing.record }}</td>
+        <th scope="col">Rank</th>
+        <th scope="col">Player</th>
+        <th scope="col">Match points</th>
+        <th scope="col"><abbr title="Matches won, lost and drawn">W–L–D</abbr></th>
         @if (swiss()) {
-          <td>{{ standing.opponentsMatchWinPercent }}</td>
+          <th scope="col"><abbr title="Opponents’ match-win %">OMW %</abbr></th>
         }
-        <td>{{ standing.gameWinPercent }}</td>
+        <th scope="col">Game-win %</th>
         @if (swiss()) {
-          <td>{{ standing.opponentsGameWinPercent }}</td>
+          <th scope="col"><abbr title="Opponents’ game-win %">OGW %</abbr></th>
         }
       </tr>
-    }
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      @for (standing of standings(); track standing.playerId) {
+        <tr>
+          <td>{{ standing.rank }}</td>
+          <td>{{ standing.name }}</td>
+          <td>{{ standing.matchPoints }}</td>
+          <td>{{ standing.record }}</td>
+          @if (swiss()) {
+            <td>{{ standing.opponentsMatchWinPercent }}</td>
+          }
+          <td>{{ standing.gameWinPercent }}</td>
+          @if (swiss()) {
+            <td>{{ standing.opponentsGameWinPercent }}</td>
+          }
+        </tr>
+      }
+    </tbody>
+  </table>
+</div>
 
 @if (showsBracket()) {
   <h3>Bracket</h3>
