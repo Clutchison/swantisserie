@@ -465,7 +465,7 @@ model Tournament {
   completedAt        DateTime?
 }
 
-/// A draft's player who has joined its tournament. While the tournament is in Registration or Playing, it locks the player's deck.
+/// A draft's player who has joined its tournament. While the tournament is Playing, it locks the player's deck; during Registration the deck stays editable (ADR 0010).
 model TournamentEntry {
   id                String     @id @default(uuid())
   tournamentId      String
