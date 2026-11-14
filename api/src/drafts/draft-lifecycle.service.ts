@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TURN_STATES } from 'contract';
-import { currentTurn, draftSize } from 'engine';
+import { currentTurn, draftSize, TURN_STATES } from 'engine';
 import {
   CloseRefusedError,
   DraftGoneError,

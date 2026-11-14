@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { TURN_STATES } from 'contract';
 import {
   cascade,
   currentTurn,
@@ -11,6 +10,7 @@ import {
   type QueueAfterPick,
   queuePicksBeforeAnotherPlayerPicks,
   queuesAfterPick,
+  TURN_STATES,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';

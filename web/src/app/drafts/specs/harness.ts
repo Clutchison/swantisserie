@@ -22,8 +22,7 @@ import type {
   UserView,
   WebhookView,
 } from 'contract';
-import { isTurnState } from 'contract';
-import { currentTurn } from 'engine';
+import { currentTurn, isTurnState } from 'engine';
 import { of } from 'rxjs';
 import { App } from '../../app';
 import { provideAppRouter } from '../../app.router';
