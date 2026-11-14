@@ -14,11 +14,12 @@ import { DraftUpdates } from './draft-updates';
 import { isTurnOf } from './drafts';
 
 /**
- * The signed-in viewer's drafts, as the draft list lists them, for the whole
- * app: the draft list shows them, and whatever tells the viewer it is their
- * turn reads them. Read as the app opens for a signed-in viewer, whatever
- * page it opens on, and never for a signed-out one. Kept live from then on
- * by the API's pushes of the drafts they play in, and read again on every
+ * The drafts the draft list lists for the signed-in viewer, theirs and
+ * everyone else's, for the whole app: the draft list shows them, and whatever
+ * tells the viewer it is their turn reads them. Read as the app opens for a
+ * signed-in viewer, whatever page it opens on, and never for a signed-out
+ * one. Kept live from then on by the API's pushes of the drafts they play
+ * in, or the tab watches, but not of the others, and read again on every
  * connect, the first too: a draft changed after the first read was served
  * but before the socket joined the viewer's own room is pushed to no one,
  * and pushes may be missed while the socket is down. A connect while the
