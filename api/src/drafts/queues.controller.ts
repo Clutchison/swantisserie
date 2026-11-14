@@ -11,15 +11,14 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import {
-  STEAL_BEHAVIORS,
-  type QueueOrderRequest,
-  type QueuePausedRequest,
-  type QueueUnpickedRequest,
-  type QueueView,
-  type RequestProblem,
-  type StealBehavior,
-  type StealBehaviorRequest,
+import type {
+  QueueOrderRequest,
+  QueuePausedRequest,
+  QueueUnpickedRequest,
+  QueueView,
+  RequestProblem,
+  StealBehavior,
+  StealBehaviorRequest,
 } from 'contract';
 import { bodyFields } from '../request-body.js';
 import {
@@ -32,6 +31,7 @@ import { DraftChanges } from './draft-changes.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
 import { QueuesService } from './queues.service.js';
+import { isStealBehavior } from './steal-behaviors.js';
 import { TurnsService } from './turns.service.js';
 
 /**
@@ -253,9 +253,4 @@ function parseStealBehavior(body: unknown): StealBehavior {
     } satisfies RequestProblem);
   }
   return stealBehavior;
-}
-
-/** Whether `value` names a steal behavior. */
-function isStealBehavior(value: unknown): value is StealBehavior {
-  return (STEAL_BEHAVIORS as readonly unknown[]).includes(value);
 }
