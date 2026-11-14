@@ -1,5 +1,5 @@
 /**
- * The 400 any malformed request to the drafts api gets: a field is missing
+ * The 400 any malformed request to the api gets: a field is missing
  * or isn't one the route accepts. `message` says what to fix.
  */
 export interface RequestProblem {

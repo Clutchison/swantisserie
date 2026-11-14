@@ -235,7 +235,7 @@ export class TournamentRegistrationService {
  * Joins every one of the draft's players, humans and bots, to its new
  * tournament `tournamentId`, in seat order, whatever their decks hold:
  * nobody has to remember to join, and a player who won't play leaves. Start
- * checks the humans' decks; bots exist for testing, and an admin testing
+ * checks the humans' decks; bots exist for testing, and an app admin testing
  * alone needs players to pair against.
  */
 async function joinEveryone(

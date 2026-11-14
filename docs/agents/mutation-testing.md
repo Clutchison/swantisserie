@@ -36,7 +36,7 @@ This section is the single record of which code Stryker has run over and which r
 | api       | `pick-import.service`                                                                    | #567                | #581                   | Closed    |
 | api       | `queues.service`, `plans.service`                                                        | #583                | #588 open (#589, #590) | Gaps open |
 
-The engine's and web's configs mutate all of `src`, so an incremental run over either picks up files added since. Files there not yet run: the engine's `draft-size.ts` and `index.ts`, and web's `deck-lock-reminder.ts` and `card-sizes.ts`.
+The engine's and web's configs mutate all of `src`, so an incremental run over either picks up files added since. Files there not yet run: the engine's `draft-size.ts` and `index.ts`, and every web file added or rewritten since #544 ran (2026-11-08), such as `deck-lock-reminder.ts`, `card-sizes.ts`, the Deck tab's `plan-boards.ts`, `stack-labels.ts`, `stack-moves.ts`, `export-buttons.ts` and `decklist.ts`, the Seat strip and Queue pane files, and `board-tab.ts` (rewritten in #734). `git log --diff-filter=A --since=2026-11-08 -- web/src` lists the added ones.
 
 ### Planned runs
 

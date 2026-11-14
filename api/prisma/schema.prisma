@@ -303,7 +303,7 @@ model PreferredPrinting {
   @@unique([userId, land])
 }
 
-/// An English printing of a basic land with a single-faced image, as Scryfall last showed it: what the Printing picker offers and a preferred printing refers to. Refreshed from Scryfall when a new set comes out (ADR 0015), and never deleted.
+/// An English printing of a basic land with a single-faced image, as Scryfall last showed it: what the Printing picker offers and a preferred printing refers to. Refreshed from Scryfall when a new set comes out (ADR 0015), and a refresh never deletes one.
 model BasicLandPrinting {
   scryfallId      String              @id
   land            BasicLand
