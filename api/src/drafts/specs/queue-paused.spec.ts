@@ -1,4 +1,6 @@
+import { Logger } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service.js';
+import { DraftPublisher } from '../draft-publisher.js';
 import {
   alice,
   app,
@@ -22,6 +24,8 @@ import {
   queue,
   queueInLobby,
   importPicks,
+  addBot,
+  waitForBotPicks,
   poolCardIds,
   reorderQueue,
   removeFromQueue,
@@ -230,6 +234,36 @@ describe('queue paused', () => {
         'Bob: Skewer the Critics',
       ]);
       expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
+    });
+
+    it('on the player’s own turn, answers with their queue when publishing its picks fails, and the bot after them picks', async () => {
+      const id = await readyDraft([aliceCookie, bobCookie], 1, fourCards);
+      await addBot(id, await signIn(carol)).expect(201);
+      await start(id).expect(200);
+      const ids = await poolCardIds(id);
+      await bobQueuesPaused(id, ids, 'Lava Spike');
+      await pick(id, ids.Shock).expect(200);
+      // The bot picks the first available card by name.
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
+        new Error('Connection dropped'),
+      );
+
+      const answer = await setQueuePicking(
+        id,
+        [ids['Lava Spike']],
+        bobCookie,
+      ).expect(200);
+
+      expect(answer.body).toMatchObject({ cards: [], queuePaused: false });
+      await waitForBotPicks(1, async () => {
+        expect(await pickLogLines(id)).toEqual([
+          'Alice: Shock',
+          'Bob: Lava Spike',
+          'Bot: Lightning Bolt',
+        ]);
+      });
     });
 
     it('announces the picks it makes in one post, as a cascade', async () => {

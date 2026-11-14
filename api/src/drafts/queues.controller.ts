@@ -118,7 +118,9 @@ export class QueuesController {
    * picking on the player's own turn sends the cards they confirmed it picks
    * before another player picks. Picks that setting it queue picking makes are
    * published, as a cascade's are; otherwise nothing is published, as the
-   * state is private to the player.
+   * state is private to the player. A failed publish of those picks, which
+   * have committed, is logged by DraftChanges and not answered: the answer
+   * is the queue, which never depended on it.
    */
   @Put('paused')
   async setQueuePaused(
@@ -134,7 +136,13 @@ export class QueuesController {
         user.id,
         request.poolCardIds ?? [],
       );
-      if (events.length > 0) await this.changes.committed(id, events);
+      if (events.length > 0) {
+        try {
+          await this.changes.committed(id, events);
+        } catch {
+          // Logged by DraftChanges; the picks stand, and so does the answer.
+        }
+      }
       return this.queues.queue(id, user.id);
     });
   }

@@ -468,6 +468,138 @@ describe('bot players', () => {
 
       expect((await atPick(id, 2)).turn?.playerId).toBe(alice.id);
       expect(await pickerIds(id)).toEqual([botIds[0]]);
+      // The start stands: a retry is refused.
+      await start(id).expect(409);
+    });
+
+    it('logs the failed publish once, with the draft’s id', async () => {
+      const errors = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+      const { id, botIds } = await draftWithBots(1);
+      await setSeats(id, [botIds[0], alice.id]).expect(200);
+      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
+        dropped,
+      );
+
+      await start(id).expect(500);
+
+      await atPick(id, 2);
+      const failedPublishes = errors.mock.calls.filter(([message]) =>
+        String(message).startsWith('Couldn’t publish'),
+      );
+      expect(failedPublishes).toEqual([
+        [`Couldn’t publish a change to draft ${id}`, dropped],
+      ]);
+    });
+
+    it('has the bot pick after a pick by hand that passes it the turn', async () => {
+      const { id, botIds } = await draftWithBots(1);
+      await start(id).expect(200);
+      const shock = (await poolCardIds(id)).Shock;
+      failNextPublish();
+
+      await pick(id, shock).expect(500);
+
+      await waitForBotPicks(1, async () => {
+        expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
+      });
+      expect((await pickedNames(id))[0]).toBe('Shock');
+      // The pick stands: a retry is refused.
+      await pick(id, shock).expect(409);
+    });
+
+    it('has the bot pick again after an undo of its pick', async () => {
+      const { id, botIds } = await draftWithBots(1, 2);
+      await start(id).expect(200);
+      // The bot picks the first available card by name.
+      vi.spyOn(Math, 'random').mockReturnValue(0);
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+      await atPick(id, 4);
+      failNextPublish();
+
+      await undo(id, 3).expect(500);
+
+      await atPick(id, 4);
+      expect(await pickerIds(id)).toEqual([alice.id, botIds[0], botIds[0]]);
+      expect(await pickedNames(id)).toEqual([
+        'Shock',
+        'Burst Lightning',
+        'Fireblast',
+      ]);
+    });
+
+    it('has the bot pick after an unfreeze that gives it its turn', async () => {
+      await app.close();
+      await startApp({ botDelayMs: 100 });
+      await signInAlice();
+      const { id, botIds } = await draftWithBots(1);
+      await start(id).expect(200);
+      const botPick = watchBotPick();
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+      await post(id, 'freeze').expect(200);
+      expect(await botPick.made()).toEqual([]);
+      failNextPublish();
+
+      await post(id, 'unfreeze').expect(500);
+
+      await waitForBotPicks(1, async () => {
+        expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
+      });
+      // The unfreeze stands: a retry is refused.
+      await post(id, 'unfreeze').expect(409);
+    });
+
+    it('has the bot pick after a reopen that gives it its turn', async () => {
+      await app.close();
+      await startApp({ botDelayMs: 100 });
+      await signInAlice();
+      const { id, botIds } = await draftWithBots(1);
+      await start(id).expect(200);
+      const botPick = watchBotPick();
+      await pick(id, (await poolCardIds(id)).Shock).expect(200);
+      await post(id, 'close').expect(200);
+      expect(await botPick.made()).toEqual([]);
+      failNextPublish();
+
+      await post(id, 'reopen').expect(500);
+
+      await waitForBotPicks(1, async () => {
+        expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
+      });
+      // The reopen stands: a retry is refused.
+      await post(id, 'reopen').expect(409);
+    });
+
+    it('has no bot pick when the change leaves it no bot’s turn', async () => {
+      const { id } = await draftWithBots(1);
+      failNextPublish();
+
+      await start(id).expect(500);
+
+      // Time for a bot to pick, were one scheduled.
+      await settle(100);
+      expect((await pickLog(id)).body).toEqual([]);
+      expect((await getDraft(id).expect(200)).body.turn).toEqual(
+        expect.objectContaining({ pick: 1, playerId: alice.id }),
+      );
+    });
+
+    it('still refuses a retry of a freeze or close whose publish failed', async () => {
+      const { id } = await draftWithBots(1);
+      await start(id).expect(200);
+      failNextPublish();
+      await post(id, 'freeze').expect(500);
+      await post(id, 'freeze').expect(409);
+      await post(id, 'unfreeze').expect(200);
+
+      vi.spyOn(DraftPublisher.prototype, 'publish').mockRejectedValueOnce(
+        dropped,
+      );
+      await post(id, 'close').expect(500);
+
+      await post(id, 'close').expect(409);
+      expect((await pickLog(id)).body).toEqual([]);
     });
   });
 
