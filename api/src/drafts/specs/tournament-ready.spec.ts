@@ -1,13 +1,8 @@
-import type {
-  DraftSocketEvents,
-  DraftView,
-  ViewerTournamentView,
-} from 'contract';
-import { io, type Socket } from 'socket.io-client';
+import type { DraftView, ViewerTournamentView } from 'contract';
+import { useSockets } from './socket-harness.js';
 import {
   alice,
   aliceCookie,
-  app,
   announcementsSettled,
   bob,
   cancelTournament,
@@ -297,33 +292,11 @@ describe('ready clearing when the mainboard drops below 40 cards', () => {
   });
 
   describe('pushed to another viewer', () => {
-    const sockets: Socket<DraftSocketEvents>[] = [];
+    const { watch } = useSockets();
 
-    beforeEach(async () => {
-      await app.listen(0);
-    });
-
-    afterEach(() => {
-      for (const socket of sockets.splice(0)) socket.disconnect();
-    });
-
-    /** The drafts pushed to whoever `cookie` signs in as, viewing draft `id`, from once they are connected. */
-    async function watchAs(id: string, cookie = aliceCookie) {
-      const socket: Socket<DraftSocketEvents> = io(await app.getUrl(), {
-        path: '/api/socket.io',
-        transports: ['websocket'],
-        auth: { draftId: id },
-        extraHeaders: { Cookie: cookie },
-        reconnection: false,
-      });
-      sockets.push(socket);
-      const pushed: DraftView[] = [];
-      socket.on('changed', (draft) => pushed.push(draft));
-      await new Promise<void>((resolve, reject) => {
-        socket.on('connect', resolve);
-        socket.on('connect_error', reject);
-      });
-      return pushed;
+    /** The drafts pushed to whoever `cookie` signs in as, watching draft `id`, from once they are connected. */
+    function watchAs(id: string, cookie = aliceCookie): Promise<DraftView[]> {
+      return watch(id, cookie);
     }
 
     it('pushes the draft, its version bumped, to another viewer when ready clears', async () => {

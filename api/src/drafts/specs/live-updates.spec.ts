@@ -1,10 +1,8 @@
-import type { DraftSocketEvents, DraftView } from 'contract';
-import { io, type Socket } from 'socket.io-client';
+import type { DraftView } from 'contract';
 import {
   alice,
   bob,
   carol,
-  app,
   aliceCookie,
   useDraftsApp,
   signIn,
@@ -26,62 +24,29 @@ import {
   cancelDraft,
   changeWebhook,
 } from './harness.js';
+import { useSockets } from './socket-harness.js';
 
 useDraftsApp();
 
 describe('live updates', () => {
-  const sockets: Socket<DraftSocketEvents>[] = [];
+  const { socketFor, connected, watch } = useSockets();
 
-  beforeEach(async () => {
-    await app.listen(0);
-  });
-
-  afterEach(() => {
-    for (const socket of sockets.splice(0)) socket.disconnect();
-  });
-
-  /** A Socket.IO client for draft `draftId`, not yet connected. */
-  async function socketFor(
-    draftId: string,
-    cookie?: string,
-  ): Promise<Socket<DraftSocketEvents>> {
-    const socket = io(await app.getUrl(), {
-      path: '/api/socket.io',
-      transports: ['websocket'],
-      auth: { draftId },
-      extraHeaders: cookie ? { Cookie: cookie } : {},
-      reconnection: false,
-    });
-    sockets.push(socket);
-    return socket;
-  }
-
-  /** A signed-in client viewing draft `draftId`, once connected. */
-  async function watch(draftId: string, cookie: string) {
-    const socket = await socketFor(draftId, cookie);
-    const changes: DraftView[] = [];
-    socket.on('changed', (draft) => changes.push(draft));
-    await new Promise<void>((resolve, reject) => {
-      socket.on('connect', resolve);
-      socket.on('connect_error', reject);
-    });
-    return changes;
-  }
-
-  it('tells everyone viewing a draft that it was cancelled', async () => {
+  it('tells everyone watching a draft that it was cancelled, with its id', async () => {
     const id = await readyDraft([aliceCookie]);
-    const socket = await socketFor(id, await signIn(bob));
+    const socket = await connected(await signIn(bob));
     const cancelled = vi.fn();
     socket.on('cancelled', cancelled);
-    await new Promise<void>((resolve) => socket.on('connect', resolve));
+    await socket.emitWithAck('watch', id);
 
     await cancelDraft(id).expect(204);
 
-    await vi.waitFor(() => expect(cancelled).toHaveBeenCalledOnce());
+    await vi.waitFor(() =>
+      expect(cancelled).toHaveBeenCalledExactlyOnceWith(id),
+    );
   });
 
   it('refuses a socket without a live session', async () => {
-    const socket = await socketFor('any-draft');
+    const socket = await socketFor();
 
     const error = await new Promise<Error>((resolve) =>
       socket.on('connect_error', resolve),
@@ -90,22 +55,78 @@ describe('live updates', () => {
     expect(socket.connected).toBe(false);
   });
 
-  it('joins a socket naming a draft that doesn’t exist to no room, so it gets no push', async () => {
+  it('pushes nothing to a signed-in socket watching no draft', async () => {
     const id = await readyDraft([]);
     const bobCookie = await signIn(bob);
-    const cancelledDraft = await readyDraft([]);
-    await cancelDraft(cancelledDraft).expect(204);
-    const ghost = await socketFor(cancelledDraft, bobCookie);
-    const ghostHeard = vi.fn();
-    ghost.onAny(ghostHeard);
-    await new Promise<void>((resolve) => ghost.on('connect', resolve));
+    const idle = await connected(bobCookie);
+    const idleHeard = vi.fn();
+    idle.onAny(idleHeard);
     const bobSees = await watch(id, bobCookie);
 
     await join(id).expect(201);
 
     await vi.waitFor(() => expect(bobSees).toHaveLength(1));
+    expect(idleHeard).not.toHaveBeenCalled();
+  });
+
+  it('refuses to watch a draft that doesn’t exist, and pushes it nothing', async () => {
+    const id = await readyDraft([]);
+    const bobCookie = await signIn(bob);
+    const cancelledDraft = await readyDraft([]);
+    await cancelDraft(cancelledDraft).expect(204);
+    const ghost = await connected(bobCookie);
+    const ghostHeard = vi.fn();
+    ghost.onAny(ghostHeard);
+
+    expect(await ghost.emitWithAck('watch', cancelledDraft)).toBe('refused');
+
+    const bobSees = await watch(id, bobCookie);
+    await join(id).expect(201);
+    await vi.waitFor(() => expect(bobSees).toHaveLength(1));
     expect(ghost.connected).toBe(true);
     expect(ghostHeard).not.toHaveBeenCalled();
+  });
+
+  it('refuses to watch a draft named by anything but its id', async () => {
+    const socket = await connected(await signIn(bob));
+
+    expect(
+      await socket.emitWithAck('watch', { id: 'draft' } as unknown as string),
+    ).toBe('refused');
+  });
+
+  it('pushes nothing more of a draft once its viewer stops watching it', async () => {
+    const id = await readyDraft([]);
+    const bobCookie = await signIn(bob);
+    const socket = await connected(bobCookie);
+    const bobSees: DraftView[] = [];
+    socket.on('changed', (draft) => bobSees.push(draft));
+    await socket.emitWithAck('watch', id);
+    await join(id).expect(201);
+    await vi.waitFor(() => expect(bobSees).toHaveLength(1));
+
+    expect(await socket.emitWithAck('stopWatching', id)).toBe('stopped');
+    await leave(id).expect(200);
+    const carolSees = await watch(id, await signIn(carol));
+    await join(id).expect(201);
+
+    await vi.waitFor(() => expect(carolSees).toHaveLength(1));
+    expect(bobSees).toHaveLength(1);
+  });
+
+  it('pushes each draft a socket watches, to that socket', async () => {
+    const id = await readyDraft([]);
+    const other = await readyDraft([]);
+    const socket = await connected(await signIn(bob));
+    const pushed: string[] = [];
+    socket.on('changed', (draft) => pushed.push(draft.id));
+    await socket.emitWithAck('watch', id);
+    await socket.emitWithAck('watch', other);
+
+    await join(id).expect(201);
+    await join(other).expect(201);
+
+    await vi.waitFor(() => expect(pushed).toEqual([id, other]));
   });
 
   it('pushes the frozen draft to its viewers after a pick import', async () => {

@@ -1,14 +1,8 @@
-import type {
-  DraftSocketEvents,
-  DraftView,
-  MatchReportRequest,
-  TournamentView,
-} from 'contract';
-import { io, type Socket } from 'socket.io-client';
+import type { DraftView, MatchReportRequest, TournamentView } from 'contract';
+import { useSockets } from './socket-harness.js';
 import {
   alice,
   aliceCookie,
-  app,
   bob,
   carol,
   clearGameScore,
@@ -387,33 +381,11 @@ describe('completing a single elimination tournament round', () => {
 });
 
 describe('single elimination’s live updates', () => {
-  const sockets: Socket<DraftSocketEvents>[] = [];
+  const { watch } = useSockets();
 
-  beforeEach(async () => {
-    await app.listen(0);
-  });
-
-  afterEach(() => {
-    for (const socket of sockets.splice(0)) socket.disconnect();
-  });
-
-  /** The drafts pushed to Bob, viewing draft `draftId`, from once he is connected. */
-  async function watchAsBob(draftId: string) {
-    const socket: Socket<DraftSocketEvents> = io(await app.getUrl(), {
-      path: '/api/socket.io',
-      transports: ['websocket'],
-      auth: { draftId },
-      extraHeaders: { Cookie: bobCookie },
-      reconnection: false,
-    });
-    sockets.push(socket);
-    const pushed: DraftView[] = [];
-    socket.on('changed', (draft) => pushed.push(draft));
-    await new Promise<void>((resolve, reject) => {
-      socket.on('connect', resolve);
-      socket.on('connect_error', reject);
-    });
-    return pushed;
+  /** The drafts pushed to Bob, watching draft `draftId`, from once he is connected. */
+  function watchAsBob(draftId: string): Promise<DraftView[]> {
+    return watch(draftId, bobCookie);
   }
 
   /**

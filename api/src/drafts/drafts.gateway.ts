@@ -1,13 +1,20 @@
 import {
-  type OnGatewayConnection,
+  ConnectedSocket,
+  MessageBody,
   type OnGatewayInit,
+  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
-import type { DraftSocketEvents, DraftView } from 'contract';
+import type {
+  DraftSocketEvents,
+  DraftSocketRequests,
+  DraftView,
+  DraftWatchResult,
+} from 'contract';
 import cookieParser from 'cookie-parser';
 import type { Request, Response } from 'express';
-import type { DefaultEventsMap, Server, Socket } from 'socket.io';
+import type { Server, Socket } from 'socket.io';
 import { API_PREFIX } from '../app.setup.js';
 import { sessionToken, toSessionUser } from '../auth/session.guard.js';
 import { SessionService } from '../auth/session.service.js';
@@ -20,23 +27,31 @@ const parseCookies = cookieParser();
 
 /** What the gateway keeps on each socket. */
 interface SocketData {
-  /** The draft whose room the socket joins: one its viewer may see. */
-  draftId?: string;
+  /** The socket's signed-in user, found when it was admitted. */
+  user: User;
 }
 
-/** The room of everyone viewing one draft. */
+type DraftSocket = Socket<
+  DraftSocketRequests,
+  DraftSocketEvents,
+  never,
+  SocketData
+>;
+
+/** The room of everyone watching one draft. */
 const room = (draftId: string) => `draft:${draftId}`;
 
 /**
- * Pushes each draft's changes to everyone viewing it, over Socket.IO. A
- * client names its draft in the handshake's `auth.draftId`, so it rejoins
- * the room on every reconnect; it should then re-read the draft, as it may
- * have missed changes meanwhile.
+ * Pushes each draft's changes to everyone watching it, over Socket.IO. A
+ * signed-in client connects once, then asks to watch each draft it shows
+ * (`DraftSocketRequests`). Watches don't outlast the connection, so on
+ * every reconnect it watches them again; it should then re-read them, as it
+ * may have missed changes meanwhile.
  */
 @WebSocketGateway({ path: `/${API_PREFIX}/socket.io` })
-export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
+export class DraftsGateway implements OnGatewayInit {
   @WebSocketServer()
-  private readonly server!: Server<DefaultEventsMap, DraftSocketEvents>;
+  private readonly server!: Server<DraftSocketRequests, DraftSocketEvents>;
 
   constructor(
     private readonly sessions: SessionService,
@@ -44,16 +59,12 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly access: DraftAccess,
   ) {}
 
-  /**
-   * Refuses sockets without a live session, as SessionGuard does requests,
-   * and notes the draft whose room the socket may join: the one it names,
-   * if its viewer may see it.
-   */
+  /** Refuses sockets without a live session, as SessionGuard does requests. */
   afterInit(server: Server): void {
     server.use((socket, next) => {
       const req = socket.request as Request;
       parseCookies(req, {} as Response, () => {
-        this.admit(socket, sessionToken(req)).then(
+        this.admit(socket as DraftSocket, sessionToken(req)).then(
           (user) => next(user ? undefined : new Error('unauthorized')),
           next,
         );
@@ -61,39 +72,57 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     });
   }
 
-  /** Joins the socket to the room of the draft it was admitted to, if any. */
-  handleConnection(socket: Socket): void {
-    const { draftId } = socket.data as SocketData;
-    if (draftId) void socket.join(room(draftId));
-  }
-
-  /** The socket's signed-in user, having noted any draft it may watch. */
+  /** The socket's signed-in user, noted on the socket, if it has one. */
   private async admit(
-    socket: Socket,
+    socket: DraftSocket,
     token: string | undefined,
   ): Promise<User | null> {
     const user = token ? await this.sessions.findUser(token) : null;
-    if (!user) return null;
-    const { draftId } = socket.handshake.auth as { draftId?: unknown };
-    if (typeof draftId !== 'string') return user;
-    try {
-      await this.access.canSee(toSessionUser(user, this.appAdmins), draftId);
-    } catch (err) {
-      // No room: the client's reads of the draft already 404.
-      if (err instanceof CannotSeeDraftError) return user;
-      throw err;
-    }
-    (socket.data as SocketData).draftId = draftId;
+    if (user) socket.data.user = user;
     return user;
   }
 
-  /** Tells everyone viewing the draft how it now is. */
+  /**
+   * Joins the socket to the room of the draft it names, if its viewer may
+   * see it. A refused watch joins nothing: the client's reads of the draft
+   * already 404.
+   */
+  @SubscribeMessage('watch')
+  async watch(
+    @ConnectedSocket() socket: DraftSocket,
+    @MessageBody() draftId: unknown,
+  ): Promise<DraftWatchResult> {
+    if (typeof draftId !== 'string') return 'refused';
+    try {
+      await this.access.canSee(
+        toSessionUser(socket.data.user, this.appAdmins),
+        draftId,
+      );
+    } catch (err) {
+      if (err instanceof CannotSeeDraftError) return 'refused';
+      throw err;
+    }
+    await socket.join(room(draftId));
+    return 'watching';
+  }
+
+  /** Takes the socket out of the room of the draft it names. */
+  @SubscribeMessage('stopWatching')
+  async stopWatching(
+    @ConnectedSocket() socket: DraftSocket,
+    @MessageBody() draftId: unknown,
+  ): Promise<'stopped'> {
+    if (typeof draftId === 'string') await socket.leave(room(draftId));
+    return 'stopped';
+  }
+
+  /** Tells everyone watching the draft how it now is. */
   changed(draft: DraftView): void {
     this.server.to(room(draft.id)).emit('changed', draft);
   }
 
-  /** Tells everyone viewing the draft that it no longer exists. */
+  /** Tells everyone watching the draft that it no longer exists. */
   cancelled(draftId: string): void {
-    this.server.to(room(draftId)).emit('cancelled');
+    this.server.to(room(draftId)).emit('cancelled', draftId);
   }
 }
