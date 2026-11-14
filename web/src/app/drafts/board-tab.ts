@@ -1,4 +1,16 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import {
+  afterRenderEffect,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  Directive,
+  ElementRef,
+  inject,
+  input,
+  signal,
+  untracked,
+  viewChildren,
+} from '@angular/core';
 import { isTurnState, type PlayerView } from 'contract';
 import { currentTurn, picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
 import { LucideArrowLeft, LucideArrowRight, LucideDynamicIcon } from '@lucide/angular';
@@ -6,7 +18,19 @@ import { LoadingAnimation } from '../loading/loading-animation';
 import { CardName } from './card-name';
 import { DraftStore, type PickedCard } from './draft-store';
 import { Seat } from './seat';
+import type { ScrollIntoContainerOptions } from './scroll-options';
 import { SeatHint, seatNameHint, type SeatNameHint } from './seat-hint';
+
+/**
+ * How the Board tab brings a row into view on opening: as little as it
+ * takes, below the pinned seats, scrolling only the board's scroller where
+ * the browser allows, else the page as little as it takes too.
+ */
+const TO_ROW: ScrollIntoContainerOptions = {
+  block: 'nearest',
+  inline: 'nearest',
+  container: 'nearest',
+};
 
 /** Which of a round of double turns' two rows: each double turn's first pick, or its second; null in a round of single turns. */
 export type RoundHalf = 'first' | 'second' | null;
@@ -27,6 +51,13 @@ export interface BoardRow {
   cells: (PickedCard | null)[];
 }
 
+/** A row of the board's grid in the page, paired with the `BoardRow` it shows. */
+@Directive({ selector: 'tr[appBoardRow]' })
+export class BoardRowElement {
+  readonly row = input.required<BoardRow>({ alias: 'appBoardRow' });
+  readonly element = inject<ElementRef<HTMLElement>>(ElementRef).nativeElement;
+}
+
 /**
  * The draft view's Board tab: every pick on a grid of seats by rounds, a
  * column for each seat, in seat order, and a row for each round begun, or two
@@ -36,7 +67,7 @@ export interface BoardRow {
  */
 @Component({
   selector: 'app-board-tab',
-  imports: [CardName, LoadingAnimation, LucideDynamicIcon, Seat, SeatHint],
+  imports: [BoardRowElement, CardName, LoadingAnimation, LucideDynamicIcon, Seat, SeatHint],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './board-tab.html',
   styleUrls: ['../page.scss', './drafts.scss', './draft-panels.scss', './board-tab.scss'],
@@ -116,6 +147,33 @@ export class BoardTab {
   /** Whether the cell's `pick` is the latest pick, or one of the latest double turn's; false for an empty cell. */
   protected isLatest(pick: PickedCard | null) {
     return !!pick && this.latestTurnPicks().has(pick.pick);
+  }
+
+  /**
+   * Whether the Board tab is the one open. It stays rendered while another
+   * is, so opening it is this turning true.
+   */
+  readonly open = input(false);
+  private readonly rowElements = viewChildren(BoardRowElement);
+
+  constructor() {
+    // Once each time the tab opens, as soon as the grid is shown: the latest
+    // round's first row while the draft is drafting or frozen, round 1 once
+    // it is complete. Never again until it is next opened, so live picks
+    // fill the grid without moving it.
+    let scrolled = false;
+    afterRenderEffect(() => {
+      if (!this.open()) {
+        scrolled = false;
+        return;
+      }
+      const elements = this.rowElements();
+      if (scrolled || elements.length === 0) return;
+      const rounds = untracked(() => elements.map((element) => element.row().round));
+      const round = untracked(this.store.draftComplete) ? 1 : Math.max(...rounds);
+      elements[rounds.indexOf(round)]?.element.scrollIntoView(TO_ROW);
+      scrolled = true;
+    });
   }
 
   protected isOwn(player: PlayerView) {

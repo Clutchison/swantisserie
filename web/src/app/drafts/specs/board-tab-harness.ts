@@ -1,4 +1,4 @@
-import { accessibleName, table, text } from '../../specs-harness';
+import { accessibleName, stubScrollIntoView, table, text } from '../../specs-harness';
 import { panel } from './harness';
 
 /** A table's rows, column headers, row headers and cells, by their roles, native or ARIA. */
@@ -50,3 +50,16 @@ export const latestPicks = (page: HTMLElement) =>
   [...board(page).querySelectorAll(CELLS)]
     .filter((cell) => cell.getAttribute('aria-current') === 'true')
     .map((cell) => text(cell));
+
+/**
+ * Stands in for `scrollIntoView`, which jsdom lacks, until the test finishes.
+ * Returns what has been scrolled into view so far, in order: each row of the
+ * grid by its round label's accessible name, anything else as 'something else'.
+ */
+export function stubBoardScrolling() {
+  const scrolls = stubScrollIntoView();
+  return () =>
+    scrolls.map(({ element }) =>
+      element.querySelector(ROW_HEADERS) ? rowName(element as HTMLElement) : 'something else',
+    );
+}

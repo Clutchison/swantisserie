@@ -26,7 +26,7 @@
         </thead>
         <tbody>
           @for (row of rows(); track row.label) {
-            <tr>
+            <tr [appBoardRow]="row">
               <th scope="row" [attr.aria-label]="row.label">
                 <span class="round">{{ row.round }}</span>
                 <svg

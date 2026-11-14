@@ -3,7 +3,12 @@ import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
-import { byAriaLabel, collapseWhitespace, openDialog } from '../../specs-harness';
+import {
+  byAriaLabel,
+  collapseWhitespace,
+  openDialog,
+  stubScrollIntoView,
+} from '../../specs-harness';
 import {
   accessibleName,
   bob,
@@ -173,7 +178,7 @@ const stackHeadersNavigation = (plan: HTMLElement) =>
  */
 export function stubScrolling() {
   const observers = new Set<{ callback: IntersectionObserverCallback; watched: Set<Element> }>();
-  const scrolls: { element: Element; options: unknown }[] = [];
+  const scrolls = stubScrollIntoView();
   vi.stubGlobal(
     'IntersectionObserver',
     class {
@@ -194,15 +199,8 @@ export function stubScrolling() {
       }
     },
   );
-  Object.defineProperty(Element.prototype, 'scrollIntoView', {
-    configurable: true,
-    value(this: Element, options: unknown) {
-      scrolls.push({ element: this, options });
-    },
-  });
   onTestFinished(() => {
     vi.unstubAllGlobals();
-    Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
   });
   /** The name of the stack `element` is: the name of the list of cards it holds. */
   const stackName = (element: Element) =>

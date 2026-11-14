@@ -94,6 +94,11 @@ td[aria-current='true'] {
   font-weight: 600;
 }
 
+/* A row scrolled to on opening stops below the pinned seats, not under them. */
+tbody tr {
+  scroll-margin-block-start: var(--board-header);
+}
+
 /* Lies over the header row, outside the scroller, so the seat hint sits just under the seats. */
 .hint-anchor {
   position: absolute;

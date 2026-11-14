@@ -36,6 +36,7 @@ import {
   pressKey,
   pressPrevented,
   question,
+  stubScrollIntoView,
   text,
 } from '../../specs-harness';
 import { useTallScreen, shivan } from './pool-tab-harness';
@@ -384,29 +385,18 @@ describe('the Printing picker', () => {
   });
 
   it('scrolls the highlighted set into the list’s view, as little as it takes', async () => {
-    const scrolls: { element: Element; options: unknown }[] = [];
-    // jsdom has no scrolling of its own.
-    Object.defineProperty(Element.prototype, 'scrollIntoView', {
-      configurable: true,
-      value(this: Element, options: unknown) {
-        scrolls.push({ element: this, options });
-      },
-    });
-    try {
-      const { fixture, plan } = await openWith();
-      await openPicker(fixture, plan);
-      openSets();
+    const scrolls = stubScrollIntoView();
+    const { fixture, plan } = await openWith();
+    await openPicker(fixture, plan);
+    openSets();
 
-      pressKey(setField()!, 'ArrowDown');
+    pressKey(setField()!, 'ArrowDown');
 
-      const highlighted = comboboxOptions(setField()!).find(
-        (option) => option.id === setField()!.getAttribute('aria-activedescendant'),
-      );
-      expect(scrolls.at(-1)?.element).toBe(highlighted);
-      expect(scrolls.at(-1)?.options).toEqual({ block: 'nearest' });
-    } finally {
-      Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
-    }
+    const highlighted = comboboxOptions(setField()!).find(
+      (option) => option.id === setField()!.getAttribute('aria-activedescendant'),
+    );
+    expect(scrolls.at(-1)?.element).toBe(highlighted);
+    expect(scrolls.at(-1)?.options).toEqual({ block: 'nearest' });
   });
 
   it('keeps the set’s text selected through the end of the press that focuses the field, and only that press', async () => {
