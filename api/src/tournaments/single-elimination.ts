@@ -186,14 +186,16 @@ async function pairBracketRound(
     where: { tournamentId, round: round - 1 },
     select: BRACKET_MATCH,
   });
-  const advancing: (string | null)[] = Array.from(
-    { length: 2 ** (roundCount - round + 1) },
-    () => null,
+  const advancing = previous.map((match) => ({
+    bracketPlace: match.bracketPlace!,
+    advancing: advancingEntry(match, dropped),
+  }));
+  await createMatches(
+    tx,
+    tournamentId,
+    round,
+    nextBracketRound(advancing, roundCount, round),
   );
-  for (const match of previous) {
-    advancing[match.bracketPlace!] = advancingEntry(match, dropped);
-  }
-  await createMatches(tx, tournamentId, round, nextBracketRound(advancing));
   for (const entryId of dropped) await forfeitUnplayed(tx, entryId);
 }
 
