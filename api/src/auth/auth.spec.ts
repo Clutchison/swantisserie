@@ -321,7 +321,7 @@ describe('Discord sign-in', () => {
     await agent.get('/api/auth/me').expect(401);
   });
 
-  describe('admin-only routes', () => {
+  describe('app-admin-only routes', () => {
     it('let app admins through', async () => {
       const { agent } = await signInThroughDiscord({
         ...aliceProfile,
