@@ -138,8 +138,8 @@ export interface TournamentRoundView {
   /**
    * The Discord user ids of the players sitting this round out: at most one
    * in Swiss, none in round robin; in single elimination, the top seeds' in
-   * round 1, and later each player whose would-be opponent nobody sent on,
-   * in bracket place order.
+   * round 1, and later each player who would have met the winner of a
+   * match nobody advances from, in bracket place order.
    */
   byes: string[];
 }
