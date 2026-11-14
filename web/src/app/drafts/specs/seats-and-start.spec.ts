@@ -36,6 +36,7 @@ import {
   viewOn,
 } from './harness';
 import { disclosure } from './disclosure-harness';
+import { goToOtherDraft } from './another-draft-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
 import { clickOn } from '../../specs-harness';
 
@@ -596,6 +597,17 @@ describe('seats and start', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
+      expect(pickImportPreview(page)).toBeUndefined();
+    });
+
+    it('shows no preview from the last draft on another, even at the same version', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+      await chooseFile(fixture, page, preview);
+      await shownPreview(page);
+
+      await goToOtherDraft(fixture, completeSnapshot, { players: [alicePlayer, bob] });
+
+      expect(button(page, 'Import picks')).toBeDefined();
       expect(pickImportPreview(page)).toBeUndefined();
     });
 

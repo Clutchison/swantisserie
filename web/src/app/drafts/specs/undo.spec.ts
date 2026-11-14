@@ -21,6 +21,7 @@ import {
   powersAnswer,
   ALL_POWERS,
 } from './harness';
+import { goToOtherDraft } from './another-draft-harness';
 
 useDraftsApp();
 
@@ -142,6 +143,21 @@ describe('undo', () => {
     await fixture.whenStable();
 
     await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain("Couldn't undo the pick."));
+  });
+
+  it('shows no alert on another draft from an undo that failed on the last', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, aliceUp, { cards, picks });
+    undoButton(page)!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks/2'))).flush(
+      null,
+      serverError,
+    );
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain("Couldn't undo the pick."));
+
+    await goToOtherDraft(fixture, completeSnapshot, aliceUp, { cards, picks });
+
+    expect(undoButton(page)?.textContent?.trim()).toBe('Undo pick 2 (Lightning Bolt)');
+    expect(alertIn(page)).toBeNull();
   });
 
   it('offers undo only to a viewer who may organize', async () => {

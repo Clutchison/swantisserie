@@ -23,7 +23,6 @@ import {
   tabLabels,
   tabs,
   panelName,
-  statusMessage,
   statusTexts,
   updates,
   NO_POWERS,
@@ -35,6 +34,7 @@ import {
   midNavigation,
   serverError,
   RETRY_FAILED,
+  couldntRefresh,
   bob,
   drafting,
 } from './harness';
@@ -450,9 +450,6 @@ describe('draft page', () => {
   });
 
   describe('when a re-read fails after the draft has loaded', () => {
-    const couldntRefresh = (page: HTMLElement) =>
-      statusMessage(page, "Couldn't refresh this draft. What's shown may be out of date.");
-
     it('keeps the draft on screen when catching up fails, saying it couldn’t refresh', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { name: 'Friday Cube' });
       expect(couldntRefresh(page)).toBeUndefined();
