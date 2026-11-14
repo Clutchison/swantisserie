@@ -12,7 +12,8 @@ import type { TournamentProgress } from './round-steps.js';
 import { droppable, ENTRY_OF_MATCH } from './tournament-matches.js';
 import {
   BOT_ENTRY,
-  NOT_JOINED,
+  type EntryActor,
+  notJoined,
   NoMatchError,
   NoTournamentError,
   TournamentRefusedError,
@@ -143,13 +144,15 @@ export async function findMatch(
 /**
  * The tournament entry of the draft's player `userId`, to take them out of
  * the tournament or put them back in. Throws TournamentRefusedError if they
- * haven't joined it, or are a bot, which stays in.
+ * haven't joined it, worded for `actor` (see notJoined), or are a bot,
+ * which stays in.
  */
 export async function entryOf(
   tx: Transaction,
   tournament: LockedTournament,
   draftId: string,
   userId: string,
+  actor: EntryActor,
 ): Promise<{ id: string; dropped: boolean }> {
   const entry = await tx.tournamentEntry.findFirst({
     where: { tournamentId: tournament.id, player: { draftId, userId } },
@@ -159,7 +162,7 @@ export async function entryOf(
       player: { select: { user: { select: { isBot: true } } } },
     },
   });
-  if (!entry) throw new TournamentRefusedError(NOT_JOINED);
+  if (!entry) throw new TournamentRefusedError(notJoined(actor));
   if (!droppable(entry)) throw new TournamentRefusedError(BOT_ENTRY);
   return entry;
 }
