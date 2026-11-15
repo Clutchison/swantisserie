@@ -46,7 +46,7 @@ import {
   PLAN_CHANGE_FAILED,
   WIDE_STACKS_WIDTH,
 } from './drafts';
-import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
+import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
 import { ExportButtons } from './export-buttons';

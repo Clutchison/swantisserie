@@ -40,7 +40,7 @@ import {
   text,
 } from './harness';
 import { pushDraft } from './turn-harness';
-import { alicesTurnItem } from './draft-list-harness';
+import { alicesTurnItem, goToDraftList, landOnDraftList } from './draft-list-harness';
 import { turnLinkShown } from '../../top-bar/specs-harness';
 import { emptyStatusIn, followBack, pressKey, statusIn, watchChanges } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
@@ -340,20 +340,18 @@ describe('draft page', () => {
     });
 
     it('goes back to the app’s on leaving the draft', async () => {
-      const { fixture } = await openDraft(completeSnapshot);
+      await openDraft(completeSnapshot);
 
-      await router.navigateByUrl('/');
-      await fixture.whenStable();
+      await goToDraftList();
 
       expect(document.title).toBe('Swantisserie');
     });
 
     it('goes back to the app’s when the draft is cancelled, sending the viewer to the draft list', async () => {
-      const { fixture } = await openDraft(completeSnapshot);
+      await openDraft(completeSnapshot);
 
       updates.events.next({ type: 'cancelled' });
-      await vi.waitFor(() => expect(router.url).toBe('/'));
-      await fixture.whenStable();
+      await landOnDraftList();
 
       expect(router.url).toBe('/');
       expect(document.title).toBe('Swantisserie');
@@ -818,7 +816,7 @@ describe('draft page', () => {
       await fixture.whenStable();
       back();
 
-      await vi.waitFor(() => expect(router.url).toBe('/'));
+      await landOnDraftList();
     });
 
     it('shows the URL’s tab again when the navigation to a clicked tab is cancelled', async () => {

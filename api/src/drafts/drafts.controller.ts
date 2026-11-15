@@ -356,14 +356,18 @@ export class DraftsController {
     return this.change(id, () => this.lobby.join(id, user.id));
   }
 
-  /** The signed-in guild member leaves the draft. */
+  /**
+   * The signed-in guild member leaves the draft. If they were a player, the
+   * leave is pushed to their own room too, though they no longer play in it.
+   */
   @Delete(':id/players/me')
   async leave(
     @CurrentUser() user: SessionUser,
     @Param('id') id: string,
   ): Promise<DraftView> {
     await this.access.canSee(user, id);
-    return this.change(id, () => this.lobby.leave(id, user.id));
+    const wasPlayer = await this.lobby.leave(id, user.id);
+    return this.publishCommitted(id, [], wasPlayer ? [user.id] : []);
   }
 
   /** Adds a bot to the draft's players; for app admins. */
@@ -397,7 +401,20 @@ export class DraftsController {
     id: string,
     change: () => Promise<DraftEvent[] | void>,
   ): Promise<DraftView> {
-    const draft = await this.changes.committed(id, (await change()) ?? []);
+    return this.publishCommitted(id, (await change()) ?? []);
+  }
+
+  /**
+   * Answers with the draft as it now is, after a committed change with
+   * `events`, published as DraftChanges says, also to each of
+   * `alsoTellUserIds`.
+   */
+  private async publishCommitted(
+    id: string,
+    events: DraftEvent[],
+    alsoTellUserIds: string[] = [],
+  ): Promise<DraftView> {
+    const draft = await this.changes.committed(id, events, alsoTellUserIds);
     if (!draft) throw new NotFoundException();
     return draft;
   }
