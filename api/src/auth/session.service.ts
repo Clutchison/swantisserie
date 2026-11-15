@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomBytes } from 'node:crypto';
+import { type Observable, Subject } from 'rxjs';
 import type { User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -11,8 +12,25 @@ export interface NewSession {
   expiresAt: Date;
 }
 
+/** A session that hasn't ended, and who it signs in. */
+export interface LiveSession {
+  /** Its stored id: the hash of its token, never the token. */
+  id: string;
+  user: User;
+  expiresAt: Date;
+}
+
 @Injectable()
 export class SessionService {
+  private readonly endings = new Subject<string>();
+
+  /**
+   * The id of each session as it ends, so whatever it kept open, such as
+   * a draft socket, can close. Every way of ending a session announces it
+   * here.
+   */
+  readonly ended: Observable<string> = this.endings.asObservable();
+
   constructor(private readonly prisma: PrismaService) {}
 
   async create(userId: string): Promise<NewSession> {
@@ -31,15 +49,33 @@ export class SessionService {
 
   /** The signed-in user, or null if the token is unknown or expired. */
   async findUser(token: string): Promise<User | null> {
-    const session = await this.prisma.session.findUnique({
-      where: { id: hash(token) },
-      include: { user: true },
-    });
-    return session && session.expiresAt > new Date() ? session.user : null;
+    return (await this.find(token))?.user ?? null;
   }
 
+  /** The token's session, or null if it is unknown or expired. */
+  find(token: string): Promise<LiveSession | null> {
+    return this.live(hash(token));
+  }
+
+  /** Whether the session of id `id` is still live: not ended nor expired. */
+  async isLive(id: string): Promise<boolean> {
+    return (await this.live(id)) !== null;
+  }
+
+  /** Ends the token's session, and announces that it has ended. */
   async revoke(token: string): Promise<void> {
-    await this.prisma.session.deleteMany({ where: { id: hash(token) } });
+    const id = hash(token);
+    await this.prisma.session.deleteMany({ where: { id } });
+    this.endings.next(id);
+  }
+
+  /** The one check of a session, for requests and sockets alike. */
+  private async live(id: string): Promise<LiveSession | null> {
+    const session = await this.prisma.session.findUnique({
+      where: { id },
+      include: { user: true },
+    });
+    return session && session.expiresAt > new Date() ? session : null;
   }
 }
 
