@@ -97,8 +97,8 @@ const TO_STACK: ScrollIntoContainerOptions = {
 /**
  * How each plan board shows: whether stacks mode names each stack, the plan
  * board its cards move to, as the button names it, and what an empty one
- * says. Stacks mode stacks the mainboard by the grouping, the sideboard as
- * one stack.
+ * says, by whether the player has picks. Stacks mode stacks the mainboard by
+ * the grouping, the sideboard as one stack.
  */
 const PLAN_BOARD_DISPLAY: Record<
   PlanBoard,
@@ -107,17 +107,18 @@ const PLAN_BOARD_DISPLAY: Record<
     oneStack?: boolean;
     other: PlanBoard;
     otherName: string;
-    empty: string;
+    empty: (hasPicks: boolean) => string;
   }
 > = {
   Mainboard: {
     ...OTHER_PLAN_BOARD.Mainboard,
-    empty: 'No picks yet.',
+    // A player may move every pick to the sideboard, so an empty mainboard isn't one without picks.
+    empty: (hasPicks) => (hasPicks ? 'Nothing on your mainboard.' : 'No picks yet.'),
   },
   Sideboard: {
     oneStack: true,
     ...OTHER_PLAN_BOARD.Sideboard,
-    empty: 'Nothing on your sideboard.',
+    empty: () => 'Nothing on your sideboard.',
   },
 };
 
@@ -295,15 +296,20 @@ export class PlanTab {
    */
   protected readonly planBoards = computed(() => {
     const wide = this.wideStacks();
+    const plan = this.plan();
+    const hasPicks = PLAN_BOARDS.some((planBoard) =>
+      heldOn(plan, planBoard).some((card) => card.picked),
+    );
     return PLAN_BOARDS.map((planBoard) => {
-      const rest = PLAN_BOARD_DISPLAY[planBoard];
-      const held = heldOn(this.plan(), planBoard);
+      const { empty, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
+      const held = heldOn(plan, planBoard);
       const dropTarget = (into?: StackMove): DropTarget => ({ planBoard, into });
       const shown =
         planBoard === 'Mainboard' ? this.mainboardStacks().stacks : this.sideboardStacks();
       return {
         name: planBoard,
         ...rest,
+        empty: empty(hasPicks),
         /** Whether each stack has a heading naming it: not a plan board's one stack, which its heading names. */
         namesStacks: !rest.oneStack,
         count: held.length,
