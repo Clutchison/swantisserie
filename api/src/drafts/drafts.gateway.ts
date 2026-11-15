@@ -61,6 +61,9 @@ const ownRoom = (userId: string) => `user:${userId}`;
 /** The room of every socket one session admitted, closed when it ends. */
 const sessionRoom = (sessionId: string) => `session:${sessionId}`;
 
+/** The longest a Node timer waits, about 24.8 days; a longer wait is 1 ms. */
+const LONGEST_TIMER_MS = 2 ** 31 - 1;
+
 /**
  * Pushes each draft's changes to everyone watching it, over Socket.IO. A
  * signed-in client connects once, then asks to watch each draft it shows
@@ -133,22 +136,53 @@ export class DraftsGateway
   /**
    * Joins the socket to its viewer's own room and its session's room.
    * Nothing is awaited between admitting it and joining, so it can miss no
-   * push meanwhile.
+   * push meanwhile. Then closes it if its session ended meanwhile, and once
+   * that session expires.
    */
   handleConnection(socket: DraftServerSocket): void {
     void socket.join([
       ownRoom(socket.data.user.id),
       sessionRoom(socket.data.sessionId),
     ]);
+    this.closeAtExpiry(socket);
+    // A Log out after the handshake read the session, but before the socket
+    // joined its room, closed nothing; so the session is read again.
+    this.sessions.isLive(socket.data.sessionId).then(
+      (live) => {
+        if (!live) socket.disconnect(true);
+      },
+      // Left open: the handshake has just found the session, and the next
+      // watch checks it again.
+      (err: unknown) =>
+        this.logger.error('Checking a new socket’s session failed', err),
+    );
+  }
+
+  /**
+   * Closes the socket once its session expires. A timer can't wait as long
+   * as a session lasts, so it waits as long as it can and is set again,
+   * until the session has expired. A socket that disconnects first takes its
+   * timer with it.
+   */
+  private closeAtExpiry(socket: DraftServerSocket): void {
+    let timer: NodeJS.Timeout | undefined;
+    const wait = () => {
+      const left = socket.data.sessionExpiresAt.getTime() - Date.now();
+      if (left <= 0) socket.disconnect(true);
+      else timer = setTimeout(wait, Math.min(left, LONGEST_TIMER_MS));
+    };
+    socket.on('disconnect', () => clearTimeout(timer));
+    wait();
   }
 
   /**
    * Joins the socket to the room of the draft it names, if its viewer may
    * see it. A refused watch joins nothing: the client's reads of the draft
    * already 404. Nor does one the client stopped, or dropped the connection,
-   * while it was being checked, nor one whose check failed, which is
-   * answered `unchecked` for the client to ask again. A socket whose session
-   * has ended is closed instead, and gets no answer.
+   * while it was being checked, nor one whose check of its session or of
+   * the draft failed, which is answered `unchecked` for the client to ask
+   * again. A socket whose session has ended is closed instead, and gets no
+   * answer.
    */
   @SubscribeMessage('watch')
   async watch(
@@ -159,23 +193,38 @@ export class DraftsGateway
     const request = Symbol();
     // Noted before anything is awaited, so a stop sent after it cancels it.
     if (typeof draftId === 'string') pendingWatches.set(draftId, request);
-    if (!(await this.sessions.isLive(socket.data.sessionId))) {
+    const seesDraft = await this.checkWatch(socket.data, draftId).catch(
+      (err: unknown) => {
+        this.logger.error(
+          `Checking a watch of draft ${String(draftId)} failed`,
+          err,
+        );
+        return 'unchecked' as const;
+      },
+    );
+    if (seesDraft === 'ended') {
       socket.disconnect(true);
       return undefined;
     }
     if (typeof draftId !== 'string') return 'refused';
-    const seesDraft = await this.canSee(socket.data.user, draftId).catch(
-      (err: unknown) => {
-        this.logger.error(`Checking a watch of draft ${draftId} failed`, err);
-        return 'unchecked' as const;
-      },
-    );
     const stillWanted = pendingWatches.get(draftId) === request;
     if (stillWanted) pendingWatches.delete(draftId);
     if (seesDraft === 'unchecked') return seesDraft;
     if (!stillWanted || !socket.connected || !seesDraft) return 'refused';
     await socket.join(room(draftId));
     return 'watching';
+  }
+
+  /**
+   * Whether the socket's session has `ended`, else whether its viewer may
+   * see the draft `draftId` names. Throws if either couldn't be checked.
+   */
+  private async checkWatch(
+    { sessionId, user }: SocketData,
+    draftId: unknown,
+  ): Promise<'ended' | boolean> {
+    if (!(await this.sessions.isLive(sessionId))) return 'ended';
+    return typeof draftId === 'string' && this.canSee(user, draftId);
   }
 
   /** Whether `user` may see the draft of id `draftId`. */
