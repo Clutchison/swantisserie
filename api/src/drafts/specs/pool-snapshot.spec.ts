@@ -596,7 +596,8 @@ describe('pool snapshot', () => {
             return { id, snapshot: res.body.snapshot };
           }),
         );
-        expect(read.map(({ snapshot }) => snapshot.state).sort()).toEqual([
+        const states = read.map(({ snapshot }) => snapshot.state as string);
+        expect(states.sort((a, b) => a.localeCompare(b))).toEqual([
           'Complete',
           'Running',
         ]);
