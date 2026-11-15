@@ -84,6 +84,14 @@ describe('lobby', () => {
     await leave('no-such-draft').expect(404);
   });
 
+  it('answers a draft that does not exist with no error code of ours', async () => {
+    const joined = await join('no-such-draft').expect(404);
+    const left = await leave('no-such-draft').expect(404);
+
+    expect(joined.body).not.toHaveProperty('error');
+    expect(left.body).not.toHaveProperty('error');
+  });
+
   describe('bots', () => {
     let carolCookie: string;
 
@@ -131,6 +139,21 @@ describe('lobby', () => {
       await removeBot(id, added.body.players[0].id, aliceCookie).expect(403);
       const draft = await getDraft(id).expect(200);
       expect(draft.body.players).toEqual([bot('Bot 1')]);
+    });
+
+    it('answers a bot change from someone lacking the power with no error code of ours', async () => {
+      const id = await lobbyDraft();
+      const added = await addBot(id, carolCookie).expect(201);
+
+      const refusedAdd = await addBot(id, aliceCookie).expect(403);
+      const refusedRemove = await removeBot(
+        id,
+        added.body.players[0].id,
+        aliceCookie,
+      ).expect(403);
+
+      expect(refusedAdd.body).not.toHaveProperty('error');
+      expect(refusedRemove.body).not.toHaveProperty('error');
     });
 
     it('refuses a bot once the draft has 12 players', async () => {

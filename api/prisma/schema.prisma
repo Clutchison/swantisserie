@@ -340,7 +340,7 @@ model LostPlannedCard {
   poolCard     PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// The board it was on, which an undo puts it back on.
   board        PlanBoard
-  /// Whether the Plan notice has stopped listing it: it was dismissed.
+  /// Whether the Deck notice has stopped listing it: it was dismissed.
   noticeHidden Boolean   @default(false)
 
   @@unique([pickId, playerId])
@@ -374,7 +374,7 @@ model TakenOutQueuedCard {
   poolCard     PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Where it was in the queue, lowest first.
   position     Int
-  /// Whether the Queue notice has stopped listing it: it was dismissed, or the card was queued again. Always true for a player's own picked card, or its queued copy, which the notice never lists: it was picked, not lost.
+  /// Whether the Queue notice has stopped listing it: it was dismissed, or, before pause queue replaced clear queue, the card was queued again. Always true for a player's own picked card, or its queued copy, which the notice never lists: it was picked, not lost.
   noticeHidden Boolean  @default(false)
   /// Whether the rest of the queue stayed when this card was taken out, so an undo puts it back in its old place rather than at the front: for a lost card, whether anything else stayed queued, so false for the last card left in a queue; always true for a player's own picked card, or its queued copy; and false for a lost or cleared card under clear queue, before pause queue replaced it.
   restKept     Boolean  @default(false)

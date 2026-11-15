@@ -46,12 +46,14 @@ export interface ScryfallCard {
   lang: string;
   set: string;
   collector_number: string;
-  type_line: string;
+  /** Absent only on reversible cards, whose faces carry it. */
+  type_line?: string;
   /** How the card's faces are laid out, e.g. normal, split, transform, adventure: https://scryfall.com/docs/api/layouts */
   layout: string;
   /** Absent when the faces define the colors, e.g. modal double-faced cards. */
   colors?: string[];
-  cmc: number;
+  /** The mana value; absent only on reversible cards, whose faces carry it. */
+  cmc?: number;
   /** Absent when the faces carry it, as on double-faced cards. */
   mana_cost?: string;
   /** Absent when the faces carry it. */
@@ -72,6 +74,8 @@ export interface ScryfallCardFace {
   name: string;
   /** Only on reversible cards, where the card itself has none. */
   oracle_id?: string;
+  /** The mana value; only on reversible cards, where the card itself has none. */
+  cmc?: number;
   mana_cost?: string;
   type_line?: string;
   oracle_text?: string;
