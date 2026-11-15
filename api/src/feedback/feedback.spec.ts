@@ -122,6 +122,9 @@ describe('feedback', () => {
     ['a full URL', 'https://evil.example/'],
     ['protocol-relative', '//evil.example/'],
     ['backslash-relative', '/\\evil.example'],
+    ['a tab then another host', '/\t/evil.example'],
+    ['with a space', '/drafts/42 x'],
+    ['with a backslash', '/drafts/42?x=\\y'],
     ['a script', 'javascript:alert(1)'],
     ['over 2,048 characters', `/${'x'.repeat(2048)}`],
   ])('rejects a page path that is %s', async (_, path) => {

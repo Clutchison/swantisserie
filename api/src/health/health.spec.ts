@@ -5,6 +5,8 @@ import { App } from 'supertest/types.js';
 import { AppModule } from '../app.module.js';
 import { configureApp } from '../app.setup.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { held, pastDeadline } from '../testing/deadlines.js';
+import { HEALTH_CHECK_DEADLINE_MS } from './health.controller.js';
 
 describe('GET /api/health', () => {
   let app: INestApplication<App>;
@@ -42,5 +44,18 @@ describe('GET /api/health', () => {
       .get('/api/health')
       .expect(503)
       .expect({ api: 'ok', db: 'error' });
+  });
+
+  it('reports DB error with 503 when the database does not answer within the deadline', async () => {
+    db.$queryRaw.mockReturnValue(held().promise);
+
+    const res = await pastDeadline(
+      () => request(app.getHttpServer()).get('/api/health'),
+      db.$queryRaw,
+      HEALTH_CHECK_DEADLINE_MS,
+    );
+
+    expect(res.status).toBe(503);
+    expect(res.body).toEqual({ api: 'ok', db: 'error' });
   });
 });
