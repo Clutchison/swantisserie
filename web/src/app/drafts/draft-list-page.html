@@ -5,9 +5,12 @@
       <a class="button" routerLink="/drafts/new">New draft</a>
     </div>
   </div>
-  @if (notice; as notice) {
-    <p class="notice" role="status">{{ notice }}</p>
-  }
+  <!-- The notice's live region is there before its text, so it is announced on landing. Empty, it takes no space. -->
+  <div role="status" aria-label="Notice">
+    @if (noticeReady() && notice; as notice) {
+      <p class="notice">{{ notice }}</p>
+    }
+  </div>
   @if (loading()) {
     <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (failed()) {

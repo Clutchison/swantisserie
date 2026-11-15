@@ -1,4 +1,4 @@
-import { answer, question } from '../../specs-harness';
+import { answer, question, text } from '../../specs-harness';
 import type { DraftChangeRefusal, PoolSnapshotView } from 'contract';
 import {
   useDraftsApp,
@@ -22,7 +22,7 @@ import {
   openUrl,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore } from './draft-header-harness';
-import { landOnDraftList, openList } from './draft-list-harness';
+import { landOnDraftList, listNotice, openList } from './draft-list-harness';
 
 useDraftsApp();
 
@@ -35,7 +35,7 @@ describe('cancel', () => {
   /** Waits for the draft list the page sent the viewer to, and returns its notice. */
   async function flushList(page: HTMLElement) {
     await landOnDraftList();
-    return page.querySelector('.notice')?.textContent?.trim();
+    return text(listNotice(page));
   }
 
   it.each([running, failed, completeSnapshot])(
@@ -175,6 +175,24 @@ describe('cancel', () => {
     expect(router.url).toBe('/');
   });
 
+  it('is announced on landing on the draft list: the status is there, empty, before its text', async () => {
+    const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
+    // A live region announces changes to it, not the text it is inserted with.
+    let firstSeen: string | null = null;
+    const observer = new MutationObserver(() => {
+      const region = listNotice(document.body);
+      if (region && firstSeen === null) firstSeen = text(region);
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    updates.events.next({ type: 'cancelled' });
+    const notice = await flushList(page);
+    observer.disconnect();
+
+    expect(firstSeen).toBe('');
+    expect(notice).toBe('Red dragons was cancelled.');
+  });
+
   it('names no draft in the notice when it is cancelled before it has loaded', async () => {
     const { page } = await openUrl('/drafts/draft-1');
 
@@ -185,9 +203,9 @@ describe('cancel', () => {
     expect(await flushList(page)).toBe('The draft was cancelled.');
   });
 
-  it('shows no notice on the draft list otherwise', async () => {
+  it('leaves the draft list’s notice empty otherwise', async () => {
     const page = await openList([]);
 
-    expect(page.querySelector('.notice')).toBeNull();
+    expect(text(listNotice(page))).toBe('');
   });
 });
