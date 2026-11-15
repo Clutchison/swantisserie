@@ -36,12 +36,15 @@ export interface QueueView {
   queuePaused: boolean;
 }
 
+/** The steal behaviors: pause queue and pick next. */
+export const STEAL_BEHAVIORS = ['PauseQueue', 'PickNext'] as const;
+
 /**
  * What a lost card does to a player's queue, whose rest stays in order
  * either way: under pause queue the queue is set to queue paused; under
  * pick next it stays queue picking.
  */
-export type StealBehavior = 'PauseQueue' | 'PickNext';
+export type StealBehavior = (typeof STEAL_BEHAVIORS)[number];
 
 /** The queue's order, as every queued card's pool card id. */
 export interface QueueOrderRequest {

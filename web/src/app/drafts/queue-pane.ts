@@ -67,7 +67,7 @@ const COLLAPSED = 'collapsed';
  * Each steal behavior: what it's called, what it does once the rest of the
  * queue has stayed, and the one the pill switches to.
  */
-const STEAL_BEHAVIORS: Record<
+const STEAL_BEHAVIOR_TEXT: Record<
   StealBehavior,
   { name: string; effect: string; other: StealBehavior }
 > = {
@@ -85,8 +85,8 @@ const STEAL_BEHAVIORS: Record<
 
 /** What "How this works" says each steal behavior does to a queue that loses a card. */
 const STEAL_BEHAVIOR_HELP =
-  `Under ${STEAL_BEHAVIORS.PauseQueue.name}, ${STEAL_BEHAVIORS.PauseQueue.effect}; ` +
-  `under ${STEAL_BEHAVIORS.PickNext.name}, it stays queue picking.`;
+  `Under ${STEAL_BEHAVIOR_TEXT.PauseQueue.name}, ${STEAL_BEHAVIOR_TEXT.PauseQueue.effect}; ` +
+  `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, it stays queue picking.`;
 
 /**
  * Where a failed change is explained: under the header, for the queue's
@@ -193,9 +193,9 @@ export class QueuePane {
   protected readonly playPauseName = computed(() => queueStateChangeName(this.queue().queuePaused));
 
   protected readonly stealBehaviorName = computed(
-    () => STEAL_BEHAVIORS[this.queue().stealBehavior].name,
+    () => STEAL_BEHAVIOR_TEXT[this.queue().stealBehavior].name,
   );
-  protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIORS)
+  protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIOR_TEXT)
     .map(({ name, effect }) => `${name}: the rest of your queue stays, and ${effect}.`)
     .join(' ');
   protected readonly stealBehaviorHelp = STEAL_BEHAVIOR_HELP;
@@ -423,7 +423,7 @@ export class QueuePane {
    */
   protected toggleStealBehavior() {
     const previous = this.queue().stealBehavior;
-    const stealBehavior = STEAL_BEHAVIORS[previous].other;
+    const stealBehavior = STEAL_BEHAVIOR_TEXT[previous].other;
     return this.change(
       () => {
         this.store.showQueue({ ...this.queue(), stealBehavior });

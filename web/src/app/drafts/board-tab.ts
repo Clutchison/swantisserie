@@ -10,8 +10,8 @@ import {
   untracked,
   viewChildren,
 } from '@angular/core';
-import { isTurnState, type PlayerView } from 'contract';
-import { picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
+import type { PlayerView } from 'contract';
+import { isTurnState, picksPerTurn, roundRunsForward, type DraftSize, type Turn } from 'engine';
 import { LucideArrowLeft, LucideArrowRight, LucideDynamicIcon } from '@lucide/angular';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { CardName } from './card-name';

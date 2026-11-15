@@ -1,8 +1,9 @@
 import { PLAN_BOARDS, type PlanBoard } from 'contract';
+import { isOneOf } from '../one-of.js';
 
 /** Whether `value` names a plan board. */
 export function isPlanBoard(value: unknown): value is PlanBoard {
-  return (PLAN_BOARDS as readonly unknown[]).includes(value);
+  return isOneOf(PLAN_BOARDS, value);
 }
 
 /** The plan board a card on `planBoard` moves to: the other one. */
