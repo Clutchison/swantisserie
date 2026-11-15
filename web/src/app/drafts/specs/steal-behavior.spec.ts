@@ -24,7 +24,10 @@ import {
   queueList,
   elementWithText,
   accessibleDescription,
+  alertIn,
+  openQueueHelp,
 } from './harness';
+import { comesBefore } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 
 useDraftsApp();
@@ -206,6 +209,30 @@ describe('steal behavior', () => {
     reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
     expect(pill(queue).textContent).toContain('Pause queue');
+  });
+
+  it('says it couldn’t be changed directly under the pill, before the help when the help is open', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    const queue = queuePane(page);
+    const help = await openQueueHelp(fixture, queue);
+
+    pill(queue).click();
+    http
+      .expectOne('/api/drafts/draft-1/queue/steal-behavior')
+      .flush(
+        { error: 'draft-closed', message: 'This draft is closed.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
+      queueOf({ cards: [queued(shivan)] }),
+    );
+    await vi.waitFor(() => expect(alertIn(queue)?.textContent).toContain('This draft is closed.'));
+
+    expect(comesBefore(pill(queue), alertIn(queue)!)).toBe(true);
+    expect(comesBefore(alertIn(queue)!, help)).toBe(true);
   });
 
   it('describes pause queue and pick next in the Queue pane’s help', async () => {
