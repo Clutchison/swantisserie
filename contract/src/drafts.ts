@@ -10,14 +10,8 @@ import type {
 export type DraftState =
   'Lobby' | 'Drafting' | 'Frozen' | 'Complete' | 'Closed';
 
-/** The states a draft has a turn in: a Closed one keeps none until reopened. */
-export const TURN_STATES = ['Drafting', 'Frozen'] as const;
-export type TurnState = (typeof TURN_STATES)[number];
-
-/** Whether a draft in `state` has a turn: whether it is Drafting or Frozen. */
-export function isTurnState(state: DraftState): state is TurnState {
-  return (TURN_STATES as readonly DraftState[]).includes(state);
-}
+/** The engine's TURN_STATES, as a type; the api's contract parity check ties the two. */
+export type TurnState = 'Drafting' | 'Frozen';
 
 /** The game a draft is played on, by its short name. */
 export type Platform = 'Arena' | 'MTGO';
@@ -231,12 +225,6 @@ export const DEFAULT_PICKS_PER_PLAYER = 40;
 export const MIN_PICKS_PER_PLAYER = 1;
 /** The most picks per player a draft can have. */
 export const MAX_PICKS_PER_PLAYER = 100;
-
-/**
- * The double picks a draft starts with when the organizer turns them on, unless
- * picks per player are fewer (the engine's `startingDoublePicks`).
- */
-export const DEFAULT_DOUBLE_PICKS = 20;
 
 /** The create form's fields, as the web sends them to create a draft. */
 export interface NewDraftRequest {

@@ -17,7 +17,7 @@ import type {
   ReviewedFeedbackView,
   UnreviewedFeedbackCount,
 } from 'contract';
-import { MAX_FEEDBACK_LENGTH, MAX_PAGE_PATH_LENGTH } from 'contract';
+import { MAX_FEEDBACK_LENGTH } from 'contract';
 import { AppAdminGuard } from '../auth/app-admin.guard.js';
 import { bodyFields } from '../request-body.js';
 import { avatarUrl } from '../auth/avatar-url.js';
@@ -28,6 +28,9 @@ import {
 } from '../auth/session.guard.js';
 import type { Feedback, User } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+
+/** The most characters in a feedback's page path. */
+const MAX_PAGE_PATH_LENGTH = 2048;
 
 /** Where signed-in guild members send feedback to the app admins. */
 @Controller('feedback')

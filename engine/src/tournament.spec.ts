@@ -16,6 +16,7 @@ import {
   forfeited,
   grantedDraw,
   grantedWin,
+  oneCompleteRound,
   placings,
   played,
   unreported,
@@ -433,8 +434,7 @@ describe('roundCompletion', () => {
         const holders = trophyHolders(
           singleEliminationStandings(
             input.entries.map((entry) => entry.playerId),
-            matches,
-            byes,
+            ...oneCompleteRound(matches, byes),
             droppedPlayers(input.entries),
           ),
         );

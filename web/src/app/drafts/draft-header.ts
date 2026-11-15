@@ -11,8 +11,8 @@ import {
   signal,
 } from '@angular/core';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
-import { MAX_PLAYERS } from 'engine';
-import { isTurnState, type DraftView, type PickView } from 'contract';
+import { isTurnState, MAX_PLAYERS } from 'engine';
+import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
 import { hasTurn, isRefusal, pickAndRound, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';

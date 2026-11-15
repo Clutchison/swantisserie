@@ -44,6 +44,7 @@ import { TournamentProgressionService } from './tournament-progression.service.j
 import { TournamentReadsService } from './tournament-reads.service.js';
 import { TournamentRegistrationService } from './tournament-registration.service.js';
 import { TournamentResultsService } from './tournament-results.service.js';
+import { isOneOf } from '../one-of.js';
 
 /**
  * A draft's tournament. Who may see or change it follows the draft's access
@@ -428,7 +429,7 @@ function isGrantedDrawRequest(value: unknown): value is GrantedDrawRequest {
 }
 
 function isSwissRoundOption(value: unknown): value is SwissRoundOption {
-  return (SWISS_ROUND_OPTIONS as readonly unknown[]).includes(value);
+  return isOneOf(SWISS_ROUND_OPTIONS, value);
 }
 
 /**
