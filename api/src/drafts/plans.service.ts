@@ -20,7 +20,7 @@ import {
   readyNoticeShows,
 } from '../tournaments/ready-rules.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { lockPlayer } from './draft-lock.js';
+import { DraftLock } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
 import { isDeckLocked } from './locked-deck.js';
 import { otherPlanBoard } from './plan-boards.js';
@@ -59,7 +59,10 @@ export class PlanRefusedError extends Error {
  */
 @Injectable()
 export class PlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lock: DraftLock,
+  ) {}
 
   /** The user's plan in the draft. Throws NotAPlayerError if they're not in it. */
   async plan(draftId: string, userId: string): Promise<PlanView> {
@@ -331,8 +334,7 @@ export class PlansService {
     ) => Promise<void>,
     { deckWrite = true }: { deckWrite?: boolean } = {},
   ): Promise<PlanChange> {
-    return this.prisma.$transaction(async (tx) => {
-      const locked = await lockPlayer(tx, draftId, userId);
+    return this.lock.forPlayer(draftId, userId, async (tx, locked) => {
       // Stryker disable next-line StringLiteral: the api answers a NotAPlayerError as a 403, and web shows an api message only from a 409, so no caller shows its text.
       if (!locked) throw new NotAPlayerError('plans');
       const { playerId, state } = locked;

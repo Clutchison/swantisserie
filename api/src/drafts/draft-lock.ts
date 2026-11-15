@@ -57,6 +57,12 @@ class LockedDraft implements DraftSizeFields {
 
 export type { LockedDraft };
 
+/** A player whose row `lockPlayer` locked, and their draft's state. */
+export interface LockedPlayer {
+  playerId: string;
+  state: DraftState;
+}
+
 /**
  * Locks the player's row in the draft, for a change to what is theirs
  * alone, such as their queue or plan, so it changes one at a time. The
@@ -67,7 +73,7 @@ export async function lockPlayer(
   tx: Transaction,
   draftId: string,
   userId: string,
-): Promise<{ playerId: string; state: DraftState } | null> {
+): Promise<LockedPlayer | null> {
   const [draft] = await tx.$queryRaw<{ state: DraftState }[]>`
     SELECT "state" FROM "Draft" WHERE "id" = ${draftId} FOR SHARE`;
   const [player] = await tx.$queryRaw<{ id: string }[]>`
@@ -159,6 +165,25 @@ export class DraftLock {
       if (!draft || !states.includes(draft.state)) throw refusal();
       return change(draft);
     });
+  }
+
+  /**
+   * Runs `change` in a transaction with user `userId`'s player row locked,
+   * as `lockPlayer` does, for a change to what is theirs alone; `player` is
+   * what `lockPlayer` returns. It waits for any pick or undo holding the
+   * draft's row, so it is given as long as one: a change still running
+   * after `LOCKED_CHANGE_TIMEOUT_MS` rolls back and throws. Bumps no
+   * version.
+   */
+  async forPlayer<T>(
+    draftId: string,
+    userId: string,
+    change: (tx: Transaction, player: LockedPlayer | null) => Promise<T>,
+  ): Promise<T> {
+    return this.prisma.$transaction(
+      async (tx) => change(tx, await lockPlayer(tx, draftId, userId)),
+      { timeout: LOCKED_CHANGE_TIMEOUT_MS },
+    );
   }
 
   /**

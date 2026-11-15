@@ -4,12 +4,13 @@ import { currentTurn, draftSize } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
+import { DraftLock } from './draft-lock.js';
 import { DRAFT_SIZE_FIELDS, type Transaction } from './draft-shapes.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 import {
   checkStarted,
-  lockQueue,
+  checkQueuePlayer,
   QueueRefusedError,
 } from './queue-refusals.js';
 
@@ -27,7 +28,10 @@ export class QueueChangedError extends Error {
  */
 @Injectable()
 export class QueuesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly lock: DraftLock,
+  ) {}
 
   /** The user's queue in the draft. Throws NotAPlayerError if they're not in it. */
   async queue(draftId: string, userId: string): Promise<QueueView> {
@@ -286,8 +290,8 @@ export class QueuesService {
       state: DraftState,
     ) => Promise<void>,
   ): Promise<QueueView> {
-    return this.prisma.$transaction(async (tx) => {
-      const { playerId, state } = await lockQueue(tx, draftId, userId);
+    return this.lock.forPlayer(draftId, userId, async (tx, player) => {
+      const { playerId, state } = checkQueuePlayer(player);
       await apply(tx, playerId, state);
       return this.read(tx, playerId);
     });
