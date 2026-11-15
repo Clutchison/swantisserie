@@ -48,14 +48,14 @@ const answeredQueue = (res: Response) =>
 const alicesQueue = async (id: string) =>
   shownQueue((await queue(id, aliceCookie).expect(200)).body as QueueView);
 
-describeRaces('queue changes against a cascade', () => {
-  /** The pick log once Bob has made his second pick, Lava Spike. */
-  const throughBobsSecond = [
-    'Alice: Shock',
-    'Bob: Lightning Bolt',
-    'Bob: Lava Spike',
-  ];
+/** The pick log once Bob has made his second pick, Lava Spike. */
+const throughBobsSecond = [
+  'Alice: Shock',
+  'Bob: Lightning Bolt',
+  'Bob: Lava Spike',
+];
 
+describeRaces('queue changes against a cascade', () => {
   /**
    * A started draft of Alice then Bob, two picks each, on Bob's second
    * turn: the next is Alice's. Alice picked Shock, and Bob Lightning Bolt.
@@ -234,70 +234,63 @@ describeRaces('setting a queue picking on the player’s turn', () => {
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await enqueue(id, ids['Skewer the Critics']).expect(200);
-    const throughBobsSecond = [
-      'Alice: Shock',
-      'Bob: Lightning Bolt',
-      'Bob: Lava Spike',
-    ];
 
-    const [picked, paused] = await race(
+    const [picked, pause] = await race(
       () => pick(id, ids['Lava Spike'], bobCookie),
       () => setQueuePaused(id, true),
     );
 
-    const pickedThenPaused = { cards: [], lost: [], queuePaused: true };
-    const pausedFirst = {
+    const pickedThenQueuePaused = { cards: [], lost: [], queuePaused: true };
+    const queuePausedFirst = {
       cards: ['Skewer the Critics'],
       lost: [],
       queuePaused: true,
     };
     expect([
       {
-        paused: pickedThenPaused,
+        pause: pickedThenQueuePaused,
         log: [...throughBobsSecond, 'Alice: Skewer the Critics'],
-        queue: pickedThenPaused,
+        queue: pickedThenQueuePaused,
       },
-      { paused: pausedFirst, log: throughBobsSecond, queue: pausedFirst },
+      {
+        pause: queuePausedFirst,
+        log: throughBobsSecond,
+        queue: queuePausedFirst,
+      },
     ]).toContainEqual({
-      paused: answeredQueue(paused),
+      pause: answeredQueue(pause),
       log: await pickLogLines(id),
       queue: await alicesQueue(id),
     });
     expect(picked.status).toBe(200);
   });
 
-  it('sets the steal behavior a pick then loses a card under, or is set once the card is lost under the one it replaces, never a mix', async () => {
+  it('sets the steal behavior before a pick loses a card from the queue, or after, losing it under the old one', async () => {
     const { id, ids } = await aliceThenBob();
     await pick(id, ids.Shock).expect(200);
     await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
     await enqueue(id, ids['Lava Spike']).expect(200);
     await enqueue(id, ids['Skewer the Critics']).expect(200);
-    const throughBobsSecond = [
-      'Alice: Shock',
-      'Bob: Lightning Bolt',
-      'Bob: Lava Spike',
-    ];
 
     const [picked, set] = await race(
       () => pick(id, ids['Lava Spike'], bobCookie),
       () => setStealBehavior(id, 'PickNext'),
     );
 
-    // Under pause queue, the steal behavior it started with.
-    const lostThenSet = {
+    const lostUnderPauseQueueThenSet = {
       cards: ['Skewer the Critics'],
       lost: ['Lava Spike: QueuePaused'],
       queuePaused: true,
     };
     expect([
       {
+        // Set first: lost under pick next, the queue stays queue picking, so
+        // the cascade picks its next card.
         set: {
           cards: ['Lava Spike', 'Skewer the Critics'],
           lost: [],
           queuePaused: false,
         },
-        // Under pick next the queue stays queue picking, so the cascade
-        // picks its next card.
         log: [...throughBobsSecond, 'Alice: Skewer the Critics'],
         queue: {
           cards: [],
@@ -305,7 +298,12 @@ describeRaces('setting a queue picking on the player’s turn', () => {
           queuePaused: false,
         },
       },
-      { set: lostThenSet, log: throughBobsSecond, queue: lostThenSet },
+      {
+        // Lost first, under pause queue: the queue is queue paused.
+        set: lostUnderPauseQueueThenSet,
+        log: throughBobsSecond,
+        queue: lostUnderPauseQueueThenSet,
+      },
     ]).toContainEqual({
       set: answeredQueue(set),
       log: await pickLogLines(id),
