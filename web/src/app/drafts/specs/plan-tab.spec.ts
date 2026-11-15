@@ -366,6 +366,32 @@ describe('plan tab', () => {
     await vi.waitFor(() => expect(plan.querySelector('.notice')).toBeNull());
   });
 
+  it('moves focus to the nearest control after the Deck notice’s Dismiss once it settles', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({
+        mainboard: [planned(brightclimb)],
+        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    const dismiss = button(plan, 'Dismiss')!;
+    dismiss.focus();
+    dismiss.click();
+    http
+      .expectOne('/api/drafts/draft-1/plan/notice')
+      .flush(planOf({ mainboard: [planned(brightclimb)] }));
+    await vi.waitFor(() => expect(button(plan, 'Dismiss')).toBeUndefined());
+    await fixture.whenStable();
+
+    await vi.waitFor(() =>
+      expect(document.activeElement).toBe(
+        button(plan, `Move ${brightclimb.name} to the sideboard`),
+      ),
+    );
+  });
+
   it('hides its help in a closed "How this works" section until opened', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,

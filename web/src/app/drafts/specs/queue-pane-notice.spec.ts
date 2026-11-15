@@ -1,3 +1,4 @@
+import type { QueueView } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -23,6 +24,7 @@ import {
   accessibleName,
   text,
   serverError,
+  tabButton,
   viewOn,
   openQueueSheet,
   queueNotice,
@@ -307,6 +309,72 @@ describe('Queue pane notice, cutoff and read-only state', () => {
 
       const queue = queuePane(await openQueueSheet(fixture, page));
       expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+    });
+  });
+
+  /** Dismiss has no focus key: focus goes to the nearest control still there, those after it first. */
+  describe('focus once Dismiss settles', () => {
+    /** Lightning Bolt then Shivan Dragon queued, or `cards`, with Brightclimb Pathway lost. */
+    const withLoss = (cards = [queued(bolt), queued(shivan)]) =>
+      queueOf({ cards, lost: [queued(brightclimb)] });
+
+    /**
+     * Focuses and presses the Queue notice's Dismiss, does `meanwhile` while
+     * it is in flight, then answers its DELETE with `answer`.
+     */
+    async function dismiss(
+      fixture: { whenStable: () => Promise<unknown> },
+      queue: HTMLElement,
+      answer: QueueView,
+      meanwhile = () => {},
+    ) {
+      const dismissButton = button(queueNotice(queue)!, 'Dismiss')!;
+      dismissButton.focus();
+      dismissButton.click();
+      meanwhile();
+      http.expectOne('/api/drafts/draft-1/queue/notice').flush(answer);
+      await vi.waitFor(() => expect(queueNotice(queue)).toBeNull());
+      await fixture.whenStable();
+    }
+
+    it('moves focus to the first queued card’s menu', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: withLoss(),
+      });
+      const queue = queuePane(page);
+
+      await dismiss(fixture, queue, queueOf({ cards: [queued(bolt), queued(shivan)] }));
+
+      await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, 'Lightning Bolt')));
+    });
+
+    it('moves focus to the nearest control before Dismiss when the queue is empty', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [brightclimb],
+        queue: withLoss([]),
+      });
+      const queue = queuePane(page);
+
+      await dismiss(fixture, queue, queueOf());
+
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(queue, 'Steal behavior: Pause queue')),
+      );
+    });
+
+    it('leaves focus where the viewer moved it while the dismiss was in flight', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: withLoss(),
+      });
+      const queue = queuePane(page);
+
+      await dismiss(fixture, queue, queueOf({ cards: [queued(bolt), queued(shivan)] }), () =>
+        tabButton(page, 'Pool').focus(),
+      );
+
+      expect(document.activeElement).toBe(tabButton(page, 'Pool'));
     });
   });
 });

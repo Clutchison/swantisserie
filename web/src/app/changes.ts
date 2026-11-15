@@ -109,25 +109,22 @@ export class Changes {
   /**
    * The keys to put focus back on, from the control focused here: its own,
    * then `keep`, then the other controls' after it, then before it, nearest
-   * first. Null, if focus is outside this component or on nothing.
+   * first. A control with no key, such as a Dismiss, still places focus
+   * among them, though focus can't go back to it. Null, if focus is outside
+   * this component or on nothing.
    */
   private pressed(keep: string[]): Press | null {
     const focused = this.host.ownerDocument.activeElement;
     if (!(focused instanceof HTMLElement) || !this.host.contains(focused)) return null;
-    const keys = this.ordered()
-      .map((target) => ({ key: target.key(), here: target.element === focused }))
-      .filter(({ key }) => key !== '');
-    const at = keys.findIndex(({ here }) => here);
+    const targets = this.ordered();
+    const keys = targets.map((target) => target.key());
+    const at = targets.findIndex((target) => target.element === focused);
     if (at === -1) return keep;
-    const key = (i: number) => keys[i].key;
     // Stryker disable next-line MethodExpression: all the keys, not just those before, only lists again after the others the keys already listed, so the first control still here is never one of them.
     const before = keys.slice(0, at);
-    return [
-      key(at),
-      ...keep,
-      ...keys.slice(at + 1).map(({ key }) => key),
-      ...before.reverse().map(({ key }) => key),
-    ];
+    return [keys[at], ...keep, ...keys.slice(at + 1), ...before.reverse()].filter(
+      (key) => key !== '',
+    );
   }
 
   /**
