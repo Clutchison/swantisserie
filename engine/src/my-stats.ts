@@ -56,7 +56,9 @@ export interface MyStats<T extends StatsTournament> {
  * The My stats of the player `playerId` over complete `tournaments`. Records
  * count played matches only, those with a game score: forfeits, granted
  * draws, granted wins and unreported matches count for nothing, and byes
- * aren't matches. Every format counts the same.
+ * aren't matches. Every format counts the same. Trophies count in every
+ * tournament given, so they can be more than the trophy ranking's, which
+ * counts only the tournaments on the Trophy Hall.
  */
 export function myStats<T extends StatsTournament>(
   playerId: string,
