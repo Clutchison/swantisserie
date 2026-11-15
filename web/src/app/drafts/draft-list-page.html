@@ -6,7 +6,7 @@
     </div>
   </div>
   <!-- The notice's live region is there before its text, so it is announced on landing. Empty, it takes no space. -->
-  <div role="status" aria-label="Notice">
+  <div role="status" aria-label="Draft list notice">
     @if (noticeReady() && notice; as notice) {
       <p class="notice">{{ notice }}</p>
     }

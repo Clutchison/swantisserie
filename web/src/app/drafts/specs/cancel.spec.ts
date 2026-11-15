@@ -1,4 +1,4 @@
-import { answer, question, text } from '../../specs-harness';
+import { answer, question, text, watchArrival, watchChanges } from '../../specs-harness';
 import type { DraftChangeRefusal, PoolSnapshotView } from 'contract';
 import {
   useDraftsApp,
@@ -22,7 +22,15 @@ import {
   openUrl,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore } from './draft-header-harness';
-import { landOnDraftList, listNotice, openList } from './draft-list-harness';
+import {
+  LIST_NOTICE,
+  landOnDraftList,
+  listedDrafts,
+  listNotice,
+  openList,
+  settle,
+} from './draft-list-harness';
+import { pushToOwnRoom } from './updates-harness';
 
 useDraftsApp();
 
@@ -178,19 +186,29 @@ describe('cancel', () => {
   it('is announced on landing on the draft list: the status is there, empty, before its text', async () => {
     const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
     // A live region announces changes to it, not the text it is inserted with.
-    let firstSeen: string | null = null;
-    const observer = new MutationObserver(() => {
-      const region = listNotice(document.body);
-      if (region && firstSeen === null) firstSeen = text(region);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    const arrival = watchArrival(LIST_NOTICE);
 
     updates.events.next({ type: 'cancelled' });
     const notice = await flushList(page);
-    observer.disconnect();
 
-    expect(firstSeen).toBe('');
+    expect(arrival()).toBe('');
     expect(notice).toBe('Red dragons was cancelled.');
+  });
+
+  it('says the draft list’s notice once, leaving it be as the list changes', async () => {
+    const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
+    updates.events.next({ type: 'cancelled' });
+    await flushList(page);
+    const changes = watchChanges(listNotice(page)!);
+
+    pushToOwnRoom(updates, {
+      type: 'changed',
+      draft: draft({ id: 'draft-2', name: 'Blue dragons' }),
+    });
+    await settle();
+
+    expect(listedDrafts(page, 'Active drafts')).toEqual(['Blue dragons']);
+    expect(changes()).toEqual([]);
   });
 
   it('names no draft in the notice when it is cancelled before it has loaded', async () => {

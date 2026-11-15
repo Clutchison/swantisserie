@@ -589,11 +589,11 @@ export async function expectSignedOut(
 export const statusMessage = (root: HTMLElement, text: string) =>
   statusIn(root, { text }) ?? undefined;
 
-/** The preview of the file chosen for a pick import inside `root`: the status headed Import picks; undefined if none shows. */
-export const pickImportPreview = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
-    heading(status, 'Import picks'),
-  );
+/** The preview of the file chosen for a pick import inside `root`: its status region while it holds one; undefined while none shows. */
+export function pickImportPreview(root: HTMLElement) {
+  const region = statusIn(root, { name: 'Pick import preview' });
+  return region && text(region) ? region : undefined;
+}
 
 /** The problems listed with the file chosen for a pick import inside `root`, in order; none while no list shows. */
 export const pickImportProblems = (root: HTMLElement) =>

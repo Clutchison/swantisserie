@@ -38,7 +38,7 @@ import {
 import { disclosure } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
-import { clickOn, emptyStatusIn } from '../../specs-harness';
+import { clickOn, emptyStatusIn, watchChanges } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -564,15 +564,16 @@ describe('seats and start', () => {
       expect(fileInput(page).value).toBe('');
     });
 
-    it('keeps a preview when the draft is read again unchanged, as on reconnecting', async () => {
+    it('keeps a preview, said once, when the draft is read again unchanged, as on reconnecting', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       await chooseFile(fixture, page, preview);
-      await shownPreview(page);
+      const changes = watchChanges(await shownPreview(page));
 
       updates.events.next({ type: 'changed', draft: draft({ players: [alicePlayer, bob] }) });
       await fixture.whenStable();
 
       expect(pickImportPreview(page)).toBeDefined();
+      expect(changes()).toEqual([]);
     });
 
     it('says a file is too large, whoever refused it', async () => {

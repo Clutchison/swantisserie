@@ -27,7 +27,7 @@
           Add bot
         </button>
       }
-      @if (canOrganize()) {
+      @if (canImportPicks()) {
         <input
           #pickImportFile
           type="file"
@@ -49,7 +49,7 @@
     </div>
   }
   <!-- The preview's live region is there before a file is chosen, so the preview is announced. -->
-  @if (inLobby() && canOrganize()) {
+  @if (canImportPicks()) {
     <div class="pick-import-preview" role="status" aria-label="Pick import preview">
       @if (pickImportPreview(); as preview) {
         <h3>Import picks</h3>

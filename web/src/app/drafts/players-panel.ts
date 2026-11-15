@@ -73,6 +73,8 @@ export class PlayersPanel {
   protected readonly draftFull = computed(() => this.draft().players.length >= MAX_PLAYERS);
   /** Joining and leaving are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
+  /** Only the organizer imports picks, and only in Lobby. */
+  protected readonly canImportPicks = computed(() => this.inLobby() && this.canOrganize());
   /**
    * Whether the panel always stays open, its seats stacked: where it has a
    * place of its own, beside the tabs or in the Seat strip's popover or the

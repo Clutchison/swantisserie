@@ -101,6 +101,25 @@ export function watchChanges(region: HTMLElement): () => MutationRecord[] {
   };
 }
 
+/**
+ * Starts watching the page for the status region named `name` to arrive, as
+ * the page lands; call the result to stop and get the text the region held
+ * when first seen, or null if it never came. Empty means its text was put
+ * into it once it was there, so a screen reader announces it on landing.
+ */
+export function watchArrival(name: string): () => string | null {
+  let firstSeen: string | null = null;
+  const observer = new MutationObserver(() => {
+    const region = statusIn(document.body, { name });
+    if (region && firstSeen === null) firstSeen = text(region);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => {
+    observer.disconnect();
+    return firstSeen;
+  };
+}
+
 export let http: HttpTestingController;
 export let router: Router;
 /** Stands in for the API's Socket.IO gateway. */
