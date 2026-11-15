@@ -1,5 +1,12 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, Injector, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  Injector,
+  signal,
+} from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import {
   MAX_WEBHOOK_NAME_LENGTH,
@@ -14,6 +21,19 @@ import { Questions } from '../question-dialog';
 import { saveThenReread } from '../reread';
 
 const API = '/api/admin/webhooks';
+
+/** Where a change came from, so its failure shows there: the Add form, or a webhook's row. */
+type ProblemPlace = 'add' | { webhook: WebhookWithUrlView['id'] };
+
+/** Whether `a` and `b` are the same place. */
+const samePlace = (a: ProblemPlace, b: ProblemPlace) =>
+  a === 'add' || b === 'add' ? a === b : a.webhook === b.webhook;
+
+/** A failed change's message, with the place it came from. */
+interface Problem {
+  place: ProblemPlace;
+  message: string;
+}
 
 /**
  * Where app admins add, rename, replace the URLs of and remove the webhooks
@@ -38,21 +58,40 @@ export class WebhooksPage {
   // Validated by the API, whose messages say exactly what to fix.
   protected readonly form = inject(FormBuilder).nonNullable.group({ name: '', url: '' });
   protected readonly maxNameLength = MAX_WEBHOOK_NAME_LENGTH;
-  protected readonly problem = signal<string | null>(null);
+  /** The one failure showing, with the place its change came from. */
+  private readonly problem = signal<Problem | null>(null);
+
+  /**
+   * Where the failure shows: the place its change came from, or the Add
+   * form's place once a row's webhook is no longer listed, so it is never lost.
+   */
+  private readonly problemPlace = computed((): ProblemPlace | null => {
+    const place = this.problem()?.place;
+    if (!place || place === 'add') return place ?? null;
+    const listed =
+      this.webhooks.hasValue() && this.webhooks.value().some((w) => w.id === place.webhook);
+    return listed ? place : 'add';
+  });
+
+  /** The failure's message if it shows at `place`, else null. */
+  protected problemAt(place: ProblemPlace) {
+    const shown = this.problemPlace();
+    return shown && samePlace(shown, place) ? this.problem()!.message : null;
+  }
 
   protected async add() {
     const webhook = this.form.getRawValue() satisfies NewWebhookRequest;
-    if (await this.save(() => this.http.post(API, webhook))) this.form.reset();
+    if (await this.save('add', () => this.http.post(API, webhook))) this.form.reset();
   }
 
   protected async rename(webhook: WebhookWithUrlView, name: string) {
-    await this.save(() =>
+    await this.save({ webhook: webhook.id }, () =>
       this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
     );
   }
 
   protected async replaceUrl(webhook: WebhookWithUrlView, url: string) {
-    await this.save(() =>
+    await this.save({ webhook: webhook.id }, () =>
       this.http.put(`${API}/${webhook.id}/url`, { url } satisfies WebhookUrlReplaceRequest),
     );
   }
@@ -62,7 +101,7 @@ export class WebhooksPage {
    * the change, so focus goes back on Remove if they think better of it.
    */
   protected async remove(webhook: WebhookWithUrlView) {
-    await this.save(async () => {
+    await this.save({ webhook: webhook.id }, async () => {
       const goAhead = await this.questions.ask(
         {
           question: `Remove ${webhook.name}?`,
@@ -76,11 +115,13 @@ export class WebhooksPage {
   }
 
   /**
-   * Sends the change `request` makes (none if the app admin thinks better of
-   * it), then shows the list as it now is; answers whether it was made.
-   * Focus is kept as `Changes.send` keeps it.
+   * Sends the change `request` makes from `place` (none if the app admin
+   * thinks better of it), then shows the list as it now is; answers whether
+   * it was made. A failure shows at `place`. Focus is kept as
+   * `Changes.send` keeps it.
    */
   private save(
+    place: ProblemPlace,
     request: () => Observable<unknown> | Promise<Observable<unknown> | undefined>,
   ): Promise<boolean> {
     return this.changes.send(async () => {
@@ -90,10 +131,13 @@ export class WebhooksPage {
         resource: this.webhooks,
         injector: this.injector,
         problem: this.problem,
-        failure: (err) =>
-          err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
-            ? err.error.message
-            : 'Saving failed. Check your connection and try again.',
+        failure: (err) => ({
+          place,
+          message:
+            err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
+              ? err.error.message
+              : 'Saving failed. Check your connection and try again.',
+        }),
       });
     });
   }

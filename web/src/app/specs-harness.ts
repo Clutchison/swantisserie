@@ -33,8 +33,24 @@ export const carol: UserView = {
 /** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
 export const serverError = { status: 500, statusText: 'Server Error' };
 
+/** An alert: an error shown to the viewer. */
+const ALERT = '[role="alert"]';
+
 /** The first alert inside `root`: an error shown to the viewer, if any. */
-export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
+export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>(ALERT);
+
+/** Every alert inside `root`, in reading order. */
+export const alertsIn = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>(ALERT)];
+
+/**
+ * The one alert inside `root`, failing the spec if it shows none or more
+ * than one, so a failure is said in one place only.
+ */
+export function onlyAlert(root: HTMLElement) {
+  const alerts = alertsIn(root);
+  expect(alerts).toHaveLength(1);
+  return alerts[0];
+}
 
 export let http: HttpTestingController;
 export let router: Router;
@@ -431,7 +447,9 @@ export const tableColumns = (table: HTMLElement) =>
 /**
  * Whether `first` comes before `second` in reading order: the order a
  * keyboard or screen-reader user reaches them. Specs use it only to check
- * that an action row comes before a list that grows.
+ * that an action row comes before a list that grows, and that a failure's
+ * message shows by the control that made the change: after it and before
+ * what follows it, or before the form a page-level failure belongs to.
  */
 export const comesBefore = (first: Node, second: Node) =>
   Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);

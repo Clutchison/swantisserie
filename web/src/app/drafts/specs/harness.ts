@@ -66,6 +66,7 @@ export {
   findQueuePlayPauseButton,
   justAddedCards,
   nextUpStrip,
+  openQueueHelp,
   openQueueSheet,
   openRowMenu,
   pickChangesQueue,

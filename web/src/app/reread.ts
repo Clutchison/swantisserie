@@ -26,7 +26,7 @@ export async function reread(resource: Rereadable, injector: Injector) {
  * is cleared as it saves, and says what `failure` makes of the error if the
  * change fails, when nothing is read afresh.
  */
-export async function saveThenReread(
+export async function saveThenReread<Problem>(
   request: Observable<unknown>,
   {
     resource,
@@ -36,8 +36,8 @@ export async function saveThenReread(
   }: {
     resource: Rereadable;
     injector: Injector;
-    problem: WritableSignal<string | null>;
-    failure: (err: unknown) => string;
+    problem: WritableSignal<Problem | null>;
+    failure: (err: unknown) => Problem;
   },
 ): Promise<boolean> {
   problem.set(null);

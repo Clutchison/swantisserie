@@ -11,6 +11,7 @@ import {
   focusAndClick,
   focusedControl,
   http,
+  onlyAlert,
   openApp,
   openDialog,
   question,
@@ -63,6 +64,7 @@ describe('webhooks page', () => {
   const row = (page: HTMLElement, name: string) =>
     [...page.querySelectorAll('li')].find((li) => nameField(li)?.value === name)!;
   const mainRow = (page: HTMLElement) => row(page, '#roto-main');
+  const sideRow = (page: HTMLElement) => row(page, '#roto-side');
   const nameMissing = {
     error: 'invalid',
     message: 'Give the webhook a name.',
@@ -74,6 +76,25 @@ describe('webhooks page', () => {
   function fill(input: HTMLInputElement | HTMLTextAreaElement, value: string) {
     input.value = value;
     input.dispatchEvent(new Event('input'));
+  }
+
+  /** Answers the pending request to `url` with `problem`, refusing the change. */
+  async function refused(
+    fixture: Awaited<ReturnType<typeof openPage>>['fixture'],
+    url: string,
+    problem: WebhookRegistryProblem,
+    status = { status: 400, statusText: 'Bad Request' },
+  ) {
+    (await vi.waitFor(() => http.expectOne(url))).flush(problem, status);
+    // The change settles after the fixture does.
+    await vi.waitFor(() => expect(alertIn(fixture.nativeElement as HTMLElement)).not.toBeNull());
+  }
+
+  /** Expects `message` as the page's only alert, inside `li`. */
+  function expectAlertIn(page: HTMLElement, li: Element, message: string) {
+    const alert = onlyAlert(page);
+    expect(alert.textContent).toContain(message);
+    expect(li.contains(alert)).toBe(true);
   }
 
   /** Answers the list's re-read after a change with `webhooks`. */
@@ -195,17 +216,27 @@ describe('webhooks page', () => {
   });
 
   it('says why a webhook could not be added, keeping what was typed', async () => {
-    const { page } = await openPage([]);
+    const { fixture, page } = await openPage([]);
     const form = addForm(page);
     fill(addField(form, 'URL'), side.url);
     button(form, 'Add').click();
 
-    (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(nameMissing, {
-      status: 400,
-      statusText: 'Bad Request',
-    });
-    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(nameMissing.message));
+    await refused(fixture, '/api/admin/webhooks', nameMissing);
+
+    expect(alertIn(page)?.textContent).toContain(nameMissing.message);
     expect(addField(form, 'URL').value).toBe(side.url);
+  });
+
+  it('says why a webhook could not be added before the Add form', async () => {
+    const { fixture, page } = await openPage([main, side]);
+    const form = addForm(page);
+    button(form, 'Add').click();
+
+    await refused(fixture, '/api/admin/webhooks', nameMissing);
+
+    const alert = onlyAlert(page);
+    expect(alert.textContent).toContain(nameMissing.message);
+    expect(comesBefore(alert, form)).toBe(true);
   });
 
   it('says saving failed when no reason comes back', async () => {
@@ -256,18 +287,35 @@ describe('webhooks page', () => {
   });
 
   it('clears the reason a change was refused once one saves', async () => {
-    const { fixture, page } = await openPage([main]);
-    button(mainRow(page), 'Rename').click();
-    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(nameMissing, {
-      status: 400,
-      statusText: 'Bad Request',
-    });
-    await vi.waitFor(() => expect(alertIn(page)).not.toBeNull());
+    const { fixture, page } = await openPage([main, side]);
+    button(sideRow(page), 'Rename').click();
+    await refused(fixture, `/api/admin/webhooks/${side.id}`, nameMissing);
+    expect(alertIn(sideRow(page))?.textContent).toContain(nameMissing.message);
 
     button(mainRow(page), 'Rename').click();
     (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(main);
-    await answerReread(fixture, [main]);
+    await answerReread(fixture, [main, side]);
 
+    expect(alertIn(page)).toBeNull();
+  });
+
+  it('holds a change to a removed webhook until the list comes back without it', async () => {
+    const { page } = await openPage([main, side]);
+    button(sideRow(page), 'Remove').click();
+    await answer(await question('Remove #roto-side?'), 'Remove');
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${side.id}`))).flush(null, {
+      status: 204,
+      statusText: 'No Content',
+    });
+    const reread = await vi.waitFor(() => http.expectOne('/api/admin/webhooks'));
+
+    // Renamed before the list comes back without it: the removal still holds every change.
+    button(sideRow(page), 'Rename').click();
+    await Promise.resolve();
+    http.expectNone(`/api/admin/webhooks/${side.id}`);
+    reread.flush([main]);
+
+    await vi.waitFor(() => expect(rows(page)).toEqual([['#roto-main', main.url]]));
     expect(alertIn(page)).toBeNull();
   });
 
@@ -306,22 +354,20 @@ describe('webhooks page', () => {
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Rename'));
   });
 
-  it('says why a rename was refused', async () => {
-    const { page } = await openPage([main, side]);
-    const li = mainRow(page);
-    fill(nameField(li)!, '#roto-side');
+  it('says why a rename was refused, in its webhook’s row', async () => {
+    const { fixture, page } = await openPage([main, side]);
+    const li = sideRow(page);
+    fill(nameField(li)!, '#roto-main');
     button(li, 'Rename').click();
 
-    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(
-      {
-        error: 'name-taken',
-        message: 'Another webhook is called #roto-side.',
-      } satisfies WebhookRegistryProblem,
+    await refused(
+      fixture,
+      `/api/admin/webhooks/${side.id}`,
+      { error: 'name-taken', message: 'Another webhook is called #roto-main.' },
       { status: 409, statusText: 'Conflict' },
     );
-    await vi.waitFor(() =>
-      expect(alertIn(page)?.textContent).toContain('Another webhook is called #roto-side.'),
-    );
+
+    expectAlertIn(page, li, 'Another webhook is called #roto-main.');
   });
 
   it('marks gone webhooks', async () => {
@@ -363,22 +409,18 @@ describe('webhooks page', () => {
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Replace URL'));
   });
 
-  it('says why a replacement URL was refused', async () => {
-    const { page } = await openPage([main]);
-    const li = mainRow(page);
+  it('says why a replacement URL was refused, in its webhook’s row', async () => {
+    const { fixture, page } = await openPage([main, side]);
+    const li = sideRow(page);
     fill(newUrlField(li), 'https://example.com/x');
     button(li, 'Replace URL').click();
 
-    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}/url`))).flush(
-      {
-        error: 'invalid',
-        message: 'Paste the webhook’s URL from Discord.',
-      } satisfies WebhookRegistryProblem,
-      { status: 400, statusText: 'Bad Request' },
-    );
-    await vi.waitFor(() =>
-      expect(alertIn(page)?.textContent).toContain('Paste the webhook’s URL from Discord.'),
-    );
+    await refused(fixture, `/api/admin/webhooks/${side.id}/url`, {
+      error: 'invalid',
+      message: 'Paste the webhook’s URL from Discord.',
+    });
+
+    expectAlertIn(page, sideRow(page), 'Paste the webhook’s URL from Discord.');
   });
 
   it('removes a webhook once the app admin goes ahead', async () => {
@@ -412,6 +454,17 @@ describe('webhooks page', () => {
     await answerReread(fixture, [main]);
 
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Replace URL'));
+  });
+
+  it('shows a refused remove in its webhook’s row', async () => {
+    const { fixture, page } = await openPage([main, side]);
+    const removeRefused = { error: 'invalid', message: 'That webhook can’t be removed.' } as const;
+    button(sideRow(page), 'Remove').click();
+    await answer(await question('Remove #roto-side?'), 'Remove');
+
+    await refused(fixture, `/api/admin/webhooks/${side.id}`, removeRefused);
+
+    expectAlertIn(page, sideRow(page), removeRefused.message);
   });
 
   it('keeps a webhook the app admin thinks better of removing, and focus on Remove', async () => {

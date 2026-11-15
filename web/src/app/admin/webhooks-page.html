@@ -6,7 +6,7 @@
     URLs.
   </p>
 
-  @if (problem(); as problem) {
+  @if (problemAt('add'); as problem) {
     <p class="error" role="alert">{{ problem }}</p>
   }
 
@@ -89,6 +89,9 @@
               Replace URL
             </button>
           </div>
+          @if (problemAt({ webhook: webhook.id }); as problem) {
+            <p class="error" role="alert">{{ problem }}</p>
+          }
         </li>
       } @empty {
         <li class="empty">No webhooks yet.</li>
