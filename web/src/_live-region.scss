@@ -1,0 +1,12 @@
+// A live region stays on the page while it has nothing to say, as one that
+// arrives holding its text may go unspoken (CODING_STANDARDS.md, live
+// regions). Include this in a region whose container spaces its children
+// with a gap: while empty, the region is taken out of the flow, so it takes
+// no room and no gap, whatever the gap. It stays in the accessibility tree,
+// as one hidden with display: none wouldn't. Silent comments, so they stay
+// out of every component that uses this.
+@mixin no-space-while-empty {
+  &:empty {
+    position: absolute;
+  }
+}

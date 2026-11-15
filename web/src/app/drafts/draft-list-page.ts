@@ -3,6 +3,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { Router, RouterLink } from '@angular/router';
 import type { DraftListItemView } from 'contract';
 import { Auth } from '../auth/auth';
+import { liveRegionReady } from '../live-region';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { isActive, isTurnOf, pickAndRound, titleWithTurn } from './drafts';
 import { ViewerDrafts } from './viewer-drafts';
@@ -30,6 +31,11 @@ export class DraftListPage {
   /** What the page that sent the viewer here wants them told, e.g. a draft was cancelled. */
   protected readonly notice = inject(Router).currentNavigation()?.extras.state?.['notice'] as
     string | undefined;
+  /**
+   * Whether the notice may fill its live region yet: it is known as the page
+   * opens, so waits for the region to be on the page, to be announced on landing.
+   */
+  protected readonly noticeReady = liveRegionReady(() => this.notice !== undefined);
 
   /**
    * The viewer's drafts, read only once they have loaded: none once the

@@ -10,6 +10,7 @@ import {
   withDoubleTurns,
 } from './harness';
 import { pushDraft, turnBanner } from './turn-harness';
+import { watchArrival } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -56,17 +57,11 @@ describe('the Turn banner', () => {
 
   it('is announced on landing on the viewer’s turn: the status is there, empty, before its text', async () => {
     // A live region announces changes to it, not the text it is inserted with.
-    let firstSeen: string | null = null;
-    const observer = new MutationObserver(() => {
-      const region = turnBanner(document.body);
-      if (region && firstSeen === null) firstSeen = text(region);
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    const arrival = watchArrival('Turn');
 
     const { page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn(3, 2) }));
-    observer.disconnect();
 
-    expect(firstSeen).toBe('');
+    expect(arrival()).toBe('');
     expect(bannerText(page)).toBe('Your turn: pick 3, round 2');
   });
 

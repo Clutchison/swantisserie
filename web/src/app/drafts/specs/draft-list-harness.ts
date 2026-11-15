@@ -2,6 +2,7 @@ import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { DraftListItemView, DraftView } from 'contract';
 import { alice, draft, drafting, type DraftFixture, http, openUrl, router } from './harness';
+import { statusIn } from '../../specs-harness';
 
 /**
  * Opens the draft list with GET /api/drafts answered by `drafts`, each
@@ -95,3 +96,14 @@ export function alicesTurnItem(
     ...drafting({ state, turn: { pick: 2, round: 1, playerId: alice.id } }),
   });
 }
+
+/** The name of the draft list's notice's live region. */
+export const LIST_NOTICE = 'Draft list notice';
+
+/**
+ * The draft list's notice region, such as one saying a draft was cancelled:
+ * the region itself, empty when there is no notice; null only if it is not on
+ * the page. Unlike the filled wrappers (`queueNotice`, `deckNotice`), it is
+ * not null while empty, as its specs watch the one region from landing on.
+ */
+export const listNoticeRegion = (page: HTMLElement) => statusIn(page, { name: LIST_NOTICE });

@@ -44,9 +44,11 @@ import {
   byAriaLabel,
   byName,
   collapseWhitespace,
+  filledStatusIn,
   opensDraftList,
   panel,
   serverError,
+  statusIn,
   table,
   tabButton,
   tableRows,
@@ -564,23 +566,22 @@ export const group = (root: HTMLElement, name: string) =>
   ) ??
   null;
 
-/** A status message inside `root`, by its text. */
+/** A status message inside `root`, by its text; undefined if none holds it. */
 export const statusMessage = (root: HTMLElement, text: string) =>
-  [...root.querySelectorAll('[role="status"]')].find((el) => el.textContent?.trim() === text);
+  statusIn(root, { text }) ?? undefined;
 
-/** The preview of the file chosen for a pick import inside `root`: the status headed Import picks; undefined if none shows. */
-export const pickImportPreview = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
-    heading(status, 'Import picks'),
-  );
+/** The name of the pick import preview's live region. */
+export const PICK_IMPORT_PREVIEW = 'Pick import preview';
+/** The preview of the file chosen for a pick import inside `root`: its status region while it holds one; null otherwise. */
+export const pickImportPreview = (root: HTMLElement) => filledStatusIn(root, PICK_IMPORT_PREVIEW);
 
 /** The problems listed with the file chosen for a pick import inside `root`, in order; none while no list shows. */
 export const pickImportProblems = (root: HTMLElement) =>
   findNamedList(root, 'Problems with the file') ? items(root, 'Problems with the file') : [];
 
-/** The text of every status message inside `root`, with its whitespace collapsed. */
+/** The text of every status message inside `root`, with its whitespace collapsed; empty regions say nothing. */
 export const statusTexts = (root: HTMLElement) =>
-  [...root.querySelectorAll('[role="status"]')].map((el) => text(el));
+  [...root.querySelectorAll('[role="status"]')].map((el) => text(el)).filter(Boolean);
 
 /** A list inside `root`, by its accessible name, such as "Pick log"; null if there is none. */
 export const findNamedList = (root: HTMLElement, name: string) =>
@@ -684,11 +685,13 @@ export const comboboxOptions = (field: HTMLInputElement) =>
           ?.querySelectorAll<HTMLElement>('[role="option"]') ?? []),
       ]
     : [];
-/** What the status beside an editable combobox's open list says, such as that nothing matches; null if none. */
-export const comboboxStatus = (field: HTMLInputElement) => {
-  const list = document.getElementById(field.getAttribute('aria-controls') ?? '');
-  const status = list?.parentElement?.querySelector('[role="status"]');
-  return status ? collapseWhitespace(status.textContent) : null;
+/** What an editable combobox's open list shows beside its options, such as that nothing matches; null while it is closed. */
+export const comboboxNote = (field: HTMLInputElement) => {
+  const popup = document.getElementById(field.getAttribute('aria-controls') ?? '')?.parentElement;
+  const note = popup?.cloneNode(true);
+  if (!(note instanceof Element)) return null;
+  note.querySelector('[role="listbox"]')?.remove();
+  return collapseWhitespace(note.textContent);
 };
 /** The option an editable combobox highlights, by its text, if any. */
 export const highlightedOption = (field: HTMLInputElement) => {

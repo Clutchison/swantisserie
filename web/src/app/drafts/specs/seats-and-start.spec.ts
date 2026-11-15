@@ -24,6 +24,7 @@ import {
   tabButton,
   panel,
   pickImportPreview,
+  PICK_IMPORT_PREVIEW,
   pickImportProblems,
   serverError,
   type AppFixture,
@@ -39,7 +40,7 @@ import {
 import { disclosure } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
-import { clickOn } from '../../specs-harness';
+import { clickOn, emptyStatusIn, watchChanges } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -313,13 +314,16 @@ describe('seats and start', () => {
       });
     });
 
-    it('previews a valid file: the pairings, pick count and next turn', async () => {
+    it('previews a valid file, in a status there before it: the pairings, pick count and next turn', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       expect(page.textContent).toContain('Import picks');
+      // A live region announces changes to it, not the text it is inserted with.
+      const region = emptyStatusIn(page, PICK_IMPORT_PREVIEW);
 
       await chooseFile(fixture, page, preview);
 
-      const shown = (await shownPreview(page)).textContent;
+      expect(await shownPreview(page)).toBe(region);
+      const shown = region.textContent;
       expect(shown).toContain('Ann → Alice');
       expect(shown).toContain('Ben → Bob');
       expect(shown).toContain('70 picks');
@@ -382,7 +386,7 @@ describe('seats and start', () => {
         );
 
         await vi.waitFor(() => {
-          expect(pickImportPreview(page)).toBeUndefined();
+          expect(pickImportPreview(page)).toBeNull();
           expect(button(page, 'Import picks')).toBeUndefined();
         });
         const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
@@ -439,7 +443,7 @@ describe('seats and start', () => {
             'The file has 2 player columns, but the draft has 3 players.',
           ]),
         );
-        expect(pickImportPreview(page)).toBeUndefined();
+        expect(pickImportPreview(page)).toBeNull();
       });
 
       it('says the import failed when it fails without a refusal, keeping the preview, until it goes through', async () => {
@@ -448,7 +452,7 @@ describe('seats and start', () => {
         await confirmImport(page, { message: 'Internal server error' }, 500);
         await fixture.whenStable();
         await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(importFailed));
-        expect(pickImportPreview(page)).toBeDefined();
+        expect(pickImportPreview(page)).not.toBeNull();
         expect(catchUps()).toEqual([]);
 
         await confirmImport(
@@ -562,15 +566,16 @@ describe('seats and start', () => {
       expect(fileInput(page).value).toBe('');
     });
 
-    it('keeps a preview when the draft is read again unchanged, as on reconnecting', async () => {
+    it('keeps a preview, said once, when the draft is read again unchanged, as on reconnecting', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       await chooseFile(fixture, page, preview);
-      await shownPreview(page);
+      const changes = watchChanges(await shownPreview(page));
 
       updates.events.next({ type: 'changed', draft: draft({ players: [alicePlayer, bob] }) });
       await fixture.whenStable();
 
-      expect(pickImportPreview(page)).toBeDefined();
+      expect(pickImportPreview(page)).not.toBeNull();
+      expect(changes()).toEqual([]);
     });
 
     it('says a file is too large, whoever refused it', async () => {
@@ -598,7 +603,7 @@ describe('seats and start', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(pickImportPreview(page)).toBeUndefined();
+      expect(pickImportPreview(page)).toBeNull();
     });
 
     it('shows no preview from the last draft on another, even at the same version', async () => {
@@ -609,7 +614,7 @@ describe('seats and start', () => {
       await goToOtherDraft(fixture, completeSnapshot, { players: [alicePlayer, bob] });
 
       expect(button(page, 'Import picks')).toBeDefined();
-      expect(pickImportPreview(page)).toBeUndefined();
+      expect(pickImportPreview(page)).toBeNull();
     });
 
     it('is offered only to a viewer who may organize', async () => {
