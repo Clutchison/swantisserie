@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import {
   MAX_SET_LIST_SETS,
   type DraftCreationProblem,
+  type SetCatalogProblem,
   type SetCatalogView,
   type SetOptionView,
 } from 'contract';
@@ -20,6 +21,7 @@ import {
   wait,
   webhooksAnswer,
 } from './harness';
+import { emptyStatusIn, statusIn, text, watchChanges } from '../../specs-harness';
 
 useDraftsApp();
 beforeEach(() => webhooksAnswer([]));
@@ -73,6 +75,37 @@ async function openSets(arena: SetCatalogView = catalog([otj, mkm])) {
 async function answerSets(platform: string, answer: SetCatalogView) {
   (await vi.waitFor(() => http.expectOne(`/api/sets?platform=${platform}`))).flush(answer);
 }
+
+/** How the api answers a failed read of the sets. */
+interface FailedRead {
+  body: object;
+  status: number;
+  statusText: string;
+}
+const SERVER_ERROR: FailedRead = {
+  body: { message: 'Internal server error' },
+  status: 500,
+  statusText: 'Internal Server Error',
+};
+const SCRYFALL_UNAVAILABLE: FailedRead = {
+  body: {
+    error: 'scryfall-unavailable',
+    message: 'Scryfall could not be reached.',
+  } satisfies SetCatalogProblem,
+  status: 502,
+  statusText: 'Bad Gateway',
+};
+
+/** Fails the next request for the sets on `platform`, with the api's 500 unless told otherwise. */
+async function failSets(platform: string, { body, status, statusText }: FailedRead = SERVER_ERROR) {
+  (await vi.waitFor(() => http.expectOne(`/api/sets?platform=${platform}`))).flush(body, {
+    status,
+    statusText,
+  });
+}
+
+/** The live region where the picker says asking again for the sets failed. */
+const REREAD_STATUS = 'Checking for more sets';
 
 /** What a set's or sublist's toggle button is named: its code, name and card count. */
 const nameOf = ({ code, name, cards }: { code: string; name: string; cards: number }) =>
@@ -343,26 +376,27 @@ describe('choosing a set list on the create form', () => {
     const { fixture, page } = await openSets(catalog([otj], true));
     setToggle(page, nameOf(otj))!.click();
     await fixture.whenStable();
+    const note = emptyStatusIn(page, REREAD_STATUS);
 
-    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
-      { message: 'Internal server error' },
-      { status: 500, statusText: 'Internal Server Error' },
-    );
+    await failSets('Arena');
     await fixture.whenStable();
 
+    expect(text(note)).toBe(REREAD_FAILED);
     expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj, true)]);
     expect(toggleButtons(group(page, 'OTJ sublists')!)).toEqual([
       shown(big, true),
       shown(otp, true),
       shown(yotj),
     ]);
-    expect(page.textContent).toContain(REREAD_FAILED);
-    expect(page.textContent).not.toContain('Scryfall.');
+    const changes = watchChanges(note);
 
-    await answerSets('Arena', catalog([otj, mkm]));
+    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
+    TestBed.tick();
+    expect(changes()).toEqual([]);
+    again.flush(catalog([otj, mkm]));
     await fixture.whenStable();
 
-    expect(page.textContent).not.toContain(REREAD_FAILED);
+    expect(text(statusIn(page, { name: REREAD_STATUS }))).toBe('');
     expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj, true), shown(mkm)]);
   });
 
@@ -372,10 +406,7 @@ describe('choosing a set list on the create form', () => {
     setToggle(page, nameOf(mkm))!.click();
     await fixture.whenStable();
 
-    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
-      { message: 'Internal server error' },
-      { status: 500, statusText: 'Internal Server Error' },
-    );
+    await failSets('Arena');
     await fixture.whenStable();
     expect(page.textContent).toContain('Chosen: OTJ (+ BIG, OTP), MKM.');
 
@@ -411,10 +442,7 @@ describe('choosing a set list on the create form', () => {
     typeInto(name, 'Spring 2024');
     controlByLabel(page, 'radio', 'Sets')!.click();
 
-    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
-      { message: 'Internal server error' },
-      { status: 500, statusText: 'Internal Server Error' },
-    );
+    await failSets('Arena');
     await fixture.whenStable();
 
     expect(alertIn(page)?.textContent?.trim()).toBe('Couldn’t load the sets.');
@@ -433,19 +461,66 @@ describe('choosing a set list on the create form', () => {
     expect(name.value).toBe('Spring 2024');
   });
 
+  it('puts focus on Find a set when Try again goes', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    controlByLabel(page, 'radio', 'Sets')!.click();
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    button(page, 'Try again')!.focus();
+    button(page, 'Try again')!.click();
+
+    expect(document.activeElement).toBe(controlByLabel(page, 'textbox', 'Find a set'));
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(catalog([otj]));
+    await fixture.whenStable();
+  });
+
   it('names Scryfall when the sets fail to load because Scryfall failed', async () => {
     const { fixture, page } = await openUrl('/drafts/new');
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
 
-    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
-      { error: 'scryfall-unavailable', message: 'Scryfall could not be reached.' },
-      { status: 502, statusText: 'Bad Gateway' },
-    );
+    await failSets('Arena', SCRYFALL_UNAVAILABLE);
     await fixture.whenStable();
 
     expect(alertIn(page)?.textContent?.trim()).toBe('Couldn’t load the sets from Scryfall.');
     expect(button(page, 'Try again')).toBeTruthy();
     expect(page.textContent).not.toMatch(/reload/i);
+  });
+
+  it('reads a new platform’s sets afresh after a failed first read, without the failure', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    controlByLabel(page, 'radio', 'Sets')!.click();
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    choosePlatform(page, 'MTGO');
+    const mtgo = await vi.waitFor(() => http.expectOne('/api/sets?platform=MTGO'));
+    TestBed.tick();
+    expect(alertIn(page)).toBeNull();
+    expect(page.textContent).toContain('Loading the sets on MTGO…');
+    mtgo.flush(catalog([mkm]));
+    await fixture.whenStable();
+
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(mkm)]);
+  });
+
+  it('reads a new platform’s sets afresh after a failed re-read, without the failure or the old sets', async () => {
+    const { fixture, page } = await openSets(catalog([otj], true));
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    choosePlatform(page, 'MTGO');
+    const mtgo = await vi.waitFor(() => http.expectOne('/api/sets?platform=MTGO'));
+    TestBed.tick();
+    expect(page.textContent).toContain('Loading the sets on MTGO…');
+    expect(namedList(page, 'Sets')).toBeNull();
+    mtgo.flush(catalog([mkm]));
+    await fixture.whenStable();
+
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(mkm)]);
+    expect(text(statusIn(page, { name: REREAD_STATUS }))).toBe('');
   });
 });

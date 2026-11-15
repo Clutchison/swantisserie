@@ -1,6 +1,7 @@
 <label>
   Find a set
   <input
+    #find
     type="text"
     [value]="search()"
     (input)="searchFor($event)"
@@ -39,9 +40,11 @@
   @if (counting()) {
     <span class="hint">Still counting cards on Scryfall, so more sets may appear.</span>
   }
-  @if (rereadFailure(); as failure) {
-    <span class="hint error">{{ failure }}</span>
-  }
+  <span class="hint error reread" role="status" aria-label="Checking for more sets">
+    @if (rereadFailure(); as failure) {
+      {{ failure }}
+    }
+  </span>
 }
 <span class="hint">
   @if (chosen().length > 0) {

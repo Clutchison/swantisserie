@@ -11,6 +11,8 @@ import {
   linkedSignal,
   signal,
   untracked,
+  viewChild,
+  type ElementRef,
 } from '@angular/core';
 import { type ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import {
@@ -60,7 +62,7 @@ export class SetListPicker implements ControlValueAccessor {
    * The last catalog read on the platform, kept through a failed read, and
    * the read's failure since then, if any; a platform switch starts afresh.
    */
-  private readonly read = linkedSignal<CatalogAnswer, CatalogRead>({
+  private readonly lastRead = linkedSignal<CatalogAnswer, CatalogRead>({
     source: () => ({
       platform: this.platform(),
       catalog: this.catalog.hasValue() ? this.catalog.value() : undefined,
@@ -75,23 +77,24 @@ export class SetListPicker implements ControlValueAccessor {
       return kept.catalog ? kept : {};
     },
   });
-  protected readonly loading = computed(() => !this.read().catalog && !this.read().failure);
+  protected readonly loading = computed(() => !this.lastRead().catalog && !this.lastRead().failure);
   /** Why the first read failed, while no catalog has been read. */
   protected readonly loadFailure = computed(() => {
-    const { catalog, failure } = this.read();
-    return !catalog && failure ? failureText(failure, 'Couldn’t load the sets') : null;
+    const { catalog, failure } = this.lastRead();
+    return !catalog && failure ? failureCopy(failure, 'load') : null;
   });
   /** Why asking again failed, while the last catalog read stays on show. */
   protected readonly rereadFailure = computed(() => {
-    const { catalog, failure } = this.read();
-    return catalog && failure ? rereadText(failure) : null;
+    const { catalog, failure } = this.lastRead();
+    return catalog && failure ? failureCopy(failure, 'reread') : null;
   });
-  protected readonly counting = computed(() => !!this.read().catalog?.counting);
+  protected readonly counting = computed(() => !!this.lastRead().catalog?.counting);
   private readonly sets = computed(
     () =>
       // Stryker disable next-line ArrayDeclaration: read only while the sets load or have failed, when the template shows neither list and no chosen code matches.
-      this.read().catalog?.sets ?? [],
+      this.lastRead().catalog?.sets ?? [],
   );
+  private readonly find = viewChild.required<ElementRef<HTMLInputElement>>('find');
   protected readonly search = signal('');
   /** The sets whose code or name holds what was searched for. */
   protected readonly shown = computed(() => setsMatching(this.sets(), this.search()));
@@ -124,6 +127,7 @@ export class SetListPicker implements ControlValueAccessor {
     });
     // Once every set on the platform is counted, drops chosen sets and
     // sublists it doesn't offer, as after switching platforms.
+    // Reads the resource, not `lastRead`, so only a fresh successful answer drops anything.
     effect(() => {
       if (!this.catalog.hasValue() || this.catalog.value().counting) return;
       const offered = new Map(this.sets().map((set) => [set.code, set]));
@@ -144,6 +148,8 @@ export class SetListPicker implements ControlValueAccessor {
   /** Asks again for the sets after the first read failed. */
   protected tryAgain(): void {
     this.catalog.reload();
+    // Try again goes as it asks: focus goes to its nearest neighbour, Find a set.
+    this.find().nativeElement.focus();
   }
 
   protected isChosen(code: string): boolean {
@@ -231,12 +237,17 @@ function scryfallFailed(failure: Error): boolean {
   );
 }
 
-function failureText(failure: Error, text: string): string {
-  return scryfallFailed(failure) ? `${text} from Scryfall.` : `${text}.`;
-}
+/** What the picker says when a read fails, by whether it was the first read or asking again. */
+const FAILURE_COPY = {
+  load: { scryfall: 'Couldn’t load the sets from Scryfall.', other: 'Couldn’t load the sets.' },
+  reread: {
+    scryfall: 'Couldn’t check Scryfall for more sets; asking again.',
+    other: 'Couldn’t check for more sets; asking again.',
+  },
+};
 
-function rereadText(failure: Error): string {
-  return scryfallFailed(failure)
-    ? 'Couldn’t check Scryfall for more sets; asking again.'
-    : 'Couldn’t check for more sets; asking again.';
+/** Says the read failed, naming Scryfall only when the api said Scryfall failed. */
+function failureCopy(failure: Error, read: keyof typeof FAILURE_COPY): string {
+  const copy = FAILURE_COPY[read];
+  return scryfallFailed(failure) ? copy.scryfall : copy.other;
 }
