@@ -24,10 +24,11 @@ input {
   color: var(--color-error);
 }
 
-/* A row's own failure, on its own line after the row's actions. */
+/* A row's own failure, on its own line after the row's actions, small as every row's is. */
 li .error {
   flex-basis: 100%;
   margin: 0;
+  font-size: var(--font-size-sm);
 }
 
 .replace {

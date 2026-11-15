@@ -326,7 +326,7 @@
                       <ng-container
                         *ngTemplateOutlet="
                           failure;
-                          context: { $implicit: rowError(planBoard.name, card) }
+                          context: { $implicit: errorInRow(planBoard.name, card) }
                         "
                       />
                     </li>
@@ -407,7 +407,7 @@
                 <ng-container
                   *ngTemplateOutlet="
                     failure;
-                    context: { $implicit: rowError(planBoard.name, line) }
+                    context: { $implicit: errorInRow(planBoard.name, line) }
                   "
                 />
               </li>

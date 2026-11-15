@@ -427,7 +427,7 @@ export class PlanTab {
     return keys;
   });
   /** Where the failure shows: where its change came from, or the tools for a row that has left its plan board. */
-  private readonly shownAt = computed((): ErrorPlace | null => {
+  private readonly errorPlace = computed((): ErrorPlace | null => {
     const place = this.error()?.place ?? null;
     if (place === null || place === 'deckNotice' || place === 'readyNotice') return place;
     return place === 'tools' || this.rowKeys().has(place) ? place : 'tools';
@@ -435,11 +435,11 @@ export class PlanTab {
 
   /** The failure's message, if it shows at `place`. */
   protected errorAt(place: ErrorPlace) {
-    return this.shownAt() === place ? this.error()!.message : null;
+    return this.errorPlace() === place ? this.error()!.message : null;
   }
 
   /** The failure's message, if it shows inside the list item of `card` on `planBoard`: its move's or its remove's. */
-  protected rowError(planBoard: PlanBoard, card: PlanBoardCard | PlanLine) {
+  protected errorInRow(planBoard: PlanBoard, card: PlanBoardCard | PlanLine) {
     return (
       this.errorAt(this.moveKey(planBoard, card)) ?? this.errorAt(this.removeKey(planBoard, card))
     );
