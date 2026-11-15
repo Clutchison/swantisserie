@@ -100,12 +100,6 @@ export interface ScryfallSet {
   releasedAt: string;
 }
 
-/** https://scryfall.com/docs/api/errors */
-interface ScryfallErrorBody {
-  details: string;
-  warnings?: string[] | null;
-}
-
 /** Scryfall rejected the query itself, e.g. for bad syntax. */
 export class ScryfallRejectedSearchError extends Error {
   constructor(
@@ -208,23 +202,7 @@ export class FetchScryfallClient extends ScryfallClient {
   async sets(): Promise<ScryfallSet[]> {
     return this.withRetries(`${API}/sets`, async (res) => {
       if (!res.ok) throw new ScryfallUnavailableError(res.status);
-      const body = (await res.json()) as {
-        data: {
-          code: string;
-          name: string;
-          set_type: string;
-          parent_set_code?: string;
-          released_at?: string;
-        }[];
-      };
-      return body.data.map((set) => ({
-        code: set.code,
-        name: set.name,
-        setType: set.set_type,
-        parentSetCode: set.parent_set_code ?? null,
-        // Only a few unannounced sets lack one; they sort as the newest.
-        releasedAt: set.released_at ?? '9999-12-31',
-      }));
+      return readBody(res, toSets);
     });
   }
 
@@ -298,25 +276,11 @@ export class FetchScryfallClient extends ScryfallClient {
   private async parse(res: Response): Promise<ScryfallSearchPage | null> {
     if (res.status === 404) return null;
     if (res.status === 400) {
-      const error = (await res.json()) as ScryfallErrorBody;
-      throw new ScryfallRejectedSearchError(
-        error.details,
-        error.warnings ?? [],
-      );
+      const error = await readBody(res, toErrorBody);
+      throw new ScryfallRejectedSearchError(error.details, error.warnings);
     }
     if (!res.ok) throw new ScryfallUnavailableError(res.status);
-    const body = (await res.json()) as {
-      total_cards: number;
-      has_more: boolean;
-      data: ScryfallCard[];
-      warnings?: string[];
-    };
-    return {
-      totalCards: body.total_cards,
-      hasMore: body.has_more,
-      cards: body.data,
-      warnings: body.warnings ?? [],
-    };
+    return readBody(res, toSearchPage);
   }
 
   /**
@@ -355,6 +319,102 @@ async function sleepUntil(time: number): Promise<void> {
   while (Date.now() < time) {
     await new Promise((resolve) => setTimeout(resolve, time - Date.now()));
   }
+}
+
+/**
+ * `res`'s body as JSON, turned into what the client returns by `convert`,
+ * which throws a TypeError if the body isn't the shape it reads. A body that
+ * isn't JSON or isn't that shape throws ScryfallUnavailableError, not
+ * retried: an unreadable answer is unlikely to change a second later. A body
+ * that couldn't be read in time throws UnreachableError, as `fetchWithTimeout`
+ * does.
+ */
+async function readBody<T>(
+  res: Response,
+  convert: (body: unknown) => T,
+): Promise<T> {
+  try {
+    return convert(await res.json());
+  } catch (err) {
+    if (err instanceof UnreachableError) throw err;
+    throw new ScryfallUnavailableError(res.status, {
+      message: `Scryfall answered ${res.status} with a body it couldn’t read.`,
+      cause: err,
+    });
+  }
+}
+
+/** A page of search results: https://scryfall.com/docs/api/lists */
+function toSearchPage(body: unknown): ScryfallSearchPage {
+  if (
+    !isRecord(body) ||
+    typeof body.total_cards !== 'number' ||
+    typeof body.has_more !== 'boolean' ||
+    !Array.isArray(body.data)
+  ) {
+    throw new TypeError('The search page has no total, more flag or data.');
+  }
+  return {
+    totalCards: body.total_cards,
+    hasMore: body.has_more,
+    // Cards are taken as Scryfall documents them; only the page is checked.
+    cards: body.data as ScryfallCard[],
+    warnings: warningsIn(body.warnings),
+  };
+}
+
+/** Why Scryfall rejected a search: https://scryfall.com/docs/api/errors */
+function toErrorBody(body: unknown): { details: string; warnings: string[] } {
+  if (!isRecord(body) || typeof body.details !== 'string') {
+    throw new TypeError('The error has no details.');
+  }
+  return {
+    details: body.details,
+    warnings: warningsIn(body.warnings),
+  };
+}
+
+/** The set list: https://scryfall.com/docs/api/sets/all */
+function toSets(body: unknown): ScryfallSet[] {
+  if (!isRecord(body) || !Array.isArray(body.data)) {
+    throw new TypeError('The set list has no data.');
+  }
+  return body.data.map((set: unknown) => {
+    if (
+      !isRecord(set) ||
+      typeof set.code !== 'string' ||
+      typeof set.name !== 'string' ||
+      typeof set.set_type !== 'string' ||
+      !(
+        set.parent_set_code === undefined ||
+        typeof set.parent_set_code === 'string'
+      ) ||
+      !(set.released_at === undefined || typeof set.released_at === 'string')
+    ) {
+      throw new TypeError('A set has no code, name or type.');
+    }
+    return {
+      code: set.code,
+      name: set.name,
+      setType: set.set_type,
+      parentSetCode: set.parent_set_code ?? null,
+      // Only a few unannounced sets lack one; they sort as the newest.
+      releasedAt: set.released_at ?? '9999-12-31',
+    };
+  });
+}
+
+/** Scryfall's ignored terms, absent or null meaning none. */
+function warningsIn(value: unknown): string[] {
+  if (value === undefined || value === null) return [];
+  if (!Array.isArray(value) || !value.every((v) => typeof v === 'string')) {
+    throw new TypeError('The warnings aren’t a list of strings.');
+  }
+  return value as string[];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 /** Whether a retry might help: a server error or no answer at all, but not rate limiting. */
