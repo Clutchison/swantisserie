@@ -1,4 +1,10 @@
-import { availableCopies, type Pool, type Swap, swapOrLose } from './copies.js';
+import {
+  availableCopies,
+  ownPickCopy,
+  type Pool,
+  type Swap,
+  swapOrLose,
+} from './copies.js';
 import type { DraftPicks } from './pick.js';
 import { currentTurn } from './turn.js';
 
@@ -54,13 +60,12 @@ export interface QueueAfterPick extends SeatQueue {
 
 /**
  * What a pick does to `queues`, each seat's queue state, indexed by seat.
- * The picked card leaves the picker's queue, if it holds it; if it instead
- * holds an available copy of it, the first such copy leaves, as
- * `plansAfterPick` makes the picker's planned copy the pick, so the queue
- * doesn't pick a second copy. The copies are those in `pool` that are not
- * `picked`. In each other queue holding it, it is swapped for a copy or
- * lost, as `swapOrLose` says; swapped or lost, the rest of the queue stays
- * in order. A loss sets a queue picking queue paused, unless its steal
+ * The queued card the pick accounts for, as `ownPickCopy` says, leaves the
+ * picker's queue, so the queue doesn't pick a second copy; `plansAfterPick`
+ * makes the same card the pick in the picker's plan. The copies are those
+ * in `pool` that are not `picked`. In each other queue holding it, it is
+ * swapped for a copy or lost, as `swapOrLose` says; swapped or lost, the
+ * rest of the queue stays in order. A loss sets a queue picking queue paused, unless its steal
  * behavior is pick next. Nothing else changes a queue's state.
  * `picked` is the cards picked already, with or without this one. Cards
  * are pool card ids.
@@ -73,9 +78,7 @@ export function queuesAfterPick(
   const copies = availableCopies(pick.card, pool, picked);
   return queues.map(({ queue, stealBehavior, queuePaused }, seat) => {
     if (seat === pick.seat) {
-      const queued = queue.includes(pick.card)
-        ? pick.card
-        : queue.find((card) => copies.includes(card));
+      const queued = ownPickCopy(queue, pick.card, copies);
       return {
         queue: queue.filter((card) => card !== queued),
         stealBehavior,
