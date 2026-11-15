@@ -62,9 +62,20 @@ describe('leaving and joining again', () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
     const carolCookie = await signIn(carol);
 
-    expect((await joinTournament(id, carolCookie).expect(403)).body.error).toBe(
-      'not-a-player',
-    );
+    expect((await joinTournament(id, carolCookie).expect(403)).body).toEqual({
+      error: 'not-a-player',
+      message: 'Only the draft’s players can take part in its tournament.',
+    });
+    expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);
+  });
+
+  it('refuses someone who isn’t one of the draft’s players leaving as not a player', async () => {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    const carolCookie = await signIn(carol);
+
+    expect(
+      (await removeEntry(id, carol.id, carolCookie).expect(403)).body.error,
+    ).toBe('not-a-player');
     expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);
   });
 

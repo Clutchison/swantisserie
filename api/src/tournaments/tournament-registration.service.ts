@@ -113,9 +113,11 @@ export class TournamentRegistrationService {
 
   /**
    * Takes the draft's player `userId` out of its tournament: they leave,
-   * or an organizer removes them. Throws TournamentRefusedError if they
-   * haven't joined, worded for `actor` (see notJoined), or are a bot, or
-   * the tournament is past registration.
+   * or an organizer removes them. Throws as entryOf does if they aren't in
+   * it: NotAPlayerError when someone who isn't one of the draft's players
+   * leaves, TournamentRefusedError (notJoined, worded for `actor`)
+   * otherwise. Throws TournamentRefusedError too if they are a bot, or the
+   * tournament is past registration.
    */
   async removeEntry(
     draftId: string,
@@ -135,8 +137,9 @@ export class TournamentRegistrationService {
    * Marks the draft's player `userId` ready, or unmarks them, as `ready`
    * says: their own tournament entry only, as only the player changes
    * their ready. Marking an already ready player ready, or unmarking one who
-   * isn't, changes nothing. Throws TournamentRefusedError if they haven't
-   * joined, or the tournament is past registration; and on marking, if they
+   * isn't, changes nothing. Throws NotAPlayerError if they aren't one of the
+   * draft's players, and TournamentRefusedError (notJoined) if they haven't
+   * joined, or if the tournament is past registration; and on marking, if they
    * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS, as
    * `readyRefusal` decides. Marking ready takes down the player's Ready
    * notice; unmarking never sets it. Nothing is announced.
@@ -151,7 +154,8 @@ export class TournamentRegistrationService {
         where: { draftId_userId: { draftId, userId } },
         select: READYING_PLAYER,
       });
-      const entry = player?.tournamentEntry;
+      if (!player) throw new NotAPlayerError('tournaments');
+      const entry = player.tournamentEntry;
       if (!entry) throw new TournamentRefusedError(notJoined('self'));
       const refusal = ready ? readyRefusal(player) : null;
       if (refusal) throw new TournamentRefusedError(refusal);

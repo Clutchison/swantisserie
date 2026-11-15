@@ -107,7 +107,9 @@ describe('dropping from a tournament', () => {
     const daveCookie = await signIn(dave);
 
     await dropPlayer(id, carol.id, bobCookie).expect(403);
-    await dropPlayer(id, dave.id, daveCookie).expect(409);
+    expect(
+      (await dropPlayer(id, dave.id, daveCookie).expect(403)).body.error,
+    ).toBe('not-a-player');
 
     expect((await tournamentView(id)).entries.some((e) => e.dropped)).toBe(
       false,
