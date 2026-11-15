@@ -1,3 +1,4 @@
+import { respondWithCancelProbe } from '../testing/cancel-probe.js';
 import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   CubeCobraUnavailableError,
@@ -115,12 +116,28 @@ describe('FetchCubeCobraClient', () => {
     expect(await cubeCobra.cube('no-such-cube')).toBeNull();
   });
 
+  it('cancels the body of a 404, which it doesn’t read', async () => {
+    const probe = respondWithCancelProbe(fetch, 404);
+
+    expect(await cubeCobra.cube('no-such-cube')).toBeNull();
+    expect(probe.cancelled).toBe(true);
+  });
+
   it('throws CubeCobraUnavailableError when CubeCobra fails', async () => {
     respond(500, { message: 'Internal error' });
 
     await expect(cubeCobra.cube('thepaupercube')).rejects.toBeInstanceOf(
       CubeCobraUnavailableError,
     );
+  });
+
+  it('cancels the body of a failure, which it doesn’t read', async () => {
+    const probe = respondWithCancelProbe(fetch, 503);
+
+    await expect(cubeCobra.cube('thepaupercube')).rejects.toBeInstanceOf(
+      CubeCobraUnavailableError,
+    );
+    expect(probe.cancelled).toBe(true);
   });
 
   it('throws CubeCobraUnavailableError when CubeCobra can’t be reached', async () => {

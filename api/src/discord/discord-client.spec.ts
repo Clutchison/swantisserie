@@ -1,3 +1,4 @@
+import { respondWithCancelProbe } from '../testing/cancel-probe.js';
 import { hangOnce } from '../testing/hanging-fetch.js';
 import { FetchDiscordClient } from './discord-client.js';
 import { DiscordConfig } from './discord-config.js';
@@ -93,6 +94,20 @@ describe('FetchDiscordClient', () => {
       );
     });
 
+    it('cancels the body of a member’s answer, which it doesn’t read', async () => {
+      const probe = respondWithCancelProbe(fetch, 200);
+
+      expect(await discord.isGuildMember('token-1', 'guild-1')).toBe(true);
+      expect(probe.cancelled).toBe(true);
+    });
+
+    it('cancels the body of a 404, which it doesn’t read', async () => {
+      const probe = respondWithCancelProbe(fetch, 404);
+
+      expect(await discord.isGuildMember('token-1', 'guild-1')).toBe(false);
+      expect(probe.cancelled).toBe(true);
+    });
+
     it('is false when the user isn’t in the guild', async () => {
       respond(404, { message: 'Unknown Guild', code: 10004 });
 
@@ -111,6 +126,13 @@ describe('FetchDiscordClient', () => {
       respond(503);
 
       await expect(call()).rejects.toThrow();
+    });
+
+    it('cancels the body of a server error, which it doesn’t read', async () => {
+      const probe = respondWithCancelProbe(fetch, 503);
+
+      await expect(call()).rejects.toThrow();
+      expect(probe.cancelled).toBe(true);
     });
 
     it('throws when Discord can’t be reached', async () => {

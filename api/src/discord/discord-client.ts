@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { fetchWithTimeout } from '../http/fetch-with-timeout.js';
+import { cancelBody, fetchWithTimeout } from '../http/fetch-with-timeout.js';
 import { DiscordConfig } from './discord-config.js';
 
 const API = 'https://discord.com/api/v10';
@@ -47,9 +47,7 @@ export class FetchDiscordClient extends DiscordClient {
         redirect_uri: redirectUri,
       }),
     });
-    if (!res.ok) {
-      throw new Error(`Discord token exchange failed: ${res.status}`);
-    }
+    if (!res.ok) throw await failure(res, 'Discord token exchange failed');
     const { access_token } = (await res.json()) as { access_token: string };
     return access_token;
   }
@@ -58,9 +56,7 @@ export class FetchDiscordClient extends DiscordClient {
     const res = await send(`${API}/users/@me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) {
-      throw new Error(`Discord /users/@me failed: ${res.status}`);
-    }
+    if (!res.ok) throw await failure(res, 'Discord /users/@me failed');
     return (await res.json()) as DiscordProfile;
   }
 
@@ -68,12 +64,26 @@ export class FetchDiscordClient extends DiscordClient {
     const res = await send(`${API}/users/@me/guilds/${guildId}/member`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (res.status === 404) return false;
-    if (!res.ok) {
-      throw new Error(`Discord guild member lookup failed: ${res.status}`);
+    if (res.status === 404) {
+      await cancelBody(res);
+      return false;
     }
+    if (!res.ok) {
+      throw await failure(res, 'Discord guild member lookup failed');
+    }
+    // Only the status matters: the member itself is never read.
+    await cancelBody(res);
     return true;
   }
+}
+
+/**
+ * What a request Discord answered with a failing status throws, `what`
+ * naming the request. Cancels the answer's body, which is never read.
+ */
+async function failure(res: Response, what: string): Promise<Error> {
+  await cancelBody(res);
+  return new Error(`${what}: ${res.status}`);
 }
 
 /** Sends a request to Discord, giving up after the timeout. */

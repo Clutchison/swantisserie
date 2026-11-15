@@ -1,4 +1,5 @@
 import { held } from '../testing/deadlines.js';
+import { respondWithCancelProbe } from '../testing/cancel-probe.js';
 import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   FetchScryfallClient,
@@ -27,29 +28,6 @@ describe('FetchScryfallClient', () => {
         headers: { 'Content-Type': 'application/json' },
       }),
     );
-  }
-
-  /**
-   * Answers `status` with a body nobody should read, returning a probe that
-   * records its cancel. The cancel settles after `cancelTakesMs`.
-   */
-  function respondWithCancelProbe(status: number, cancelTakesMs = 0) {
-    const probe = { cancelled: false };
-    fetch.mockResolvedValueOnce(
-      new Response(
-        new ReadableStream({
-          cancel: () =>
-            new Promise<void>((resolve) =>
-              setTimeout(() => {
-                probe.cancelled = true;
-                resolve();
-              }, cancelTakesMs),
-            ),
-        }),
-        { status },
-      ),
-    );
-    return probe;
   }
 
   const balefire = { object: 'card', name: 'Balefire Dragon' };
@@ -144,7 +122,7 @@ describe('FetchScryfallClient', () => {
   it('cancels the body of a 429 it backs off from', async () => {
     vi.useFakeTimers();
     try {
-      const probe = respondWithCancelProbe(429);
+      const probe = respondWithCancelProbe(fetch, 429);
       respond(200, {
         object: 'list',
         total_cards: 1,
@@ -166,7 +144,7 @@ describe('FetchScryfallClient', () => {
   it('holds a search waiting for its slot while a 429’s body is still being cancelled', async () => {
     vi.useFakeTimers();
     try {
-      respondWithCancelProbe(429, 1000);
+      respondWithCancelProbe(fetch, 429, 1000);
       for (let i = 0; i < 2; i++) {
         respond(404, { object: 'error', status: 404, details: 'No cards' });
       }
@@ -248,7 +226,7 @@ describe('FetchScryfallClient', () => {
   });
 
   it('cancels the body of a 404, which it doesn’t read', async () => {
-    const probe = respondWithCancelProbe(404);
+    const probe = respondWithCancelProbe(fetch, 404);
 
     expect(await scryfall.search('c:r')).toBeNull();
     expect(probe.cancelled).toBe(true);
@@ -641,7 +619,7 @@ describe('FetchScryfallClient', () => {
     });
 
     it('cancels a server error’s body before trying again', async () => {
-      const probe = respondWithCancelProbe(503);
+      const probe = respondWithCancelProbe(fetch, 503);
       someCards();
 
       const search = scryfall.search('c:r');
@@ -665,7 +643,7 @@ describe('FetchScryfallClient', () => {
       'cancels the body of every failing %s answer (%i) up to giving up',
       async (_request, status, tries, request) => {
         const probes = Array.from({ length: tries }, () =>
-          respondWithCancelProbe(status),
+          respondWithCancelProbe(fetch, status),
         );
 
         const error = await failure(request(scryfall));
