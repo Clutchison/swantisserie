@@ -64,37 +64,35 @@ import { LoadingAnimation } from '../loading/loading-animation';
 const COLLAPSED_KEY = 'queue-pane';
 const COLLAPSED = 'collapsed';
 
-const PAUSE_QUEUE_EFFECT = 'your queue is set to queue paused, for you to pick by hand';
-
 /**
- * Each steal behavior: what it's called, the pill's description of what it
- * does to the rest of the queue, what "How this works" says it does to a queue
- * that loses a card, and the one the pill switches to.
+ * Each steal behavior: what it's called, the pill's explanation of what it
+ * does to the rest of the queue, the clause "How this works" says about a
+ * queue that loses a card under it, and the one the pill switches to.
  */
 const STEAL_BEHAVIOR_TEXT: Record<
   StealBehavior,
-  { name: string; description: string; help: string; other: StealBehavior }
+  { name: string; explanation: string; howThisWorks: string; other: StealBehavior }
 > = {
   PauseQueue: {
     name: 'Pause queue',
-    description: `the rest of your queue stays, and ${PAUSE_QUEUE_EFFECT}`,
-    help: PAUSE_QUEUE_EFFECT,
+    explanation:
+      'the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand',
+    howThisWorks: 'your queue is set to queue paused, for you to pick by hand',
     other: 'PickNext',
   },
   PickNext: {
     name: 'Pick next',
-    description:
+    explanation:
       'the rest of your queue stays as it was, and while it is queue picking, ' +
       'your next available card is picked on your turn',
-    help: 'it stays as it was: queue picking, or queue paused if it already was',
+    howThisWorks: 'it stays as it was: queue picking, or queue paused if it already was',
     other: 'PauseQueue',
   },
 };
 
-/** What "How this works" says each steal behavior does to a queue that loses a card. */
 const STEAL_BEHAVIOR_HELP =
-  `Under ${STEAL_BEHAVIOR_TEXT.PauseQueue.name}, ${STEAL_BEHAVIOR_TEXT.PauseQueue.help}; ` +
-  `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, ${STEAL_BEHAVIOR_TEXT.PickNext.help}.`;
+  `Under ${STEAL_BEHAVIOR_TEXT.PauseQueue.name}, ${STEAL_BEHAVIOR_TEXT.PauseQueue.howThisWorks}; ` +
+  `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, ${STEAL_BEHAVIOR_TEXT.PickNext.howThisWorks}.`;
 
 /**
  * Where a failed change is explained, of two places: `header`, directly
@@ -207,7 +205,7 @@ export class QueuePane {
     () => STEAL_BEHAVIOR_TEXT[this.queue().stealBehavior].name,
   );
   protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIOR_TEXT)
-    .map(({ name, description }) => `${name}: ${description}.`)
+    .map(({ name, explanation }) => `${name}: ${explanation}.`)
     .join(' ');
   protected readonly stealBehaviorHelp = STEAL_BEHAVIOR_HELP;
 
