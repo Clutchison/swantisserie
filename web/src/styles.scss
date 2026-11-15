@@ -352,6 +352,15 @@ button:focus-visible,
   outline-offset: 2px;
 }
 
+/*
+ * A scroller focus can't move, as a named region (see CODING_STANDARDS.md): muted, as it frames
+ * content rather than marking a control. No specificity, so a component can override it.
+ */
+:where([role='region'][tabindex='0']:focus-visible) {
+  outline: 2px solid var(--color-muted);
+  outline-offset: 2px;
+}
+
 @media (prefers-reduced-motion: no-preference) {
   a,
   button,
