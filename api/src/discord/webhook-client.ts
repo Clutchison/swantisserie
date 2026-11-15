@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { fetchWithTimeout } from '../http/fetch-with-timeout.js';
+import { bodyOrHeaderRetryAfterMs } from '../http/retry-after.js';
 import type { WebhookMessage } from './draft-messages.js';
 
 /** How long a webhook post may take. */
@@ -72,45 +73,10 @@ export class FetchWebhookClient extends WebhookClient {
     }
     const error = webhookPostError(
       res.status,
-      res.status === 429 ? await retryAfterMs(res) : undefined,
+      res.status === 429 ? await bodyOrHeaderRetryAfterMs(res) : undefined,
     );
     if (error) throw error;
   }
-}
-
-/**
- * How long a 429 says to wait, in ms: its body's `retry_after`, else its
- * `Retry-After` header, both in seconds. Undefined if it says neither.
- */
-async function retryAfterMs(res: Response): Promise<number | undefined> {
-  const seconds =
-    secondsIn(await bodyRetryAfter(res)) ??
-    secondsIn(res.headers.get('Retry-After'));
-  return seconds === undefined ? undefined : Math.ceil(seconds * 1000);
-}
-
-/** The `retry_after` of a 429's JSON body, if it can be read. */
-async function bodyRetryAfter(res: Response): Promise<unknown> {
-  try {
-    const body: unknown = await res.json();
-    return typeof body === 'object' && body !== null && 'retry_after' in body
-      ? body.retry_after
-      : undefined;
-  } catch {
-    // Unreadable or not JSON: the header may still say.
-    return undefined;
-  }
-}
-
-/** `value` as a number of seconds to wait, if it is one. */
-function secondsIn(value: unknown): number | undefined {
-  const seconds =
-    typeof value === 'number'
-      ? value
-      : typeof value === 'string' && value.trim() !== ''
-        ? Number(value)
-        : NaN;
-  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
 /**
