@@ -198,7 +198,7 @@ export class TurnsService {
       async (draft) => {
         if (!draft) throw new DraftGoneError();
         const { playerId } = await lockQueue(draft.tx, draftId, userId);
-        checkStarted(draft.state);
+        checkStarted(draft.state, 'queue-paused');
         await draft.tx.player.update({
           where: { id: playerId },
           data: { queuePaused: false },

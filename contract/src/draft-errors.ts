@@ -135,7 +135,11 @@ export interface DraftChangeRefusal {
  */
 export interface QueueRefusal {
   error:
-    /** The draft is in the lobby: adding to a queue and setting steal behavior wait for the start. */
+    /**
+     * The draft is in the lobby: adding to a queue, pausing a queue or
+     * setting it picking, and setting steal behavior wait for the start. The
+     * message names which the player tried.
+     */
     | 'not-started'
     | 'not-in-pool'
     | 'already-picked'

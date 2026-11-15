@@ -51,7 +51,7 @@ export class QueuesService {
     stealBehavior: StealBehavior,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId, state) => {
-      checkStarted(state);
+      checkStarted(state, 'steal-behavior');
       await tx.player.update({
         where: { id: playerId },
         data: { stealBehavior },
@@ -67,7 +67,7 @@ export class QueuesService {
    */
   async pauseQueue(draftId: string, userId: string): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId, state) => {
-      checkStarted(state);
+      checkStarted(state, 'queue-paused');
       await tx.player.update({
         where: { id: playerId },
         data: { queuePaused: true },
@@ -233,7 +233,7 @@ export class QueuesService {
     playerId: string,
     state: DraftState,
   ): Promise<void> {
-    checkStarted(state);
+    checkStarted(state, 'queue');
     if (await this.isPlayersTurn(tx, draftId, playerId)) {
       throw new QueueRefusedError({
         error: 'your-turn',
