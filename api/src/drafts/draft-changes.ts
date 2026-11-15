@@ -3,6 +3,7 @@ import type { DraftView } from 'contract';
 import { BotPlayers } from './bot-players.js';
 import type { DraftEvent } from './draft-events.js';
 import { DraftPublisher } from './draft-publisher.js';
+import { pushFailedMessage } from './draft-pushes.js';
 
 /** What follows a committed change to a draft made by a request. */
 @Injectable()
@@ -34,7 +35,7 @@ export class DraftChanges {
       draft = await this.publisher.publish(draftId, events, alsoTellUserIds);
       return draft;
     } catch (err) {
-      this.logger.error(`Couldn’t publish a change to draft ${draftId}`, err);
+      this.logger.error(pushFailedMessage(draftId), err);
       throw err;
     } finally {
       // Committed by now, so the bot picks whatever the publish did.

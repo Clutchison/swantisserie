@@ -20,6 +20,7 @@ import {
   bob,
   carol,
   dave,
+  failedPushes,
   getDraft,
   readyDraft,
   registerWebhook,
@@ -27,7 +28,11 @@ import {
   signInAlice,
   webhookClient,
 } from '../drafts/specs/harness.js';
-import { useSockets } from '../drafts/specs/socket-harness.js';
+import {
+  expectPushedOnce,
+  useSockets,
+  versionsOf,
+} from '../drafts/specs/socket-harness.js';
 
 const config = new DiscordConfig({
   DISCORD_CLIENT_ID: 'client-123',
@@ -366,7 +371,7 @@ describe('signing in again, to the drafts the user is in', () => {
     });
     await signInAlice();
   });
-  const { watch, listeningToOwnRoom } = useSockets();
+  const { listening, listeningToOwnRoom } = useSockets();
 
   let bobCookie: string;
   let carolCookie: string;
@@ -409,52 +414,23 @@ describe('signing in again, to the drafts the user is in', () => {
    * What is pushed to a socket watching each draft, as Dave, who is in none,
    * and to each player's own room.
    */
-  async function listening() {
-    const daveCookie = await signIn(dave);
-    return {
-      watching: Object.fromEntries(
-        await Promise.all(
-          everyDraft().map(
-            async (id) => [id, await watch(id, daveCookie)] as const,
-          ),
-        ),
-      ),
-      rooms: {
-        alice: (await listeningToOwnRoom(aliceCookie)).changes,
-        bob: (await listeningToOwnRoom(bobCookie)).changes,
-        carol: (await listeningToOwnRoom(carolCookie)).changes,
-      },
-    };
-  }
-
-  /**
-   * Waits until `pushed` holds each of `ids` once, then expects each to be
-   * newer than before and to pass `check`.
-   */
-  async function expectPushedOnce(
-    pushed: DraftView[],
-    ids: string[],
-    check: (draft: DraftView) => void,
-  ) {
-    await vi.waitFor(() => expect(pushed).toHaveLength(ids.length));
-    expect(pushed.map((draft) => draft.id).sort()).toEqual([...ids].sort());
-    for (const draft of pushed) {
-      check(draft);
-      expect(draft.version).toBeGreaterThan(versionsBefore.get(draft.id)!);
-    }
+  async function listeningToEach() {
+    return listening(everyDraft(), await signIn(dave), {
+      alice: aliceCookie,
+      bob: bobCookie,
+      carol: carolCookie,
+    });
   }
 
   /** Each draft's version now, by draft. */
-  async function versions() {
-    return new Map(
-      await Promise.all(
-        everyDraft().map(
-          async (id) =>
-            [id, (await getDraft(id).expect(200)).body.version] as const,
-        ),
-      ),
-    );
-  }
+  const versions = () => versionsOf(everyDraft());
+
+  /** As `expectPushedOnce`, each draft newer than before the sign-in. */
+  const pushedOnce = (
+    pushed: DraftView[],
+    ids: string[],
+    check: (draft: DraftView) => void,
+  ) => expectPushedOnce(pushed, ids, versionsBefore, check);
 
   /**
    * Signs Bob in renamed, and waits until Bob's room is pushed each of his
@@ -463,7 +439,7 @@ describe('signing in again, to the drafts the user is in', () => {
    */
   async function expectOnlyRenamePushed(bobsRoom: DraftView[]) {
     await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
-    await expectPushedOnce(bobsRoom, [aliceAndBob, bobAlone], (draft) =>
+    await pushedOnce(bobsRoom, [aliceAndBob, bobAlone], (draft) =>
       expect(bobIn(draft)).toMatchObject({ name: 'Robert' }),
     );
   }
@@ -474,21 +450,17 @@ describe('signing in again, to the drafts the user is in', () => {
   }
 
   it('pushes each draft a renamed player plays in, with their new name, to its room and its players’ own', async () => {
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
 
     const renamed = (draft: DraftView) =>
       expect(bobIn(draft)).toMatchObject({ name: 'Robert' });
-    await expectPushedOnce(
-      pushed.watching[aliceAndBob],
-      [aliceAndBob],
-      renamed,
-    );
-    await expectPushedOnce(pushed.watching[bobAlone], [bobAlone], renamed);
-    await expectPushedOnce(pushed.rooms.alice, [aliceAndBob], renamed);
-    await expectPushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], renamed);
-    expect(pushed.watching[carolAlone]).toEqual([]);
+    await pushedOnce(pushed.watched[aliceAndBob], [aliceAndBob], renamed);
+    await pushedOnce(pushed.watched[bobAlone], [bobAlone], renamed);
+    await pushedOnce(pushed.rooms.alice, [aliceAndBob], renamed);
+    await pushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], renamed);
+    expect(pushed.watched[carolAlone]).toEqual([]);
     expect(pushed.rooms.carol).toEqual([]);
     expect((await getDraft(carolAlone).expect(200)).body.version).toBe(
       versionsBefore.get(carolAlone),
@@ -496,14 +468,14 @@ describe('signing in again, to the drafts the user is in', () => {
   });
 
   it('pushes each draft a player plays in with their new avatar', async () => {
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     await signInThroughDiscord({
       ...bobProfile,
       avatar: 'a_0123456789abcdef0123456789abcdef',
     });
 
-    await expectPushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], (draft) =>
+    await pushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], (draft) =>
       expect(bobIn(draft)).toMatchObject({
         avatarUrl: `https://cdn.discordapp.com/avatars/${bob.id}/a_0123456789abcdef0123456789abcdef.png`,
       }),
@@ -511,7 +483,7 @@ describe('signing in again, to the drafts the user is in', () => {
   });
 
   it('pushes each draft a renamed organizer organizes, with their new name, including those they don’t play in', async () => {
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     await signInThroughDiscord({
       id: alice.id,
@@ -523,14 +495,14 @@ describe('signing in again, to the drafts the user is in', () => {
     const renamed = (draft: DraftView) =>
       expect(draft.organizer).toEqual({ id: alice.id, name: 'Alicia' });
     for (const id of everyDraft()) {
-      await expectPushedOnce(pushed.watching[id], [id], renamed);
+      await pushedOnce(pushed.watched[id], [id], renamed);
     }
-    await expectPushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], renamed);
-    await expectPushedOnce(pushed.rooms.carol, [carolAlone], renamed);
+    await pushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], renamed);
+    await pushedOnce(pushed.rooms.carol, [carolAlone], renamed);
   });
 
   it('bumps and pushes nothing for a sign-in with the same name and avatar', async () => {
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     await signInThroughDiscord(bobProfile);
 
@@ -539,7 +511,7 @@ describe('signing in again, to the drafts the user is in', () => {
   });
 
   it('bumps and pushes nothing for a first sign-in', async () => {
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     const { agent } = await signInThroughDiscord({
       id: '80351110224678916',
@@ -590,14 +562,11 @@ describe('signing in again, to the drafts the user is in', () => {
       .expect(200)
       .expect((res) => expect(res.body.name).toBe('Robert'));
     expect(logged).toHaveBeenCalledOnce();
-    const failed = [aliceAndBob, bobAlone].find((id) =>
-      logged.mock.calls.some(
-        ([message, err]) =>
-          message === `Couldn’t publish a change to draft ${id}` &&
-          err instanceof Error,
-      ),
-    );
-    expect(failed).toBeDefined();
+    const failures = failedPushes(logged, everyDraft());
+    expect(failures).toEqual([
+      { draftId: expect.any(String), err: expect.any(Error) },
+    ]);
+    const [{ draftId: failed }] = failures;
     // The other is still pushed, and the failed one isn't.
     await vi.waitFor(() => expect(bobsRoom).toHaveLength(1));
     expect(bobsRoom.map((draft) => draft.id)).toEqual(

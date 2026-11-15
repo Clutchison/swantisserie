@@ -32,6 +32,7 @@ import {
   poolCardIds,
   copyIds,
   failNextPublish,
+  failedPushes,
 } from './harness.js';
 import { useSockets } from './socket-harness.js';
 
@@ -521,11 +522,8 @@ describe('bot players', () => {
       await start(id).expect(500);
 
       await atPick(id, 2);
-      const failedPublishes = errors.mock.calls.filter(([message]) =>
-        String(message).startsWith('Couldn’t publish'),
-      );
-      expect(failedPublishes).toEqual([
-        [`Couldn’t publish a change to draft ${id}`, dropped],
+      expect(failedPushes(errors, [id])).toEqual([
+        { draftId: id, err: dropped },
       ]);
     });
 

@@ -109,29 +109,28 @@ export class DraftNotifier implements OnApplicationShutdown {
   /**
    * Records that the webhook is gone, unless its URL has been replaced since
    * `url` failed or it is already marked, logging it only when marked here.
-   * Marking it bumps every draft using it, in the same transaction, and then
-   * pushes them, announcing nothing. The bump makes these copies newer than
-   * the push of the change whose post failed, whichever arrives first.
+   * Marking it bumps and pushes every draft using it, announcing nothing,
+   * through DraftPushes, whose lock order this follows: the webhook's row,
+   * then the drafts'. The bump makes these copies newer than the push of the
+   * change whose post failed, whichever arrives first. The pushes are
+   * awaited, so they stay in the draft's announcement queue.
    */
   private async markGone(
     { id, url }: { id: string; url: string },
     err: WebhookGoneError,
   ): Promise<void> {
-    const marked = await this.prisma.$transaction(async (tx) => {
-      // The webhook's row first, then the drafts using it, as every write
-      // to the webhook registry locks them.
+    const marked = await this.pushes.changing(async (tx, bump) => {
       const { count } = await tx.webhook.updateMany({
         where: { id, url, goneAt: null },
         data: { goneAt: new Date() },
       });
-      if (!count) return null;
-      return { bumped: await this.pushes.bump(tx, { webhookId: id }) };
+      if (count) await bump({ webhookId: id });
+      return count > 0;
     });
     if (!marked) return;
     this.logger.error(
       `Webhook ${id} is gone, so announcements on it are dropped until its URL is replaced: ${String(err)}`,
     );
-    await this.pushes.pushAll(marked.bumped);
   }
 
   /**

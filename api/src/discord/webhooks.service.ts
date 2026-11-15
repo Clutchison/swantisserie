@@ -1,6 +1,5 @@
 import { Injectable } from '@nestjs/common';
 import { DraftPushes } from '../drafts/draft-pushes.js';
-import type { Transaction } from '../drafts/draft-shapes.js';
 import { Prisma, type Webhook } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 
@@ -20,7 +19,8 @@ export class WebhookNameTakenError extends Error {
 /**
  * The named Discord webhooks app admins register, for drafts to post to. A
  * change to what the drafts using a webhook show bumps and pushes each of
- * them, announcing nothing.
+ * them, announcing nothing, through DraftPushes, whose lock order each write
+ * here follows: the webhook's row, then the drafts'.
  */
 @Injectable()
 export class WebhooksService {
@@ -49,16 +49,13 @@ export class WebhooksService {
    */
   async rename(id: string, name: string): Promise<Webhook | null> {
     return this.uniquelyNamed(name, () =>
-      this.changingDrafts(async (tx) => {
+      this.pushes.changing(async (tx, bump) => {
         const { count } = await tx.webhook.updateMany({
           where: { id, name: { not: name } },
           data: { name },
         });
-        const bumped = count
-          ? await this.pushes.bump(tx, { webhookId: id })
-          : [];
-        const result = await tx.webhook.findUnique({ where: { id } });
-        return { result, bumped };
+        if (count) await bump({ webhookId: id });
+        return tx.webhook.findUnique({ where: { id } });
       }),
     );
   }
@@ -70,21 +67,18 @@ export class WebhooksService {
    * gone changes none, as no draft shows its URL.
    */
   async replaceUrl(id: string, url: string): Promise<Webhook | null> {
-    return this.changingDrafts(async (tx) => {
+    return this.pushes.changing(async (tx, bump) => {
       // Held until commit, so gone can't be marked between this read and the
-      // update. NO KEY UPDATE, as the update itself takes, doesn't wait on a
-      // locked change's key lock on the webhook, held with its draft's row.
+      // update.
       const [row] = await tx.$queryRaw<Pick<Webhook, 'goneAt'>[]>`
         SELECT "goneAt" FROM "Webhook" WHERE "id" = ${id} FOR NO KEY UPDATE`;
-      if (!row) return { result: null, bumped: [] };
+      if (!row) return null;
       const result = await tx.webhook.update({
         where: { id },
         data: { url, goneAt: null },
       });
-      const bumped = row.goneAt
-        ? await this.pushes.bump(tx, { webhookId: id })
-        : [];
-      return { result, bumped };
+      if (row.goneAt) await bump({ webhookId: id });
+      return result;
     });
   }
 
@@ -93,34 +87,21 @@ export class WebhooksService {
    * whether there was such a webhook.
    */
   async remove(id: string): Promise<boolean> {
-    return this.changingDrafts(async (tx) => {
-      // The webhook's row first, as every registry write locks it before the
-      // drafts using it. FOR UPDATE waits for any locked change switching a
-      // draft to the webhook, which holds a key lock on it, to commit, so the
-      // bump below sees that draft too; one switching later fails its
-      // foreign key check once this commits. Nothing is locked meanwhile, so
-      // the wait can't deadlock.
+    return this.pushes.changing(async (tx, bump) => {
+      // FOR UPDATE, not NO KEY UPDATE: it waits for any change under the
+      // draft lock switching a draft to the webhook, which holds a key share
+      // lock on it, to commit, so the bump below sees that draft too; one
+      // switching later fails its foreign key check once this commits.
+      // Nothing is locked meanwhile, so the wait can't deadlock.
       const [row] = await tx.$queryRaw<Pick<Webhook, 'id'>[]>`
         SELECT "id" FROM "Webhook" WHERE "id" = ${id} FOR UPDATE`;
-      if (!row) return { result: false, bumped: [] };
+      if (!row) return false;
       // Before the delete, while the drafts still name it. The delete then
       // clears each draft's webhook (onDelete: SetNull).
-      const bumped = await this.pushes.bump(tx, { webhookId: id });
+      await bump({ webhookId: id });
       await tx.webhook.delete({ where: { id } });
-      return { result: true, bumped };
+      return true;
     });
-  }
-
-  /**
-   * Runs `write` in a transaction, then pushes the drafts it says it bumped,
-   * once committed. Returns its `result`.
-   */
-  private async changingDrafts<T>(
-    write: (tx: Transaction) => Promise<{ result: T; bumped: string[] }>,
-  ): Promise<T> {
-    const { result, bumped } = await this.prisma.$transaction(write);
-    await this.pushes.pushAll(bumped);
-    return result;
   }
 
   private async uniquelyNamed<T>(

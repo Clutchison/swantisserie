@@ -29,11 +29,12 @@ import {
   addBot,
   fourCards,
   announcementsSettled,
+  failedPushes,
   queueInLobby,
   renameWebhook,
   replaceWebhookUrl,
 } from './harness.js';
-import { useSockets } from './socket-harness.js';
+import { expectPushedOnce, useSockets, versionsOf } from './socket-harness.js';
 
 const sideUrl = 'https://discord.com/api/webhooks/1234567891/side-token';
 
@@ -508,7 +509,7 @@ describe('announcements', () => {
     });
 
     describe('the drafts using it', () => {
-      const { watch, listeningToOwnRoom } = useSockets();
+      const { listening, listeningToOwnRoom } = useSockets();
 
       /** Two Drafting drafts, then a Lobby one, all using the webhook. */
       let draftIds: string[];
@@ -546,52 +547,27 @@ describe('announcements', () => {
       }
 
       /** Each draft's version now, by id. */
-      async function versions() {
-        return new Map(
-          await Promise.all(
-            draftIds.map(
-              async (id) =>
-                [id, (await getDraft(id).expect(200)).body.version] as const,
-            ),
-          ),
-        );
-      }
+      const versions = () => versionsOf(draftIds);
 
       /**
        * What is pushed from now on to a socket watching each draft, and to
        * Alice's and Bob's own rooms: Alice plays in every draft, Bob in the
        * Drafting ones.
        */
-      async function listening() {
-        const carolCookie = await signIn(carol);
-        return {
-          watched: await Promise.all(
-            draftIds.map((id) => watch(id, carolCookie)),
-          ),
-          alicesRoom: (await listeningToOwnRoom(aliceCookie)).changes,
-          bobsRoom: (await listeningToOwnRoom(bobCookie)).changes,
-        };
+      async function listeningToEach() {
+        return listening(draftIds, await signIn(carol), {
+          alice: aliceCookie,
+          bob: bobCookie,
+        });
       }
 
-      /**
-       * Waits until `pushed` holds each of `ids` once, then expects each to
-       * be newer than in `before` and to show the webhook gone.
-       */
-      async function expectPushedGone(
-        pushed: DraftView[],
-        ids: string[],
-        before: Map<string, number>,
-      ) {
-        await vi.waitFor(() => expect(pushed).toHaveLength(ids.length));
-        expect(pushed.map((draft) => draft.id).sort()).toEqual([...ids].sort());
-        for (const draft of pushed) {
-          expect(draft.webhook).toEqual({
-            id: webhookId,
-            name: '#roto-main',
-            gone: true,
-          });
-          expect(draft.version).toBeGreaterThan(before.get(draft.id)!);
-        }
+      /** Expects `draft` to show the webhook gone. */
+      function showsGone(draft: DraftView) {
+        expect(draft.webhook).toEqual({
+          id: webhookId,
+          name: '#roto-main',
+          gone: true,
+        });
       }
 
       it('pushes each of them, newer and gone, to its watchers and each of its players, announcing nothing', async () => {
@@ -599,15 +575,16 @@ describe('announcements', () => {
         const fail = holdNextPost();
         await start(drafting).expect(200);
         const before = await versions();
-        const { watched, alicesRoom, bobsRoom } = await listening();
+        const { watched, rooms } = await listeningToEach();
 
         fail(new WebhookGoneError(404));
 
         await announcementsSettled(drafting);
-        await expectPushedGone(alicesRoom, draftIds, before);
-        await expectPushedGone(bobsRoom, draftIds.slice(0, 2), before);
-        for (const [i, changes] of watched.entries()) {
-          await expectPushedGone(changes, [draftIds[i]], before);
+        await expectPushedOnce(rooms.alice, draftIds, before, showsGone);
+        const bobsDrafts = draftIds.slice(0, 2);
+        await expectPushedOnce(rooms.bob, bobsDrafts, before, showsGone);
+        for (const id of draftIds) {
+          await expectPushedOnce(watched[id], [id], before, showsGone);
         }
         expect(webhookClient.post).toHaveBeenCalledOnce();
       });
@@ -708,14 +685,11 @@ describe('announcements', () => {
         fail(new WebhookGoneError(404));
 
         await announcementsSettled(drafting);
-        const failed = draftIds.find((id) =>
-          logged.mock.calls.some(
-            ([message, err]) =>
-              message === `Couldn’t publish a change to draft ${id}` &&
-              err instanceof Error,
-          ),
-        )!;
-        expect(failed).toBeDefined();
+        const failures = failedPushes(logged, draftIds);
+        expect(failures).toEqual([
+          { draftId: expect.any(String), err: expect.any(Error) },
+        ]);
+        const [{ draftId: failed }] = failures;
         // The rest are still pushed, and the failed one isn't.
         await vi.waitFor(() => expect(alicesRoom).toHaveLength(2));
         expect(alicesRoom.map((draft) => draft.id).sort()).toEqual(

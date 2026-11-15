@@ -6,6 +6,7 @@ import {
   aliceCookie,
   announcementsSettled,
   bob,
+  failedPushes,
   getDraft,
   post,
   readyDraft,
@@ -16,7 +17,11 @@ import {
   useDraftsApp,
   webhookClient,
 } from '../drafts/specs/harness.js';
-import { useSockets } from '../drafts/specs/socket-harness.js';
+import {
+  expectPushedOnce,
+  useSockets,
+  versionsOf,
+} from '../drafts/specs/socket-harness.js';
 import {
   alice,
   app,
@@ -246,7 +251,7 @@ describe('webhook registry', () => {
 
 describe('drafts using a webhook', () => {
   useDraftsApp();
-  const { watch, listeningToOwnRoom } = useSockets();
+  const { listening, listeningToOwnRoom } = useSockets();
 
   let webhookId: string;
   /** A draft of each state, all using the webhook: Lobby, Drafting, Frozen. */
@@ -282,69 +287,38 @@ describe('drafts using a webhook', () => {
 
   /** Notes each draft's version now as `versionsBefore`. */
   async function noteVersions() {
-    const now = await versions();
-    versionsBefore = new Map(draftIds.map((id, i) => [id, now[i]] as const));
-  }
-
-  /** What a socket watching each draft is pushed, by draft. */
-  async function watchingEach() {
-    const carolCookie = await signIn(carol);
-    return Promise.all(draftIds.map((id) => watch(id, carolCookie)));
-  }
-
-  /** Each draft's version now, in `draftIds` order. */
-  async function versions() {
-    return Promise.all(
-      draftIds.map(async (id) => (await getDraft(id).expect(200)).body.version),
-    );
-  }
-
-  /**
-   * Waits until `pushed` holds each of `ids` once, then expects each to be
-   * newer than before and as `expected` says.
-   */
-  async function expectPushedOnce(
-    pushed: DraftView[],
-    ids: string[],
-    expected: Partial<DraftView>,
-  ) {
-    await vi.waitFor(() => expect(pushed).toHaveLength(ids.length));
-    expect(pushed.map((draft) => draft.id).sort()).toEqual([...ids].sort());
-    for (const draft of pushed) {
-      expect(draft).toMatchObject(expected);
-      expect(draft.version).toBeGreaterThan(versionsBefore.get(draft.id)!);
-    }
+    versionsBefore = await versionsOf(draftIds);
   }
 
   /**
    * What is pushed to a socket watching each draft, and to each player's own
    * room: Alice plays in every draft, Bob in all but the Lobby one.
    */
-  async function listening() {
-    return {
-      watched: await watchingEach(),
-      alicesRoom: (await listeningToOwnRoom(aliceCookie)).changes,
-      bobsRoom: (await listeningToOwnRoom(bobCookie)).changes,
-    };
+  async function listeningToEach() {
+    return listening(draftIds, await signIn(carol), {
+      alice: aliceCookie,
+      bob: bobCookie,
+    });
   }
 
   /**
-   * Waits until each of `listening`'s sockets is pushed every draft it hears
-   * of once, as `expected` says.
+   * Waits until each of `listeningToEach`'s sockets is pushed every draft it
+   * hears of once, newer and as `expected` says.
    */
   async function expectEachPushedOnce(
-    { watched, alicesRoom, bobsRoom }: Awaited<ReturnType<typeof listening>>,
+    { watched, rooms }: Awaited<ReturnType<typeof listeningToEach>>,
     expected: Partial<DraftView>,
   ) {
-    await expectPushedOnce(alicesRoom, draftIds, expected);
-    await expectPushedOnce(bobsRoom, draftIds.slice(1), expected);
-    for (const [i, changes] of watched.entries()) {
-      await expectPushedOnce(changes, [draftIds[i]], expected);
+    const check = (draft: DraftView) => expect(draft).toMatchObject(expected);
+    await expectPushedOnce(rooms.alice, draftIds, versionsBefore, check);
+    await expectPushedOnce(rooms.bob, draftIds.slice(1), versionsBefore, check);
+    for (const id of draftIds) {
+      await expectPushedOnce(watched[id], [id], versionsBefore, check);
     }
   }
 
   it('pushes every draft using a renamed webhook, in every state, with its new name', async () => {
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     await renameWebhook(webhookId, '#roto-league');
 
@@ -361,7 +335,7 @@ describe('drafts using a webhook', () => {
     await announcementsSettled(drafting);
     expect((await getDraft(drafting).expect(200)).body.webhook.gone).toBe(true);
     await noteVersions();
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     await replaceWebhookUrl(webhookId, sideUrl);
 
@@ -371,7 +345,7 @@ describe('drafts using a webhook', () => {
   });
 
   it('pushes every draft that used a removed webhook, with no webhook', async () => {
-    const pushed = await listening();
+    const pushed = await listeningToEach();
 
     await removeWebhook(webhookId);
 
@@ -390,12 +364,20 @@ describe('drafts using a webhook', () => {
       .send({ name: '#roto-side' })
       .expect(409);
 
-    expect(await versions()).toEqual([...versionsBefore.values()]);
+    expect(await versionsOf(draftIds)).toEqual(versionsBefore);
     // Its push comes after any the changes above made.
     await renameWebhook(webhookId, '#roto-league');
-    await expectPushedOnce(alicesRoom.changes, draftIds, {
-      webhook: { id: webhookId, name: '#roto-league', gone: false },
-    });
+    await expectPushedOnce(
+      alicesRoom.changes,
+      draftIds,
+      versionsBefore,
+      (draft) =>
+        expect(draft.webhook).toEqual({
+          id: webhookId,
+          name: '#roto-league',
+          gone: false,
+        }),
+    );
   });
 
   it('answers a registry change whose push fails, logging it, and pushes the rest', async () => {
@@ -412,10 +394,10 @@ describe('drafts using a webhook', () => {
     await vi.waitFor(() => expect(alicesRoom.changes).toHaveLength(2));
     const pushed = alicesRoom.changes.map((draft) => draft.id);
     const [failed] = draftIds.filter((id) => !pushed.includes(id));
-    expect(logged).toHaveBeenCalledExactlyOnceWith(
-      expect.stringContaining(failed),
-      expect.any(Error),
-    );
+    expect(logged).toHaveBeenCalledOnce();
+    expect(failedPushes(logged, draftIds)).toEqual([
+      { draftId: failed, err: expect.any(Error) },
+    ]);
     expect((await getDraft(failed).expect(200)).body.webhook.name).toBe(
       '#roto-league',
     );
