@@ -16,7 +16,7 @@ import {
   ScryfallRejectedSearchError,
   ScryfallUnavailableError,
 } from '../scryfall/scryfall-client.js';
-import { NO_BASIC_LANDS } from './basic-lands.js';
+import { withoutBasicLands } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
 import {
   MissingCardFieldError,
@@ -246,7 +246,7 @@ export class PoolSnapshotService
     // one; the pool query was already checked to have no cards off the
     // platform. The basic lands are left out: a player adds them to their
     // plan one copy at a time.
-    const query = `(${poolQuery}) ${NO_BASIC_LANDS} game:${SCRYFALL_GAME[platform]} unique:cards`;
+    const query = `${withoutBasicLands(poolQuery)} game:${SCRYFALL_GAME[platform]} unique:cards`;
     for (let page = 1; ; page++) {
       const result = await this.scryfall.search(query, page);
       if (!result) {

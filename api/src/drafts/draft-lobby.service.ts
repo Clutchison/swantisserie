@@ -19,7 +19,7 @@ import {
   EVENT_PLAYER,
   toEventPlayer,
 } from './draft-events.js';
-import { isBasicLand, NO_BASIC_LANDS } from './basic-lands.js';
+import { isBasicLand, withoutBasicLands } from './basic-lands.js';
 import { DraftLock, type LockedDraft, shareLockUser } from './draft-lock.js';
 import {
   type DraftWithOrganizer,
@@ -401,10 +401,7 @@ export class DraftLobbyService {
   ): Promise<void> {
     // Like the snapshot, leave the basic lands out: a query that matches only
     // them would make an empty pool.
-    const matches = await this.search(
-      `(${poolQuery}) ${NO_BASIC_LANDS}`,
-      deadline,
-    );
+    const matches = await this.search(withoutBasicLands(poolQuery), deadline);
     if (!matches) {
       throw new PoolQueryError({
         error: 'no-cards',

@@ -20,7 +20,7 @@ import {
   listDrafts,
   getDraft,
   snapshotQuery,
-  matchQuery,
+  creationMatchQuery,
 } from './harness.js';
 import {
   aliceCookie,
@@ -66,7 +66,7 @@ it('creates a draft in Lobby with the signed-in guild member as organizer', asyn
 
 it('creates a draft on the platform the organizer chose', async () => {
   scryfallAnswers({
-    [matchQuery('c:r')]: page('Shock'),
+    [creationMatchQuery('c:r')]: page('Shock'),
     '(c:r) -in:mtgo': null,
     [snapshotQuery('c:r', 'MTGO')]: page('Shock'),
   });
@@ -95,7 +95,7 @@ it('refuses a platform other than Arena or MTGO', async () => {
 
 it('refuses an MTGO draft whose pool query has cards not on MTGO, naming MTGO', async () => {
   scryfallAnswers({
-    [matchQuery('f:legacy t:dragon')]: page(
+    [creationMatchQuery('f:legacy t:dragon')]: page(
       'Balefire Dragon',
       'Ancient Hellkite',
     ),
@@ -119,7 +119,7 @@ it('refuses an MTGO draft whose pool query has cards not on MTGO, naming MTGO', 
 
 it('refuses an Arena draft whose pool query has cards not on Arena, and lists them', async () => {
   scryfallAnswers({
-    [matchQuery('f:legacy t:dragon')]: page(
+    [creationMatchQuery('f:legacy t:dragon')]: page(
       'Balefire Dragon',
       'Ancient Hellkite',
     ),
@@ -142,7 +142,7 @@ it('refuses an Arena draft whose pool query has cards not on Arena, and lists th
 
 it('reports how many cards are not on Arena when there are more than one page', async () => {
   scryfallAnswers({
-    [matchQuery('c:r')]: page('Shock'),
+    [creationMatchQuery('c:r')]: page('Shock'),
     '(c:r) -in:arena': { ...page('Ancient Hellkite'), totalCards: 5000 },
   });
 
@@ -198,7 +198,7 @@ it('creates a draft without double picks when given 0', async () => {
 });
 
 it('refuses a pool query that matches no cards', async () => {
-  scryfallAnswers({ [matchQuery('name:zzzzqqqq')]: null });
+  scryfallAnswers({ [creationMatchQuery('name:zzzzqqqq')]: null });
 
   const res = await createDraft({
     name: 'Nothing',
@@ -214,7 +214,7 @@ it('refuses a pool query that matches no cards', async () => {
 
 it('refuses a pool query whose only matches are basic lands', async () => {
   const poolQuery = 't:basic -t:snow -!Wastes';
-  scryfallAnswers({ [matchQuery(poolQuery)]: null });
+  scryfallAnswers({ [creationMatchQuery(poolQuery)]: null });
 
   const res = await createDraft({
     name: 'Basics',
@@ -230,7 +230,7 @@ it('refuses a pool query whose only matches are basic lands', async () => {
 
 it('passes on Scryfall’s explanation when it rejects the pool query', async () => {
   scryfallAnswers({
-    [matchQuery('c:r (((')]: new ScryfallRejectedSearchError(
+    [creationMatchQuery('c:r (((')]: new ScryfallRejectedSearchError(
       'Your search contains unclosed parentheses.',
       [],
     ),
@@ -252,7 +252,10 @@ it('refuses a pool query when Scryfall ignored part of it', async () => {
   const warning =
     'Invalid expression “foo:bar” was ignored. Unknown keyword “foo”.';
   scryfallAnswers({
-    [matchQuery('c:r foo:bar')]: { ...page('Shock'), warnings: [warning] },
+    [creationMatchQuery('c:r foo:bar')]: {
+      ...page('Shock'),
+      warnings: [warning],
+    },
   });
 
   const res = await createDraft({
@@ -270,7 +273,7 @@ it('refuses a pool query when Scryfall ignored part of it', async () => {
 
 it('answers 502 when Scryfall cannot be reached', async () => {
   scryfallAnswers({
-    [matchQuery('c:r')]: new ScryfallUnavailableError(503),
+    [creationMatchQuery('c:r')]: new ScryfallUnavailableError(503),
   });
 
   const res = await createDraft({

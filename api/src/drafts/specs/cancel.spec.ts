@@ -29,7 +29,7 @@ import {
   cancelDraft,
   announcementsSettled,
   queueInLobby,
-  matchQuery,
+  creationMatchQuery,
 } from './harness.js';
 
 useDraftsApp();
@@ -92,7 +92,7 @@ describe('cancel', () => {
   it('cancels a draft whose snapshot failed', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      [matchQuery('c:r')]: page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
