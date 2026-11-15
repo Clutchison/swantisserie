@@ -20,6 +20,7 @@ import {
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
+import { expectLoadingAnimation, loadingAnimation } from '../drafts/specs/harness';
 import { answerDraft42NotFound, link } from './specs-harness';
 
 const fromAlice: FeedbackView = {
@@ -604,6 +605,17 @@ describe('reviewing feedback', () => {
     expect(page.querySelector('main')?.textContent).toContain('No feedback to review');
   });
 
+  it('says so with the loading animation while the feedback loads', async () => {
+    const { fixture, page } = await openApp('/admin/feedback', carol);
+    answerAdminHeader();
+    const req = http.expectOne('/api/admin/feedback');
+    await expectLoadingAnimation(() => panel(page), 'Loading…', 288);
+
+    req.flush([fromAlice]);
+    await fixture.whenStable();
+    expect(loadingAnimation(page)).toBeNull();
+  });
+
   it('says when the feedback cannot be loaded', async () => {
     const { fixture, page } = await openApp('/admin/feedback', carol);
     answerAdminHeader();
@@ -611,6 +623,7 @@ describe('reviewing feedback', () => {
     await fixture.whenStable();
 
     expect(page.querySelector('main')?.textContent).toContain("Couldn't load the feedback");
+    expect(loadingAnimation(page)).toBeNull();
   });
 });
 

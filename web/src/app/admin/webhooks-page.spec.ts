@@ -17,11 +17,18 @@ import {
   question,
   expectSignedOut,
   router,
+  serverError,
   updates,
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
-import { buttonOrder, controlsByLabel, namedList } from '../drafts/specs/harness';
+import {
+  buttonOrder,
+  controlsByLabel,
+  expectLoadingAnimation,
+  loadingAnimation,
+  namedList,
+} from '../drafts/specs/harness';
 import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 
 const main: WebhookWithUrlView = {
@@ -116,6 +123,27 @@ describe('webhooks page', () => {
       ['#roto-main', main.url],
       ['#roto-side', side.url],
     ]);
+  });
+
+  it('says so with the loading animation while the webhooks load', async () => {
+    const { fixture, page } = await openApp('/admin/webhooks', carol);
+    answerTopBar(http);
+    const req = http.expectOne('/api/admin/webhooks');
+    await expectLoadingAnimation(() => page, 'Loading…', 288);
+
+    req.flush([main]);
+    await fixture.whenStable();
+    expect(loadingAnimation(page)).toBeNull();
+  });
+
+  it('says when the webhooks cannot be loaded', async () => {
+    const { fixture, page } = await openApp('/admin/webhooks', carol);
+    answerTopBar(http);
+    http.expectOne('/api/admin/webhooks').flush(null, serverError);
+    await fixture.whenStable();
+
+    expect(page.querySelector('main')?.textContent).toContain("Couldn't load the webhooks");
+    expect(loadingAnimation(page)).toBeNull();
   });
 
   it('says when there are no webhooks yet', async () => {
