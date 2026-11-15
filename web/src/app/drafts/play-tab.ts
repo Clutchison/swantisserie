@@ -72,10 +72,12 @@ const START_DETAILS: Record<TournamentFormat, string> = {
  * Where a failed change is explained, by the controls that made it:
  * directly after the action rows during play, for Drop from tournament
  * and the organizer's Reopen round, Cancel tournament, Complete round and
- * Complete tournament; directly after Your matches, for Report and Confirm there; directly
- * after the results (standings and matches, bracket or results grid), for
- * Confirm and game score changes there; or at the foot of the tab, for
- * everything else, and for a failure whose section the tab no longer shows.
+ * Complete tournament; directly after Your matches, for Report and Confirm
+ * there; directly after the results (standings and matches, bracket or
+ * results grid), for Confirm and game score changes there; or at the foot
+ * of the tab, for everything else, and for a failure whose section the tab
+ * no longer shows. So `actions` falls back to the foot whenever the action
+ * rows aren't shown, as for Cancel tournament during registration.
  */
 type ErrorPlace = 'actions' | 'yourMatches' | 'results' | 'foot';
 

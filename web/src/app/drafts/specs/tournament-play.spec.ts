@@ -72,11 +72,14 @@ import {
   carolBeatAlice,
   completedSwiss,
   COMPLETE_ROUND_URL,
+  openCompleteRound,
   singleEliminationPlaying,
 } from './play-tab-harness';
 import {
   actionButtons,
   expectAtFoot,
+  expectBeforeLists,
+  expectByActionRows,
   expectByActions,
   expectByResults,
   expectByYourMatches,
@@ -857,12 +860,13 @@ describe('Play tab while the tournament is played', () => {
         const { tab } = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
 
         const actions = actionButtons(tab);
-        expect(actions.map((action) => text(action))).toContain(complete);
-        expect(actions[0]).toBe(button(tab, 'Drop from tournament'));
+        expect(actions).toContain(button(tab, complete));
         expect(listsAfterActions(tab)).toContain(region(tab, first));
         expect(listsAfterActions(tab)).toContain(region(tab, results));
-        for (const action of actions) {
-          for (const list of listsAfterActions(tab)) expect(comesBefore(action, list)).toBe(true);
+        for (const action of actions) expectBeforeLists(tab, action);
+        const drop = button(tab, 'Drop from tournament')!;
+        for (const action of actions.filter((shown) => shown !== drop)) {
+          expect(comesBefore(drop, action)).toBe(true);
         }
       },
     );
@@ -882,81 +886,105 @@ describe('Play tab while the tournament is played', () => {
 
       const reopenRound = button(tab, 'Reopen round 1')!;
       expect(accessibleDescription(reopenRound)).toBe(message);
-      const reason = document.getElementById(reopenRound.getAttribute('aria-describedby')!)!;
-      for (const action of actionButtons(tab)) expect(comesBefore(action, reason)).toBe(true);
-      for (const list of listsAfterActions(tab)) expect(comesBefore(reason, list)).toBe(true);
+      expectByActionRows(
+        tab,
+        document.getElementById(reopenRound.getAttribute('aria-describedby')!)!,
+      );
+    });
+
+    it('says completing the tournament round failed right after the action rows, before Your match', async () => {
+      const { fixture, page, tab, dialog } = await openCompleteRound(swissPlaying());
+
+      button(dialog, 'Complete round')!.click();
+
+      expect(await failChange(fixture, page, COMPLETE_ROUND_URL)).toBe(
+        "Couldn't complete the tournament round. Try again in a moment.",
+      );
+      expectByActions(page, tab);
     });
 
     it.each([
-      [
-        'completing the tournament round',
-        swissPlaying(),
-        ['Complete round', null, null],
-        COMPLETE_ROUND_URL,
-        "Couldn't complete the tournament round. Try again in a moment.",
-      ],
-      [
-        'cancelling the tournament',
-        swissPlaying(),
-        ['Cancel tournament', 'Cancel the tournament?', 'Cancel tournament'],
-        '/api/drafts/draft-1/tournament',
-        "Couldn't cancel the tournament. Try again in a moment.",
-      ],
-      [
-        'reopening the tournament round',
-        swissPlaying(),
-        ['Reopen round 1', 'Reopen tournament round 1?', 'Reopen round 1'],
-        '/api/drafts/draft-1/tournament/reopen-round',
-        "Couldn't reopen the tournament round. Try again in a moment.",
-      ],
-      [
-        'dropping from the tournament',
-        swissPlaying(),
-        ['Drop from tournament', 'Drop from the tournament?', 'Drop'],
-        `/api/drafts/draft-1/tournament/entries/${alice.id}/drop`,
-        "Couldn't drop from the tournament. Try again in a moment.",
-      ],
-      [
-        'completing the tournament',
-        playing(),
-        ['Complete tournament', 'Complete the tournament?', 'Complete tournament'],
-        '/api/drafts/draft-1/tournament/complete',
-        "Couldn't complete the tournament. Try again in a moment.",
-      ],
-      [
-        'cancelling the tournament in round robin',
-        playing(),
-        ['Cancel tournament', 'Cancel the tournament?', 'Cancel tournament'],
-        '/api/drafts/draft-1/tournament',
-        "Couldn't cancel the tournament. Try again in a moment.",
-      ],
+      {
+        doing: 'cancelling the tournament',
+        tournament: swissPlaying(),
+        label: 'Cancel tournament',
+        asked: ['Cancel the tournament?', 'Cancel tournament'],
+        url: '/api/drafts/draft-1/tournament',
+        failure: "Couldn't cancel the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'reopening the tournament round',
+        tournament: swissPlaying(),
+        label: 'Reopen round 1',
+        asked: ['Reopen tournament round 1?', 'Reopen round 1'],
+        url: '/api/drafts/draft-1/tournament/reopen-round',
+        failure: "Couldn't reopen the tournament round. Try again in a moment.",
+      },
+      {
+        doing: 'dropping from the tournament',
+        tournament: swissPlaying(),
+        label: 'Drop from tournament',
+        asked: ['Drop from the tournament?', 'Drop'],
+        url: `/api/drafts/draft-1/tournament/entries/${alice.id}/drop`,
+        failure: "Couldn't drop from the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'completing the tournament',
+        tournament: playing(),
+        label: 'Complete tournament',
+        asked: ['Complete the tournament?', 'Complete tournament'],
+        url: '/api/drafts/draft-1/tournament/complete',
+        failure: "Couldn't complete the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'cancelling the tournament in round robin',
+        tournament: playing(),
+        label: 'Cancel tournament',
+        asked: ['Cancel the tournament?', 'Cancel tournament'],
+        url: '/api/drafts/draft-1/tournament',
+        failure: "Couldn't cancel the tournament. Try again in a moment.",
+      },
     ] as const)(
-      'says %s failed right after the action rows, before Your matches',
-      async (_, tournament, [label, asked, action], url, failure) => {
+      'says $doing failed right after the action rows, before Your matches',
+      async ({ tournament, label, asked: [asked, action], url, failure }) => {
         const { fixture, page, tab } = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
 
         button(tab, label)!.click();
-        await fixture.whenStable();
-        if (asked) await answer(await question(asked), action!);
-        else button(openDialog()!, label)!.click();
+        await answer(await question(asked), action);
 
         expect(await failChange(fixture, page, url)).toBe(failure);
         expectByActions(page, tab);
       },
     );
 
-    it('says starting the tournament failed at the foot of the tab, after Start tournament', async () => {
-      const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
-        powers: ORGANIZE_ONLY,
-      });
+    it.each([
+      {
+        doing: 'starting the tournament',
+        label: 'Start tournament',
+        asked: ['Start the tournament?', 'Start'],
+        url: '/api/drafts/draft-1/tournament/start',
+        failure: "Couldn't start the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'cancelling the tournament',
+        label: 'Cancel tournament',
+        asked: ['Cancel the tournament?', 'Cancel tournament'],
+        url: '/api/drafts/draft-1/tournament',
+        failure: "Couldn't cancel the tournament. Try again in a moment.",
+      },
+    ] as const)(
+      'says $doing failed in registration at the foot of the tab, after its button',
+      async ({ label, asked: [asked, action], url, failure }) => {
+        const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
+          powers: ORGANIZE_ONLY,
+        });
 
-      button(tab, 'Start tournament')!.click();
-      await answer(await question('Start the tournament?'), 'Start');
+        button(tab, label)!.click();
+        await answer(await question(asked), action);
 
-      expect(await failChange(fixture, page, '/api/drafts/draft-1/tournament/start')).toBe(
-        "Couldn't start the tournament. Try again in a moment.",
-      );
-      expectAtFoot(page, button(tab, 'Start tournament')!);
-    });
+        expect(await failChange(fixture, page, url)).toBe(failure);
+        expectAtFoot(page, button(tab, label)!);
+      },
+    );
   });
 });
