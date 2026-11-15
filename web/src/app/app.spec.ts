@@ -8,8 +8,10 @@ import {
   answerViewerDrafts,
   banner,
   expectBusy,
+  expectLoadingAnimation,
   expectSignedOut,
   http,
+  loadingAnimation,
   openApp,
   openDialog,
   updates,
@@ -17,13 +19,7 @@ import {
   signInLink,
   useApp,
 } from './specs-harness';
-import {
-  button,
-  drafting,
-  expectLoadingAnimation,
-  loadingAnimation,
-  midNavigation,
-} from './drafts/specs/harness';
+import { button, drafting, midNavigation } from './drafts/specs/harness';
 import { answerUnreviewedCount, link } from './feedback/specs-harness';
 import {
   appAdminButton,

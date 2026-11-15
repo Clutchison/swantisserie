@@ -1,0 +1,8 @@
+@let resource = loaded().resource();
+@if (resource.error()) {
+  <p class="error">Couldn't load {{ noun() }}. Try reloading the page.</p>
+} @else if (resource.isLoading() && !resource.hasValue()) {
+  <app-loading-animation size="page">Loading…</app-loading-animation>
+} @else if (resource.hasValue()) {
+  <ng-container *ngTemplateOutlet="loaded().template; context: { $implicit: resource.value() }" />
+}

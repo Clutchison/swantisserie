@@ -8,9 +8,11 @@ import {
   carol,
   comesBefore,
   expectFocusOn,
+  expectLoadingAnimation,
   focusAndClick,
   focusedControl,
   http,
+  loadingAnimation,
   onlyAlert,
   openApp,
   openDialog,
@@ -22,13 +24,7 @@ import {
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
-import {
-  buttonOrder,
-  controlsByLabel,
-  expectLoadingAnimation,
-  loadingAnimation,
-  namedList,
-} from '../drafts/specs/harness';
+import { buttonOrder, controlsByLabel, namedList } from '../drafts/specs/harness';
 import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 
 const main: WebhookWithUrlView = {
