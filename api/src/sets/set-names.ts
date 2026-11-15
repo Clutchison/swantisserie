@@ -32,7 +32,7 @@ export async function setNamesFor(
   } catch (error) {
     logger.warn(
       error instanceof DeadlinePassedError
-        ? `Scryfall didn't answer within the set names deadline (${SET_NAMES_DEADLINE_MS} ms), so set lists are shown by their codes.`
+        ? `Scryfall didn’t answer within the set names deadline (${SET_NAMES_DEADLINE_MS} ms), so set lists are shown by their codes.`
         : `Naming the sets of set lists failed: ${String(error)}`,
     );
     return new Map();

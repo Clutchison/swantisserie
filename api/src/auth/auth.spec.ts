@@ -335,11 +335,11 @@ describe('Discord sign-in', () => {
 
   describe('when Discord is slow', () => {
     /**
-     * Three of these run a second past the sign-in budget, though each is
+     * Three of these run a second past the sign-in deadline, though each is
      * within the Discord client's own 10 s timeout.
      */
     const SLOW_CALL_MS = SIGN_IN_DEADLINE_MS / 3 + 1_000;
-    /** Three of these fit in the sign-in budget with a call's time to spare. */
+    /** Three of these end a call's time inside the sign-in deadline. */
     const FAIRLY_SLOW_CALL_MS = SIGN_IN_DEADLINE_MS / 4;
 
     beforeEach(useDeadlineTimers);
@@ -374,7 +374,7 @@ describe('Discord sign-in', () => {
       return { agent, callback: await callback };
     }
 
-    it('fails sign-in once its three calls together run past the budget, keeping the page to return to', async () => {
+    it('fails sign-in once its three calls together run past the sign-in deadline, keeping the page to return to', async () => {
       const { agent, callback } = await signInSlowly(
         SLOW_CALL_MS,
         '/drafts/42',
@@ -387,7 +387,7 @@ describe('Discord sign-in', () => {
       await agent.get('/api/auth/me').expect(401);
     });
 
-    it('signs the user in when its three calls fit in the budget', async () => {
+    it('signs the user in when its three calls finish within the sign-in deadline', async () => {
       const { agent, callback } = await signInSlowly(
         FAIRLY_SLOW_CALL_MS,
         '/drafts/42',
@@ -397,7 +397,7 @@ describe('Discord sign-in', () => {
       await agent.get('/api/auth/me').expect(200);
     });
 
-    it('still turns away a non-member when its three calls fit in the budget', async () => {
+    it('still turns away a non-member when its three calls finish within the sign-in deadline', async () => {
       const { callback } = await signInSlowly(
         FAIRLY_SLOW_CALL_MS,
         '/drafts/42',

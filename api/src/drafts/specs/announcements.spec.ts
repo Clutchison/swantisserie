@@ -3,6 +3,7 @@ import {
   DraftNotifier,
   RATE_LIMIT_CAP_MS,
   RATE_LIMIT_MIN_WAIT_MS,
+  RateLimitPastCapError,
 } from '../../discord/draft-notifier.js';
 import {
   WebhookGoneError,
@@ -444,7 +445,7 @@ describe('announcements', () => {
     /** Longer than the 1 s and 5 s the retries wait outside tests. */
     const RATE_LIMIT_MS = 10_000;
 
-    beforeEach(() => useDeadlineTimers());
+    beforeEach(useDeadlineTimers);
     afterEach(() => vi.useRealTimers());
 
     it('waits as long as Discord says, then gets the post through', async () => {
@@ -535,10 +536,10 @@ describe('announcements', () => {
       // Sent no request: it would only be rate limited too.
       await pick(id, ids.Shock).expect(200);
       await posted(id, 1);
-      expect(logged.mock.calls).toEqual([
-        [expect.stringMatching(new RegExp(`draft ${id}.*rate limit`))],
-        [expect.stringMatching(new RegExp(`draft ${id}.*rate limit`))],
-      ]);
+      const pastCap = expect.stringContaining(
+        `draft ${id}: ${RateLimitPastCapError.name}`,
+      );
+      expect(logged.mock.calls).toEqual([[pastCap], [pastCap]]);
 
       await vi.advanceTimersByTimeAsync(rateLimitMs);
       await app.get(DraftNotifier).notify(id, [{ type: 'frozen' }]);

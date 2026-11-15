@@ -50,6 +50,21 @@ export const RATE_LIMIT_CAP_MS = 60_000;
  */
 export const RATE_LIMIT_MIN_WAIT_MS = 500;
 
+/**
+ * Thrown, without a request, for a post on a webhook whose rate limit has
+ * longer than RATE_LIMIT_CAP_MS left: the post is dropped. Named in its
+ * message, so the log says what dropped it.
+ */
+export class RateLimitPastCapError extends Error {
+  override readonly name = 'RateLimitPastCapError';
+
+  constructor(readonly leftMs: number) {
+    super(
+      `Discord rate limited the webhook for another ${leftMs} ms, longer than the ${RATE_LIMIT_CAP_MS} ms a post waits, so the post was dropped.`,
+    );
+  }
+}
+
 /** An announcement queued or still sending, which shutdown may drop. */
 interface Announcement {
   draftId: string;
@@ -68,10 +83,10 @@ export class DraftNotifierRetries {
  * at a time, in the order notified, and a failed post is retried if a retry
  * may help, then logged. When Discord rate limits a post, every post on that
  * webhook, from any draft, waits as long as Discord says; a post that would
- * wait longer than RATE_LIMIT_CAP_MS is logged and dropped. A post that finds the webhook gone marks it so, and
- * nothing more is posted on it until its URL is replaced. At shutdown, posts
- * go on until the shutdown deadline; then those still queued or sending are
- * logged as dropped, and no new post starts.
+ * wait longer than RATE_LIMIT_CAP_MS is logged and dropped. A post that finds
+ * the webhook gone marks it so, and nothing more is posted on it until its URL
+ * is replaced. At shutdown, posts go on until the shutdown deadline; then
+ * those still queued or sending are logged as dropped, and no new post starts.
  */
 @Injectable()
 export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
@@ -162,9 +177,9 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
    * Call once the events are committed. Never rejects: failures are logged,
    * as are announcements notified after the shutdown deadline, which are
    * dropped.
-   * The webhook is read when their turn to send comes: if it changes, those
-   * still queued go to the new one, while a batch already sending finishes on
-   * the old one.
+   * The webhook is read once the draft's earlier announcements are done: if
+   * it changes, those still queued go to the new one, while a batch already
+   * sending finishes on the old one.
    */
   notify(draftId: string, events: DraftEvent[]): Promise<void> {
     const announcement: Announcement = { draftId, events, sending: false };
@@ -309,9 +324,7 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
         return;
       }
       if (left > RATE_LIMIT_CAP_MS) {
-        throw new Error(
-          `Discord rate limited the webhook for another ${left} ms, longer than the ${RATE_LIMIT_CAP_MS} ms a post waits, so the post was dropped.`,
-        );
+        throw new RateLimitPastCapError(left);
       }
       await this.wait(left);
     }

@@ -125,12 +125,14 @@ export class ScryfallUnavailableError extends Error {
   constructor(
     /** The HTTP status Scryfall failed with, or undefined if it couldn't be reached. */
     readonly status?: number,
-    options?: ErrorOptions,
+    /** Its `message`, if given, replaces the one `status` gives. */
+    options: ErrorOptions & { message?: string } = {},
   ) {
     super(
-      status === undefined
-        ? 'Scryfall could not be reached.'
-        : `Scryfall request failed: ${status}`,
+      options.message ??
+        (status === undefined
+          ? 'Scryfall could not be reached.'
+          : `Scryfall request failed: ${status}`),
       options,
     );
   }
@@ -138,6 +140,17 @@ export class ScryfallUnavailableError extends Error {
   /** Scryfall couldn't be reached at all: a timeout or a network failure. */
   static unreachable(cause: unknown): ScryfallUnavailableError {
     return new ScryfallUnavailableError(undefined, { cause });
+  }
+
+  /** Scryfall didn't answer within the deadline named `deadlineName`. */
+  static tooSlow(
+    deadlineName: string,
+    cause: unknown,
+  ): ScryfallUnavailableError {
+    return new ScryfallUnavailableError(undefined, {
+      message: `Scryfall didn’t answer within the ${deadlineName} deadline.`,
+      cause,
+    });
   }
 }
 

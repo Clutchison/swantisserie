@@ -448,7 +448,8 @@ export class DraftLobbyService {
 
 /** Scryfall hadn't answered a check when the deadline passed. */
 function scryfallTooSlow(deadline: Deadline): ScryfallUnavailableError {
-  return ScryfallUnavailableError.unreachable(
+  return ScryfallUnavailableError.tooSlow(
+    deadline.name,
     new DeadlinePassedError(deadline.name),
   );
 }
