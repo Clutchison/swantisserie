@@ -20,7 +20,18 @@ import {
   ALL_POWERS,
   statusTexts,
 } from './harness';
-import { emptyStatusIn, openDialog, statusIn, text, watchChanges } from '../../specs-harness';
+import {
+  clickOn,
+  emptyStatusIn,
+  expectBusy,
+  expectFocusOn,
+  expectNotBusy,
+  focusAndClick,
+  openDialog,
+  statusIn,
+  text,
+  watchChanges,
+} from '../../specs-harness';
 import {
   useTallScreen,
   card,
@@ -237,6 +248,43 @@ describe('pool tab', () => {
 
       expect(button(await openDetail(fixture, page, 0), 'Add to Deck')).toBeUndefined();
     });
+    it('stays focused and busy while an add is on its way, sending it once, and hands focus to Remove from Deck once it is made', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+      });
+
+      const detail = await openDetail(fixture, page, 0);
+      focusAndClick(button(detail, 'Add to Deck')!);
+      const req = http.expectOne('/api/drafts/draft-1/plan');
+      expectBusy(button(detail, 'Add to Deck')!);
+      expectFocusOn(detail, 'Add to Deck');
+      clickOn(button(detail, 'Add to Deck')!);
+      http.expectNone('/api/drafts/draft-1/plan');
+
+      req.flush({
+        ...EMPTY_PLAN,
+        mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: false }],
+      });
+      await vi.waitFor(() => expectFocusOn(detail, 'Remove from Deck'));
+      expectNotBusy(button(detail, 'Remove from Deck')!);
+    });
+
+    it('keeps focus on itself when an add fails', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+      });
+
+      const detail = await openDetail(fixture, page, 0);
+      focusAndClick(button(detail, 'Add to Deck')!);
+      http
+        .expectOne('/api/drafts/draft-1/plan')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await flushPlan(EMPTY_PLAN);
+      await fixture.whenStable();
+      expect(statusTexts(detail).join(' ')).toContain("Couldn't add the card to your deck.");
+      expectFocusOn(detail, 'Add to Deck');
+      expectNotBusy(button(detail, 'Add to Deck')!);
+    });
   });
 
   describe('Remove from Deck', () => {
@@ -294,20 +342,26 @@ describe('pool tab', () => {
       expect(panel(page).querySelector('li.unpicked')).toBeNull();
     });
 
-    it('is disabled while a removal is on its way', async () => {
+    it('stays focused and busy while a removal is on its way, sending it once, and hands focus to Add to Deck once it is made', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan],
         plan: planned(shivan.id),
       });
 
       const detail = await openDetail(fixture, page, 0);
-      button(detail, 'Remove from Deck')!.click();
-      fixture.detectChanges();
-      expect(button(detail, 'Remove from Deck')!.disabled).toBe(true);
-      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(EMPTY_PLAN);
+      focusAndClick(button(detail, 'Remove from Deck')!);
+      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+      expectBusy(button(detail, 'Remove from Deck')!);
+      expectFocusOn(detail, 'Remove from Deck');
+      clickOn(button(detail, 'Remove from Deck')!);
+      http.expectNone('/api/drafts/draft-1/plan/shivan-card');
+
+      req.flush(EMPTY_PLAN);
+      await vi.waitFor(() => expectFocusOn(detail, 'Add to Deck'));
+      expectNotBusy(button(detail, 'Add to Deck')!);
     });
 
-    it('is disabled while an add of another copy is on its way', async () => {
+    it('is busy in a Card detail opened while an add of another copy is on its way, and a press sends nothing', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [shivan, shivanCopy],
         plan: planned(shivan.id),
@@ -316,7 +370,10 @@ describe('pool tab', () => {
       button(await openDetail(fixture, page, 1), 'Add to Deck')!.click();
       button(openDialog()!, 'Close')!.click();
       const detail = await openDetail(fixture, page, 0);
-      expect(button(detail, 'Remove from Deck')!.disabled).toBe(true);
+      expectBusy(button(detail, 'Remove from Deck')!);
+      focusAndClick(button(detail, 'Remove from Deck')!);
+      http.expectNone('/api/drafts/draft-1/plan/shivan-card');
+      expectFocusOn(detail, 'Remove from Deck');
       http.expectOne('/api/drafts/draft-1/plan').flush({
         ...planned(shivan.id),
         mainboard: [
@@ -326,7 +383,7 @@ describe('pool tab', () => {
       });
       await vi.waitFor(() => {
         TestBed.tick();
-        expect(button(detail, 'Remove from Deck')!.disabled).toBe(false);
+        expectNotBusy(button(detail, 'Remove from Deck')!);
       });
 
       // The add's note belongs to the other copy's Card detail, now closed.
@@ -392,6 +449,25 @@ describe('pool tab', () => {
       expect(statusTexts(detail).join(' ')).toContain(
         "Couldn't remove the card from your deck. Try again in a moment.",
       );
+    });
+
+    it('keeps focus on itself when a removal fails', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        plan: planned(shivan.id),
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      focusAndClick(button(detail, 'Remove from Deck')!);
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await flushPlan(planned(shivan.id));
+      await fixture.whenStable();
+
+      expect(statusTexts(detail).join(' ')).toContain("Couldn't remove the card from your deck.");
+      expectFocusOn(detail, 'Remove from Deck');
+      expectNotBusy(button(detail, 'Remove from Deck')!);
     });
 
     it('is never offered for a picked card in the plan', async () => {

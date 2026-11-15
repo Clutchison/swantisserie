@@ -51,17 +51,26 @@ export class AnnouncementsDialog {
   });
   protected readonly choice = new FormControl<string | null>(null);
   protected readonly saving = signal(false);
+  /** The latest choice made while one saves, to save once it settles; null if none was made. */
+  private chosenMeanwhile: { id: string | null } | null = null;
   protected readonly saveError = signal<string | null>(null);
 
   constructor() {
     // Opened as the viewer comes to choose: the draft's webhook may have changed unseen,
     // so the draft is re-read, but not its pick log. The webhooks on offer are read as it opens.
     this.store.refresh();
-    // The control follows the draft, whoever changed it.
-    effect(() => this.choice.setValue(this.currentId()));
-    // No other change is offered while one saves, nor any while there's no list to choose from.
+    // The control follows the draft, whoever changed it, once no save is in flight:
+    // meanwhile it shows the latest choice.
     effect(() => {
-      if (this.saving() || this.webhooksFailed()) this.choice.disable();
+      const current = this.currentId();
+      if (!this.saving()) this.choice.setValue(current);
+    });
+    // No change is offered while there's no list to choose from. While one saves, the choice
+    // stays focusable, marked busy: a choice made meanwhile is saved once that one settles.
+    // It isn't `appSendsChange` under a `Changes`, whose `send` ignores a press while one is
+    // in flight: a select can't ignore a change, so the latest choice is kept instead (#939).
+    effect(() => {
+      if (this.webhooksFailed()) this.choice.disable();
       else this.choice.enable();
     });
   }
@@ -70,8 +79,16 @@ export class AnnouncementsDialog {
     this.dialogRef.close();
   }
 
-  /** Saves the webhook just chosen, or goes back to the current one if that fails. */
+  /**
+   * Saves the webhook just chosen, or goes back to the current one if that
+   * fails. One chosen while another saves waits for it: then the latest
+   * such choice is saved, unless it is what the draft now has.
+   */
   protected async save() {
+    if (this.saving()) {
+      this.chosenMeanwhile = { id: this.choice.value };
+      return;
+    }
     this.saving.set(true);
     this.saveError.set(null);
     const failure = "Couldn't change the webhook. Try again in a moment.";
@@ -93,6 +110,12 @@ export class AnnouncementsDialog {
       }
     } finally {
       this.saving.set(false);
+    }
+    const next = this.chosenMeanwhile;
+    this.chosenMeanwhile = null;
+    if (next && next.id !== this.currentId()) {
+      this.choice.setValue(next.id);
+      await this.save();
     }
   }
 }

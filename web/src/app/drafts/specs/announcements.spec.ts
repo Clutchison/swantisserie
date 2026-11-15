@@ -178,17 +178,72 @@ describe('switching a draft’s announcements', () => {
     expect(panel(page).textContent).toContain('Shock');
   });
 
-  it('offers no other change while one is saving', async () => {
+  it('keeps focus on the webhook choice while a choice saves, marking it busy', async () => {
     const { fixture } = await openWith({ webhook: main, version: 3 });
-    const select = control()!;
-    expect(select.disabled).toBe(false);
+    control()!.focus();
 
-    choose(select, '#roto-other');
+    choose(control()!, '#roto-other');
     await fixture.whenStable();
-    expect(control()!.disabled).toBe(true);
+    expect(control()!.disabled).toBe(false);
+    expect(control()!.getAttribute('aria-busy')).toBe('true');
+    expect(document.activeElement).toBe(control());
 
     http.expectOne('/api/drafts/draft-1/webhook').flush(draft({ webhook: other, version: 4 }));
-    await vi.waitFor(() => expect(control()!.disabled).toBe(false));
+    await vi.waitFor(() => expect(control()!.getAttribute('aria-busy')).toBeNull());
+    expect(document.activeElement).toBe(control());
+  });
+
+  it('saves the latest choice made while one saves, once that one is made', async () => {
+    const { fixture } = await openWith({ webhook: main, version: 3 });
+
+    choose(control()!, '#roto-other');
+    const first = http.expectOne('/api/drafts/draft-1/webhook');
+    choose(control()!, 'None');
+    choose(control()!, '#roto-main');
+    await fixture.whenStable();
+    http.expectNone('/api/drafts/draft-1/webhook');
+
+    first.flush(draft({ webhook: other, version: 4 }));
+    const latest = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/webhook'));
+    expect(latest.request.body).toEqual({ webhookId: 'main' });
+    await fixture.whenStable();
+    expect(control()!.getAttribute('aria-busy')).toBe('true');
+    expect(shownOption(control()!)).toBe('#roto-main');
+    latest.flush(draft({ webhook: main, version: 5 }));
+    await fixture.whenStable();
+
+    expect(shownOption(control()!)).toBe('#roto-main');
+    http.expectNone('/api/drafts/draft-1/webhook');
+  });
+
+  it('saves a choice made while one saves once that one fails, too', async () => {
+    const { fixture } = await openWith({ webhook: main, version: 3 });
+
+    choose(control()!, '#roto-other');
+    const first = http.expectOne('/api/drafts/draft-1/webhook');
+    choose(control()!, 'None');
+    first.flush(null, serverError);
+
+    const latest = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/webhook'));
+    expect(latest.request.body).toEqual({ webhookId: null });
+    latest.flush(draft({ webhook: null, version: 4 }));
+    await fixture.whenStable();
+    expect(shownOption(control()!)).toBe('None');
+  });
+
+  it('sends nothing more when the latest choice made meanwhile is what the save made', async () => {
+    const { fixture } = await openWith({ webhook: main, version: 3 });
+
+    choose(control()!, '#roto-other');
+    const first = http.expectOne('/api/drafts/draft-1/webhook');
+    choose(control()!, 'None');
+    choose(control()!, '#roto-other');
+    first.flush(draft({ webhook: other, version: 4 }));
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/webhook');
+    expect(shownOption(control()!)).toBe('#roto-other');
+    expect(control()!.getAttribute('aria-busy')).toBeNull();
   });
 
   it('says so when the chosen webhook was just removed, and goes back to the current one', async () => {
