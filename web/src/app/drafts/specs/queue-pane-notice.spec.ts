@@ -1,4 +1,3 @@
-import type { QueueView } from 'contract';
 import { EMPTY_PLAN, EMPTY_QUEUE } from '../drafts';
 import {
   useDraftsApp,
@@ -36,7 +35,7 @@ import {
 } from './harness';
 import { disabledMenuItems } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
-import { bolt } from './plan-tab-harness';
+import { bolt, dismissNotice } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -318,24 +317,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     const withLoss = (cards = [queued(bolt), queued(shivan)]) =>
       queueOf({ cards, lost: [queued(brightclimb)] });
 
-    /**
-     * Focuses and presses the Queue notice's Dismiss, does `meanwhile` while
-     * it is in flight, then answers its DELETE with `answer`.
-     */
-    async function dismiss(
-      fixture: { whenStable: () => Promise<unknown> },
-      queue: HTMLElement,
-      answer: QueueView,
-      meanwhile = () => {},
-    ) {
-      const dismissButton = button(queueNotice(queue)!, 'Dismiss')!;
-      dismissButton.focus();
-      dismissButton.click();
-      meanwhile();
-      http.expectOne('/api/drafts/draft-1/queue/notice').flush(answer);
-      await vi.waitFor(() => expect(queueNotice(queue)).toBeNull());
-      await fixture.whenStable();
-    }
+    const NOTICE_URL = '/api/drafts/draft-1/queue/notice';
 
     it('moves focus to the first queued card’s menu', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
@@ -344,7 +326,12 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       });
       const queue = queuePane(page);
 
-      await dismiss(fixture, queue, queueOf({ cards: [queued(bolt), queued(shivan)] }));
+      await dismissNotice(
+        fixture,
+        queueNotice(queue)!,
+        NOTICE_URL,
+        queueOf({ cards: [queued(bolt), queued(shivan)] }),
+      );
 
       await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, 'Lightning Bolt')));
     });
@@ -356,7 +343,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       });
       const queue = queuePane(page);
 
-      await dismiss(fixture, queue, queueOf());
+      await dismissNotice(fixture, queueNotice(queue)!, NOTICE_URL, queueOf());
 
       await vi.waitFor(() =>
         expect(document.activeElement).toBe(button(queue, 'Steal behavior: Pause queue')),
@@ -370,8 +357,12 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       });
       const queue = queuePane(page);
 
-      await dismiss(fixture, queue, queueOf({ cards: [queued(bolt), queued(shivan)] }), () =>
-        tabButton(page, 'Pool').focus(),
+      await dismissNotice(
+        fixture,
+        queueNotice(queue)!,
+        NOTICE_URL,
+        queueOf({ cards: [queued(bolt), queued(shivan)] }),
+        { meanwhile: () => tabButton(page, 'Pool').focus() },
       );
 
       expect(document.activeElement).toBe(tabButton(page, 'Pool'));

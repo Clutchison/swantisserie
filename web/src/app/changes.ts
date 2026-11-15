@@ -109,9 +109,9 @@ export class Changes {
   /**
    * The keys to put focus back on, from the control focused here: its own,
    * then `keep`, then the other controls' after it, then before it, nearest
-   * first. A control with no key, such as a Dismiss, still places focus
-   * among them, though focus can't go back to it. Null, if focus is outside
-   * this component or on nothing.
+   * first. A control with no key, such as one the change takes away, still
+   * places focus among them, though focus can't go back to it. Null, if
+   * focus is outside this component or on nothing.
    */
   private pressed(keep: string[]): Press | null {
     const focused = this.host.ownerDocument.activeElement;

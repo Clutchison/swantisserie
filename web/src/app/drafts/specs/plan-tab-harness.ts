@@ -63,6 +63,34 @@ export const readyNotice = (root: HTMLElement) =>
     text(status).startsWith('You’re no longer ready'),
   );
 
+/** The Deck notice inside `root`: the status naming cards lost to other players; undefined if none shows. */
+export const deckNotice = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
+    text(status).startsWith('Lost to other players'),
+  );
+
+/**
+ * Focuses and presses `notice`'s Dismiss, runs `meanwhile` while the dismiss
+ * is in flight, answers its DELETE to `url` with `answer`, then `answered`
+ * (for the requests the answer sets off), and waits for the notice to go.
+ */
+export async function dismissNotice(
+  fixture: AppFixture,
+  notice: HTMLElement,
+  url: string,
+  answer: object,
+  { meanwhile, answered }: { meanwhile?: () => void; answered?: () => Promise<unknown> } = {},
+) {
+  const dismiss = button(notice, 'Dismiss')!;
+  dismiss.focus();
+  dismiss.click();
+  meanwhile?.();
+  http.expectOne(url).flush(answer);
+  await answered?.();
+  await vi.waitFor(() => expect(notice.isConnected).toBe(false));
+  await fixture.whenStable();
+}
+
 /** The Deck tab's panel, even while it's hidden behind another tab. */
 export const planPanel = (page: HTMLElement) => tabPanel(page, 'Deck');
 
