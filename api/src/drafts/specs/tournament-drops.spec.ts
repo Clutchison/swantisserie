@@ -17,6 +17,7 @@ import {
   startTournament,
   tournamentView,
   reinstate,
+  reinstateRefusalOf,
   useDraftsApp,
 } from './tournament-harness.js';
 
@@ -48,6 +49,7 @@ describe('dropping from a tournament', () => {
         droppable: true,
         ready: false,
         seed: null,
+        reinstateRefusal: null,
       },
       {
         playerId: bob.id,
@@ -55,6 +57,7 @@ describe('dropping from a tournament', () => {
         droppable: true,
         ready: false,
         seed: null,
+        reinstateRefusal: null,
       },
       {
         playerId: carol.id,
@@ -62,6 +65,7 @@ describe('dropping from a tournament', () => {
         droppable: true,
         ready: false,
         seed: null,
+        reinstateRefusal: null,
       },
     ]);
     expect((await matchOf(id, alice.id, carol.id)).outcome).toEqual({
@@ -188,6 +192,15 @@ describe('reinstating a dropped player', () => {
     await reportWin(id, [carol.id, alice.id], [2, 0], aliceCookie);
   });
 
+  it('gives no refusal for a round robin drop, however many matches are reported since', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    await dropPlayer(id, carol.id, carolCookie).expect(200);
+    await reportWin(id, [alice.id, bob.id], [2, 0], bobCookie);
+
+    expect(reinstateRefusalOf(await tournamentView(id), carol.id)).toBeNull();
+    await reinstate(id, carol.id).expect(200);
+  });
+
   it('leaves a match against another dropped player forfeited by them', async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
     await dropPlayer(id, bob.id, bobCookie).expect(200);
@@ -202,6 +215,21 @@ describe('reinstating a dropped player', () => {
     expect((await matchOf(id, alice.id, bob.id)).outcome).toEqual({
       kind: 'Unreported',
     });
+  });
+
+  it('is refused once the tournament is complete, as the read says', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+    await dropPlayer(id, bob.id, bobCookie).expect(200);
+    await completeTournament(id).expect(200);
+    const refusal = reinstateRefusalOf(await tournamentView(id), bob.id);
+
+    const answer = await reinstate(id, bob.id).expect(409);
+
+    expect(answer.body).toEqual({
+      error: 'not-playing',
+      message: 'This tournament isn’t being played.',
+    });
+    expect(refusal).toEqual(answer.body);
   });
 
   it('refuses players, the player themselves included', async () => {

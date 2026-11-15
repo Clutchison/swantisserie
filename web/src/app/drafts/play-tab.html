@@ -212,10 +212,19 @@
               type="button"
               [attr.aria-label]="'Reinstate ' + player.name"
               (click)="reinstate(player.id)"
+              [disabled]="player.reinstateRefusal !== null"
+              [attr.aria-describedby]="
+                player.reinstateRefusal ? 'reinstate-refusal-' + player.id : null
+              "
               [appSendsChange]="'reinstate ' + player.id"
             >
               Reinstate
             </button>
+            @if (player.reinstateRefusal; as refusal) {
+              <span [id]="'reinstate-refusal-' + player.id" class="detail">{{
+                refusal.message
+              }}</span>
+            }
           } @else if (organizePlay() && player.droppable && player.id !== ownId()) {
             <button
               class="button compact secondary"

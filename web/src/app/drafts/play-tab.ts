@@ -194,12 +194,17 @@ export class PlayTab {
   protected readonly playsOn = computed(
     () => this.state() === 'Playing' && this.joined() && !this.ownDropped(),
   );
-  /** The joined players once the tournament is playing, in join order, with whether each dropped and can be. */
+  /**
+   * The joined players once the tournament is playing, in join order, with
+   * whether each dropped and can be, and why the api would refuse
+   * reinstating them, if it would.
+   */
   protected readonly players = computed(() =>
     this.tournament()!.entries.map((entry) => ({
       ...this.store.player(entry.playerId),
       dropped: entry.dropped,
       droppable: entry.droppable,
+      reinstateRefusal: entry.reinstateRefusal,
     })),
   );
   /** Whether the signed-in player joined and has dropped. */

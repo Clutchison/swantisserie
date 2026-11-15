@@ -126,10 +126,9 @@ describe('what a bot can’t do', () => {
     expect((await reinstate(id, botIds[0]).expect(409)).body).toEqual(
       BOT_ENTRY,
     );
-    expect((await tournamentView(id)).entries.map((e) => e.dropped)).toEqual([
-      false,
-      false,
-    ]);
+    const { entries } = await tournamentView(id);
+    expect(entries.map((e) => e.dropped)).toEqual([false, false]);
+    expect(entries.map((e) => e.reinstateRefusal)).toEqual([null, null]);
   });
 
   it('refuses a bot joining, as bots join at setup', async () => {

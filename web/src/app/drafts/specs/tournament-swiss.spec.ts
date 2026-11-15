@@ -24,6 +24,7 @@ import {
   answerChange,
   carol,
   dave,
+  entry,
   failChange,
   forfeited,
   grantedDraw,
@@ -268,11 +269,7 @@ describe('Swiss tournaments on the Play tab', () => {
   /** Tournament round 1 of three players, Bob having dropped after his bye, and Alice and Carol's match unreported. */
   const bobDroppedAfterBye = swissPlaying({
     lastCompletedRound: 0,
-    entries: [
-      { playerId: alice.id, dropped: false, droppable: true, ready: false, seed: null },
-      { playerId: bob.id, dropped: true, droppable: true, ready: false, seed: null },
-      { playerId: carol.id, dropped: false, droppable: true, ready: false, seed: null },
-    ],
+    entries: [entry(alice.id), entry(bob.id, { dropped: true }), entry(carol.id)],
     rounds: [
       {
         round: 1,

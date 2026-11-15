@@ -13,6 +13,7 @@ import {
   getDraft,
   playingTournament,
   reinstate,
+  reinstateRefusalOf,
   reportCurrentRound,
   reportMatch,
   reportWin,
@@ -629,6 +630,7 @@ describe('reinstating a player in a Swiss tournament', () => {
     const [match] = (await tournamentView(id)).rounds[0].matches;
     const gone = match.players[1];
     await dropPlayer(id, gone, cookieOf[gone]).expect(200);
+    expect(reinstateRefusalOf(await tournamentView(id), gone)).toBeNull();
 
     await reinstate(id, gone).expect(200);
 
@@ -647,10 +649,16 @@ describe('reinstating a player in a Swiss tournament', () => {
     await dropPlayer(id, gone, cookieOf[gone]).expect(200);
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
+    const refusal = reinstateRefusalOf(await tournamentView(id), gone);
 
     const answer = await reinstate(id, gone).expect(409);
 
-    expect(answer.body.error).toBe('paired-since-drop');
+    expect(answer.body).toEqual({
+      error: 'paired-since-drop',
+      message:
+        'That player can’t be reinstated: tournament round 2 was paired after they dropped.',
+    });
+    expect(refusal).toEqual(answer.body);
     const view = await tournamentView(id);
     expect(view.rounds[0].matches[0].outcome).toEqual({
       kind: 'Forfeit',
@@ -672,10 +680,12 @@ describe('reinstating a player in a Swiss tournament', () => {
         drop: i === 0 ? [gone] : [],
       })),
     }).expect(200);
+    const refusal = reinstateRefusalOf(await tournamentView(id), gone);
 
     const answer = await reinstate(id, gone).expect(409);
 
     expect(answer.body.error).toBe('paired-since-drop');
+    expect(refusal).toEqual(answer.body);
     expect(droppedIn(await tournamentView(id))).toEqual([gone]);
   });
 });

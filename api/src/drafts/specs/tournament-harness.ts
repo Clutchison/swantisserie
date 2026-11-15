@@ -359,6 +359,12 @@ export async function tournamentView(id: string): Promise<TournamentView> {
   return (await tournament(id).expect(200)).body as TournamentView;
 }
 
+/** The refusal Reinstate of `playerId` would get now, as the tournament read `view` gives it. */
+export function reinstateRefusalOf(view: TournamentView, playerId: string) {
+  return view.entries.find((entry) => entry.playerId === playerId)!
+    .reinstateRefusal;
+}
+
 /** Expects `view` to have completed at `since` (a `Date.now()`) or later, and no later than now. */
 export function expectCompletedSince(view: TournamentView, since: number) {
   expect(view.completedAt).not.toBeNull();
