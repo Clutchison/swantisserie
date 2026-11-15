@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { MAX_PLAYERS, picksPerTurn } from 'engine';
+import { MAX_PLAYERS } from 'engine';
 import type {
   DraftView,
   PickImportPreview,
@@ -22,7 +22,14 @@ import type {
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange, turnWords } from './drafts';
+import {
+  hasTurn,
+  isDoubleTurnRound,
+  isRefusal,
+  PLAYERS_CHANGE_FAILED,
+  sendDraftChange,
+  turnWords,
+} from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';
@@ -98,7 +105,7 @@ export class PlayersPanel {
   protected readonly previewNextTurn = computed(() => {
     const next = this.pickImportPreview()?.next;
     if (!next) return '';
-    const doubleTurn = picksPerTurn(this.store.draftSize(), next.round) === 2;
+    const doubleTurn = isDoubleTurnRound(this.store.draftSize(), next.round);
     return `${next.player}, ${turnWords(next, doubleTurn)}`;
   });
   /** All that's wrong with the latest file chosen for a pick import. */

@@ -1,4 +1,4 @@
-import { heading, text } from './harness';
+import { heading, matchesName, text } from './harness';
 
 /**
  * A section inside `root` that opens on click, such as "How this works", by
@@ -6,10 +6,9 @@ import { heading, text } from './harness';
  * `open` says whether it is open.
  */
 export const disclosure = (root: HTMLElement, name: string | RegExp) =>
-  [...root.querySelectorAll<HTMLDetailsElement>('details')].find((details) => {
-    const summary = text(details.querySelector(':scope > summary'));
-    return typeof name === 'string' ? summary === name : name.test(summary);
-  }) ?? null;
+  [...root.querySelectorAll<HTMLDetailsElement>('details')].find((details) =>
+    matchesName(text(details.querySelector(':scope > summary')), name),
+  ) ?? null;
 
 /**
  * Whether a section inside `root` that always stays open is headed `name` by

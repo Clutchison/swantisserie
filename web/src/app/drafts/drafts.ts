@@ -13,7 +13,7 @@ import type {
   TurnState,
   TurnView,
 } from 'contract';
-import { draftSize, isTurnState, picksPerTurn } from 'engine';
+import { draftSize, isTurnState, picksPerTurn, type DraftSize } from 'engine';
 import type { Changes } from '../changes';
 
 /**
@@ -261,10 +261,15 @@ export function isTurnOf(draft: DraftView, playerId: string | undefined): boolea
   return !!draft.turn && draft.turn.playerId === playerId;
 }
 
+/** Whether the turns of round `round`, in a draft of size `size`, are double turns. */
+export function isDoubleTurnRound(size: DraftSize, round: number): boolean {
+  return picksPerTurn(size, round) === 2;
+}
+
 /** Whether `draft`'s turn is a double turn, on either of its picks; false with no turn. */
 export function isDoubleTurn(draft: DraftView): boolean {
   return (
-    !!draft.turn && picksPerTurn(draftSize(draft, draft.players.length), draft.turn.round) === 2
+    !!draft.turn && isDoubleTurnRound(draftSize(draft, draft.players.length), draft.turn.round)
   );
 }
 
