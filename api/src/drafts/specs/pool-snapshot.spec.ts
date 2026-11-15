@@ -28,6 +28,7 @@ import {
   pool,
   post,
   refuseNextSnapshotReset,
+  creationMatchQuery,
 } from './harness.js';
 
 useDraftsApp();
@@ -52,7 +53,7 @@ describe('pool snapshot', () => {
   it('pages through the pool after creation, and the draft shows progress then the pool size', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: { ...page('Balefire Dragon'), totalCards: 2, hasMore: true },
       [`${query} page 2`]: { ...page('Shivan Dragon'), totalCards: 2 },
@@ -76,7 +77,7 @@ describe('pool snapshot', () => {
 
   it('leaves the basic lands out of the pool, as a player adds them to their plan one copy at a time', async () => {
     scryfallAnswers({
-      't:land': page('Plains', 'Snow-Covered Plains'),
+      [creationMatchQuery('t:land')]: page('Plains', 'Snow-Covered Plains'),
       '(t:land) -in:arena': null,
       [snapshotQuery('t:land')]: page('Snow-Covered Plains'),
     });
@@ -95,7 +96,7 @@ describe('pool snapshot', () => {
 
   it('takes each card’s MTGO printing for an MTGO draft', async () => {
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:mtgo': null,
       [snapshotQuery('c:r', 'MTGO')]: page('Shock'),
     });
@@ -119,7 +120,7 @@ describe('pool snapshot', () => {
 
   it('names the platform when the pool query no longer matches any cards on it', async () => {
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:mtgo': null,
       [snapshotQuery('c:r', 'MTGO')]: null,
     });
@@ -148,7 +149,7 @@ describe('pool snapshot', () => {
       },
     });
     scryfallAnswers({
-      't:dragon': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon')]: page('Balefire Dragon'),
       '(t:dragon) -in:arena': null,
       [query]: {
         ...page(),
@@ -193,7 +194,7 @@ describe('pool snapshot', () => {
   it('makes a pool card of a reversible card’s printing, in its front face’s mana value and type line', async () => {
     const query = snapshotQuery('c:c');
     scryfallAnswers({
-      'c:c': page('Ugin, Eye of the Storms'),
+      [creationMatchQuery('c:c')]: page('Ugin, Eye of the Storms'),
       '(c:c) -in:arena': null,
       [query]: page(
         reversibleCard('Ugin, Eye of the Storms', {
@@ -221,7 +222,7 @@ describe('pool snapshot', () => {
   it('stores each face’s text, cost, colors and stats, so a search can match either face', async () => {
     const query = snapshotQuery('t:giant');
     scryfallAnswers({
-      't:giant': page('Bonecrusher Giant // Stomp'),
+      [creationMatchQuery('t:giant')]: page('Bonecrusher Giant // Stomp'),
       '(t:giant) -in:arena': null,
       [query]: {
         ...page(),
@@ -303,7 +304,9 @@ describe('pool snapshot', () => {
   it('stores a battle’s defense on its face', async () => {
     const query = snapshotQuery('t:battle');
     scryfallAnswers({
-      't:battle': page('Invasion of Tarkir // Defiant Thundermaw'),
+      [creationMatchQuery('t:battle')]: page(
+        'Invasion of Tarkir // Defiant Thundermaw',
+      ),
       '(t:battle) -in:arena': null,
       [query]: {
         ...page(),
@@ -354,7 +357,7 @@ describe('pool snapshot', () => {
   it('fails rather than completing when Scryfall runs out of pages early', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: { ...page('Shock'), totalCards: 200, hasMore: true },
       [`${query} page 2`]: null,
@@ -374,7 +377,7 @@ describe('pool snapshot', () => {
   it('fails on a card with no oracle id rather than inventing one', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: {
         ...page(),
@@ -400,7 +403,7 @@ describe('pool snapshot', () => {
     async (missing, error) => {
       const query = snapshotQuery('c:r');
       scryfallAnswers({
-        'c:r': page('Shock'),
+        [creationMatchQuery('c:r')]: page('Shock'),
         '(c:r) -in:arena': null,
         [query]: page(
           card('Shock', { ...missing, card_faces: [{ name: 'Shock' }] }),
@@ -420,7 +423,7 @@ describe('pool snapshot', () => {
   it('keeps unexpected errors’ details out of the organizer’s view', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new TypeError('connect ECONNREFUSED 10.0.0.7:5432'),
     });
@@ -456,7 +459,7 @@ describe('pool snapshot', () => {
   it('surfaces a failure on the draft, and the organizer can retry it', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
@@ -489,7 +492,7 @@ describe('pool snapshot', () => {
   it('creates the draft with its snapshot failed when the database refuses the snapshot’s start, and the organizer can retry it', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: page('Balefire Dragon', 'Shivan Dragon'),
     });
@@ -529,7 +532,7 @@ describe('pool snapshot', () => {
   it('leaves a snapshot Running for the next boot when it can’t record its failure', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
@@ -570,7 +573,7 @@ describe('pool snapshot', () => {
   it('starts a retried snapshot over, dropping the cards of the failed one', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: { ...page('Balefire Dragon'), totalCards: 2, hasMore: true },
       [`${query} page 2`]: new ScryfallUnavailableError(503),
@@ -602,7 +605,7 @@ describe('pool snapshot', () => {
   it('explains a pool query Scryfall now rejects', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new ScryfallRejectedSearchError('Too many terms.', []),
     });
@@ -658,7 +661,7 @@ describe('pool snapshot', () => {
   it('lets an app admin retry, but not other guild members', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
@@ -788,7 +791,7 @@ describe('pool snapshot', () => {
   it('stores each card’s identity, printing, images and the fields the pool search needs', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: {
         ...page(),
@@ -872,7 +875,7 @@ describe('pool snapshot', () => {
       return close(callback);
     });
     scryfall.search.mockImplementation(async (query) => {
-      if (query === 'c:r') {
+      if (query === creationMatchQuery('c:r')) {
         // Holds the request until shutdown is under way.
         await shutdownBegun;
         return page('Shock', 'Lava Spike');

@@ -312,6 +312,13 @@ export function page(...cards: (string | ScryfallCard)[]): ScryfallSearchPage {
 }
 
 /**
+ * The search that checks, at creation, that `poolQuery` matches a card,
+ * leaving the basic lands out as the snapshot does.
+ */
+export const creationMatchQuery = (poolQuery: string) =>
+  `(${poolQuery}) ${NO_BASICS}`;
+
+/**
  * The search the snapshot pages through for `poolQuery` on `platform`,
  * which leaves the basic lands out.
  */
@@ -319,12 +326,12 @@ export const snapshotQuery = (
   poolQuery: string,
   platform: Platform = 'Arena',
 ) =>
-  `(${poolQuery}) ${NO_BASICS} game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
+  `${creationMatchQuery(poolQuery)} game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
 
 /** A pool query whose cards are all on Arena, with a two-card pool. */
 export function allOnArena(poolQuery: string) {
   scryfallAnswers({
-    [poolQuery]: page('Balefire Dragon', 'Shivan Dragon'),
+    [creationMatchQuery(poolQuery)]: page('Balefire Dragon', 'Shivan Dragon'),
     [`(${poolQuery}) -in:arena`]: null,
     [snapshotQuery(poolQuery)]: page('Balefire Dragon', 'Shivan Dragon'),
   });
@@ -403,7 +410,7 @@ export async function draftWithRunningSnapshot() {
   });
   scryfall.search.mockImplementation(async (searched, number = 1) => {
     if (searched !== query) {
-      return searched === 'c:r' ? page('Shock') : null;
+      return searched === creationMatchQuery('c:r') ? page('Shock') : null;
     }
     if (number === 1) {
       return { ...page('Shock'), totalCards: 2, hasMore: true };
@@ -660,7 +667,7 @@ export async function readyDraft(
   doublePicks = 0,
 ) {
   scryfallAnswers({
-    'c:r': page(...cards),
+    [creationMatchQuery('c:r')]: page(...cards),
     '(c:r) -in:arena': null,
     [snapshotQuery('c:r')]: page(...cards),
   });
