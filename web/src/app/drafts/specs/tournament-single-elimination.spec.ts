@@ -11,6 +11,7 @@ import {
   items,
   panel,
   pressed,
+  region,
   text,
   toggleButton,
   useDraftsApp,
@@ -30,6 +31,8 @@ import {
   progressLine,
   pushTournament,
   registration,
+  reported,
+  signedIn,
   carolBeatBob,
   forfeited,
   side,
@@ -136,6 +139,48 @@ describe('single elimination tournaments on the Play tab', () => {
     await pushTournament(fixture, final, 1);
 
     expect(announcements(tab)).toEqual(['Final']);
+  });
+
+  it.each([
+    {
+      round: 'a quarterfinal',
+      tournament: () => singleEliminationPlaying({ roundCount: 3 }),
+      fields: threePlayers,
+      user: signedIn(bob),
+      expected: 'Quarterfinal: against Carol',
+    },
+    {
+      round: 'the semifinal',
+      tournament: () => semifinalOfFour,
+      fields: fourPlayers,
+      user: alice,
+      expected: 'Semifinal: against Erin',
+    },
+    {
+      round: 'the final',
+      tournament: () => final,
+      fields: threePlayers,
+      user: alice,
+      expected: 'Final: against Carol',
+    },
+  ])(
+    'names $round in Your match, as the rest of the tab does',
+    async ({ tournament, fields, user, expected }) => {
+      const { tab } = await openPlaying(tournament(), { fields, user });
+
+      expect(text(region(tab, 'Your match')!)).toContain(expected);
+    },
+  );
+
+  it('names the final in Your match when there is a game score to confirm', async () => {
+    const [round1, round2] = final.rounds;
+    const reportedFinal = {
+      ...round2,
+      matches: [{ ...reported(round2.matches[0], [0, 2], carol.id), bracketPlace: 0 }],
+    };
+    const { tab } = await openPlaying({ ...final, rounds: [round1, reportedFinal] });
+
+    expect(text(region(tab, 'Your match')!)).toContain('Final: Carol reported you lost 0–2');
   });
 
   it('names no tournament round once it is complete', async () => {
@@ -291,7 +336,7 @@ describe('both finalists dropping', () => {
       round: 2,
       drops: [{ matchId: 'm2', drop: [alice.id, carol.id] }],
     });
-    expect(text(panel(page))).toContain('Nobody holds the trophy');
+    expect(text(panel(page))).toContain('Nobody holds the trophy: no player was left to win it.');
   });
 
   it('still awards the trophy when one finalist drops', async () => {
