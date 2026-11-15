@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { fetchWithTimeout } from '../http/fetch-with-timeout.js';
+import { cancelBody, fetchWithTimeout } from '../http/fetch-with-timeout.js';
 import { bodyOrHeaderRetryAfterMs } from '../http/retry-after.js';
 import type { WebhookMessage } from './draft-messages.js';
 
@@ -71,10 +71,11 @@ export class FetchWebhookClient extends WebhookClient {
         'Discord webhook post failed: Discord could not be reached.',
       );
     }
-    const error = webhookPostError(
-      res.status,
-      res.status === 429 ? await bodyOrHeaderRetryAfterMs(res) : undefined,
-    );
+    // Only a 429's body is read, for how long to wait; any other is cancelled.
+    let waitMs: number | undefined;
+    if (res.status === 429) waitMs = await bodyOrHeaderRetryAfterMs(res);
+    else await cancelBody(res);
+    const error = webhookPostError(res.status, waitMs);
     if (error) throw error;
   }
 }
