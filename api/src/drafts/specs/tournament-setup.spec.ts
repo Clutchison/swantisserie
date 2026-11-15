@@ -1,4 +1,5 @@
 import { TOURNAMENT_FORMATS, type TournamentView } from 'contract';
+import { SWISS_ROUND_CAP } from 'engine';
 import {
   alice,
   aliceCookie,
@@ -95,8 +96,9 @@ describe('tournament setup', () => {
     );
   });
 
-  it('sets up a tournament in each format it offers', async () => {
-    for (const format of TOURNAMENT_FORMATS) {
+  it.each(TOURNAMENT_FORMATS)(
+    'sets up a %s tournament, a format it offers',
+    async (format) => {
       const id = await completeDraft([aliceCookie, bobCookie]);
 
       await setUpTournament(
@@ -108,8 +110,8 @@ describe('tournament setup', () => {
       expect((await tournament(id).expect(200)).body).toMatchObject({
         format,
       });
-    }
-  });
+    },
+  );
 
   it('joins every human player and every bot of the draft, in seat order, whatever their decks hold', async () => {
     const { id, botIds } = await completeDraftWithBots(
@@ -209,8 +211,7 @@ describe('tournament setup', () => {
         (await setUpTournament(id, aliceCookie, body).expect(400)).body,
       ).toEqual({
         error: 'invalid',
-        message:
-          'Choose round robin, single elimination, or Swiss played until there’s a winner or capped at 3 tournament rounds.',
+        message: `Choose round robin, single elimination, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
       });
     }
     await tournament(id).expect(404);

@@ -359,6 +359,7 @@ function parseSetup(body: unknown): TournamentSetupRequest {
     if (isSwissRoundOption(swissRoundOption)) {
       return { format, swissRoundOption, publicDecklists };
     }
+    // A Swiss setup without a Swiss round option on offer gets the same refusal.
   }
   throw new BadRequestException({
     error: 'invalid',
