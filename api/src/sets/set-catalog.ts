@@ -4,6 +4,8 @@ import type { Platform } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallClient,
+  ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
   type ScryfallSearchPage,
   type ScryfallSet,
 } from '../scryfall/scryfall-client.js';
@@ -87,7 +89,8 @@ export class SetCatalog implements OnApplicationShutdown {
    * The sets the picker offers on `platform`, newest first, as counted so
    * far. Starts counting any set not counted yet, or counted too long ago,
    * and says it is still counting while any such set is left, one whose
-   * count failed included. Throws ScryfallUnavailableError if Scryfall's list of sets can't be had.
+   * count failed included. Throws ScryfallUnavailableError if Scryfall's
+   * list of sets can't be had.
    */
   async options(platform: Platform): Promise<SetCatalogView> {
     const mainSets = await this.mainSets();
@@ -230,6 +233,12 @@ export class SetCatalog implements OnApplicationShutdown {
             1,
           );
         } catch (err: unknown) {
+          if (
+            !(err instanceof ScryfallUnavailableError) &&
+            !(err instanceof ScryfallRejectedSearchError)
+          ) {
+            throw err;
+          }
           this.logger.error(
             `Counting ${s.code.toUpperCase()}'s cards on ${platform} failed`,
             err,

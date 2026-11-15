@@ -211,9 +211,7 @@ describe.each([
     const { sets } = await counted();
 
     expect(sets.map((set) => set.code)).toEqual(['otj', 'dmu', 'mir']);
-    expect(new Set(scryfall.search.mock.calls.map(([query]) => query))).toEqual(
-      new Set([countQuery('dmu')]),
-    );
+    expect(scryfall.search.mock.calls).toEqual([[countQuery('dmu'), 1]]);
   });
 });
 
