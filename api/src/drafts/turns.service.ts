@@ -113,26 +113,30 @@ export class TurnsService {
    * The bot makes its turn's pick: a card chosen at random from those not
    * yet picked, then the cascade after it is picked. Returns no events, and
    * picks nothing, if the draft is no longer Drafting or has moved on from
-   * that turn.
+   * that turn; the draft's version then stays as it is, as nothing changed.
    */
   async botPick({ draftId, userId, pick }: BotTurn): Promise<DraftEvent[]> {
-    return this.lock.run(draftId, async (draft) => {
-      // Stryker disable next-line OptionalChaining: dead code that DraftLock.run's callback type (`LockedDraft | undefined`) forces: no real path schedules a bot turn for a draft with no row.
-      if (draft?.state !== 'Drafting') return [];
-      const { tx } = draft;
-      const state = await readTurnState(tx, draftId);
-      if (state.picked.length !== pick - 1) return [];
-      // Read again, rather than taken from the state's pool, to keep the
-      // database's name order (its collation), which the random pick and
-      // its specs rely on. The pool is a fixed size, so the read is too.
-      const available = await tx.poolCard.findMany({
-        where: { draftId, pick: null },
-        orderBy: { name: 'asc' },
-        select: { id: true },
-      });
-      const card = available[Math.floor(Math.random() * available.length)];
-      return this.takeTurn(draft, state, userId, card.id);
-    });
+    return this.lock.runSeenIf(
+      draftId,
+      async (draft) => {
+        // Stryker disable next-line OptionalChaining: dead code that DraftLock.runSeenIf's callback type (`LockedDraft | undefined`) forces: no real path schedules a bot turn for a draft with no row.
+        if (draft?.state !== 'Drafting') return [];
+        const { tx } = draft;
+        const state = await readTurnState(tx, draftId);
+        if (state.picked.length !== pick - 1) return [];
+        // Read again, rather than taken from the state's pool, to keep the
+        // database's name order (its collation), which the random pick and
+        // its specs rely on. The pool is a fixed size, so the read is too.
+        const available = await tx.poolCard.findMany({
+          where: { draftId, pick: null },
+          orderBy: { name: 'asc' },
+          select: { id: true },
+        });
+        const card = available[Math.floor(Math.random() * available.length)];
+        return this.takeTurn(draft, state, userId, card.id);
+      },
+      (events) => events.length > 0,
+    );
   }
 
   /** Every Drafting draft whose turn is a bot's. */

@@ -24,6 +24,7 @@ import {
   tabButton,
   panel,
   pickImportPreview,
+  PICK_IMPORT_PREVIEW,
   pickImportProblems,
   serverError,
   type AppFixture,
@@ -34,11 +35,12 @@ import {
   drafting,
   findPlayersBesideTabs,
   viewOn,
+  accessibleDescription,
 } from './harness';
 import { disclosure } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
-import { clickOn } from '../../specs-harness';
+import { clickOn, emptyStatusIn, watchChanges } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -312,13 +314,16 @@ describe('seats and start', () => {
       });
     });
 
-    it('previews a valid file: the pairings, pick count and next turn', async () => {
+    it('previews a valid file, in a status there before it: the pairings, pick count and next turn', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       expect(page.textContent).toContain('Import picks');
+      // A live region announces changes to it, not the text it is inserted with.
+      const region = emptyStatusIn(page, PICK_IMPORT_PREVIEW);
 
       await chooseFile(fixture, page, preview);
 
-      const shown = (await shownPreview(page)).textContent;
+      expect(await shownPreview(page)).toBe(region);
+      const shown = region.textContent;
       expect(shown).toContain('Ann → Alice');
       expect(shown).toContain('Ben → Bob');
       expect(shown).toContain('70 picks');
@@ -381,7 +386,7 @@ describe('seats and start', () => {
         );
 
         await vi.waitFor(() => {
-          expect(pickImportPreview(page)).toBeUndefined();
+          expect(pickImportPreview(page)).toBeNull();
           expect(button(page, 'Import picks')).toBeUndefined();
         });
         const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
@@ -438,7 +443,7 @@ describe('seats and start', () => {
             'The file has 2 player columns, but the draft has 3 players.',
           ]),
         );
-        expect(pickImportPreview(page)).toBeUndefined();
+        expect(pickImportPreview(page)).toBeNull();
       });
 
       it('says the import failed when it fails without a refusal, keeping the preview, until it goes through', async () => {
@@ -447,7 +452,7 @@ describe('seats and start', () => {
         await confirmImport(page, { message: 'Internal server error' }, 500);
         await fixture.whenStable();
         await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(importFailed));
-        expect(pickImportPreview(page)).toBeDefined();
+        expect(pickImportPreview(page)).not.toBeNull();
         expect(catchUps()).toEqual([]);
 
         await confirmImport(
@@ -561,15 +566,16 @@ describe('seats and start', () => {
       expect(fileInput(page).value).toBe('');
     });
 
-    it('keeps a preview when the draft is read again unchanged, as on reconnecting', async () => {
+    it('keeps a preview, said once, when the draft is read again unchanged, as on reconnecting', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       await chooseFile(fixture, page, preview);
-      await shownPreview(page);
+      const changes = watchChanges(await shownPreview(page));
 
       updates.events.next({ type: 'changed', draft: draft({ players: [alicePlayer, bob] }) });
       await fixture.whenStable();
 
-      expect(pickImportPreview(page)).toBeDefined();
+      expect(pickImportPreview(page)).not.toBeNull();
+      expect(changes()).toEqual([]);
     });
 
     it('says a file is too large, whoever refused it', async () => {
@@ -597,7 +603,7 @@ describe('seats and start', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(pickImportPreview(page)).toBeUndefined();
+      expect(pickImportPreview(page)).toBeNull();
     });
 
     it('shows no preview from the last draft on another, even at the same version', async () => {
@@ -608,7 +614,7 @@ describe('seats and start', () => {
       await goToOtherDraft(fixture, completeSnapshot, { players: [alicePlayer, bob] });
 
       expect(button(page, 'Import picks')).toBeDefined();
-      expect(pickImportPreview(page)).toBeUndefined();
+      expect(pickImportPreview(page)).toBeNull();
     });
 
     it('is offered only to a viewer who may organize', async () => {
@@ -639,6 +645,84 @@ describe('seats and start', () => {
       });
 
       expect(button(page, 'Import picks')).toBeUndefined();
+    });
+  });
+
+  describe('while the draft can’t start', () => {
+    const PLAYER_COUNT = 'A draft needs 2 to 12 players to start.';
+
+    it('holds the start for an organizer alone in the lobby, saying why', async () => {
+      const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(true);
+      expect(page.textContent).toContain(PLAYER_COUNT);
+      expect(accessibleDescription(start)).toBe(PLAYER_COUNT);
+    });
+
+    it('holds the start while the pool is smaller than players × picks per player, saying why', async () => {
+      const { page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob],
+        picksPerPlayer: 300,
+      });
+
+      const start = button(page, 'Start draft')!;
+      const reason = '2 players × 300 picks needs 600 cards, but the pool has 540.';
+      expect(start.disabled).toBe(true);
+      expect(page.textContent).toContain(reason);
+      expect(accessibleDescription(start)).toBe(reason);
+    });
+
+    it('offers the start once a second player joins, without a reload', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ players: [alicePlayer, bob], version: 1 }),
+      });
+      // A newer draft reads the queue and plan again.
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(false);
+      expect(page.textContent).not.toContain(PLAYER_COUNT);
+      expect(accessibleDescription(start)).toBe('');
+    });
+
+    it('counts bots as players', async () => {
+      const bot = { ...bob, id: 'bot:1', name: 'Bot 1', isBot: true };
+      const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bot] });
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(false);
+      expect(page.textContent).not.toContain(PLAYER_COUNT);
+      expect(accessibleDescription(start)).toBe('');
+    });
+
+    it('gives no reason from the pool’s partial count while the snapshot runs', async () => {
+      // Not openDraft: the snapshot's poll is due before the page settles.
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(
+        draft({
+          snapshot: { state: 'Running', cards: 50, total: 540 },
+          players: [alicePlayer, bob],
+        }),
+      );
+      await flushQueueAndPlan();
+      TestBed.tick();
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(true);
+      expect(page.textContent).not.toContain('but the pool has');
+      expect(accessibleDescription(start)).toBe('');
+
+      // The snapshot's poll, answered once it completes.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft({ players: [alicePlayer, bob] }),
+      );
+      await flushPool();
+      await fixture.whenStable();
     });
   });
 

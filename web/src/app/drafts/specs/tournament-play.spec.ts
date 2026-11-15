@@ -142,6 +142,18 @@ describe('Play tab while the tournament is played', () => {
       expect(button(tab, 'Confirm your match against Bob')).toBeDefined();
     });
 
+    it('offers Report only on a match the api lists you as able to report, whatever its outcome', async () => {
+      const { tab } = await openPlaying(
+        playing([
+          { ...unreportedMatch('m2', alice.id, bob.id), reportableBy: [bob.id] },
+          { ...grantedDraw(unreportedMatch('m3', carol.id, alice.id)), reportableBy: [alice.id] },
+        ]),
+      );
+
+      expect(button(tab, 'Report your match against Bob')).toBeUndefined();
+      expect(button(tab, 'Report your match against Carol')).toBeDefined();
+    });
+
     it('shows a forfeit by an opponent who dropped', async () => {
       const { tab } = await openPlaying(
         withDrops([carol.id], [forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id)]),

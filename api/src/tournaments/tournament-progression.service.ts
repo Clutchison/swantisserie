@@ -3,7 +3,8 @@ import type { CompleteRoundRequest } from 'contract';
 import { roundCompletion } from 'engine';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { CHANGE_STEPS, ROUND_STEPS } from './format-steps.js';
+import { REINSTATE_VIEW, reinstateRefusalOf } from './change-steps.js';
+import { ROUND_STEPS } from './format-steps.js';
 import { reopenRound } from './reopen-round.js';
 import type { RoundSteps } from './round-steps.js';
 import { forfeitUnplayed, takeBackDrops } from './tournament-matches.js';
@@ -154,10 +155,10 @@ export class TournamentProgressionService {
    * become unreported matches again, except against an opponent who has
    * dropped too, whose forfeit they become. Throws TournamentRefusedError if
    * they haven't joined, are a bot or haven't dropped, the tournament isn't
-   * playing, or their drop has fed a later pairing, as their format's round
-   * steps decide, by default once a tournament round was paired without
-   * them. The joined and dropped refusals are worded for `actor` (see
-   * notJoined).
+   * playing, or their drop has fed a later pairing, as reinstateRefusalOf
+   * decides, which the tournament read also asks: by default once a
+   * tournament round was paired without them. The joined and dropped
+   * refusals are worded for `actor` (see notJoined).
    */
   async reinstate(
     draftId: string,
@@ -167,11 +168,12 @@ export class TournamentProgressionService {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
       const entry = await entryOf(tx, tournament, draftId, userId, actor);
       if (!entry.dropped) throw new TournamentRefusedError(notDropped(actor));
-      await CHANGE_STEPS[tournament.format].refuseReinstate(
-        tx,
-        tournament,
-        entry.id,
-      );
+      const row = await tx.tournament.findUniqueOrThrow({
+        where: { id: tournament.id },
+        select: REINSTATE_VIEW,
+      });
+      const refusal = reinstateRefusalOf(row, entry.id);
+      if (refusal) throw new TournamentRefusedError(refusal);
       await takeBackDrops(tx, tournament.id, [entry.id]);
     });
   }

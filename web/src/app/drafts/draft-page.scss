@@ -1,5 +1,6 @@
 @use '../../breakpoints' as bp;
 @use 'side-pane';
+@use '../../live-region';
 
 /* A minor action, so it doesn't compete with the page's real controls. */
 .back-link {
@@ -41,17 +42,15 @@ main > .seat-strip,
   }
 }
 
-/* The notes under the header, on every tab; nothing while there are none. */
+/* The notes under the header, on every tab, each in a live region that stays on the page; an empty one takes no room. */
 .status-strip {
   display: flex;
   flex-direction: column;
   gap: var(--space-xs);
 
-  &:empty {
-    display: none;
-  }
-
   p {
+    @include live-region.no-space-while-empty;
+
     margin: 0;
   }
 }

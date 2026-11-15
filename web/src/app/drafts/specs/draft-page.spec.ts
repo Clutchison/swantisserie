@@ -7,7 +7,6 @@ import {
   completeSnapshot,
   draft,
   expectLoadingAnimation,
-  expectSignedOut,
   heading,
   flushPool,
   http,
@@ -23,6 +22,7 @@ import {
   tabLabels,
   tabs,
   panelName,
+  statusMessage,
   statusTexts,
   updates,
   NO_POWERS,
@@ -37,11 +37,19 @@ import {
   couldntRefresh,
   bob,
   drafting,
+  text,
 } from './harness';
 import { pushDraft } from './turn-harness';
 import { alicesTurnItem, goToDraftList, landOnDraftList } from './draft-list-harness';
 import { turnLinkShown } from '../../top-bar/specs-harness';
-import { followBack, pressKey } from '../../specs-harness';
+import {
+  emptyStatusIn,
+  expectSignedOut,
+  followBack,
+  pressKey,
+  statusIn,
+  watchChanges,
+} from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
 
@@ -200,6 +208,33 @@ describe('draft page', () => {
       expect(statusTexts(page)).toContain(goneNotice);
     });
 
+    it('says so in its region, there and empty until the webhook is gone, so it is announced', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        webhook: { ...webhook, gone: false },
+      });
+      const region = emptyStatusIn(page, 'Webhook');
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: completeSnapshot, webhook, version: 1 }),
+      });
+      await fixture.whenStable();
+
+      expect(statusIn(page, { name: 'Webhook' })).toBe(region);
+      expect(text(region)).toBe(goneNotice);
+
+      // The same note, webhook name and all, re-rendered by a later change isn't put in again.
+      const changes = watchChanges(region);
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: completeSnapshot, webhook, version: 2 }),
+      });
+      await fixture.whenStable();
+
+      expect(changes()).toEqual([]);
+      expect(text(region)).toBe(goneNotice);
+    });
+
     it('says nothing while its webhook isn’t gone', async () => {
       const { page } = await openDraft(completeSnapshot, { webhook: { ...webhook, gone: false } });
 
@@ -336,6 +371,8 @@ describe('draft page', () => {
     const powersUrl = '/api/drafts/draft-1/powers';
     const organizerButtons = (page: HTMLElement) =>
       ['Randomize seats', 'Start draft', 'More'].filter((name) => button(page, name));
+    const couldntLoadControls = (page: HTMLElement) =>
+      statusMessage(page, "Couldn't load your controls for this draft. Try reloading the page.");
 
     it('are read once when the page opens, not again as the draft changes or catches up', async () => {
       const { fixture } = await openUrl('/drafts/draft-1');
@@ -415,10 +452,10 @@ describe('draft page', () => {
       expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
     });
 
-    it('show no controls they gate when they can’t be read, and the draft itself', async () => {
+    it('show no controls they gate when they can’t be read, and the draft itself, saying they couldn’t load', async () => {
       const { fixture, page } = await openUrl('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
-      http.expectOne(powersUrl).flush(null, { status: 503, statusText: 'Service Unavailable' });
+      http.expectOne(powersUrl).flush(null, serverError);
       await flushPool();
       await fixture.whenStable();
 
@@ -427,6 +464,39 @@ describe('draft page', () => {
       expect(organizerButtons(page)).toEqual([]);
       expect(button(page, 'Add bot')).toBeUndefined();
       expect(button(page, 'Announcements')).toBeUndefined();
+      expect(couldntLoadControls(page)).toBeDefined();
+    });
+
+    it('says it couldn’t load the controls in its region, there and empty before the read fails, so it is announced', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      const powers = http.expectOne(powersUrl);
+      await flushPool();
+      // Not whenStable: the page isn't stable while the powers are on their way.
+      TestBed.tick();
+      const region = emptyStatusIn(page, 'Controls');
+
+      powers.flush(null, serverError);
+      await fixture.whenStable();
+
+      expect(statusIn(page, { name: 'Controls' })).toBe(region);
+      expect(text(region)).toBe(
+        "Couldn't load your controls for this draft. Try reloading the page.",
+      );
+    });
+
+    it.each([
+      ['an organizer', ORGANIZE_ONLY],
+      ['a player without draft powers', NO_POWERS],
+    ])('say nothing of a failure when they load, for %s', async (_viewer, powers) => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      http.expectOne(powersUrl).flush(powers);
+      await flushPool();
+      await fixture.whenStable();
+
+      expect(heading(page, 'Red dragons')).toBeDefined();
+      expect(couldntLoadControls(page)).toBeUndefined();
     });
   });
 
@@ -463,6 +533,21 @@ describe('draft page', () => {
       expect(page.textContent).toContain('540 cards in the pool');
       expect(page.textContent).not.toContain("Couldn't load this draft");
       expect(couldntRefresh(page)).toBeDefined();
+    });
+
+    it('says it couldn’t refresh in its region, there and empty before the read fails, so it is announced', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { name: 'Friday Cube' });
+      const region = emptyStatusIn(page, 'Refresh');
+
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(null, {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await fixture.whenStable();
+
+      expect(statusIn(page, { name: 'Refresh' })).toBe(region);
+      expect(text(region)).toBe("Couldn't refresh this draft. What's shown may be out of date.");
     });
 
     it('stops saying it couldn’t refresh once a later read succeeds', async () => {

@@ -30,41 +30,48 @@
     <span class="mark">Unpicked</span>
   }
 </ng-template>
-@if (hasNotice()) {
-  <div class="notice" role="status">
-    <p>
-      Lost to other players:
-      @for (card of plan().lost; track card.poolCardId; let last = $last) {
-        <strong
-          ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name"
-        /></strong>
-        (picked by {{ playerName(card.pickedBy) }}){{ last ? '.' : ',' }}
-      }
-    </p>
-    <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
-      Dismiss
-    </button>
-  </div>
-}
-@if (plan().readyNotice) {
-  <div class="notice" role="status">
-    <p>
-      You’re no longer ready: your mainboard dropped below {{ minimumMainboard }} cards. Fill your
-      deck, then mark yourself ready again on the Play tab.
-    </p>
-    <button class="button secondary" type="button" (click)="dismissReadyNotice()" appSendsChange>
-      Dismiss
-    </button>
-  </div>
-}
-@if (sideboardOverArenaCap(); as over) {
-  <div class="notice" role="status">
-    <p>
-      Your sideboard has {{ over.count }} cards. Arena's import may keep only {{ over.cap }} of
-      them, though your export has them all.
-    </p>
-  </div>
-}
+<!-- Each notice's region is on the page before its notice, so a screen reader announces it. -->
+<div role="status" aria-label="Deck notice">
+  @if (hasNotice()) {
+    <div class="notice">
+      <p>
+        Lost to other players:
+        @for (card of plan().lost; track card.poolCardId; let last = $last) {
+          <strong
+            ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name"
+          /></strong>
+          (picked by {{ playerName(card.pickedBy) }}){{ last ? '.' : ',' }}
+        }
+      </p>
+      <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
+        Dismiss
+      </button>
+    </div>
+  }
+</div>
+<div role="status" aria-label="Ready notice">
+  @if (plan().readyNotice) {
+    <div class="notice">
+      <p>
+        You’re no longer ready: your mainboard dropped below {{ minimumMainboard }} cards. Fill your
+        deck, then mark yourself ready again on the Play tab.
+      </p>
+      <button class="button secondary" type="button" (click)="dismissReadyNotice()" appSendsChange>
+        Dismiss
+      </button>
+    </div>
+  }
+</div>
+<div role="status" aria-label="Sideboard over Arena’s cap">
+  @if (sideboardOverArenaCap(); as over) {
+    <div class="notice">
+      <p>
+        Your sideboard has {{ over.count }} cards. Arena's import may keep only {{ over.cap }} of
+        them, though your export has them all.
+      </p>
+    </div>
+  }
+</div>
 @if (deckLocked()) {
   <p class="detail">
     Your deck is locked until the tournament is complete or cancelled. Your exports still work.
@@ -83,8 +90,8 @@
   </details>
 }
 <app-deck-lock-reminder />
-<!-- The Deck tab's tools, in one row that wraps: Queue unpicked, Stacks or list, how the stacks group, Add basics and Copy. -->
-<div class="mode-controls">
+<!-- The Deck tab's tools, in one row that wraps: Queue unpicked, Stacks or list, how the stacks group, Add basics and Export. -->
+<div #tools class="mode-controls">
   @if (offerQueueUnpicked()) {
     <button
       class="button compact secondary"

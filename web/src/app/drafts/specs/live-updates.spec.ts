@@ -16,7 +16,6 @@ import {
   flushPicks,
   completeSnapshot,
   statusMessage,
-  expectSignedOut,
   pickOf,
   drafting,
   accessibleName,
@@ -36,6 +35,7 @@ import {
   chooseInRowMenu,
   text,
 } from './harness';
+import { emptyStatusIn, expectSignedOut, statusIn, watchChanges } from '../../specs-harness';
 import { board } from './board-tab-harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 import { openPlan } from './plan-tab-harness';
@@ -408,6 +408,33 @@ describe('live updates', () => {
       await fixture.whenStable();
 
       expect(notice(page)).toBeDefined();
+    });
+
+    it('says so in its region, there and empty while connected, so it is announced once', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        draft(drafting({ turn: alicesTurn })),
+      );
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(drafting({ turn: alicesTurn })),
+      );
+      await flushPicks([]);
+      await fixture.whenStable();
+      const region = emptyStatusIn(page, 'Connection');
+
+      updates.events.next({ type: 'disconnected' });
+      await fixture.whenStable();
+
+      expect(statusIn(page, { name: 'Connection' })).toBe(region);
+      expect(text(region)).toBe('Reconnecting…');
+
+      // Each failed retry says it is disconnected again: the region is left alone, so it isn't said twice.
+      const changes = watchChanges(region);
+      updates.events.next({ type: 'disconnected' });
+      await fixture.whenStable();
+      expect(changes()).toEqual([]);
+      expect(text(region)).toBe('Reconnecting…');
     });
 
     it('says it is reconnecting while a refused first connect retries', async () => {

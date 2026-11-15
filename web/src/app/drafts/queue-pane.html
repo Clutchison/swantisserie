@@ -116,25 +116,33 @@
     @if (failed()) {
       <p class="error">Couldn't load your queue. Try reloading the page.</p>
     } @else {
-      @if (hasNotice()) {
-        <div class="notice" role="status" aria-label="Queue notice">
-          <p>
-            Lost to other players:
-            @for (card of queue().lost; track card.poolCardId) {
-              <strong
-                ><app-card-name
-                  [card]="poolCardsById().get(card.poolCardId)"
-                  [name]="card.name" /></strong
-              >{{ lossNote(card) }}
+      <!-- On the page before its notice, so a screen reader announces the notice. -->
+      <div role="status" aria-label="Queue notice">
+        @if (hasNotice()) {
+          <div class="notice">
+            <p>
+              Lost to other players:
+              @for (card of queue().lost; track card.poolCardId) {
+                <strong
+                  ><app-card-name
+                    [card]="poolCardsById().get(card.poolCardId)"
+                    [name]="card.name" /></strong
+                >{{ lossNote(card) }}
+              }
+            </p>
+            @if (!readOnly()) {
+              <button
+                class="button secondary"
+                type="button"
+                (click)="dismissNotice()"
+                appSendsChange
+              >
+                Dismiss
+              </button>
             }
-          </p>
-          @if (!readOnly()) {
-            <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
-              Dismiss
-            </button>
-          }
-        </div>
-      }
+          </div>
+        }
+      </div>
       <!-- The Queue cutoff falls before the first card past the player's picks left. -->
       @let cutoffAt = store.picksLeft();
       <ol

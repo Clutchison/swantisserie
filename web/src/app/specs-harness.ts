@@ -6,7 +6,7 @@ import {
   type TestRequest,
 } from '@angular/common/http/testing';
 import { Location } from '@angular/common';
-import { TestBed } from '@angular/core/testing';
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import type { DraftListItemView, UserView } from 'contract';
 import { App } from './app';
@@ -50,6 +50,80 @@ export function onlyAlert(root: HTMLElement) {
   const alerts = alertsIn(root);
   expect(alerts).toHaveLength(1);
   return alerts[0];
+}
+
+/**
+ * How `statusIn` finds a status region: by its accessible name (its
+ * aria-label, or the text of the element its aria-labelledby names), or by
+ * its whole text, whitespace collapsed.
+ */
+export type StatusQuery = { name: string } | { text: string };
+
+/**
+ * The live region with `role="status"` inside `root` that `query` finds; null
+ * if there is none. Find a region by name while it is empty; by text for a
+ * message whose region has no name.
+ */
+export function statusIn(root: HTMLElement, query: StatusQuery): HTMLElement | null {
+  if ('name' in query) return byName(root, '[role="status"]', query.name);
+  return (
+    [...root.querySelectorAll<HTMLElement>('[role="status"]')].find(
+      (region) => text(region) === query.text,
+    ) ?? null
+  );
+}
+
+/**
+ * The status region named `name` inside `root`, failing the test unless it is
+ * there and empty: as it must be before its text arrives, since screen
+ * readers only announce a change to a region already on the page.
+ */
+export function emptyStatusIn(root: HTMLElement, name: string): HTMLElement {
+  const region = statusIn(root, { name });
+  expect(region, `the status region named ${name}`).not.toBeNull();
+  expect(text(region)).toBe('');
+  return region!;
+}
+
+/** The status region named `name` inside `root` while it holds text; null while it is empty or there is none. */
+export function filledStatusIn(root: HTMLElement, name: string): HTMLElement | null {
+  const region = statusIn(root, { name });
+  return region && text(region) ? region : null;
+}
+
+/**
+ * Starts recording every change inside `region`, its text included; returns
+ * a function that stops and gives the changes made since. None means a
+ * re-render didn't put its text in again, so it wasn't said twice.
+ */
+export function watchChanges(region: HTMLElement): () => MutationRecord[] {
+  const changes: MutationRecord[] = [];
+  const observer = new MutationObserver((records) => changes.push(...records));
+  observer.observe(region, { childList: true, subtree: true, characterData: true });
+  return () => {
+    changes.push(...observer.takeRecords());
+    observer.disconnect();
+    return changes;
+  };
+}
+
+/**
+ * Starts watching the page for the status region named `name` to arrive, as
+ * the page lands; call the result to stop and get the text the region held
+ * when first seen, or null if it never came. Empty means its text was put
+ * into it once it was there, so a screen reader announces it on landing.
+ */
+export function watchArrival(name: string): () => string | null {
+  let firstSeen: string | null = null;
+  const observer = new MutationObserver(() => {
+    const region = statusIn(document.body, { name });
+    if (region && firstSeen === null) firstSeen = text(region);
+  });
+  observer.observe(document.body, { childList: true, subtree: true });
+  return () => {
+    observer.disconnect();
+    return firstSeen;
+  };
 }
 
 export let http: HttpTestingController;
@@ -268,6 +342,44 @@ export function clickBackdrop() {
 /** Whether `element` is hidden from assistive technology, as the page behind an open dialog is. */
 export const hiddenFromAssistiveTech = (element: Element) =>
   element.closest('[aria-hidden="true"]') !== null;
+
+/** The sign-in page's link that starts signing in with Discord, if it shows. */
+export const signInLink = (page: HTMLElement) =>
+  [...page.querySelectorAll('a')].find(
+    (link) => link.textContent?.trim() === 'Sign in with Discord',
+  );
+
+/** The app's header, shown to signed-in viewers. */
+export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="banner"]');
+
+/**
+ * Expects `user` to have been signed out of this tab because the API ended
+ * their session: sent to sign-in, to return to `returnTo` (the page they were
+ * on) once signed in, with no dialog left open nor anything modal over the
+ * sign-in page, gone from the header, and the API not told.
+ * Takes the router and HTTP mock as the drafts app's specs have their own.
+ */
+export async function expectSignedOut(
+  fixture: ComponentFixture<unknown>,
+  {
+    router,
+    http,
+    user,
+    returnTo,
+  }: { router: Router; http: HttpTestingController; user: UserView; returnTo?: string },
+) {
+  const signIn = returnTo ? `/sign-in?${new URLSearchParams({ returnTo })}` : '/sign-in';
+  await vi.waitFor(() => expect(router.url).toBe(signIn));
+  await fixture.whenStable();
+
+  const page = fixture.nativeElement as HTMLElement;
+  expect(openDialogs()).toEqual([]);
+  expect(signInLink(page)).toBeDefined();
+  expect(hiddenFromAssistiveTech(signInLink(page)!)).toBe(false);
+  expect(banner(page)?.textContent ?? '').not.toContain(user.name);
+  // The session is already gone: there's nothing to log out of.
+  http.expectNone('/api/auth/logout');
+}
 
 /** `value` as a viewer reads it: each run of whitespace one space, none at either end. */
 export const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();

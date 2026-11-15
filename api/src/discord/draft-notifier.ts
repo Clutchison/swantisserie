@@ -7,6 +7,7 @@ import {
 import { setTimeout } from 'node:timers/promises';
 import { Deadline, DeadlinePassedError } from '../deadline.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
+import { DraftPushes } from '../drafts/draft-pushes.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DiscordConfig } from './discord-config.js';
 import {
@@ -84,9 +85,10 @@ export class DraftNotifierRetries {
  * may help, then logged. When Discord rate limits a post, every post on that
  * webhook, from any draft, waits as long as Discord says; a post that would
  * wait longer than RATE_LIMIT_CAP_MS is logged and dropped. A post that finds
- * the webhook gone marks it so, and nothing more is posted on it until its URL
- * is replaced. At shutdown, posts go on until the shutdown deadline; then
- * those still queued or sending are logged as dropped, and no new post starts.
+ * the webhook gone marks it so, nothing more is posted on it until its URL is
+ * replaced, and every draft using it is pushed showing it gone. At shutdown,
+ * posts go on until the shutdown deadline; then those still queued or sending
+ * are logged as dropped, and no new post starts.
  */
 @Injectable()
 export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
@@ -110,6 +112,7 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
     private readonly webhooks: WebhookClient,
     private readonly config: DiscordConfig,
     private readonly retries: DraftNotifierRetries,
+    private readonly pushes: DraftPushes,
   ) {}
 
   /** Starts the shutdown deadline's clock, as shutdown starts. */
@@ -250,20 +253,28 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   /**
    * Records that the webhook is gone, unless its URL has been replaced since
    * `url` failed or it is already marked, logging it only when marked here.
+   * Marking it bumps and pushes every draft using it, announcing nothing,
+   * through DraftPushes, whose lock order this follows: the webhook's row,
+   * then the drafts'. The bump makes these copies newer than the push of the
+   * change whose post failed, whichever arrives first. The pushes are
+   * awaited, so they stay in the draft's announcement queue.
    */
   private async markGone(
     { id, url }: { id: string; url: string },
     err: WebhookGoneError,
   ): Promise<void> {
-    const { count } = await this.prisma.webhook.updateMany({
-      where: { id, url, goneAt: null },
-      data: { goneAt: new Date() },
+    const marked = await this.pushes.changing(async (tx, bump) => {
+      const { count } = await tx.webhook.updateMany({
+        where: { id, url, goneAt: null },
+        data: { goneAt: new Date() },
+      });
+      if (count) await bump({ webhookId: id });
+      return count > 0;
     });
-    if (count) {
-      this.logger.error(
-        `Webhook ${id} is gone, so announcements on it are dropped until its URL is replaced: ${String(err)}`,
-      );
-    }
+    if (!marked) return;
+    this.logger.error(
+      `Webhook ${id} is gone, so announcements on it are dropped until its URL is replaced: ${String(err)}`,
+    );
   }
 
   /**

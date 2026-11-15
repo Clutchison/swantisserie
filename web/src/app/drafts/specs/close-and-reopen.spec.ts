@@ -1,4 +1,13 @@
-import { answer, menu, menuItem, pressKey, question } from '../../specs-harness';
+import {
+  answer,
+  emptyStatusIn,
+  menu,
+  menuItem,
+  pressKey,
+  question,
+  statusIn,
+  watchChanges,
+} from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
@@ -22,6 +31,7 @@ import {
   buttonOrder,
   rowMenu,
   openQueueSheet,
+  text,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore, openMore } from './draft-header-harness';
 
@@ -230,6 +240,29 @@ describe('close and reopen', () => {
     await fixture.whenStable();
 
     expect(page.textContent).toContain(banner);
+  });
+
+  it('says the draft is closed in its region, there and empty while drafting, so it is announced once', async () => {
+    const organizer = { id: bob.id, name: bob.name };
+    const { fixture, page } = await openDraft(completeSnapshot, { ...underway, organizer });
+    const region = emptyStatusIn(page, 'Closed');
+
+    updates.events.next({ type: 'changed', draft: draft({ ...closed, organizer, version: 1 }) });
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    expect(statusIn(page, { name: 'Closed' })).toBe(region);
+    expect(text(region)).toBe(banner);
+
+    // The same note re-rendered by a later change isn't put in again, so it isn't said twice.
+    const changes = watchChanges(region);
+    updates.events.next({ type: 'changed', draft: draft({ ...closed, organizer, version: 2 }) });
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+    expect(changes()).toEqual([]);
+    expect(text(region)).toBe(banner);
   });
 
   it('makes the queue read-only while closed, keeping it on show', async () => {

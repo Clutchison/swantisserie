@@ -19,6 +19,7 @@ import {
   dave,
   drawnPlaces,
   drawnSides,
+  entry,
   erin,
   firstBracketRound,
   unreportedMatch,
@@ -124,6 +125,7 @@ describe('the bracket of a single elimination tournament', () => {
                 ...unreportedMatch('m1', bob.id, carol.id),
                 bracketPlace: 1,
                 outcome: { kind: 'GrantedWin', winner: bob.id },
+                reportableBy: [],
               },
             ],
             byes: [alice.id],
@@ -199,13 +201,9 @@ describe('the bracket of a single elimination tournament', () => {
 
   it('gives a bye at once to the player waiting on a match both players dropped from, naming no next match for them', async () => {
     const bothDropped = singleEliminationPlaying({
-      entries: [alice.id, bob.id, carol.id].map((playerId, i) => ({
-        playerId,
-        dropped: playerId !== alice.id,
-        droppable: true,
-        ready: false,
-        seed: i + 1,
-      })),
+      entries: [alice.id, bob.id, carol.id].map((playerId, i) =>
+        entry(playerId, { dropped: playerId !== alice.id, seed: i + 1 }),
+      ),
       rounds: [
         {
           round: 1,
@@ -215,6 +213,7 @@ describe('the bracket of a single elimination tournament', () => {
               ...unreportedMatch('m1', bob.id, carol.id),
               bracketPlace: 1,
               outcome: { kind: 'Forfeit', forfeitedBy: bob.id },
+              reportableBy: [],
             },
           ],
           byes: [alice.id],
@@ -301,13 +300,9 @@ const ninePlayers = [alicePlayer, bob, carol, erin, finn, gwen, hugo, ivy, jack]
  */
 const fourRounds: ViewerTournamentView = singleEliminationPlaying({
   roundCount: 4,
-  entries: ninePlayers.map(({ id }, i) => ({
-    playerId: id,
-    dropped: id === erin.id || id === finn.id,
-    droppable: true,
-    ready: false,
-    seed: i + 1,
-  })),
+  entries: ninePlayers.map(({ id }, i) =>
+    entry(id, { dropped: id === erin.id || id === finn.id, seed: i + 1 }),
+  ),
   rounds: [
     {
       round: 1,

@@ -31,9 +31,10 @@ let database: RaceDatabase;
 export let bobCookie: string;
 
 /**
- * Describes races of two requests at once, each a transaction holding the
- * draft row lock or the player row lock, on a real Postgres with a pool of
- * several connections. `race` holds the transactions' COMMITs back until
+ * Describes races of two requests at once, each a transaction holding a
+ * row lock, such as the draft's, a player's or a webhook's, on a real
+ * Postgres with a pool of several connections. `race` holds the
+ * transactions' COMMITs back until
  * both have done their reads and writes, so without the lock both would
  * act on what they read before the other's change. Each spec checks the end
  * state is one that taking the two one at a time, in either order, leaves.

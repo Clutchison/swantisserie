@@ -12,6 +12,7 @@ import {
   playingSingleElimination,
   playTournamentRound,
   reinstate,
+  readReinstateRefusal,
   reportCurrentRound,
   signIn,
   tournamentView,
@@ -244,11 +245,34 @@ describe('reinstating in single elimination', () => {
   it('is refused once the forfeit has fed a later match', async () => {
     const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
+    expect(readReinstateRefusal(await tournamentView(id), seeds[3])).toBeNull();
     await playTournamentRound(id, cookieOf);
+    const refusal = readReinstateRefusal(await tournamentView(id), seeds[3]);
 
     const answer = await reinstate(id, seeds[3]).expect(409);
 
-    expect(answer.body.error).toBe('paired-since-drop');
+    expect(answer.body).toEqual({
+      error: 'paired-since-drop',
+      message:
+        'That player can’t be reinstated: their forfeit in tournament round 1 has fed tournament round 2.',
+    });
+    expect(refusal).toEqual(answer.body);
+  });
+
+  it('is refused once a bye has fed the next tournament round', async () => {
+    const { id, seeds } = await playingSingleElimination(cookies.slice(0, 5));
+    await dropPlayer(id, seeds[1], aliceCookie).expect(200);
+    await playTournamentRound(id, cookieOf);
+    const refusal = readReinstateRefusal(await tournamentView(id), seeds[1]);
+
+    const answer = await reinstate(id, seeds[1]).expect(409);
+
+    expect(answer.body).toEqual({
+      error: 'paired-since-drop',
+      message:
+        'That player can’t be reinstated: their bye in tournament round 1 has fed tournament round 2.',
+    });
+    expect(refusal).toEqual(answer.body);
   });
 
   it('is refused for either player once a match they both dropped from has given a bye', async () => {
@@ -256,10 +280,12 @@ describe('reinstating in single elimination', () => {
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
     await dropPlayer(id, seeds[4], aliceCookie).expect(200);
     await completeRound(id).expect(200);
+    const view = await tournamentView(id);
 
     for (const player of [seeds[3], seeds[4]]) {
       const answer = await reinstate(id, player).expect(409);
       expect(answer.body.error).toBe('paired-since-drop');
+      expect(readReinstateRefusal(view, player)).toEqual(answer.body);
     }
   });
 
@@ -267,6 +293,7 @@ describe('reinstating in single elimination', () => {
     const { id, seeds } = await playingSingleElimination(cookies.slice(0, 4));
     await playTournamentRound(id, cookieOf);
     await dropPlayer(id, seeds[3], aliceCookie).expect(200);
+    expect(readReinstateRefusal(await tournamentView(id), seeds[3])).toBeNull();
 
     await reinstate(id, seeds[3]).expect(200);
   });

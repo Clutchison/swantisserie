@@ -6,19 +6,20 @@ import { App } from './app';
 import {
   alice,
   answerViewerDrafts,
+  banner,
+  expectSignedOut,
   http,
   openApp,
   openDialog,
   updates,
   router,
+  signInLink,
   useApp,
 } from './specs-harness';
 import {
-  banner,
   button,
   drafting,
   expectLoadingAnimation,
-  expectSignedOut,
   loadingAnimation,
   midNavigation,
 } from './drafts/specs/harness';
@@ -787,11 +788,4 @@ function clickLogOut(page: HTMLElement) {
   userMenuButton(page)!.click();
   TestBed.tick();
   button(page, 'Log out')!.click();
-}
-
-/** The link that starts signing in with Discord. */
-function signInLink(page: HTMLElement) {
-  return [...page.querySelectorAll('a')].find(
-    (link) => link.textContent?.trim() === 'Sign in with Discord',
-  );
 }
