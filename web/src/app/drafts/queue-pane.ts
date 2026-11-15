@@ -17,6 +17,7 @@ import {
   inject,
   Injector,
   input,
+  inputBinding,
   Renderer2,
   signal,
   untracked,
@@ -471,7 +472,7 @@ export class QueuePane {
         status: queueStateName(queuePaused),
         refused: (err) => {
           if (!this.store.caughtUpOnQueuePicks(err)) return false;
-          this.confirmQueuePicking();
+          this.confirmQueuePicking(true);
           return true;
         },
       },
@@ -479,15 +480,17 @@ export class QueuePane {
   }
 
   /**
-   * Opens the Set queue picking dialog. A failure it closes with is said by
-   * the play/pause button, where focus returns; should the queue, read again, pick
-   * nothing after all, it is set queue picking with none.
+   * Opens the Set queue picking dialog, `afterRefusal` if queue picking with
+   * none was just refused. A failure it closes with is said by the
+   * play/pause button, where focus returns; should the queue, read again
+   * after a refusal, pick nothing after all, it is set queue picking with none.
    */
-  private confirmQueuePicking() {
+  private confirmQueuePicking(afterRefusal = false) {
     this.dialogShell
       .open<QueuePickingDialog, QueuePickingResult>(QueuePickingDialog, {
         labelledBy: QUEUE_PICKING_HEADING,
         injector: this.injector,
+        bindings: [inputBinding('afterRefusal', () => afterRefusal)],
       })
       .closed.subscribe((result) => {
         if (result?.outcome === 'failed') {
