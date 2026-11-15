@@ -247,7 +247,7 @@ Cards leaving a player's queue together: the cards one pick took out of it, a ca
 _Avoid_: Removal (that is the player taking a card out by hand), exit, drop
 
 **Steal behavior**:
-A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where the queue is paused, or **pick next**, where it keeps picking and their next available queued card is picked on their turn. Players start on pause queue and can change it while the draft is drafting or frozen.
+A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where it is set to queue paused, or **pick next**, where it stays as it was: queue picking, so their next available queued card is picked on their turn, or queue paused, if it already was. Players start on pause queue and can change it while the draft is drafting or frozen.
 _Avoid_: Loss setting, fallback, keep queue, clear queue (no longer one)
 
 **Queue pane**:
