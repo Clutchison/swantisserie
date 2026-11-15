@@ -10,7 +10,6 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { LucideCheck } from '@lucide/angular';
 import {
   DEFAULT_PICKS_PER_PLAYER,
   MAX_CUBE_LINK_LENGTH,
@@ -31,6 +30,8 @@ import { doublePicksProblem, doublePicksRule, MIN_DOUBLE_PICKS, startingDoublePi
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 import { SetListPicker } from './set-list-picker';
+import { ViewerDrafts } from './viewer-drafts';
+import { ToggleButton } from '../toggle-button';
 
 /**
  * The double picks a draft starts with when the organizer turns them on, unless
@@ -47,7 +48,7 @@ interface PoolSourceFields {
 
 @Component({
   selector: 'app-create-draft-page',
-  imports: [LucideCheck, ReactiveFormsModule, RouterLink, SetListPicker],
+  imports: [ReactiveFormsModule, RouterLink, SetListPicker, ToggleButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './create-draft-page.html',
   styleUrls: ['../page.scss', './drafts.scss', './create-draft-page.scss'],
@@ -55,6 +56,7 @@ interface PoolSourceFields {
 export class CreateDraftPage {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly viewerDrafts = inject(ViewerDrafts);
   private readonly fb = inject(FormBuilder).nonNullable;
 
   // Validated by the API, whose messages say exactly what to fix.
@@ -166,6 +168,8 @@ export class CreateDraftPage {
       const draft = await firstValueFrom(
         this.http.post<DraftView>('/api/drafts', this.requestBody()),
       );
+      // Not pushed to the organizer, who isn't a player yet: the draft list lists it from this.
+      this.viewerDrafts.created(draft);
       await this.router.navigate(['/drafts', draft.id]);
     } catch (err) {
       this.problem.set(problemFrom(err));

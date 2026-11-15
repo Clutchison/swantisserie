@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, expect, onTestFinished, vi } from 'vitest';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -33,8 +33,24 @@ export const carol: UserView = {
 /** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
 export const serverError = { status: 500, statusText: 'Server Error' };
 
+/** An alert: an error shown to the viewer. */
+const ALERT = '[role="alert"]';
+
 /** The first alert inside `root`: an error shown to the viewer, if any. */
-export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
+export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>(ALERT);
+
+/** Every alert inside `root`, in reading order. */
+export const alertsIn = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>(ALERT)];
+
+/**
+ * The one alert inside `root`, failing the spec if it shows none or more
+ * than one, so a failure is said in one place only.
+ */
+export function onlyAlert(root: HTMLElement) {
+  const alerts = alertsIn(root);
+  expect(alerts).toHaveLength(1);
+  return alerts[0];
+}
 
 export let http: HttpTestingController;
 export let router: Router;
@@ -285,6 +301,52 @@ export function accessibleName(element: Element): string {
   return collapseWhitespace(nameOf(element));
 }
 
+/** The roles HTML gives the controls specs focus, when they set no `role` of their own. */
+const IMPLICIT_ROLES: Record<string, string> = {
+  A: 'link',
+  BUTTON: 'button',
+  INPUT: 'textbox',
+  SELECT: 'combobox',
+  TEXTAREA: 'textbox',
+};
+
+/**
+ * The control with focus, by its role and accessible name, as a screen
+ * reader announces it: null while focus is on nothing or the page body.
+ */
+export function focusedControl(): { role: string; name: string } | null {
+  const focused = document.activeElement;
+  if (!focused || focused === document.body) return null;
+  const role = focused.getAttribute('role') ?? IMPLICIT_ROLES[focused.tagName] ?? 'generic';
+  return { role, name: accessibleName(focused) };
+}
+
+/**
+ * Expects focus on the control inside `root` with this accessible name and
+ * role, a button unless said, as a screen reader announces it.
+ */
+export function expectFocusOn(root: Element, name: string, role = 'button') {
+  expect(focusedControl()).toEqual({ role, name });
+  expect(root.contains(document.activeElement)).toBe(true);
+}
+
+/** The buttons in the tab bar inside `root`, in order. */
+export const tabs = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+];
+/** A button in the tab bar inside `root`, by its label. */
+export const tabButton = (root: HTMLElement, tab: string) =>
+  tabs(root).find((b) => b.textContent?.trim() === tab)!;
+/** The tab panel showing inside `root`. */
+export const panel = (root: HTMLElement) =>
+  root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
+
+/** Focuses `control` and clicks it, as a keyboard user presses it, and renders what came of it. */
+export function focusAndClick(control: HTMLElement) {
+  control.focus();
+  clickOn(control);
+}
+
 /**
  * The open menu named `name`, such as Copy or More; null while it's closed.
  * The CDK puts a menu outside the page, so this looks in the whole document.
@@ -385,7 +447,9 @@ export const tableColumns = (table: HTMLElement) =>
 /**
  * Whether `first` comes before `second` in reading order: the order a
  * keyboard or screen-reader user reaches them. Specs use it only to check
- * that an action row comes before a list that grows.
+ * that an action row comes before a list that grows, and that a failure's
+ * message shows by the control that made the change: after it and before
+ * what follows it, or before the form a page-level failure belongs to.
  */
 export const comesBefore = (first: Node, second: Node) =>
   Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);

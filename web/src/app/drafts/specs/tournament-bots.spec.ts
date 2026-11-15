@@ -6,8 +6,8 @@ import {
   bob,
   button,
   controlByLabel,
-  controlsByLabel,
   group,
+  toggleButtons,
   useDraftsApp,
 } from './harness';
 import {
@@ -99,8 +99,7 @@ describe('bots on the Play tab', () => {
     );
 
     const drops = group(dialog, 'Drop from Bot 1 vs Bob')!;
-    expect(controlByLabel(drops, 'checkbox', 'Drop Bob')).toBeDefined();
-    expect(controlsByLabel(drops, 'checkbox', 'Drop Bot 1')).toEqual([]);
+    expect(toggleButtons(drops)).toEqual(['☐ Drop Bob']);
   });
 
   it('offers either player of a bot’s single elimination match the win, and a drop only to its human', async () => {
@@ -110,7 +109,6 @@ describe('bots on the Play tab', () => {
     expect(controlByLabel(winner, 'radio', 'Bob')).toBeDefined();
     expect(controlByLabel(winner, 'radio', 'Bot 1')).toBeDefined();
     const drops = group(dialog, 'Drop from Bob vs Bot 1')!;
-    expect(controlByLabel(drops, 'checkbox', 'Drop Bob')).toBeDefined();
-    expect(controlsByLabel(drops, 'checkbox', 'Drop Bot 1')).toEqual([]);
+    expect(toggleButtons(drops)).toEqual(['☐ Drop Bob']);
   });
 });

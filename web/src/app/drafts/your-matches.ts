@@ -19,7 +19,7 @@ import type { GameScore, MatchOutcomeView, MatchView, PlayerView, TournamentView
 import { GAME_SCORES } from 'engine';
 import { DialogShell } from '../dialog-shell';
 import { capitalised } from '../record';
-import { FocusKey, SendsChange } from './changes';
+import { FocusKey, SendsChange } from '../changes';
 import { DraftStore } from './draft-store';
 import { gameScoreFor, reportedLine } from './match-lines';
 import {

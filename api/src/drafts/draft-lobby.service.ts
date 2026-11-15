@@ -170,11 +170,15 @@ export class DraftLobbyService {
 
   /**
    * Removes the user from the draft's players; a no-op if they're not in.
-   * Throws DraftStartedError once the draft has left Lobby.
+   * Returns whether they were. Throws DraftStartedError once the draft has
+   * left Lobby.
    */
-  async leave(draftId: string, userId: string): Promise<void> {
-    await this.lock.inLobby(draftId, async ({ tx }) => {
-      await tx.player.deleteMany({ where: { draftId, userId } });
+  async leave(draftId: string, userId: string): Promise<boolean> {
+    return this.lock.inLobby(draftId, async ({ tx }) => {
+      const { count } = await tx.player.deleteMany({
+        where: { draftId, userId },
+      });
+      return count > 0;
     });
   }
 

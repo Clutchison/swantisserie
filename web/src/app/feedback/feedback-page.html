@@ -1,11 +1,14 @@
 <main>
   <h1>Feedback</h1>
+  <app-change-status />
 
   <div class="tabs" appTabList aria-label="Feedback">
     @for (name of tabs; track name) {
+      <!-- The selected tab takes focus once a change takes the tab's last item away. -->
       <button
         type="button"
         [appTab]="selectedTab() === name"
+        [appFocusKey]="selectedTab() === name ? 'selected tab' : ''"
         aria-controls="feedback-panel"
         (click)="show(name)"
       >
@@ -44,7 +47,7 @@
               <button
                 class="button secondary"
                 type="button"
-                [disabled]="saving()"
+                [appSendsChange]="'mark unreviewed ' + item.id"
                 (click)="markUnreviewed(item)"
               >
                 Mark unreviewed
@@ -53,7 +56,7 @@
               <button
                 class="button secondary"
                 type="button"
-                [disabled]="saving()"
+                [appSendsChange]="'mark reviewed ' + item.id"
                 (click)="markReviewed(item)"
               >
                 Mark reviewed
