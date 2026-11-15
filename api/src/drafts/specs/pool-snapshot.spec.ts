@@ -23,6 +23,7 @@ import {
   getDraft,
   snapshotted,
   readyDraft,
+  reversibleCard,
   copyIds,
   pool,
   post,
@@ -187,6 +188,34 @@ describe('pool snapshot', () => {
       ],
     });
     expect(res.body[0].images[0]).not.toHaveProperty('png');
+  });
+
+  it('makes a pool card of a reversible card’s printing, in its front face’s mana value and type line', async () => {
+    const query = snapshotQuery('c:c');
+    scryfallAnswers({
+      'c:c': page('Ugin, Eye of the Storms'),
+      '(c:c) -in:arena': null,
+      [query]: page(
+        reversibleCard('Ugin, Eye of the Storms', {
+          cmc: 7,
+          type_line: 'Legendary Planeswalker — Ugin',
+        }),
+      ),
+    });
+
+    const created = await createDraft({
+      name: 'Colorless',
+      poolSource: { kind: 'pool-query', poolQuery: 'c:c' },
+    }).expect(201);
+    const draft = await snapshotted(created.body.id);
+    expect(draft.snapshot).toEqual({ state: 'Complete', cards: 1, total: 1 });
+
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body[0]).toMatchObject({
+      oracleId: 'ugin-eye-of-the-storms-oracle',
+      manaValue: 7,
+      typeLine: 'Legendary Planeswalker — Ugin',
+    });
   });
 
   it('stores each face’s text, cost, colors and stats, so a search can match either face', async () => {
@@ -364,6 +393,31 @@ describe('pool snapshot', () => {
       error: 'Shock has no oracle id.',
     });
   });
+
+  it.each([
+    [{ cmc: undefined }, 'Shock has no mana value.'],
+    [{ type_line: undefined }, 'Shock has no type line.'],
+  ])(
+    'fails on a card missing %o on the card and its front face rather than inventing it',
+    async (missing, error) => {
+      const query = snapshotQuery('c:r');
+      scryfallAnswers({
+        'c:r': page('Shock'),
+        '(c:r) -in:arena': null,
+        [query]: page(
+          card('Shock', { ...missing, card_faces: [{ name: 'Shock' }] }),
+        ),
+      });
+      const created = await createDraft({
+        name: 'Red',
+      });
+
+      expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
+        state: 'Failed',
+        error,
+      });
+    },
+  );
 
   it('keeps unexpected errors’ details out of the organizer’s view', async () => {
     const query = snapshotQuery('c:r');

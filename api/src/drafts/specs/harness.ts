@@ -266,6 +266,25 @@ export function card(
   };
 }
 
+/**
+ * A reversible card's printing, as Scryfall gives it: its oracle id, mana
+ * value and type line on its two faces, not on the card.
+ */
+export function reversibleCard(
+  name: string,
+  front: { cmc: number; type_line: string },
+): ScryfallCard {
+  const face = { name, oracle_id: card(name).oracle_id, ...front };
+  return {
+    ...card(`${name} // ${name}`),
+    layout: 'reversible_card',
+    oracle_id: undefined,
+    cmc: undefined,
+    type_line: undefined,
+    card_faces: [face, face],
+  };
+}
+
 /** A one-page search result of `cards`, each named or given whole. */
 export function page(...cards: (string | ScryfallCard)[]): ScryfallSearchPage {
   return {
