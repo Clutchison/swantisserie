@@ -180,6 +180,8 @@ export abstract class ScryfallClient {
 export class FetchScryfallClient extends ScryfallClient {
   /** When the next search may start (ms since epoch). */
   private nextStart = 0;
+  /** When the last 429's lockout is over (ms since epoch). */
+  private lockedUntil = 0;
 
   async search(query: string, page = 1): Promise<ScryfallSearchPage | null> {
     const url = new URL(`${API}/cards/search`);
@@ -300,22 +302,30 @@ export class FetchScryfallClient extends ScryfallClient {
     };
   }
 
-  /** Reserves the next free slot synchronously, so concurrent requests queue up. */
+  /**
+   * Reserves the next free slot synchronously, so concurrent requests queue
+   * up. A request that wakes inside a lockout begun while it slept books
+   * a new start after it, so none is sent until the lockout is over.
+   */
   private async waitForTurn(): Promise<void> {
-    const now = Date.now();
-    const start = Math.max(now, this.nextStart);
-    this.nextStart = start + REQUEST_INTERVAL_MS;
-    if (start > now) {
-      await new Promise((resolve) => setTimeout(resolve, start - now));
+    for (;;) {
+      const now = Date.now();
+      const start = Math.max(now, this.nextStart);
+      this.nextStart = start + REQUEST_INTERVAL_MS;
+      if (start > now) {
+        await new Promise((resolve) => setTimeout(resolve, start - now));
+      }
+      if (Date.now() >= this.lockedUntil) return;
     }
   }
 
-  /** Holds every request, not just this one, until the lockout is over. */
+  /**
+   * Holds every request, not just this one, until the lockout is over:
+   * those booking their turn from now on, and those already waiting for it.
+   */
   private backOff(): void {
-    this.nextStart = Math.max(
-      this.nextStart,
-      Date.now() + RATE_LIMITED_WAIT_MS,
-    );
+    this.lockedUntil = Date.now() + RATE_LIMITED_WAIT_MS;
+    this.nextStart = Math.max(this.nextStart, this.lockedUntil);
   }
 }
 

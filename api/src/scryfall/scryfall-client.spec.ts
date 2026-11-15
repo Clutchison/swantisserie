@@ -117,6 +117,46 @@ describe('FetchScryfallClient', () => {
     }
   });
 
+  it('holds a search that already had its turn until a 429’s lockout is over, then keeps them 600 ms apart', async () => {
+    vi.useFakeTimers();
+    try {
+      respond(429, { object: 'error', status: 429, details: 'Too many' });
+      for (let i = 0; i < 3; i++) {
+        respond(404, { object: 'error', status: 404, details: 'No cards' });
+      }
+      const sent = () =>
+        fetch.mock.calls.map(([url]) =>
+          new URL(url as string).searchParams.get('q'),
+        );
+
+      const searches = Promise.all([
+        scryfall.search('a'),
+        scryfall.search('b'),
+      ]);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(sent()).toEqual(['a']);
+
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(sent()).toEqual(['a']);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent()).toHaveLength(2);
+
+      await vi.advanceTimersByTimeAsync(599);
+      expect(sent()).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent()).toEqual(['a', 'a', 'b']);
+
+      const later = scryfall.search('c');
+      await vi.advanceTimersByTimeAsync(599);
+      expect(sent()).toHaveLength(3);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent()).toHaveLength(4);
+      await Promise.all([searches, later]);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('gives up after repeated 429s rather than hammering Scryfall', async () => {
     vi.useFakeTimers();
     try {
