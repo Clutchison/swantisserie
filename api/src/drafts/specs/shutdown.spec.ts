@@ -13,17 +13,16 @@ import {
 import {
   aliceCookie,
   app,
-  bob,
   useDraftsApp,
   slowDownDatabase,
   slowQueryUnderway,
   readyDraft,
+  readyDraftOnWebhook,
   getDraft,
   pick,
   poolCardIds,
-  registerWebhook,
-  signIn,
   start,
+  useAnnouncements,
   webhookClient,
   webhookUrl,
 } from './harness.js';
@@ -51,13 +50,9 @@ describe('shutting down', () => {
   describe('with announcements', () => {
     let id: string;
 
+    useAnnouncements();
     beforeEach(async () => {
-      id = await readyDraft(
-        [aliceCookie, await signIn(bob)],
-        1,
-        undefined,
-        await registerWebhook(),
-      );
+      id = await readyDraftOnWebhook();
     });
 
     /** A post that takes 100 ms, and whether it has finished. */
@@ -220,6 +215,34 @@ describe('shutting down', () => {
         expect(errors.mock.calls).toEqual([
           [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*started`))],
           [expect.stringMatching(new RegExp(`dropped.*draft ${id}`))],
+        ]);
+      });
+
+      it('drops and logs the posts going one at a time after a rate limit, naming their drafts', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        const other = await readyDraftOnWebhook();
+        webhookClient.post.mockRejectedValueOnce(
+          new WebhookRateLimitedError(0),
+        );
+        holdPost();
+        await start(id).expect(200);
+        await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+        await start(other).expect(200);
+        // The start's retry, which the other draft's start waits behind.
+        await vi.waitFor(() =>
+          expect(webhookClient.post).toHaveBeenCalledTimes(2),
+        );
+
+        await closePastDeadline();
+
+        expect(webhookClient.post).toHaveBeenCalledTimes(2);
+        expect(errors.mock.calls).toEqual([
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*started`))],
+          [
+            expect.stringMatching(
+              new RegExp(`dropped.*draft ${other}.*started`),
+            ),
+          ],
         ]);
       });
 

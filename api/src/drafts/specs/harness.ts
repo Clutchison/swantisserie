@@ -21,11 +21,13 @@ import {
   app,
   bob,
   carol,
+  registerWebhook,
   scryfall,
   signIn,
   startTestApp,
   type TestAppOptions,
   useTestApp,
+  webhookClient,
 } from '../../testing/app.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { printingsAnswers } from '../../testing/scryfall-printings.js';
@@ -124,6 +126,34 @@ export function failedPushes(
 export function announcementsSettled(draftId: string): Promise<void> {
   // Queued behind the draft's announcements, so done once they are.
   return app.get(DraftNotifier).notify(draftId, []);
+}
+
+/**
+ * Each post's content, once the draft's announcements have settled,
+ * expecting exactly `count` posts.
+ */
+export async function posted(draftId: string, count: number) {
+  await announcementsSettled(draftId);
+  expect(webhookClient.post).toHaveBeenCalledTimes(count);
+  return webhookClient.post.mock.calls.map(([, message]) => message.content);
+}
+
+/** `session=<token>` for Bob, once `useAnnouncements` has signed him in. */
+export let bobCookie: string;
+/** The webhook `useAnnouncements` registers. */
+export let webhookId: string;
+
+/** Signs Bob in and registers a webhook before each spec. */
+export function useAnnouncements(): void {
+  beforeEach(async () => {
+    bobCookie = await signIn(bob);
+    webhookId = await registerWebhook();
+  });
+}
+
+/** A draft of Alice and Bob, ready to start, announcing on `webhookId`. */
+export function readyDraftOnWebhook(): Promise<string> {
+  return readyDraft([aliceCookie, bobCookie], 1, undefined, webhookId);
 }
 
 /**
