@@ -98,22 +98,31 @@
       </button>
     }
   </div>
-  @if (picked().get(shown.id); as picker) {
+  @let picker = picked().get(shown.id);
+  @if (picker) {
     <p class="note picked-by">
       <app-player-avatar [src]="picker.avatarUrl" />
       Picked by {{ picker.name }}
     </p>
-  } @else if (actions().pick && picksFailed()) {
-    <p class="note" role="status">Couldn't load the latest picks. You can pick once they load.</p>
-  } @else if (actions().pick && !yourTurn()) {
+  } @else if (actions().pick && !picksFailed() && !yourTurn()) {
     <p class="note">You can pick on your turn.</p>
   }
-  @if (queueNote(); as message) {
-    <p class="note" role="status">{{ message }}</p>
-  }
-  @if (planNote(); as message) {
-    <p class="note" role="status">{{ message }}</p>
-  }
+  <!-- On the page whichever note above shows, so its text is spoken as it arrives. -->
+  <p class="note" role="status" aria-label="Picks">
+    @if (!picker && actions().pick && picksFailed()) {
+      Couldn't load the latest picks. You can pick once they load.
+    }
+  </p>
+  <p class="note" role="status" aria-label="Queue">
+    @if (queueNote(); as message) {
+      {{ message }}
+    }
+  </p>
+  <p class="note" role="status" aria-label="Deck">
+    @if (planNote(); as message) {
+      {{ message }}
+    }
+  </p>
   @if (pickError(); as message) {
     <p class="note error" role="alert">{{ message }}</p>
   }

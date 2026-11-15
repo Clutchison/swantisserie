@@ -19,7 +19,7 @@ import {
   ALL_POWERS,
   statusTexts,
 } from './harness';
-import { openDialog } from '../../specs-harness';
+import { emptyStatusIn, openDialog, statusIn, text } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { openPlan } from './plan-tab-harness';
 
@@ -34,6 +34,7 @@ describe('pool tab', () => {
       });
 
       const detail = await openDetail(fixture, page, 1);
+      const region = emptyStatusIn(detail, 'Deck');
       button(detail, 'Add to Deck')!.click();
       const req = http.expectOne('/api/drafts/draft-1/plan');
       expect(req.request.method).toBe('POST');
@@ -47,7 +48,8 @@ describe('pool tab', () => {
         preferredPrintings: {},
       });
       await fixture.whenStable();
-      expect(statusTexts(detail).join(' ')).toContain('Added to your deck.');
+      expect(statusIn(detail, { name: 'Deck' })).toBe(region);
+      expect(text(region)).toBe('Added to your deck.');
       // That copy can be taken straight back out.
       expect(button(detail, 'Remove from Deck')!.disabled).toBe(false);
       expect(button(detail, 'Add to Deck')).toBeUndefined();
@@ -260,12 +262,14 @@ describe('pool tab', () => {
       });
 
       const detail = await openDetail(fixture, page, 0);
+      const region = emptyStatusIn(detail, 'Deck');
       button(detail, 'Remove from Deck')!.click();
       const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
       expect(req.request.method).toBe('DELETE');
       req.flush(EMPTY_PLAN);
       await fixture.whenStable();
-      expect(statusTexts(detail).join(' ')).toContain('Removed from your deck.');
+      expect(statusIn(detail, { name: 'Deck' })).toBe(region);
+      expect(text(region)).toBe('Removed from your deck.');
       expect(button(detail, 'Add to Deck')!.disabled).toBe(false);
       expect(button(detail, 'Remove from Deck')).toBeUndefined();
 
