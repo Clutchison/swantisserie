@@ -137,7 +137,7 @@ describe('draft page', () => {
     expect(page.textContent).toContain('540 cards in the pool');
   });
 
-  it('says it is retrying while the retry is on its way, and when the retry fails', async () => {
+  it('says it is retrying while the retry is on its way, keeping focus on Retry, and when the retry fails or works', async () => {
     const { fixture, page } = await openDraft(
       { state: 'Failed', cards: 0, total: null, error: 'Scryfall could not be reached.' },
       {},
@@ -145,15 +145,22 @@ describe('draft page', () => {
     );
     expect(page.textContent).not.toContain(RETRY_FAILED);
 
+    button(page, 'Retry')!.focus();
     button(page, 'Retry')!.click();
     await fixture.whenStable();
-    expect(button(page, 'Retrying…')!.disabled).toBe(true);
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'))).flush(
-      null,
-      serverError,
-    );
-    await vi.waitFor(() => expect(button(page, 'Retry')!.disabled).toBe(false));
-    expect(page.textContent).toContain(RETRY_FAILED);
+    const retrying = button(page, 'Retrying…')!;
+    expect(retrying.disabled).toBe(false);
+    expect(retrying.getAttribute('aria-disabled')).toBe('true');
+    expect(document.activeElement).toBe(retrying);
+    const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'));
+    retrying.click();
+    await fixture.whenStable();
+    http.expectNone('/api/drafts/draft-1/snapshot');
+    req.flush(null, serverError);
+    await vi.waitFor(() => expect(page.textContent).toContain(RETRY_FAILED));
+    await fixture.whenStable();
+    expect(button(page, 'Retry')!.getAttribute('aria-disabled')).toBeNull();
+    expect(document.activeElement).toBe(button(page, 'Retry'));
 
     button(page, 'Retry')!.click();
     await fixture.whenStable();
@@ -161,6 +168,12 @@ describe('draft page', () => {
     http
       .expectOne('/api/drafts/draft-1/snapshot')
       .flush(draft({ snapshot: { state: 'Running', cards: 0, total: null } }));
+    // A retry that works takes Retry away: focus goes to the nearest control, the Players panel's first.
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(document.activeElement).toBe(button(page, 'Randomize seats'));
+    });
+    expect(page.textContent).toContain('Snapshotting the pool');
     await poll(fixture, { state: 'Complete', cards: 540, total: 540 });
   });
 
