@@ -59,8 +59,8 @@
           }
         </ul>
         <p>
-          {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
-          {{ preview.next.pick }}, {{ preview.next.player }}{{ previewNextSuffix() }}.
+          {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn:
+          {{ previewNextTurn() }}.
         </p>
         <p class="detail">This is only a preview: nothing has been imported.</p>
         <p class="pick-import-warning">

@@ -21,13 +21,7 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import {
-  doubleTurnSuffix,
-  hasTurn,
-  isRefusal,
-  PLAYERS_CHANGE_FAILED,
-  sendDraftChange,
-} from './drafts';
+import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange, turnWords } from './drafts';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';
@@ -104,14 +98,15 @@ export class PlayersPanel {
    */
   protected readonly pickImportPreview = signal<(PickImportPreview & { csv: string }) | null>(null);
   /**
-   * What the preview's next turn adds on a double turn, as the header's turn
-   * text does: the picks still to make before it passes, which may be 1 when
-   * the file stops partway through it.
+   * The preview's next turn, worded as the header words a turn: its player,
+   * pick and round, and on a double turn the picks still to make before it
+   * passes, which may be 1 when the file stops partway through it.
    */
-  protected readonly previewNextSuffix = computed(() => {
+  protected readonly previewNextTurn = computed(() => {
     const next = this.pickImportPreview()?.next;
-    if (!next || picksPerTurn(this.store.draftSize(), next.round) === 1) return '';
-    return doubleTurnSuffix(next.picksBeforeTurnPasses);
+    if (!next) return '';
+    const doubleTurn = picksPerTurn(this.store.draftSize(), next.round) === 2;
+    return `${next.player}, ${turnWords(next, doubleTurn)}`;
   });
   /** All that's wrong with the latest file chosen for a pick import. */
   protected readonly pickImportProblems = signal<string[]>([]);
