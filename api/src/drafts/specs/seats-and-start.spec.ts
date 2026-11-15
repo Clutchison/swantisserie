@@ -21,6 +21,7 @@ import {
   setSeats,
   randomizeSeats,
   draftsRequest,
+  creationMatchQuery,
 } from './harness.js';
 
 useDraftsApp();
@@ -117,7 +118,7 @@ describe('seats and start', () => {
   it('refuses a start when the pool snapshot failed', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });

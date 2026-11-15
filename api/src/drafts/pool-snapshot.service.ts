@@ -5,6 +5,7 @@ import {
   OnApplicationShutdown,
 } from '@nestjs/common';
 import type {
+  Draft,
   Platform,
   PoolSourceKind,
   Prisma,
@@ -16,9 +17,9 @@ import {
   ScryfallRejectedSearchError,
   ScryfallUnavailableError,
 } from '../scryfall/scryfall-client.js';
-import { NO_BASIC_LANDS } from './basic-lands.js';
+import { withoutBasicLands } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
-import { NoOracleIdError, toPoolCard } from './pool-card.js';
+import { MissingCardFieldError, toPoolCard } from './pool-card.js';
 import { storedSetList } from './pool-source.js';
 import { setListPrintings } from './set-list-pool.js';
 import { SetCatalog } from '../sets/set-catalog.js';
@@ -32,6 +33,9 @@ interface SnapshotSource {
   setList: Prisma.JsonValue;
   platform: Platform;
 }
+
+/** A draft's snapshot state and error, as startOrRecordFailure leaves them. */
+export type SnapshotOutcome = Pick<Draft, 'snapshotState' | 'snapshotError'>;
 
 /** The pool snapshot is complete, so the pool can't change any more. */
 export class PoolFrozenError extends Error {
@@ -48,6 +52,11 @@ class PoolSnapshotError extends Error {}
  * Scryfall in the background: the pool snapshot. Progress lives on the draft (snapshotState,
  * poolTotal, snapshotError) and in its PoolCard rows. A draft defined by a
  * cube link has its snapshot taken whole when it is created, never here.
+ *
+ * A start that fails is handled by what asked for it. A resume at boot is
+ * logged and the draft stays Running, for the next boot. A new draft's start
+ * is logged and the snapshot recorded Failed, for the organizer to retry
+ * (startOrRecordFailure). An organizer's retry answers with the error.
  */
 @Injectable()
 export class PoolSnapshotService
@@ -64,9 +73,10 @@ export class PoolSnapshotService
   ) {}
 
   /**
-   * Picks up snapshots a previous process left unfinished. If that fails the
-   * app still starts: the drafts stay Running and are picked up next boot,
-   * or the organizer retries.
+   * Picks up snapshots a previous process left unfinished. If that fails,
+   * for all of them or for one draft's reset, the app still starts: those
+   * drafts stay Running and are picked up next boot, or the organizer
+   * retries.
    */
   async onApplicationBootstrap(): Promise<void> {
     try {
@@ -74,9 +84,20 @@ export class PoolSnapshotService
         where: { snapshotState: 'Running' },
         select: { id: true },
       });
-      for (const { id } of unfinished) void this.start(id);
+      for (const { id } of unfinished) {
+        // A PoolFrozenError lands here too: the snapshot completed meanwhile.
+        this.start(id).catch((err: unknown) => {
+          this.logger.error(
+            `Could not resume the pool snapshot for draft ${id}; it stays Running until the next boot resumes it`,
+            err,
+          );
+        });
+      }
     } catch (err) {
-      this.logger.error('Could not resume unfinished pool snapshots', err);
+      this.logger.error(
+        'Could not resume the unfinished pool snapshots; they stay Running until the next boot resumes them',
+        err,
+      );
     }
   }
 
@@ -95,7 +116,10 @@ export class PoolSnapshotService
    * Starts the draft's snapshot over. Resolves once the draft is marked
    * Running and its old cards are gone; the paging carries on in the
    * background. Does nothing if this process is already snapshotting it.
-   * Rejects with PoolFrozenError if the snapshot is already complete.
+   * Rejects with PoolFrozenError if the snapshot is already complete, and
+   * with the database's error if the reset fails, leaving the draft as it
+   * was: a resume at boot logs that and the draft stays Running;
+   * startOrRecordFailure logs it and records the snapshot Failed.
    */
   start(draftId: string): Promise<void> {
     if (this.running.has(draftId)) return Promise.resolve();
@@ -110,6 +134,40 @@ export class PoolSnapshotService
       .finally(() => this.running.delete(draftId));
     this.running.set(draftId, job);
     return startedPromise;
+  }
+
+  /**
+   * Starts a new draft's snapshot, as start does, but never rejects: the
+   * draft is already saved. A start that fails is logged and the snapshot
+   * recorded Failed, for the organizer to retry; if that write fails too,
+   * the draft stays Running for the next boot to resume. Resolves to the
+   * snapshot's state and error as it leaves them.
+   */
+  async startOrRecordFailure(draftId: string): Promise<SnapshotOutcome> {
+    const running = { snapshotState: 'Running', snapshotError: null } as const;
+    const failed = {
+      snapshotState: 'Failed',
+      snapshotError: UNEXPECTED_SNAPSHOT_FAILURE,
+    } as const;
+    try {
+      await this.start(draftId);
+      return running;
+    } catch (err) {
+      this.logger.error(
+        `Could not start the pool snapshot for new draft ${draftId}; recording it Failed for the organizer to retry`,
+        err,
+      );
+      switch (await this.recordFailure(draftId, failed.snapshotError)) {
+        case 'recorded':
+          return failed;
+        case 'not-recorded':
+          return running;
+        case 'cancelled':
+          // Not reached: nothing can cancel the draft before its creation
+          // answers, so no one sees what this returns.
+          return failed;
+      }
+    }
   }
 
   private async run(
@@ -133,14 +191,33 @@ export class PoolSnapshotService
         data: { snapshotState: 'Complete' },
       });
     } catch (err) {
-      const { count } = await this.prisma.draft.updateMany({
-        where: { id: draftId },
-        data: { snapshotState: 'Failed', snapshotError: explain(err) },
-      });
       // No draft left: it was cancelled, which is what stopped the snapshot.
-      if (count > 0) {
+      if ((await this.recordFailure(draftId, explain(err))) !== 'cancelled') {
         this.logger.error(`Pool snapshot for draft ${draftId} failed`, err);
       }
+    }
+  }
+
+  /**
+   * Records the draft's snapshot Failed with `error`. If the write fails,
+   * logs it and leaves the draft Running, for the next boot to resume.
+   */
+  private async recordFailure(
+    draftId: string,
+    error: string,
+  ): Promise<'recorded' | 'cancelled' | 'not-recorded'> {
+    try {
+      const { count } = await this.prisma.draft.updateMany({
+        where: { id: draftId },
+        data: { snapshotState: 'Failed', snapshotError: error },
+      });
+      return count > 0 ? 'recorded' : 'cancelled';
+    } catch (err) {
+      this.logger.error(
+        `Could not record the pool snapshot for draft ${draftId} as Failed; it stays Running until the next boot resumes it`,
+        err,
+      );
+      return 'not-recorded';
     }
   }
 
@@ -233,7 +310,7 @@ export class PoolSnapshotService
     // one; the pool query was already checked to have no cards off the
     // platform. The basic lands are left out: a player adds them to their
     // plan one copy at a time.
-    const query = `(${poolQuery}) ${NO_BASIC_LANDS} game:${SCRYFALL_GAME[platform]} unique:cards`;
+    const query = `${withoutBasicLands(poolQuery)} game:${SCRYFALL_GAME[platform]} unique:cards`;
     for (let page = 1; ; page++) {
       const result = await this.scryfall.search(query, page);
       if (!result) {
@@ -284,7 +361,10 @@ export const UNEXPECTED_SNAPSHOT_FAILURE =
 
 /** A failure's explanation, fit to show the organizer. */
 function explain(err: unknown): string {
-  if (err instanceof PoolSnapshotError || err instanceof NoOracleIdError) {
+  if (
+    err instanceof PoolSnapshotError ||
+    err instanceof MissingCardFieldError
+  ) {
     return err.message;
   }
   if (err instanceof ScryfallRejectedSearchError) {
