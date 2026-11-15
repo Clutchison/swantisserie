@@ -53,7 +53,8 @@ export class DecklistsService {
    * public decklists (`decklists-private`), or for a tournament completed
    * before every deck was kept (`decklists-not-kept`). Throws
    * MalformedDecklistError, a 500, for an entry whose snapshot is malformed,
-   * rather than serve a decklist without its boards.
+   * rather than serve a decklist without its boards. The Trophy Hall,
+   * which covers many tournaments, skips such an entry instead.
    */
   async read(draftId: string): Promise<DecklistView[]> {
     const tournament = await this.prisma.tournament.findUnique({
