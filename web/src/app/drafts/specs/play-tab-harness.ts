@@ -175,6 +175,9 @@ export const grantedDraw = (match: MatchView): MatchView => ({
   clearLeaves: { kind: 'Unreported' },
 });
 
+/** `match` as the api reads it once nobody may confirm it, as once its results are final. */
+export const unconfirmable = (match: MatchView): MatchView => ({ ...match, confirmableBy: [] });
+
 /** `match`, reported, as the api reads it once it is confirmed: nobody may confirm it again. */
 export const confirmedMatch = (match: MatchView): MatchView => ({
   ...match,
@@ -273,7 +276,9 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
       {
         round: 1,
         correctable: false,
-        matches: [reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
+        matches: [
+          unconfirmable(reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)),
+        ],
         byes: [alice.id],
       },
       {
@@ -303,9 +308,10 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
 
 /**
  * The tournament `view` once it is complete: none of its rounds
- * correctable any more, nobody able to report its matches, its decklists
- * shown, and Reinstate of each dropped player refused, as no change is made
- * outside play, as the api reads it.
+ * correctable any more, nobody able to report or confirm its matches, as
+ * its results are final, its decklists shown, and Reinstate of each
+ * dropped player refused, as no change is made outside play, as the api
+ * reads it.
  */
 export function completed(view: ViewerTournamentView): ViewerTournamentView {
   return {
@@ -320,7 +326,7 @@ export function completed(view: ViewerTournamentView): ViewerTournamentView {
     rounds: view.rounds.map((round) => ({
       ...round,
       correctable: false,
-      matches: round.matches.map((match) => ({ ...match, reportableBy: [] })),
+      matches: round.matches.map((match) => ({ ...unconfirmable(match), reportableBy: [] })),
     })),
   };
 }
@@ -427,7 +433,8 @@ export const carolBeatBob = ({
   confirmed = false,
   completed = false,
 }: { confirmed?: boolean; completed?: boolean } = {}): TournamentRoundView => {
-  const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id);
+  const reportedM1 = reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id);
+  const m1 = completed ? unconfirmable(reportedM1) : reportedM1;
   return {
     round: 1,
     correctable: !completed,

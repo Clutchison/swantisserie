@@ -93,7 +93,9 @@ interface OwnMatchLine {
 
 /**
  * The signed-in player's own matches, at the top of the Play tab, given as
- * a list, with Confirm on a game score someone else reported and a link
+ * a list, with Confirm on a game score someone else reported, while the
+ * api lists them as able to confirm it (not once its results are final:
+ * its tournament round completed, or the tournament complete), and a link
  * to their deck.
  *
  * In Swiss and single elimination, "Your match": the one match the Play
@@ -104,9 +106,9 @@ interface OwnMatchLine {
  * then the rest, each in join order. A match the api says they may report
  * offers Report, which opens the match result dialog on its four game
  * scores, asking before it reports one; it closes itself once the match is
- * no longer reportable. A game score someone else reported offers Confirm, dropped
- * or not. Round robin has no tournament rounds, so any match can be
- * reported in any order.
+ * no longer reportable. Confirm is offered whether they have dropped or
+ * not. Round robin has no tournament rounds, so any match can be reported
+ * in any order.
  */
 @Component({
   selector: 'app-your-matches',

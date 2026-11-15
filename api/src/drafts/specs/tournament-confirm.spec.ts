@@ -10,6 +10,7 @@ import {
   matchOf,
   playingTournament,
   reportCurrentRound,
+  reopenRound,
   reportWin,
   setWin,
   signIn,
@@ -88,33 +89,56 @@ describe('confirming a match', () => {
     expect((await matchOf(id, bob.id, carol.id)).confirmed).toBe(true);
   });
 
-  it('lets the opponent confirm once the tournament is complete', async () => {
+  it('refuses a Confirm once the tournament is complete, as its results are final', async () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     await reportWin(id, [alice.id, bob.id], [2, 0], aliceCookie);
     await completeTournament(id).expect(200);
     const match = await matchOf(id, alice.id, bob.id);
+    expect(match.confirmableBy).toEqual([]);
 
-    await confirmMatch(id, match.id, bobCookie).expect(200);
+    const answer = await confirmMatch(id, match.id, bobCookie).expect(409);
 
-    expect((await matchOf(id, alice.id, bob.id)).confirmed).toBe(true);
+    expect(answer.body.error).toBe('tournament-complete');
+    expect(answer.body.message).toMatch(/final/);
+    expect((await matchOf(id, alice.id, bob.id)).confirmed).toBe(false);
   });
 
-  it('lets the opponent confirm a match of a completed Swiss tournament round, changing nothing else in it', async () => {
+  it('refuses a Confirm of a match of a completed Swiss tournament round, as its results are final', async () => {
     const cookies = [aliceCookie, bobCookie, carolCookie, await signIn(dave)];
     const id = await playingTournament(cookies, swiss());
     const cookieOf = await cookiesByPlayer(id, cookies);
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
     const [completed] = (await tournamentView(id)).rounds;
-    const [match, other] = completed.matches;
-    expect(match.confirmed).toBe(false);
+    const [match] = completed.matches;
+
+    const answer = await confirmMatch(
+      id,
+      match.id,
+      cookieOf[match.players[1]],
+    ).expect(409);
+
+    expect(answer.body.error).toBe('round-completed');
+    expect(answer.body.message).toMatch(/final/);
+    expect(answer.body.message).not.toMatch(/reopen/i);
+    expect((await tournamentView(id)).rounds[0]).toEqual(completed);
+  });
+
+  it('lets the opponent confirm a match of a reopened tournament round again', async () => {
+    const cookies = [aliceCookie, bobCookie, carolCookie, await signIn(dave)];
+    const id = await playingTournament(cookies, swiss());
+    const cookieOf = await cookiesByPlayer(id, cookies);
+    await reportCurrentRound(id, cookieOf);
+    await completeRound(id).expect(200);
+    await reopenRound(id).expect(200);
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+    expect(match.confirmableBy).toEqual([match.players[1]]);
 
     await confirmMatch(id, match.id, cookieOf[match.players[1]]).expect(200);
 
-    expect((await tournamentView(id)).rounds[0]).toEqual({
-      ...completed,
-      matches: [{ ...match, confirmed: true, confirmableBy: [] }, other],
-    });
+    expect((await tournamentView(id)).rounds[0].matches[0].confirmed).toBe(
+      true,
+    );
   });
 });
 
@@ -139,5 +163,30 @@ describe('who the tournament read says may confirm a match', () => {
       bob.id,
       carol.id,
     ]);
+  });
+
+  /** A Swiss tournament of Bob, Carol and Dave, whose round 1 match an organizer who isn't playing reported. */
+  async function organizerReportedSwiss() {
+    const id = await playingTournament(
+      [bobCookie, carolCookie, await signIn(dave)],
+      swiss(),
+    );
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+    await setWin(id, match.players, [2, 1]);
+    return { id, players: match.players };
+  }
+
+  it('names both players of a match an organizer reported while its tournament round is open', async () => {
+    const { id, players } = await organizerReportedSwiss();
+
+    expect((await matchOf(id, ...players)).confirmableBy).toEqual(players);
+  });
+
+  it('names nobody once the tournament round of a match an organizer reported is completed', async () => {
+    const { id, players } = await organizerReportedSwiss();
+
+    await completeRound(id).expect(200);
+
+    expect((await matchOf(id, ...players)).confirmableBy).toEqual([]);
   });
 });

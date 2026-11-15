@@ -63,6 +63,7 @@ import {
   swissRoundsWith,
   threePlayers,
   withDrops,
+  entry,
   withTournament,
   yourMatches,
   completed,
@@ -80,6 +81,7 @@ import {
   expectBeforeLists,
   expectByActionRows,
   expectByActions,
+  expectByResults,
   expectByYourMatches,
   listsAfterActions,
 } from './play-tab-placement-harness';
@@ -413,6 +415,22 @@ describe('Play tab while the tournament is played', () => {
         "Couldn't confirm the match. Try again in a moment.",
       );
       expectAtFoot(page, namedList(tab, 'Players'));
+    });
+
+    it('says confirming from the list of matches failed by that list, before the players', async () => {
+      const aliceDropped = [alice.id, bob.id, carol.id].map((id) =>
+        entry(id, { dropped: id === alice.id }),
+      );
+      const { fixture, page, tab } = await openPlaying(
+        swissPlaying({ entries: aliceDropped, rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+
+      button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol')!.click();
+
+      expect(
+        await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm'),
+      ).toBe("Couldn't confirm the match. Try again in a moment.");
+      expectByResults(page, tab);
     });
 
     it('is absent for a viewer who didn’t join', async () => {
