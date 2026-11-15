@@ -12,8 +12,7 @@ import type {
   SetListEntryView,
   TurnState,
 } from 'contract';
-import { isTurnState } from 'contract';
-import { draftSize, picksPerTurn } from 'engine';
+import { draftSize, isTurnState, picksPerTurn } from 'engine';
 import type { Changes } from './changes';
 
 /**
