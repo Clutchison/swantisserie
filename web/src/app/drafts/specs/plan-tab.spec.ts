@@ -41,6 +41,7 @@ import {
   boltAgain,
   cards,
   deckNotice,
+  DECK_NOTICE,
   pressDismiss,
   planned,
   unpicked,
@@ -374,7 +375,7 @@ describe('plan tab', () => {
       plan: planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
     });
     const plan = await openPlan(fixture, page);
-    const region = emptyStatusIn(plan, 'Deck notice');
+    const region = emptyStatusIn(plan, DECK_NOTICE);
     const withLoss = planOf({
       mainboard: [planned(brightclimb)],
       lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
@@ -389,7 +390,7 @@ describe('plan tab', () => {
 
     await changed(1);
 
-    expect(statusIn(plan, { name: 'Deck notice' })).toBe(region);
+    expect(statusIn(plan, { name: DECK_NOTICE })).toBe(region);
     expect(text(region)).toBe('Lost to other players: Shivan Dragon (picked by Bob). Dismiss');
 
     // A later change re-reads the plan, its notice the same: the region is left alone.

@@ -6,6 +6,7 @@ import {
   pressKey,
   question,
   statusIn,
+  watchChanges,
 } from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
@@ -241,7 +242,7 @@ describe('close and reopen', () => {
     expect(page.textContent).toContain(banner);
   });
 
-  it('says the draft is closed in its region, there and empty while drafting, so it is announced', async () => {
+  it('says the draft is closed in its region, there and empty while drafting, so it is announced once', async () => {
     const organizer = { id: bob.id, name: bob.name };
     const { fixture, page } = await openDraft(completeSnapshot, { ...underway, organizer });
     const region = emptyStatusIn(page, 'Closed');
@@ -252,6 +253,15 @@ describe('close and reopen', () => {
     await fixture.whenStable();
 
     expect(statusIn(page, { name: 'Closed' })).toBe(region);
+    expect(text(region)).toBe(banner);
+
+    // The same note re-rendered by a later change isn't put in again, so it isn't said twice.
+    const changes = watchChanges(region);
+    updates.events.next({ type: 'changed', draft: draft({ ...closed, organizer, version: 2 }) });
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+    expect(changes()).toEqual([]);
     expect(text(region)).toBe(banner);
   });
 

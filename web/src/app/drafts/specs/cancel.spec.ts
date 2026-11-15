@@ -26,7 +26,7 @@ import {
   LIST_NOTICE,
   landOnDraftList,
   listedDrafts,
-  listNotice,
+  listNoticeRegion,
   openList,
   settle,
 } from './draft-list-harness';
@@ -43,7 +43,7 @@ describe('cancel', () => {
   /** Waits for the draft list the page sent the viewer to, and returns its notice. */
   async function flushList(page: HTMLElement) {
     await landOnDraftList();
-    return text(listNotice(page));
+    return text(listNoticeRegion(page));
   }
 
   it.each([running, failed, completeSnapshot])(
@@ -199,7 +199,7 @@ describe('cancel', () => {
     const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
     updates.events.next({ type: 'cancelled' });
     await flushList(page);
-    const changes = watchChanges(listNotice(page)!);
+    const changes = watchChanges(listNoticeRegion(page)!);
 
     pushToOwnRoom(updates, {
       type: 'changed',
@@ -224,6 +224,6 @@ describe('cancel', () => {
   it('leaves the draft list’s notice empty otherwise', async () => {
     const page = await openList([]);
 
-    expect(text(listNotice(page))).toBe('');
+    expect(text(listNoticeRegion(page))).toBe('');
   });
 });

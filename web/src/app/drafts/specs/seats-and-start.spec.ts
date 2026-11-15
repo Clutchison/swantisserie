@@ -24,6 +24,7 @@ import {
   tabButton,
   panel,
   pickImportPreview,
+  PICK_IMPORT_PREVIEW,
   pickImportProblems,
   serverError,
   type AppFixture,
@@ -316,7 +317,7 @@ describe('seats and start', () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       expect(page.textContent).toContain('Import picks');
       // A live region announces changes to it, not the text it is inserted with.
-      const region = emptyStatusIn(page, 'Pick import preview');
+      const region = emptyStatusIn(page, PICK_IMPORT_PREVIEW);
 
       await chooseFile(fixture, page, preview);
 
@@ -384,7 +385,7 @@ describe('seats and start', () => {
         );
 
         await vi.waitFor(() => {
-          expect(pickImportPreview(page)).toBeUndefined();
+          expect(pickImportPreview(page)).toBeNull();
           expect(button(page, 'Import picks')).toBeUndefined();
         });
         const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
@@ -441,7 +442,7 @@ describe('seats and start', () => {
             'The file has 2 player columns, but the draft has 3 players.',
           ]),
         );
-        expect(pickImportPreview(page)).toBeUndefined();
+        expect(pickImportPreview(page)).toBeNull();
       });
 
       it('says the import failed when it fails without a refusal, keeping the preview, until it goes through', async () => {
@@ -450,7 +451,7 @@ describe('seats and start', () => {
         await confirmImport(page, { message: 'Internal server error' }, 500);
         await fixture.whenStable();
         await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(importFailed));
-        expect(pickImportPreview(page)).toBeDefined();
+        expect(pickImportPreview(page)).not.toBeNull();
         expect(catchUps()).toEqual([]);
 
         await confirmImport(
@@ -572,7 +573,7 @@ describe('seats and start', () => {
       updates.events.next({ type: 'changed', draft: draft({ players: [alicePlayer, bob] }) });
       await fixture.whenStable();
 
-      expect(pickImportPreview(page)).toBeDefined();
+      expect(pickImportPreview(page)).not.toBeNull();
       expect(changes()).toEqual([]);
     });
 
@@ -601,7 +602,7 @@ describe('seats and start', () => {
       await flushQueueAndPlan();
       await fixture.whenStable();
 
-      expect(pickImportPreview(page)).toBeUndefined();
+      expect(pickImportPreview(page)).toBeNull();
     });
 
     it('shows no preview from the last draft on another, even at the same version', async () => {
@@ -612,7 +613,7 @@ describe('seats and start', () => {
       await goToOtherDraft(fixture, completeSnapshot, { players: [alicePlayer, bob] });
 
       expect(button(page, 'Import picks')).toBeDefined();
-      expect(pickImportPreview(page)).toBeUndefined();
+      expect(pickImportPreview(page)).toBeNull();
     });
 
     it('is offered only to a viewer who may organize', async () => {

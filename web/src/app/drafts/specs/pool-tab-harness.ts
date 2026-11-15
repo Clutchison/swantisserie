@@ -59,6 +59,11 @@ export const tiles = (page: HTMLElement) => [
   ...page.querySelectorAll<HTMLButtonElement>('[role="tabpanel"] .grid button'),
 ];
 
+/** The names of Card detail's live regions: the latest-picks note, the queue note and the plan note. */
+export const PICKS_NOTE = 'Picks note';
+export const QUEUE_NOTE = 'Queue note';
+export const DECK_NOTE = 'Deck note';
+
 /** Taps the grid's `index`th card and returns the Card detail it opens. */
 export async function openDetail(fixture: AppFixture, page: HTMLElement, index: number) {
   tiles(page)[index].click();

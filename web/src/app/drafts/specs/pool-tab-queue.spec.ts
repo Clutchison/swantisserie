@@ -48,7 +48,15 @@ import {
   visibleText,
   watchChanges,
 } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb, openDetail, tiles, card } from './pool-tab-harness';
+import {
+  useTallScreen,
+  shivan,
+  brightclimb,
+  openDetail,
+  tiles,
+  card,
+  QUEUE_NOTE,
+} from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -83,13 +91,13 @@ describe('pool tab', () => {
         cards: [shivan],
       });
       const detail = await openDetail(fixture, page, 0);
-      const region = emptyStatusIn(detail, 'Queue');
+      const region = emptyStatusIn(detail, QUEUE_NOTE);
 
       button(detail, 'Add to queue')!.click();
       http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
 
-      expect(statusIn(detail, { name: 'Queue' })).toBe(region);
+      expect(statusIn(detail, { name: QUEUE_NOTE })).toBe(region);
       expect(text(region)).toBe('Added to your queue.');
     });
 
@@ -654,7 +662,7 @@ describe('pool tab', () => {
           cards: [shivan],
         });
         const detail = await openDetail(fixture, page, 0);
-        const region = emptyStatusIn(detail, 'Queue');
+        const region = emptyStatusIn(detail, QUEUE_NOTE);
 
         button(detail, 'Add to queue')!.click();
         http.expectOne('/api/drafts/draft-1/queue').flush(
@@ -678,7 +686,7 @@ describe('pool tab', () => {
         await fixture.whenStable();
 
         // The note outlives the turn change the re-read reveals, and isn't said again.
-        expect(statusIn(detail, { name: 'Queue' })).toBe(region);
+        expect(statusIn(detail, { name: QUEUE_NOTE })).toBe(region);
         expect(text(region)).toBe('You can’t add to your queue on your turn.');
         expect(changes()).toEqual([]);
         expect(button(detail, 'Add to queue')).toBeUndefined();

@@ -100,5 +100,10 @@ export function alicesTurnItem(
 /** The name of the draft list's notice's live region. */
 export const LIST_NOTICE = 'Draft list notice';
 
-/** The draft list's notice, such as that a draft was cancelled: its live region, empty when there is none. */
-export const listNotice = (page: HTMLElement) => statusIn(page, { name: LIST_NOTICE });
+/**
+ * The draft list's notice region, such as one saying a draft was cancelled:
+ * the region itself, empty when there is no notice; null only if it is not on
+ * the page. Unlike the filled wrappers (`queueNotice`, `deckNotice`), it is
+ * not null while empty, as its specs watch the one region from landing on.
+ */
+export const listNoticeRegion = (page: HTMLElement) => statusIn(page, { name: LIST_NOTICE });

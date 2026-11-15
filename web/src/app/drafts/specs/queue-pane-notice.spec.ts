@@ -42,6 +42,7 @@ import {
 } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt, pressDismiss } from './plan-tab-harness';
+import { QUEUE_NOTICE } from './queue-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -176,7 +177,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       queue: queueOf({ cards: [queued(shivan)] }),
     });
     const queue = queuePane(page);
-    const region = emptyStatusIn(queue, 'Queue notice');
+    const region = emptyStatusIn(queue, QUEUE_NOTICE);
 
     updates.events.next({
       type: 'changed',
@@ -189,7 +190,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     await flushPlan(EMPTY_PLAN);
     await fixture.whenStable();
 
-    expect(statusIn(queue, { name: 'Queue notice' })).toBe(region);
+    expect(statusIn(queue, { name: QUEUE_NOTICE })).toBe(region);
     expect(text(region)).toBe('Lost to other players: Shivan Dragon. Dismiss');
     expect(button(region, 'Dismiss')).toBeDefined();
 

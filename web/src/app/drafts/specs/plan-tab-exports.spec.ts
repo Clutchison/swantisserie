@@ -10,6 +10,7 @@ import {
   pressEscape,
   pressKey,
   statusIn,
+  watchChanges,
 } from '../../specs-harness';
 import type { PickedCard } from '../draft-store';
 import type { ExportTarget } from '../export-buttons';
@@ -28,6 +29,8 @@ import {
   flushPool,
   flushQueue,
   flushQueueAndPlan,
+  flushPicks,
+  updates,
   completeSnapshot,
   type DraftFixture,
   pickOf,
@@ -38,7 +41,13 @@ import {
   buttonOrder,
   accessibleName,
 } from './harness';
-import { exportButton, openPlan, planPanel, sideboardNotice } from './plan-tab-harness';
+import {
+  exportButton,
+  openPlan,
+  planPanel,
+  sideboardNotice,
+  SIDEBOARD_CAP_NOTE,
+} from './plan-tab-harness';
 import { playing, threePlayers, withTournament } from './play-tab-harness';
 
 useDraftsApp();
@@ -504,7 +513,7 @@ describe('Deck tab exports', () => {
           expect(copied.slice(copied.indexOf('Sideboard') + 1)).toHaveLength(16);
         });
 
-        it('puts the sideboard cap note into its region, there and empty under the cap', async () => {
+        it('puts the sideboard cap note into its region, there and empty under the cap, and says it once', async () => {
           const { sideboardPicks, yours } = sideboardOf(16);
           const underCap: PlanView = {
             ...yours,
@@ -512,16 +521,33 @@ describe('Deck tab exports', () => {
             sideboard: yours.sideboard.slice(0, 15),
           };
           const { fixture, page } = await openPlanWith(sideboardPicks, {}, { plan: underCap });
-          const region = emptyStatusIn(planPanel(page), 'Sideboard over Arena’s cap');
+          const region = emptyStatusIn(planPanel(page), SIDEBOARD_CAP_NOTE);
 
           button(planPanel(page), 'Move Card 15 to the sideboard')!.click();
           http.expectOne('/api/drafts/draft-1/plan/card-15').flush(yours);
           await fixture.whenStable();
 
-          expect(statusIn(planPanel(page), { name: 'Sideboard over Arena’s cap' })).toBe(region);
+          expect(statusIn(planPanel(page), { name: SIDEBOARD_CAP_NOTE })).toBe(region);
           expect(text(region)).toBe(
             "Your sideboard has 16 cards. Arena's import may keep only 15 of them, though your export has them all.",
           );
+
+          // A later draft change re-reads the same plan: the region is left alone, so the note isn't said twice.
+          const changes = watchChanges(region);
+          updates.events.next({
+            type: 'changed',
+            draft: draft({
+              snapshot: completeSnapshot,
+              state: 'Drafting',
+              players: [bob, alicePlayer],
+              turn: { pick: 4, round: 2, playerId: bob.id },
+              version: 1,
+            }),
+          });
+          await flushPicks(picksOf(sideboardPicks));
+          await flushQueueAndPlan(EMPTY_QUEUE, yours);
+          await fixture.whenStable();
+          expect(changes()).toEqual([]);
         });
 
         it('counts the sideboard’s basics toward Arena’s 15', async () => {
@@ -539,7 +565,7 @@ describe('Deck tab exports', () => {
           const { sideboardPicks, yours } = sideboardOf(15);
           const { page } = await openPlanWith(sideboardPicks, {}, { plan: yours });
 
-          expect(sideboardNotice(page)).toBeUndefined();
+          expect(sideboardNotice(page)).toBeNull();
         });
 
         it('doesn’t warn on an MTGO draft', async () => {
@@ -550,7 +576,7 @@ describe('Deck tab exports', () => {
             { plan: yours },
           );
 
-          expect(sideboardNotice(page)).toBeUndefined();
+          expect(sideboardNotice(page)).toBeNull();
         });
       });
     });

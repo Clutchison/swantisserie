@@ -38,6 +38,7 @@ import {
   tiles,
   openDetail,
   searchBox,
+  PICKS_NOTE,
 } from './pool-tab-harness';
 import { exportButton, openPlan } from './plan-tab-harness';
 
@@ -186,14 +187,14 @@ describe('pool tab', () => {
           picks: [{ ...shivanPick, playerId: bob.id }],
         });
         const detail = await openDetail(fixture, page, 0);
-        const region = emptyStatusIn(detail, 'Picks');
+        const region = emptyStatusIn(detail, PICKS_NOTE);
 
         updates.events.next({ type: 'changed', draft: draft({ ...alicesTurnAgain, version: 1 }) });
         await failPicks();
         await flushQueueAndPlan();
         await fixture.whenStable();
 
-        expect(statusIn(detail, { name: 'Picks' })).toBe(region);
+        expect(statusIn(detail, { name: PICKS_NOTE })).toBe(region);
         expect(text(region)).toBe(picksDidntLoad);
       });
 
@@ -205,14 +206,14 @@ describe('pool tab', () => {
         });
         const detail = await openDetail(fixture, page, 0);
         expect(detail.textContent).toContain('You can pick on your turn.');
-        const region = emptyStatusIn(detail, 'Picks');
+        const region = emptyStatusIn(detail, PICKS_NOTE);
 
         updates.events.next({ type: 'changed', draft: draft({ ...bobsTurn, version: 1 }) });
         await failPicks();
         await flushQueueAndPlan();
         await fixture.whenStable();
 
-        expect(statusIn(detail, { name: 'Picks' })).toBe(region);
+        expect(statusIn(detail, { name: PICKS_NOTE })).toBe(region);
         expect(text(region)).toBe(picksDidntLoad);
         expect(detail.textContent).not.toContain('You can pick on your turn.');
 

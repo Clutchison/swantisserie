@@ -59,11 +59,16 @@ export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
   ...fields,
 });
 
+/** The names of the Deck tab's live regions: the Ready notice, the Deck notice and the note that the sideboard is over Arena's cap. */
+export const READY_NOTICE = 'Ready notice';
+export const DECK_NOTICE = 'Deck notice';
+export const SIDEBOARD_CAP_NOTE = 'Sideboard over Arena’s cap';
+
 /** The Ready notice inside `root`, telling the player they are no longer ready: its status region while it holds the notice; null otherwise. */
-export const readyNotice = (root: HTMLElement) => filledStatusIn(root, 'Ready notice');
+export const readyNotice = (root: HTMLElement) => filledStatusIn(root, READY_NOTICE);
 
 /** The Deck notice inside `root`, naming cards lost to other players: its status region while it holds the notice; null otherwise. */
-export const deckNotice = (root: HTMLElement) => filledStatusIn(root, 'Deck notice');
+export const deckNotice = (root: HTMLElement) => filledStatusIn(root, DECK_NOTICE);
 
 /**
  * Focuses and presses `notice`'s Dismiss, runs `meanwhile` while the dismiss
@@ -89,11 +94,9 @@ export async function pressDismiss(
 /** The Deck tab's panel, even while it's hidden behind another tab. */
 export const planPanel = (page: HTMLElement) => tabPanel(page, 'Deck');
 
-/** Arena's sideboard-cap notice on the Deck tab: the status saying Arena may keep only 15; undefined if none shows. */
+/** Arena's sideboard-cap note on the Deck tab, saying Arena may keep only 15: its status region while it holds the note; null otherwise. */
 export const sideboardNotice = (page: HTMLElement) =>
-  [...planPanel(page).querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
-    text(status).startsWith('Your sideboard has'),
-  );
+  filledStatusIn(planPanel(page), SIDEBOARD_CAP_NOTE);
 
 /** The Deck tab's Export button, whether it shows its label or its confirmation. */
 export const exportButton = (page: HTMLElement) =>
