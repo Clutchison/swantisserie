@@ -138,10 +138,10 @@ export class TournamentRegistrationService {
    * says: their own tournament entry only, as only the player changes
    * their ready. Marking an already ready player ready, or unmarking one who
    * isn't, changes nothing. Throws NotAPlayerError if they aren't one of the
-   * draft's players, and TournamentRefusedError (notJoined) if they haven't
-   * joined, or if the tournament is past registration; and on marking, if they
-   * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS, as
-   * `readyRefusal` decides. Marking ready takes down the player's Ready
+   * draft's players. Throws TournamentRefusedError with notJoined('self') if
+   * they haven't joined; with not-in-registration if the tournament is past
+   * registration; and on marking, with what `readyRefusal` decides if they
+   * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS. Marking ready takes down the player's Ready
    * notice; unmarking never sets it. Nothing is announced.
    */
   async setReady(

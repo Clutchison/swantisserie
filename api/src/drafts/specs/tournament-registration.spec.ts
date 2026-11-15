@@ -74,8 +74,11 @@ describe('leaving and joining again', () => {
     const carolCookie = await signIn(carol);
 
     expect(
-      (await removeEntry(id, carol.id, carolCookie).expect(403)).body.error,
-    ).toBe('not-a-player');
+      (await removeEntry(id, carol.id, carolCookie).expect(403)).body,
+    ).toEqual({
+      error: 'not-a-player',
+      message: 'Only the draft’s players can take part in its tournament.',
+    });
     expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);
   });
 

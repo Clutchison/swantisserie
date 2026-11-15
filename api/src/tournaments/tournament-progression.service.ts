@@ -130,8 +130,8 @@ export class TournamentProgressionService {
    * the tournament: NotAPlayerError when someone who isn't one of the
    * draft's players drops themselves, TournamentRefusedError (notJoined,
    * worded for `actor`) otherwise. Throws TournamentRefusedError too if they
-   * are a bot or have dropped already, or the tournament isn't playing,
-   * worded for `actor` (see notJoined).
+   * are a bot, have dropped already (worded for `actor`), or the tournament
+   * isn't playing.
    */
   async drop(
     draftId: string,
