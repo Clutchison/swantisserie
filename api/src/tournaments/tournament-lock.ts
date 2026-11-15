@@ -136,6 +136,10 @@ export async function findMatch(
     reportedById: match.reportedById,
     players: [match.firstEntry.player.userId, match.secondEntry?.player.userId],
     dropped: [match.firstEntry.dropped, !!match.secondEntry?.dropped],
+    bots: [
+      match.firstEntry.player.user.isBot,
+      !!match.secondEntry?.player.user.isBot,
+    ],
   };
 }
 

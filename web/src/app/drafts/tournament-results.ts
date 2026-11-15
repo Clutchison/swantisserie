@@ -168,12 +168,7 @@ export class TournamentResults {
    */
   private line(match: MatchView, correctable: boolean) {
     const own = this.ownId();
-    const reportable =
-      this.tournament().state === 'Playing' &&
-      match.outcome.kind === 'Unreported' &&
-      !!own &&
-      match.players.includes(own) &&
-      match.id !== this.currentId();
+    const reportable = !!own && match.reportableBy.includes(own) && match.id !== this.currentId();
     return {
       ...matchLine(match, [this.seeded(match.players[0]), this.seeded(match.players[1])], (id) =>
         this.name(id),

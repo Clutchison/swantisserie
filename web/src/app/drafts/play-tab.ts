@@ -221,18 +221,18 @@ export class PlayTab {
   });
   /**
    * The signed-in player's match "Your match" shows, in Swiss and single
-   * elimination: the one they chose, while it is unreported, else their
-   * first match by tournament round that needs something from them, Report
-   * if it is unreported or Confirm if someone else reported it.
+   * elimination: the one they chose, while they may report it, else their
+   * first match by tournament round that they may report or confirm, as
+   * the api says.
    */
   protected readonly ownMatch = computed((): OwnMatch | undefined => {
     const ownId = this.ownId();
     if (!ownId || !this.playsOn()) return undefined;
-    const unreported = (match: MatchView) => match.outcome.kind === 'Unreported';
+    const reportable = (match: MatchView) => match.reportableBy.includes(ownId);
     const mine = this.mine();
     return (
-      mine.find(({ match }) => match.id === this.chosen() && unreported(match)) ??
-      mine.find(({ match }) => unreported(match) || match.confirmableBy.includes(ownId))
+      mine.find(({ match }) => match.id === this.chosen() && reportable(match)) ??
+      mine.find(({ match }) => reportable(match) || match.confirmableBy.includes(ownId))
     );
   });
   /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */

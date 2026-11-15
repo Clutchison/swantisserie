@@ -84,9 +84,9 @@ interface OwnMatchLine {
   before: string;
   /** How it stands after the avatar, such as "vs Carol", "Carol reported you lost 1–2" or "Forfeit: Carol dropped". */
   says: string;
-  /** Whether the player may report it: unreported while the tournament is playing, which a dropped player's never are, as they became forfeits. */
+  /** Whether the player may report it, as the api says. */
   reportable: boolean;
-  /** Whether the player may confirm it: someone else reported its game score, unconfirmed. */
+  /** Whether the player may confirm it, as the api says. */
   confirmable: boolean;
 }
 
@@ -100,10 +100,10 @@ interface OwnMatchLine {
  * scores straight away while it is unreported.
  *
  * In round robin, Your matches: one line per opponent, unreported first,
- * then the rest, each in join order. An unreported match offers Report,
- * which opens the match result dialog on its four game scores, asking
- * before it reports one; it closes itself once the match is no longer
- * reportable. A game score someone else reported offers Confirm, dropped
+ * then the rest, each in join order. A match the api says they may report
+ * offers Report, which opens the match result dialog on its four game
+ * scores, asking before it reports one; it closes itself once the match is
+ * no longer reportable. A game score someone else reported offers Confirm, dropped
  * or not. Round robin has no tournament rounds, so any match can be
  * reported in any order.
  */
@@ -163,9 +163,9 @@ export class YourMatches {
   /** The player's matches, one line per opponent: unreported first, then the rest, each in their opponents' join order. */
   protected readonly lines = computed(() => {
     const own = this.ownId();
-    const { entries, state } = this.tournament();
+    const { entries } = this.tournament();
     const joinOrder = new Map(entries.map((entry, i) => [entry.playerId, i]));
-    const lines = this.matches().map((match) => this.line(match, own, state === 'Playing'));
+    const lines = this.matches().map((match) => this.line(match, own));
     const unreported = (line: OwnMatchLine) => (line.match.outcome.kind === 'Unreported' ? 0 : 1);
     return lines.sort(
       (a, b) =>
@@ -174,16 +174,15 @@ export class YourMatches {
     );
   });
 
-  /** The line of `match`, the player `own`'s, in tournament round `round`, while the tournament is `playing` or not. */
-  private line({ round, match }: OwnMatch, own: string, playing: boolean): OwnMatchLine {
+  /** The line of `match`, the player `own`'s, in tournament round `round`. */
+  private line({ round, match }: OwnMatch, own: string): OwnMatchLine {
     const opponent = this.store.player(match.players.find((id) => id !== own)!);
-    const { outcome } = match;
     const confirmable = match.confirmableBy.includes(own);
     return {
       match,
       opponent,
       ...this.reads(round, match, own, opponent, confirmable),
-      reportable: playing && outcome.kind === 'Unreported',
+      reportable: match.reportableBy.includes(own),
       confirmable,
     };
   }

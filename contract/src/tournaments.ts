@@ -109,6 +109,13 @@ export interface MatchView {
   /** Whether the other player confirmed the game score it was reported with. */
   confirmed: boolean;
   /**
+   * The Discord user ids of its players who may report it now: while the
+   * tournament is playing, both of an unreported match's players, never a
+   * bot. None once it is reported, and none while the tournament isn't
+   * playing.
+   */
+  reportableBy: string[];
+  /**
    * The Discord user ids of its players who may confirm it now: while it
    * is unconfirmed, those confirming would accept, who didn't report its
    * game score. None without a game score, and none once it is confirmed,

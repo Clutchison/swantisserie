@@ -3,7 +3,7 @@ import type { GameScore } from 'contract';
 import { reportProblem } from 'engine';
 import type { MatchChange } from './change-steps.js';
 import { correctionRefusal } from './correction-refusal.js';
-import { clearing, confirmRefusal } from './match-rules.js';
+import { clearing, confirmRefusal, reportRefusal } from './match-rules.js';
 import { TournamentRefusedError } from './tournament-errors.js';
 import {
   findMatch,
@@ -34,19 +34,8 @@ export class TournamentResultsService {
   ): Promise<void> {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
       const match = await findMatch(tx, tournament.id, matchId);
-      if (!match.players.includes(userId)) {
-        throw new TournamentRefusedError({
-          error: 'not-your-match',
-          message: 'Only a match’s own players can report it.',
-        });
-      }
-      if (match.outcome !== 'Unreported') {
-        throw new TournamentRefusedError({
-          error: 'match-reported',
-          message:
-            'This match has been reported. Only an organizer can change it.',
-        });
-      }
+      const refusal = reportRefusal(match, userId);
+      if (refusal) throw new TournamentRefusedError(refusal);
       const problem = reportProblem(games);
       if (problem) throw new TournamentRefusedError(problem);
       await tx.match.update({

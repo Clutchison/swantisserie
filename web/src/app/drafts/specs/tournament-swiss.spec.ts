@@ -195,6 +195,27 @@ describe('Swiss tournaments on the Play tab', () => {
     expect(listControls(tab, 2)).toEqual([]);
   });
 
+  it('offers Report in the list only on a match the api lists you as able to report', async () => {
+    const bobBeatAlice = reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id);
+    const { tab } = await openPlaying(
+      swissPlaying({
+        rounds: [
+          { round: 1, correctable: false, matches: [bobBeatAlice], byes: [carol.id] },
+          {
+            round: 2,
+            correctable: true,
+            matches: [{ ...unreportedMatch('m2', alice.id, carol.id), reportableBy: [carol.id] }],
+            byes: [bob.id],
+          },
+        ],
+      }),
+    );
+
+    expect(
+      button(namedList(tab, 'Tournament round 2'), 'Report your match against Carol'),
+    ).toBeUndefined();
+  });
+
   it('offers no Report in the list on your unreported match once the tournament is complete', async () => {
     const { tab } = await openPlaying(completed(swissPlaying()));
 
@@ -561,6 +582,29 @@ describe('Swiss tournaments on the Play tab', () => {
       expect(
         button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol'),
       ).toBeDefined();
+    });
+
+    it('shows the match the api lists you as able to report, passing over one it doesn’t', async () => {
+      const { tab } = await openPlaying(
+        swissPlaying({
+          rounds: [
+            {
+              round: 1,
+              correctable: true,
+              matches: [{ ...unreportedMatch('m1', alice.id, bob.id), reportableBy: [bob.id] }],
+              byes: [carol.id],
+            },
+            {
+              round: 2,
+              correctable: true,
+              matches: [unreportedMatch('m2', alice.id, carol.id)],
+              byes: [bob.id],
+            },
+          ],
+        }),
+      );
+
+      expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
     });
 
     it('says all your matches are reported only once nothing is left to report or confirm', async () => {
