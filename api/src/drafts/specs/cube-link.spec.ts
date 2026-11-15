@@ -333,12 +333,14 @@ describe('creating a draft from a cube', () => {
     await listDrafts().expect(200).expect([]);
   });
 
+  // No oracle id case: a cube's cards are matched to printings by oracle id,
+  // so a printing with none is refused as not on the platform, above.
   it.each([
-    [{ cmc: undefined }, 'Shock has no mana value.'],
-    [{ type_line: undefined }, 'Shock has no type line.'],
+    ['mana value', { cmc: undefined }, 'Shock has no mana value.'],
+    ['type line', { type_line: undefined }, 'Shock has no type line.'],
   ])(
-    'refuses a cube with a card whose printing is missing %o on the card and its front face, naming it and creating no draft',
-    async (missing, message) => {
+    'refuses a cube with a card whose printing has no %s on the card or its front face, naming it and creating no draft',
+    async (_field, missing, message) => {
       cubesAre({ redcube: cube('Red Cube', 'Lightning Bolt', 'Shock') });
       onPlatform(
         'Lightning Bolt',

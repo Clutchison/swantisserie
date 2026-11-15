@@ -677,6 +677,8 @@ describe('create form', () => {
     ],
     [422, { error: 'not-a-cube-link', message: 'That isn’t a CubeCobra cube link.' }],
     [422, { error: 'cube-not-found', message: 'No public cube on CubeCobra has that id.' }],
+    // A cube whose printing of a card can't be a pool card.
+    [422, { error: 'invalid', message: 'Shock has no mana value.' }],
     [
       502,
       {
