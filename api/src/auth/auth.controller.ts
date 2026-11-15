@@ -47,7 +47,7 @@ export class AuthController {
     const state = randomBytes(24).toString('base64url');
     const signInCookie = { ...this.cookieOptions(), maxAge: 10 * 60 * 1000 };
     res.cookie(STATE_COOKIE, state, signInCookie);
-    res.cookie(RETURN_TO_COOKIE, inAppPath(returnTo), signInCookie);
+    res.cookie(RETURN_TO_COOKIE, returnPathOrRoot(returnTo), signInCookie);
     const url = new URL('https://discord.com/oauth2/authorize');
     url.search = new URLSearchParams({
       response_type: 'code',
@@ -68,7 +68,7 @@ export class AuthController {
     @Res() res: Response,
   ) {
     const expectedState: unknown = req.cookies?.[STATE_COOKIE];
-    const returnTo = inAppPath(req.cookies?.[RETURN_TO_COOKIE]);
+    const returnTo = returnPathOrRoot(req.cookies?.[RETURN_TO_COOKIE]);
     res.clearCookie(STATE_COOKIE, this.cookieOptions());
     res.clearCookie(RETURN_TO_COOKIE, this.cookieOptions());
     // Discord sends ?error=… instead of a code when the user cancels.
@@ -149,6 +149,6 @@ function signInErrorPath(error: SignInError, returnTo: string): string {
  * `path` if it is a path within this app, else `/`: the sign-in must not
  * send anyone off-site.
  */
-function inAppPath(path: unknown): string {
+function returnPathOrRoot(path: unknown): string {
   return isInAppPath(path) ? path : '/';
 }
