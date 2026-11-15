@@ -89,10 +89,12 @@ const STEAL_BEHAVIOR_HELP =
   `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, it stays queue picking.`;
 
 /**
- * Where a failed change is explained: under the header, for the queue's
- * play/pause button or the steal behavior pill, or under the queue.
+ * Where a failed change is explained, of two places: `header`, directly
+ * under the header's controls and before the help, for the queue's
+ * play/pause button, the steal behavior pill and the Set queue picking
+ * dialog; or `queue`, under the queue, for a change from a row.
  */
-type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
+type ErrorPlace = 'header' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
 let panes = 0;
@@ -178,7 +180,8 @@ export class QueuePane {
   /** Unless queue changes are offered, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !this.store.offerQueue());
   protected readonly changing = this.changes.changing;
-  protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
+  /** The latest change's failure, if it failed, and where it is explained; only one shows at a time. */
+  private readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
   /** Whether the primary pointer is touch, which changes how rows drag: see the row menu in the template. */
   protected readonly coarsePointer = matching(COARSE_POINTER_QUERY);
@@ -430,7 +433,7 @@ export class QueuePane {
         return this.queueApi.setStealBehavior(this.draftId(), stealBehavior);
       },
       {
-        place: 'stealBehavior',
+        place: 'header',
         rollBack: () => this.store.showQueue({ ...this.queue(), stealBehavior: previous }),
       },
     );
@@ -463,7 +466,7 @@ export class QueuePane {
           : this.queueApi.setQueuePicking(this.draftId(), []);
       },
       {
-        place: 'queuePaused',
+        place: 'header',
         rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: !queuePaused }),
         status: queueStateName(queuePaused),
         refused: (err) => {
@@ -488,7 +491,7 @@ export class QueuePane {
       })
       .closed.subscribe((result) => {
         if (result?.outcome === 'failed') {
-          this.error.set({ message: result.message, place: 'queuePaused' });
+          this.error.set({ message: result.message, place: 'header' });
         } else if (result?.outcome === 'none-to-pick') {
           void this.sendQueuePaused(false);
         }
@@ -498,6 +501,12 @@ export class QueuePane {
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(() => this.queueApi.dismissNotice(this.draftId()));
+  }
+
+  /** The failure's message if it shows at `place`, else null. */
+  protected errorAt(place: ErrorPlace) {
+    const error = this.error();
+    return error?.place === place ? error.message : null;
   }
 
   /**
