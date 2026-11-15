@@ -154,13 +154,15 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
   }
 
   /**
-   * Tells everyone watching the draft, and each of its players but the bots,
-   * how it now is: once each, even a player also watching it.
+   * Tells everyone watching the draft, each of its players but the bots, and
+   * each of `alsoTellUserIds`, how it now is: once each, even a player also
+   * watching it.
    */
-  changed(draft: DraftView): void {
+  changed(draft: DraftView, alsoTellUserIds: string[]): void {
     const players = draft.players.filter((player) => !player.isBot);
+    const userIds = [...players.map((player) => player.id), ...alsoTellUserIds];
     this.server
-      .to([room(draft.id), ...players.map((player) => ownRoom(player.id))])
+      .to([room(draft.id), ...userIds.map(ownRoom)])
       .emit('changed', draft);
   }
 

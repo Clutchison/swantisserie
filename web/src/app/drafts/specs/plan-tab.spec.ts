@@ -34,6 +34,7 @@ import {
   hiddenInClosedSection,
   toggleDisclosure,
 } from './disclosure-harness';
+import { expectFocusOn } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -41,6 +42,7 @@ import {
   boltAgain,
   cards,
   deckNotice,
+  pressDismiss,
   planned,
   unpicked,
   planOf,
@@ -615,6 +617,26 @@ describe('plan tab', () => {
       await vi.waitFor(() =>
         expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard')),
       );
+    });
+
+    it('moves focus to the nearest control after the Deck notice’s Dismiss once it settles', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({
+          mainboard: [planned(brightclimb)],
+          lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
+        }),
+      });
+      const plan = await openPlan(fixture, page);
+
+      await pressDismiss(
+        fixture,
+        deckNotice(plan)!,
+        '/api/drafts/draft-1/plan/notice',
+        planOf({ mainboard: [planned(brightclimb)] }),
+      );
+
+      await vi.waitFor(() => expectFocusOn(plan, `Move ${brightclimb.name} to the sideboard`));
     });
   });
 });

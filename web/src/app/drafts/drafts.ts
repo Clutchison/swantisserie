@@ -13,7 +13,7 @@ import type {
   TurnState,
 } from 'contract';
 import { draftSize, isTurnState, picksPerTurn } from 'engine';
-import type { Changes } from './changes';
+import type { Changes } from '../changes';
 
 /**
  * The media query of the draft page's desktop layout, where the tabs sit at

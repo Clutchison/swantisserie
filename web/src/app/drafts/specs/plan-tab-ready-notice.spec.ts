@@ -1,7 +1,8 @@
-import { emptyStatusIn, statusIn } from '../../specs-harness';
+import { emptyStatusIn, expectFocusOn, statusIn } from '../../specs-harness';
 import { alice, bob, button, http, text, useDraftsApp } from './harness';
 import { flushTournament, openComplete, registration } from './play-tab-harness';
-import { cards, openPlan, planOf, readyNotice } from './plan-tab-harness';
+import { cards, pressDismiss, openPlan, planOf, readyNotice } from './plan-tab-harness';
+import { brightclimb } from './pool-tab-harness';
 
 useDraftsApp();
 
@@ -68,5 +69,15 @@ describe('the Ready notice on the Deck tab', () => {
     await fixture.whenStable();
 
     expect(readyNotice(deck)).toBeUndefined();
+  });
+
+  it('moves focus to the nearest control after its Dismiss once the dismiss settles', async () => {
+    const { fixture, deck } = await openPlanOf(planOf({ readyNotice: true }));
+
+    await pressDismiss(fixture, readyNotice(deck)!, READY_NOTICE_URL, planOf(), {
+      answered: () => flushTournament(aliceJoined),
+    });
+
+    await vi.waitFor(() => expectFocusOn(deck, `Move ${brightclimb.name} to the sideboard`));
   });
 });

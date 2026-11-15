@@ -6,6 +6,7 @@ import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'co
 import {
   byAriaLabel,
   collapseWhitespace,
+  focusAndClick,
   openDialog,
   statusIn,
   stubScrollIntoView,
@@ -69,6 +70,27 @@ export const deckNotice = (root: HTMLElement) => {
   const region = statusIn(root, { name: 'Deck notice' });
   return region && text(region) ? region : undefined;
 };
+
+/**
+ * Focuses and presses `notice`'s Dismiss, runs `meanwhile` while the dismiss
+ * is in flight, answers its DELETE to `url` with `answer`, then `answered`
+ * (for the requests the answer sets off), and waits for the notice to go: its
+ * region stays on the page, emptied.
+ */
+export async function pressDismiss(
+  fixture: AppFixture,
+  notice: HTMLElement,
+  url: string,
+  answer: object,
+  { meanwhile, answered }: { meanwhile?: () => void; answered?: () => Promise<unknown> } = {},
+) {
+  focusAndClick(button(notice, 'Dismiss')!);
+  meanwhile?.();
+  http.expectOne(url).flush(answer);
+  await answered?.();
+  await vi.waitFor(() => expect(text(notice)).toBe(''));
+  await fixture.whenStable();
+}
 
 /** The Deck tab's panel, even while it's hidden behind another tab. */
 export const planPanel = (page: HTMLElement) => tabPanel(page, 'Deck');

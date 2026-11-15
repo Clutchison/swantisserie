@@ -23,6 +23,7 @@ import {
   accessibleName,
   text,
   serverError,
+  tabButton,
   viewOn,
   openQueueSheet,
   queueNotice,
@@ -32,9 +33,9 @@ import {
   rowMenu,
   rowMenuName,
 } from './harness';
-import { disabledMenuItems, emptyStatusIn, statusIn } from '../../specs-harness';
+import { disabledMenuItems, emptyStatusIn, expectFocusOn, statusIn } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
-import { bolt } from './plan-tab-harness';
+import { bolt, pressDismiss } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -331,6 +332,62 @@ describe('Queue pane notice, cutoff and read-only state', () => {
 
       const queue = queuePane(await openQueueSheet(fixture, page));
       expect(rows(queue)).toEqual(['Lightning Bolt', CUTOFF, 'Shivan Dragon']);
+    });
+  });
+
+  /** Dismiss has no focus key: focus goes to the nearest control still there, those after it first. */
+  describe('focus once Dismiss settles', () => {
+    /** Lightning Bolt then Shivan Dragon queued, or `cards`, with Brightclimb Pathway lost. */
+    const withLoss = (cards = [queued(bolt), queued(shivan)]) =>
+      queueOf({ cards, lost: [queued(brightclimb)] });
+
+    const NOTICE_URL = '/api/drafts/draft-1/queue/notice';
+
+    it('moves focus to the first queued card’s menu', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: withLoss(),
+      });
+      const queue = queuePane(page);
+
+      await pressDismiss(
+        fixture,
+        queueNotice(queue)!,
+        NOTICE_URL,
+        queueOf({ cards: [queued(bolt), queued(shivan)] }),
+      );
+
+      await vi.waitFor(() => expectFocusOn(queue, rowMenuName('Lightning Bolt')));
+    });
+
+    it('moves focus to the nearest control before Dismiss when the queue is empty', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [brightclimb],
+        queue: withLoss([]),
+      });
+      const queue = queuePane(page);
+
+      await pressDismiss(fixture, queueNotice(queue)!, NOTICE_URL, queueOf());
+
+      await vi.waitFor(() => expectFocusOn(queue, 'Steal behavior: Pause queue'));
+    });
+
+    it('leaves focus where the viewer moved it while the dismiss was in flight', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [bolt, brightclimb, shivan],
+        queue: withLoss(),
+      });
+      const queue = queuePane(page);
+
+      await pressDismiss(
+        fixture,
+        queueNotice(queue)!,
+        NOTICE_URL,
+        queueOf({ cards: [queued(bolt), queued(shivan)] }),
+        { meanwhile: () => tabButton(page, 'Pool').focus() },
+      );
+
+      expectFocusOn(page, 'Pool', 'tab');
     });
   });
 });

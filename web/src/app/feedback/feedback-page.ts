@@ -1,9 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient, httpResource } from '@angular/common/http';
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, Injector, signal } from '@angular/core';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { Router, RouterLink, type UrlTree } from '@angular/router';
-import { firstValueFrom, type Observable } from 'rxjs';
+import type { Observable } from 'rxjs';
+import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
+import { saveThenReread } from '../reread';
 import { tabInUrl } from '../tab-in-url';
 import { Tab, TabList } from '../tab-list';
 
@@ -16,7 +18,8 @@ const API = '/api/admin/feedback';
 /** Where app admins see feedback and mark it reviewed or unreviewed. */
 @Component({
   selector: 'app-feedback-page',
-  imports: [DatePipe, RouterLink, Tab, TabList],
+  imports: [ChangeStatus, DatePipe, FocusKey, RouterLink, SendsChange, Tab, TabList],
+  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './feedback-page.html',
   styleUrls: ['../page.scss', './feedback-page.scss'],
@@ -24,6 +27,8 @@ const API = '/api/admin/feedback';
 export class FeedbackPage {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly changes = inject(Changes);
+  private readonly injector = inject(Injector);
 
   protected readonly tabs = TABS;
   /** The tab selected, kept in the URL so a reload reopens it; both are open to every app admin. */
@@ -32,7 +37,6 @@ export class FeedbackPage {
   protected readonly feedback = httpResource<(FeedbackView | ReviewedFeedbackView)[]>(() =>
     this.selectedTab() === 'Reviewed' ? `${API}/reviewed` : API,
   );
-  protected readonly saving = signal(false);
   protected readonly problem = signal<string | null>(null);
 
   protected show(tab: FeedbackTab) {
@@ -59,16 +63,19 @@ export class FeedbackPage {
     );
   }
 
-  private async save(request: Observable<unknown>, failure: string) {
-    this.saving.set(true);
-    this.problem.set(null);
-    try {
-      await firstValueFrom(request);
-      this.feedback.reload();
-    } catch {
-      this.problem.set(failure);
-    } finally {
-      this.saving.set(false);
-    }
+  /**
+   * Sends a review change, then waits for the list's re-read, so focus is
+   * put back once the item has left it: on the next item's button, or the
+   * nearest control before it.
+   */
+  private save(request: Observable<unknown>, failure: string) {
+    return this.changes.send(() =>
+      saveThenReread(request, {
+        resource: this.feedback,
+        injector: this.injector,
+        problem: this.problem,
+        failure: () => failure,
+      }),
+    );
   }
 }

@@ -29,7 +29,7 @@ import {
   sendDraftChange,
 } from './drafts';
 import { DraftStore } from './draft-store';
-import { Changes, ChangeStatus, SendsChange } from './changes';
+import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';
 
 /**

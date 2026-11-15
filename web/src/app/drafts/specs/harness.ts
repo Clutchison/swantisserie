@@ -44,14 +44,18 @@ import {
   byName,
   collapseWhitespace,
   opensDraftList,
+  panel,
   serverError,
   statusIn,
   table,
+  tabButton,
   tableRows,
+  tabs,
   text,
 } from '../../specs-harness';
 
 export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
+export { panel, tabButton, tabs };
 export { resizeTo, viewOn } from './screen-harness';
 export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
 export {
@@ -63,6 +67,7 @@ export {
   findQueuePlayPauseButton,
   justAddedCards,
   nextUpStrip,
+  openQueueHelp,
   openQueueSheet,
   openRowMenu,
   pickChangesQueue,
@@ -724,21 +729,11 @@ export function typeInto(field: HTMLInputElement | HTMLTextAreaElement, value: s
 export const controlByLabel = <R extends ControlRole>(root: HTMLElement, role: R, label: string) =>
   controlsByLabel(root, role, label)[0];
 
-/** The buttons in the tab bar, in order. */
-export const tabs = (root: HTMLElement) => [
-  ...root.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
-];
-/** A button in the tab bar, by its label. */
-export const tabButton = (root: HTMLElement, tab: string) =>
-  tabs(root).find((b) => b.textContent?.trim() === tab)!;
 /** The tab bar's labels, in order. */
 export const tabLabels = (root: HTMLElement) => tabs(root).map((tab) => tab.textContent?.trim());
 /** The panel of the tab labelled `tab`, whether it is showing or not. */
 export const tabPanel = (root: HTMLElement, tab: string) =>
   root.querySelector<HTMLElement>(`#${tabButton(root, tab).getAttribute('aria-controls')}`)!;
-/** The tab panel showing. */
-export const panel = (root: HTMLElement) =>
-  root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
 /** The name of the tab panel showing: the label of the tab it is labelled by. */
 export const panelName = (root: HTMLElement) => {
   const labelledBy = panel(root)?.getAttribute('aria-labelledby');
