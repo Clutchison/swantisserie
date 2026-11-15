@@ -1,6 +1,7 @@
 import {
   answer,
   clickBackdrop,
+  comesBefore,
   onlyAlert,
   openDialog,
   pressEscape,
@@ -65,24 +66,25 @@ import {
   withTournament,
   yourMatches,
   completed,
-  expectAtFoot,
-  expectByResults,
-  expectByYourMatches,
   confirmedMatch,
+  bobBeatAlice,
+  carolBeatAlice,
+  completedSwiss,
+  COMPLETE_ROUND_URL,
+  openCompleteRound,
+  singleEliminationPlaying,
 } from './play-tab-harness';
+import {
+  actionButtons,
+  expectAtFoot,
+  expectBeforeLists,
+  expectByActionRows,
+  expectByActions,
+  expectByYourMatches,
+  listsAfterActions,
+} from './play-tab-placement-harness';
 
 useDraftsApp();
-
-/** Bob reporting that he beat Alice 2–1 in match m2. */
-const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
-
-/** Carol reporting that she beat Alice 2–1 in Swiss match m2. */
-const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
-
-/** `swissPlaying` with Carol's report on m2, once the tournament is complete. */
-const completedSwiss = completed(
-  swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) }),
-);
 
 /** Alice's unreported matches against Bob (m2), Carol (m3) and Erin (m4). */
 const [againstBob, againstCarol, againstErin] = [
@@ -831,83 +833,140 @@ describe('Play tab while the tournament is played', () => {
     });
 
     it.each([
-      [
-        'starting',
-        registration(alice.id, bob.id, carol.id),
-        'Start tournament',
-        ['Start the tournament?', 'Start'],
-        '/api/drafts/draft-1/tournament/start',
-        "Couldn't start the tournament. Try again in a moment.",
-      ],
-      [
-        'completing',
-        playing(),
-        'Complete tournament',
-        ['Complete the tournament?', 'Complete tournament'],
-        '/api/drafts/draft-1/tournament/complete',
-        "Couldn't complete the tournament. Try again in a moment.",
-      ],
-      [
-        'cancelling',
-        playing(),
-        'Cancel tournament',
-        ['Cancel the tournament?', 'Cancel tournament'],
-        '/api/drafts/draft-1/tournament',
-        "Couldn't cancel the tournament. Try again in a moment.",
-      ],
+      ['Swiss', swissPlaying(), 'Complete round', 'Your match', 'Standings'],
+      ['single elimination', singleEliminationPlaying(), 'Complete round', 'Bracket', 'Standings'],
+      ['round robin', playing(), 'Complete tournament', 'Your matches', 'Results grid'],
+    ])(
+      'reads the action rows in %s before Your matches and the lists, so they don’t push them out of view',
+      async (_, tournament, complete, first, results) => {
+        const { tab } = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
+
+        const actions = actionButtons(tab);
+        expect(actions).toContain(button(tab, complete));
+        expect(listsAfterActions(tab)).toContain(region(tab, first));
+        expect(listsAfterActions(tab)).toContain(region(tab, results));
+        for (const action of actions) expectBeforeLists(tab, action);
+        const drop = button(tab, 'Drop from tournament')!;
+        for (const action of actions.filter((shown) => shown !== drop)) {
+          expect(comesBefore(drop, action)).toBe(true);
+        }
+      },
+    );
+
+    it('says why Reopen round is disabled right after its row, before Your match', async () => {
+      const message = 'Tournament round 2 has a match with a game score.';
+      const { tab } = await openPlaying(
+        swissPlaying({
+          reopenRound: {
+            round: 1,
+            refusal: { error: 'next-round-reported', message },
+            takesBackDrops: [],
+          },
+        }),
+        { powers: ORGANIZE_ONLY },
+      );
+
+      const reopenRound = button(tab, 'Reopen round 1')!;
+      expect(accessibleDescription(reopenRound)).toBe(message);
+      expectByActionRows(
+        tab,
+        document.getElementById(reopenRound.getAttribute('aria-describedby')!)!,
+      );
+    });
+
+    it('says completing the tournament round failed right after the action rows, before Your match', async () => {
+      const { fixture, page, tab, dialog } = await openCompleteRound(swissPlaying());
+
+      button(dialog, 'Complete round')!.click();
+
+      expect(await failChange(fixture, page, COMPLETE_ROUND_URL)).toBe(
+        "Couldn't complete the tournament round. Try again in a moment.",
+      );
+      expectByActions(page, tab);
+    });
+
+    it.each([
+      {
+        doing: 'cancelling the tournament',
+        tournament: swissPlaying(),
+        label: 'Cancel tournament',
+        asked: ['Cancel the tournament?', 'Cancel tournament'],
+        url: '/api/drafts/draft-1/tournament',
+        failure: "Couldn't cancel the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'reopening the tournament round',
+        tournament: swissPlaying(),
+        label: 'Reopen round 1',
+        asked: ['Reopen tournament round 1?', 'Reopen round 1'],
+        url: '/api/drafts/draft-1/tournament/reopen-round',
+        failure: "Couldn't reopen the tournament round. Try again in a moment.",
+      },
+      {
+        doing: 'dropping from the tournament',
+        tournament: swissPlaying(),
+        label: 'Drop from tournament',
+        asked: ['Drop from the tournament?', 'Drop'],
+        url: `/api/drafts/draft-1/tournament/entries/${alice.id}/drop`,
+        failure: "Couldn't drop from the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'completing the tournament',
+        tournament: playing(),
+        label: 'Complete tournament',
+        asked: ['Complete the tournament?', 'Complete tournament'],
+        url: '/api/drafts/draft-1/tournament/complete',
+        failure: "Couldn't complete the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'cancelling the tournament in round robin',
+        tournament: playing(),
+        label: 'Cancel tournament',
+        asked: ['Cancel the tournament?', 'Cancel tournament'],
+        url: '/api/drafts/draft-1/tournament',
+        failure: "Couldn't cancel the tournament. Try again in a moment.",
+      },
     ] as const)(
-      'says %s the tournament failed when the api gives no reason',
-      async (_, tournament, label, [asked, action], url, failure) => {
+      'says $doing failed right after the action rows, before Your matches',
+      async ({ tournament, label, asked: [asked, action], url, failure }) => {
         const { fixture, page, tab } = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
 
         button(tab, label)!.click();
         await answer(await question(asked), action);
 
         expect(await failChange(fixture, page, url)).toBe(failure);
-        // It stays at the foot of the tab, after the control that made it.
+        expectByActions(page, tab);
+      },
+    );
+
+    it.each([
+      {
+        doing: 'starting the tournament',
+        label: 'Start tournament',
+        asked: ['Start the tournament?', 'Start'],
+        url: '/api/drafts/draft-1/tournament/start',
+        failure: "Couldn't start the tournament. Try again in a moment.",
+      },
+      {
+        doing: 'cancelling the tournament',
+        label: 'Cancel tournament',
+        asked: ['Cancel the tournament?', 'Cancel tournament'],
+        url: '/api/drafts/draft-1/tournament',
+        failure: "Couldn't cancel the tournament. Try again in a moment.",
+      },
+    ] as const)(
+      'says $doing failed in registration at the foot of the tab, after its button',
+      async ({ label, asked: [asked, action], url, failure }) => {
+        const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
+          powers: ORGANIZE_ONLY,
+        });
+
+        button(tab, label)!.click();
+        await answer(await question(asked), action);
+
+        expect(await failChange(fixture, page, url)).toBe(failure);
         expectAtFoot(page, button(tab, label)!);
       },
     );
-  });
-});
-
-describe('Play tab once the tournament is complete', () => {
-  it('shows a match left unreported as the granted draw completing made it', async () => {
-    const { tab } = await openPlaying(
-      completed(playing([grantedDraw(unreportedMatch('m2', alice.id, bob.id))])),
-    );
-
-    expect(yourMatches(tab)).toContain('vs Bob · Granted draw');
-  });
-
-  it('lets the opponent confirm once the tournament is complete', async () => {
-    const completeWith = (m2: ReturnType<typeof unreportedMatch>) =>
-      completed(playing([m2], { trophyHolders: [bob.id] }));
-    const { fixture, tab } = await openPlaying(completeWith(bobBeatAlice));
-
-    button(tab, 'Confirm your match against Bob')!.click();
-    await answerChange(
-      fixture,
-      '/api/drafts/draft-1/tournament/matches/m2/confirm',
-      'POST',
-      completeWith(confirmedMatch(bobBeatAlice)),
-      1,
-      threePlayers,
-      true,
-    );
-
-    expect(yourMatches(tab)).toContain('vs Bob · Lost 1–2 · Confirmed');
-    expect(text(gridCell(tab, 'Bob', 'Alice'))).toBe('2–1');
-  });
-
-  it('says confirming from the list of matches failed by that list, before the players', async () => {
-    const { fixture, page, tab } = await openPlaying(completedSwiss);
-
-    button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol')!.click();
-
-    expect(
-      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm'),
-    ).toBe("Couldn't confirm the match. Try again in a moment.");
-    expectByResults(page, tab);
   });
 });

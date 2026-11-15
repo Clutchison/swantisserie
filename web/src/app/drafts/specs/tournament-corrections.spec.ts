@@ -18,8 +18,6 @@ import {
   carol,
   completed,
   dave,
-  expectByResults,
-  expectByYourMatches,
   failChange,
   forfeited,
   gridCell,
@@ -38,6 +36,7 @@ import {
   confirmedMatch,
   againstDropped,
 } from './play-tab-harness';
+import { expectByResults, expectByYourMatches } from './play-tab-placement-harness';
 
 useDraftsApp();
 
