@@ -329,7 +329,7 @@ The basic land printing a basic land shows to a player with no preferred printin
 _Avoid_: Stock art
 
 **Printing picker**:
-The view that opens from a basic land in a player's own deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. In an unlocked deck, it also takes out the copy it opened from. A newly released set's printings join it shortly after the set's release, never before.
+The view that opens from a basic land in a player's own deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. In an unlocked deck, it also takes out the copy it opened from. A newly released set's printings join it shortly after the set's release.
 _Avoid_: Art picker, Card detail (that is a pool card's)
 
 **Deck board**:

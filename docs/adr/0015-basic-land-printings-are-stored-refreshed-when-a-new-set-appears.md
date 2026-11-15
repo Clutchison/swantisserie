@@ -6,7 +6,7 @@ Pool cards are snapshotted per draft (ADR 0013), but a **basic land** is never a
 
 So the api stores every English printing of each basic land with a single-faced image, and the picker and preferred printings read only what is stored (#526). A preferred printing refers to its stored printing instead of copying it. Asking for a land's printings answers at once from what is stored, and starts one refresh in the background when none has finished yet, or when Scryfall's list of sets has a set released since the last refresh started. A refresh reads each basic land with Scryfall's search, and upserts: the refresh never deletes a printing, so no preferred printing loses its own.
 
-A refresh is keyed on release dates, not on new set codes. A set still in spoiler season waits until its release, by which time its basic lands are complete, and sets that never hold basic lands, such as tokens and promos, can't trigger a refresh again and again.
+A refresh is keyed on release dates, not on new set codes: it is started by a release. So a set still in spoiler season doesn't start one, though a refresh another set starts stores every printing Scryfall lists, and may store that set's already. Sets that never hold basic lands, such as tokens and promos, can't trigger a refresh again and again.
 
 ## Considered Options
 
@@ -18,3 +18,4 @@ A refresh is keyed on release dates, not on new set codes. A set still in spoile
 
 - A newly released set's printings don't appear until the refresh it triggers finishes, and the picker shows nothing to choose until the first refresh has stored any.
 - A printing Scryfall drops stays stored, and stays offered by the picker.
+- A refresh that started on a set's release day may have run before Scryfall listed that set's basic lands, so it is followed by exactly one more on a later day, and none more on the release day itself (#934).
