@@ -104,7 +104,8 @@ interface OwnMatchLine {
  * offers Report, which opens the match result dialog on its four game
  * scores, asking before it reports one; it closes itself once the match is
  * no longer reportable. A game score someone else reported offers Confirm, dropped
- * or not. Round robin has no tournament rounds, so any match can be
+ * or not, while the api lists them as able to confirm it: not once the
+ * tournament is complete. Round robin has no tournament rounds, so any match can be
  * reported in any order.
  */
 @Component({

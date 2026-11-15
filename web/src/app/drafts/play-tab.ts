@@ -255,8 +255,9 @@ export class PlayTab {
   /**
    * Whether the signed-in player's own matches show, once the tournament
    * has started, the only time it is read: round robin's Your matches for
-   * a player who joined, so they can still confirm once it is complete or
-   * they have dropped; "Your match" for one who plays on.
+   * a player who joined, so they still see their results once they have
+   * dropped or it is complete, and can confirm one while it is playing;
+   * "Your match" for one who plays on.
    */
   private readonly showsOwnMatches = computed(() =>
     this.roundRobin() ? this.joined() : this.playsOn(),

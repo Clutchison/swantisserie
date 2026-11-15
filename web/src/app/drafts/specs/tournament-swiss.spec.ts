@@ -30,6 +30,7 @@ import {
   failChange,
   forfeited,
   grantedDraw,
+  inCompletedRound,
   openComplete,
   openCompleteRound,
   dropFrom,
@@ -52,6 +53,7 @@ import {
   threePlayers,
   withTournament,
   completed,
+  completedSwiss,
   confirmedMatch,
   COMPLETE_ROUND_URL,
   erin,
@@ -202,7 +204,9 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('offers Report in the list only on a match the api lists you as able to report', async () => {
-    const bobBeatAlice = reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id);
+    const bobBeatAlice = inCompletedRound(
+      reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id),
+    );
     const { tab } = await openPlaying(
       swissPlaying({
         rounds: [
@@ -674,15 +678,13 @@ describe('Swiss tournaments on the Play tab', () => {
       expect(text(yourMatch(tab))).toContain('All your matches are reported.');
     });
 
-    it('offers Confirm in the list of matches once the tournament is complete, as Your match is gone', async () => {
-      const { tab } = await openPlaying(
-        completed(swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) })),
-      );
+    it('offers no Confirm once the tournament is complete, as its results are final', async () => {
+      const { tab } = await openPlaying(completedSwiss);
 
       expect(region(tab, 'Your match')).toBeNull();
       expect(
         button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol'),
-      ).toBeDefined();
+      ).toBeUndefined();
     });
 
     it('shows the match the api lists you as able to report, passing over one it doesn’t', async () => {
@@ -716,12 +718,14 @@ describe('Swiss tournaments on the Play tab', () => {
       expect(button(yourMatch(tab), 'Confirm your match against Carol')).toBeUndefined();
     });
 
-    it('shows the earlier tournament round’s match to confirm before a later one to report, unless you choose that one', async () => {
-      const bobBeatAlice = reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id);
-      const { fixture, tab } = await openPlaying(
+    it('shows the current tournament round’s match once an earlier one an organizer reported is final, offering no Confirm on it', async () => {
+      const organizerReported = inCompletedRound(
+        reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], dave.id),
+      );
+      const { tab } = await openPlaying(
         swissPlaying({
           rounds: [
-            { round: 1, correctable: false, matches: [bobBeatAlice], byes: [carol.id] },
+            { round: 1, correctable: false, matches: [organizerReported], byes: [carol.id] },
             {
               round: 2,
               correctable: true,
@@ -732,17 +736,11 @@ describe('Swiss tournaments on the Play tab', () => {
         }),
       );
 
-      expect(text(yourMatch(tab))).toContain('Tournament round 1: Bob reported you lost 1–2');
-      expect(button(yourMatch(tab), 'Confirm your match against Bob')).toBeDefined();
-
-      button(namedList(tab, 'Tournament round 2'), 'Report your match against Carol')!.click();
-      await fixture.whenStable();
-
       expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
       expect(button(yourMatch(tab), 'Won 2–0')).toBeDefined();
       expect(
         button(namedList(tab, 'Tournament round 1'), 'Confirm your match against Bob'),
-      ).toBeDefined();
+      ).toBeUndefined();
     });
   });
 });
