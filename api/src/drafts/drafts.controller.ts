@@ -25,6 +25,7 @@ import type {
   NewPoolSourceRequest,
   PickImportPreview,
   PickImportPreviewRequest,
+  PickImportRequest,
   PickImportTooLarge,
   PickView,
   PoolCardView,
@@ -295,7 +296,9 @@ export class DraftsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const playerIds = parseSeatOrder(body);
+    const playerIds = parseSeatOrder(
+      bodyFields<SeatOrderRequest>(body).playerIds,
+    );
     await this.access.asOrganizer(user, id);
     return this.change(id, () => this.lobby.reorderSeats(id, playerIds));
   }
@@ -322,7 +325,7 @@ export class DraftsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<PickImportPreview> {
-    const csv = parsePickImport(body);
+    const csv = parsePickImport(bodyFields<PickImportPreviewRequest>(body).csv);
     await this.access.asOrganizer(user, id);
     return this.pickImports.previewPickImport(id, csv);
   }
@@ -339,8 +342,10 @@ export class DraftsController {
     @Param('id') id: string,
     @Body() body: unknown,
   ): Promise<DraftView> {
-    const csv = parsePickImport(body);
-    const playerIds = parseSeatOrder(body);
+    const fields = bodyFields<PickImportRequest>(body);
+    // The file text first, so a request with neither is asked for a file.
+    const csv = parsePickImport(fields.csv);
+    const playerIds = parseSeatOrder(fields.playerIds);
     await this.access.asOrganizer(user, id);
     return this.change(id, () =>
       this.pickImports.importPicks(id, csv, playerIds),
@@ -641,8 +646,7 @@ function parseWebhookChoice(body: unknown): string | null {
 }
 
 /** The seat order's player ids, or a 400 if it isn't a list of distinct ids. */
-function parseSeatOrder(body: unknown): string[] {
-  const { playerIds } = bodyFields<SeatOrderRequest>(body);
+function parseSeatOrder(playerIds: unknown): string[] {
   if (
     !Array.isArray(playerIds) ||
     !playerIds.every((id) => typeof id === 'string') ||
@@ -657,8 +661,7 @@ function parseSeatOrder(body: unknown): string[] {
 }
 
 /** A pick import's file text, or a 400 if there is none and a 413 if it's too long. */
-function parsePickImport(body: unknown): string {
-  const { csv } = bodyFields<PickImportPreviewRequest>(body);
+function parsePickImport(csv: unknown): string {
   if (typeof csv !== 'string') {
     throw new BadRequestException({
       error: 'invalid',
