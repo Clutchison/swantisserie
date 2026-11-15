@@ -15,16 +15,22 @@ export class TournamentBadges {
   constructor(private readonly prisma: PrismaService) {}
 
   /**
-   * The tournament badge of every draft with a tournament, as the user
-   * `viewerId` sees it, by draft id: its state, whether the viewer may join
+   * The tournament badge of every draft `seen` lets through with a
+   * tournament, as the user `viewerId` sees it, by draft id: its state, whether the viewer may join
    * it now, as joining would let them, and its trophy holders once
    * complete. Only complete tournaments are read in full, as only their
    * trophy holders need the matches.
    */
-  async read(viewerId: string): Promise<Map<string, TournamentBadgeView>> {
+  async read(
+    viewerId: string,
+    seen: Prisma.DraftWhereInput,
+  ): Promise<Map<string, TournamentBadgeView>> {
     const [tournaments, complete] = await Promise.all([
-      this.prisma.tournament.findMany({ select: badgeRead(viewerId) }),
-      readCompleteTournaments(this.prisma),
+      this.prisma.tournament.findMany({
+        where: { draft: seen },
+        select: badgeRead(viewerId),
+      }),
+      readCompleteTournaments(this.prisma, seen),
     ]);
     const trophyHolders = new Map(
       complete.map(({ draftId, view }) => [draftId, view.trophyHolders]),

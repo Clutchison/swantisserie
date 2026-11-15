@@ -30,9 +30,10 @@ export class DraftReadsService {
     return this.prisma.draft.findUnique({ where: { id }, ...WITH_ORGANIZER });
   }
 
-  /** Every draft, newest first. */
-  async list(): Promise<DraftWithOrganizer[]> {
+  /** The drafts `seen` lets through, as DraftAccess.seenBy gives it, newest first. */
+  async list(seen: Prisma.DraftWhereInput): Promise<DraftWithOrganizer[]> {
     return this.prisma.draft.findMany({
+      where: seen,
       orderBy: { createdAt: 'desc' },
       ...WITH_ORGANIZER,
     });

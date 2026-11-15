@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { DraftPowersView } from 'contract';
 import type { SessionUser } from '../auth/session.guard.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { CannotSeeDraftError, NoDraftPowerError } from './draft-errors.js';
 
@@ -13,15 +14,27 @@ const ACCESS_FIELDS = { id: true, organizerId: true } as const;
 type DraftForAccess = { id: string; organizerId: string | null };
 
 /**
- * Answers every question about who may see or change a draft. Every route
- * of an existing draft, its queues, plans and tournament, and the socket
- * gateway ask it, so a rule changes here only. The draft list doesn't yet
- * (#208). Each check throws CannotSeeDraftError for a draft the viewer may
- * not see, before NoDraftPowerError for a power they lack.
+ * Answers every question about who may see or change a draft, so a rule
+ * changes here only. Every route of an existing draft, its queues, plans and
+ * tournament, and the socket gateway ask it of one draft; the draft list,
+ * the Trophy Hall and My stats read many drafts through `seenBy`, the same
+ * rule for which drafts a viewer sees. Each check throws CannotSeeDraftError
+ * for a draft the viewer may not see, before NoDraftPowerError for a power
+ * they lack.
  */
 @Injectable()
 export class DraftAccess {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * The drafts the viewer sees, as a filter for reads of many drafts: the
+   * one rule for which drafts a viewer sees, which `canSee` and every other
+   * check of one draft apply too. For now every draft passes it; a draft's
+   * guild decides once drafts belong to guilds (#208).
+   */
+  seenBy(_viewer: DraftViewer): Prisma.DraftWhereInput {
+    return {};
+  }
 
   /** Throws unless the viewer may see the draft: for now, unless it exists. */
   async canSee(viewer: DraftViewer, draftId: string): Promise<void> {
@@ -45,16 +58,13 @@ export class DraftAccess {
     return powersOf(viewer, await this.find(viewer, draftId));
   }
 
-  /**
-   * The draft, if the viewer may see it. `viewer` goes unread until a
-   * draft's guild decides who sees it (#208).
-   */
+  /** The draft, if the viewer may see it, by `seenBy`'s rule. */
   private async find(
-    _viewer: DraftViewer,
+    viewer: DraftViewer,
     draftId: string,
   ): Promise<DraftForAccess> {
     const draft = await this.prisma.draft.findUnique({
-      where: { id: draftId },
+      where: { id: draftId, AND: [this.seenBy(viewer)] },
       select: ACCESS_FIELDS,
     });
     if (!draft) throw new CannotSeeDraftError();

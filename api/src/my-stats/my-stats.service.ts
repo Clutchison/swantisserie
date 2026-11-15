@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { MyStatsView, TournamentView } from 'contract';
 import { myStats, type StatsTournament } from 'engine';
+import { DraftAccess, type DraftViewer } from '../drafts/draft-access.js';
 import { toNamedPoolSource } from '../drafts/pool-source.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SetCatalog } from '../sets/set-catalog.js';
@@ -14,23 +15,28 @@ import { toTournamentMatch } from '../tournaments/tournament-view.js';
 /** A complete tournament as My stats reads it, with the draft its result names. */
 type StatsRead = StatsTournament & { complete: CompleteTournament };
 
-/** My stats. Until drafts belong to guilds (#208), they cover every draft's tournament. */
+/** My stats, of the tournaments of the drafts their player sees, as draft access decides. */
 @Injectable()
 export class MyStatsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sets: SetCatalog,
+    private readonly access: DraftAccess,
   ) {}
 
   /**
-   * The My stats of the player `playerId`, computed on each read from the
-   * standings of every complete tournament they joined that counts, newest
+   * The My stats of the player `viewer`, computed on each read from the
+   * standings of every complete tournament they joined that counts, of the
+   * drafts they see, newest
    * first, each result's pool source shown as the Trophy Hall shows it.
    */
-  async read(playerId: string): Promise<MyStatsView> {
-    const tournaments = await readTournamentsThatCount(this.prisma);
+  async read(viewer: DraftViewer): Promise<MyStatsView> {
+    const tournaments = await readTournamentsThatCount(
+      this.prisma,
+      this.access.seenBy(viewer),
+    );
     const { results, ...stats } = myStats(
-      playerId,
+      viewer.id,
       tournaments.map(toStatsRead),
     );
     const setNames = await setNamesFor(

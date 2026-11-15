@@ -16,6 +16,6 @@ export class MyStatsController {
   /** The signed-in player's My stats, as MyStatsService.read works them out. */
   @Get()
   async read(@CurrentUser() user: SessionUser): Promise<MyStatsView> {
-    return this.myStats.read(user.id);
+    return this.myStats.read(user);
   }
 }
