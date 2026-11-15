@@ -31,6 +31,8 @@ import {
   progressLine,
   pushTournament,
   registration,
+  reported,
+  signedIn,
   carolBeatBob,
   forfeited,
   side,
@@ -140,16 +142,46 @@ describe('single elimination tournaments on the Play tab', () => {
   });
 
   it.each([
-    ['the semifinal', () => semifinalOfFour, fourPlayers, 'Semifinal: against Erin'],
-    ['the final', () => final, threePlayers, 'Final: against Carol'],
+    {
+      round: 'a quarterfinal',
+      tournament: () => singleEliminationPlaying({ roundCount: 3 }),
+      fields: threePlayers,
+      user: signedIn(bob),
+      expected: 'Quarterfinal: against Carol',
+    },
+    {
+      round: 'the semifinal',
+      tournament: () => semifinalOfFour,
+      fields: fourPlayers,
+      user: alice,
+      expected: 'Semifinal: against Erin',
+    },
+    {
+      round: 'the final',
+      tournament: () => final,
+      fields: threePlayers,
+      user: alice,
+      expected: 'Final: against Carol',
+    },
   ])(
-    'names %s in Your match, as the rest of the tab does',
-    async (_, tournament, fields, reads) => {
-      const { tab } = await openPlaying(tournament(), { fields });
+    'names $round in Your match, as the rest of the tab does',
+    async ({ tournament, fields, user, expected }) => {
+      const { tab } = await openPlaying(tournament(), { fields, user });
 
-      expect(text(region(tab, 'Your match')!)).toContain(reads);
+      expect(text(region(tab, 'Your match')!)).toContain(expected);
     },
   );
+
+  it('names the final in Your match when there is a game score to confirm', async () => {
+    const [round1, round2] = final.rounds;
+    const reportedFinal = {
+      ...round2,
+      matches: [{ ...reported(round2.matches[0], [0, 2], carol.id), bracketPlace: 0 }],
+    };
+    const { tab } = await openPlaying({ ...final, rounds: [round1, reportedFinal] });
+
+    expect(text(region(tab, 'Your match')!)).toContain('Final: Carol reported you lost 0–2');
+  });
 
   it('names no tournament round once it is complete', async () => {
     const { tab } = await openPlaying(completed(final));

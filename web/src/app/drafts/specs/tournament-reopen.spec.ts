@@ -16,6 +16,7 @@ import {
   failChange,
   unreportedMatch,
   openPlaying,
+  playing,
   questionDetail,
   swissPlaying,
   threePlayers,
@@ -90,6 +91,15 @@ describe('reopening a tournament round', () => {
       'Cancel tournament',
       'Reopen round 1',
       'Complete round',
+    ]);
+  });
+
+  it('leaves Cancel tournament before Complete tournament in round robin, which offers no Reopen round', async () => {
+    const { tab } = await openPlaying(playing(), { powers: ORGANIZE_ONLY });
+
+    expect(buttonOrder(tab, 'Cancel tournament')).toEqual([
+      'Cancel tournament',
+      'Complete tournament',
     ]);
   });
 
