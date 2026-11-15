@@ -1,12 +1,22 @@
 import type { TournamentRefusal } from './draft-errors.js';
 import type { PlanBoards, PreferredPrintings } from './plan.js';
 
-/** How a tournament pairs its players, chosen once at tournament setup. */
-export type TournamentFormat = 'RoundRobin' | 'Swiss' | 'SingleElimination';
+/** The tournament formats, in the order tournament setup offers them. */
+export const TOURNAMENT_FORMATS = [
+  'RoundRobin',
+  'Swiss',
+  'SingleElimination',
+] as const;
+
+/**
+ * How a tournament pairs its players, chosen once at tournament setup: one
+ * of TOURNAMENT_FORMATS.
+ */
+export type TournamentFormat = (typeof TOURNAMENT_FORMATS)[number];
 
 /**
  * Each tournament format's name as it reads mid-sentence, such as "a
- * round robin tournament", in the order tournament setup offers them.
+ * round robin tournament".
  */
 export const TOURNAMENT_FORMAT_NAMES: Record<TournamentFormat, string> = {
   RoundRobin: 'round robin',
