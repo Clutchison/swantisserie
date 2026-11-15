@@ -11,6 +11,7 @@ import {
   openDialog,
   updates,
   router,
+  signInLink,
   useApp,
 } from './specs-harness';
 import {
@@ -787,11 +788,4 @@ function clickLogOut(page: HTMLElement) {
   userMenuButton(page)!.click();
   TestBed.tick();
   button(page, 'Log out')!.click();
-}
-
-/** The link that starts signing in with Discord. */
-function signInLink(page: HTMLElement) {
-  return [...page.querySelectorAll('a')].find(
-    (link) => link.textContent?.trim() === 'Sign in with Discord',
-  );
 }
