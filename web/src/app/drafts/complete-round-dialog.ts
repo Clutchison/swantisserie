@@ -1,5 +1,12 @@
 import { DialogRef } from '@angular/cdk/dialog';
-import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+  input,
+  linkedSignal,
+} from '@angular/core';
 import type { CompleteRoundRequest } from 'contract';
 import { MIN_PLAYERS_LEFT, roundCompletion, type BracketResult } from 'engine';
 import { DraftStore } from './draft-store';
@@ -80,28 +87,54 @@ export class CompleteRoundDialog {
         };
       });
   });
-  /** The players chosen to drop, by the id of the match they drop from. */
-  private readonly dropping = signal<Record<string, string[]>>({});
+  /**
+   * The ids of the round's unreported matches: a match reported while the
+   * dialog is open leaves it along with the organizer's choices for it.
+   * Those choices are dropped only when they are next read, so the
+   * forecast and readiness read them on every re-read, even with no match
+   * unreported, before the match can come back unreported.
+   */
+  private readonly unreportedIds = computed(() => this.unreported().map((match) => match.id));
+  /** The players chosen to drop, by the id of the unreported match they drop from. */
+  private readonly dropping = linkedSignal<readonly string[], Record<string, string[]>>({
+    source: this.unreportedIds,
+    computation: (ids, previous) => choicesFor(ids, previous?.value ?? {}),
+  });
   /** In single elimination, the winner picked for each unreported match, by its id. */
-  private readonly winners = signal<Record<string, string>>({});
+  private readonly winners = linkedSignal<readonly string[], Record<string, string>>({
+    source: this.unreportedIds,
+    computation: (ids, previous) => choicesFor(ids, previous?.value ?? {}),
+  });
+  /**
+   * The players chosen to drop from each unreported match, none if nobody
+   * is: those the forecast counts as dropped and the dialog's request drops.
+   */
+  private readonly chosenDrops = computed(() => {
+    const dropping = this.dropping();
+    return this.unreported().map((match) => ({
+      matchId: match.id,
+      drop: dropping[match.id] ?? [],
+    }));
+  });
   /**
    * Whether the round can be completed: in single elimination, once every
    * unreported match has a winner picked or a player chosen to drop.
    */
-  protected readonly ready = computed(
-    () =>
-      !this.grantsWins() ||
-      this.unreported().every((match) => !!this.winners()[match.id] || this.drops(match.id)),
-  );
+  protected readonly ready = computed(() => {
+    if (!this.grantsWins()) return true;
+    const winners = this.winners();
+    return this.unreported().every((match) => !!winners[match.id] || this.drops(match.id));
+  });
   /**
    * What completing the round will do, as the engine's roundCompletion
    * forecasts it from the tournament with the organizer's picks: the
-   * players chosen to drop counted as dropped, and in single elimination
-   * each unreported match decided as the organizer decides it.
+   * players chosen to drop from its unreported matches counted as dropped,
+   * as the dialog's request drops them, and in single elimination each
+   * unreported match decided as the organizer decides it.
    */
   protected readonly completion = computed(() => {
     const tournament = this.tournament()!;
-    const chosen = Object.values(this.dropping()).flat();
+    const chosen = this.chosenDrops().flatMap(({ drop }) => drop);
     const entries = tournament.entries.map(({ playerId, dropped }) => ({
       playerId,
       dropped: dropped || chosen.includes(playerId),
@@ -188,7 +221,7 @@ export class CompleteRoundDialog {
    */
   protected completeRound() {
     if (this.grantsWins()) {
-      const dropping = this.unreported().filter((match) => this.drops(match.id));
+      const dropping = this.chosenDrops().filter(({ drop }) => drop.length > 0);
       const won = this.unreported().filter((match) => !this.drops(match.id));
       this.dialogRef.close({
         round: this.round(),
@@ -198,21 +231,18 @@ export class CompleteRoundDialog {
             winner: this.winners()[match.id],
           })),
         }),
-        ...(dropping.length > 0 && {
-          drops: dropping.map((match) => ({
-            matchId: match.id,
-            drop: this.dropping()[match.id],
-          })),
-        }),
+        ...(dropping.length > 0 && { drops: dropping }),
       });
       return;
     }
     this.dialogRef.close({
       round: this.round(),
-      grantedDraws: this.unreported().map((match) => ({
-        matchId: match.id,
-        drop: this.dropping()[match.id] ?? [],
-      })),
+      grantedDraws: this.chosenDrops(),
     });
   }
+}
+
+/** The organizer's `choices`, by match id, kept only for the matches `ids`. */
+function choicesFor<T>(ids: readonly string[], choices: Record<string, T>): Record<string, T> {
+  return Object.fromEntries(Object.entries(choices).filter(([id]) => ids.includes(id)));
 }
