@@ -392,11 +392,11 @@ describe('setting a queue picking on the player’s own turn', () => {
   });
 
   /**
-   * An undo reaches the page while Alice's turn is open: the turn goes back
+   * An undo reaches the page while Alice's turn is open: the turn returns
    * to Bob, and Shivan Dragon is unpicked. The draft comes with the change;
    * its picks, the queue and the plan are then read again, and left unanswered.
    */
-  const undoPassesTurnToBob = () =>
+  const undoReturnsTurnToBob = () =>
     updates.events.next({
       type: 'changed',
       draft: draft(
@@ -413,7 +413,7 @@ describe('setting a queue picking on the player’s own turn', () => {
     await flushQueueAndPlan(queueOf({ cards: queue.map(queued), queuePaused: true }), EMPTY_PLAN);
   };
 
-  it('closes, sending nothing and leaving the queue paused, once the turn passes to another player while it is open', async () => {
+  it('closes, sending nothing and leaving the queue paused, once an undo returns the turn to another player while it is open', async () => {
     const { fixture, page } = await aliceAtTurnaround([bolt, spike]);
     const queue = queuePane(page);
     const playPause = queuePlayPauseButton(queue);
@@ -421,7 +421,7 @@ describe('setting a queue picking on the player’s own turn', () => {
     playPause.focus();
     playPause.click();
     await question(asked);
-    undoPassesTurnToBob();
+    undoReturnsTurnToBob();
     await flushUndoRereads([bolt, spike]);
     await fixture.whenStable();
 
@@ -437,7 +437,7 @@ describe('setting a queue picking on the player’s own turn', () => {
 
     queuePlayPauseButton(queuePane(page)).click();
     const dialog = await question(asked);
-    undoPassesTurnToBob();
+    undoReturnsTurnToBob();
     await flushPicks([]);
     // The queue isn't read yet: it may still hold a card the turn would pick.
     TestBed.tick();
@@ -457,7 +457,7 @@ describe('setting a queue picking on the player’s own turn', () => {
     const dialog = await question(asked);
     button(dialog, 'Set queue picking').click();
     const req = http.expectOne('/api/drafts/draft-1/queue/paused');
-    undoPassesTurnToBob();
+    undoReturnsTurnToBob();
     await flushUndoRereads([bolt]);
     await fixture.whenStable();
     expect(openDialog()).toBe(dialog);
@@ -469,6 +469,22 @@ describe('setting a queue picking on the player’s own turn', () => {
     await fixture.whenStable();
     expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
     http.expectNone('/api/drafts/draft-1/queue/paused');
+  });
+
+  it('sets it queue picking with none, asking nothing, once queue picking with none is refused and the re-read picks none', async () => {
+    const { fixture, page } = await aliceAtTurnaround([]);
+
+    queuePlayPauseButton(queuePane(page)).click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+    // The card queued elsewhere was taken out again.
+    await flushRereads(fixture, []);
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    const req = http.expectOne('/api/drafts/draft-1/queue/paused');
+    expect(req.request.body).toEqual({ queuePaused: false, poolCardIds: [] });
+    req.flush(queueOf());
+    await fixture.whenStable();
+    expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue paused');
   });
 
   it('names the cards to confirm once setting it queue picking with none is refused', async () => {

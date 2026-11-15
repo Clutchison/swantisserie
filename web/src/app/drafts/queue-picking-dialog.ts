@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  input,
   signal,
   untracked,
 } from '@angular/core';
@@ -55,6 +56,11 @@ export class QueuePickingDialog {
   protected readonly picksText = computed(
     () => `${this.picks().length} ${cardsNoun(this.picks().length)}`,
   );
+  /**
+   * Whether it opened on a refusal of queue picking with none, as the queue
+   * would pick cards after all: the player asked for queue picking already.
+   */
+  readonly afterRefusal = input(false);
   /** Whether setting it queue picking is on its way. */
   protected readonly sending = signal(false);
   /** Why the cards last confirmed were refused, if they were. */
@@ -64,13 +70,14 @@ export class QueuePickingDialog {
 
   constructor() {
     // Once the cards settle on none, with no confirm on its way, there is
-    // nothing to confirm: after a refusal, the queue is set queue picking
-    // with none; otherwise, as when the turn passes while it is open, the
-    // dialog closes as Cancel does, sending nothing (ADR 0019).
+    // nothing to confirm. After a refusal, the player asked for queue picking
+    // already, so it is set queue picking with none. Otherwise, as when the
+    // turn passes while it is open, the dialog closes as Cancel does, sending
+    // nothing: the player confirmed nothing.
     effect(() => {
       if (this.sending() || this.rereading() || this.picks().length > 0) return;
-      const refused = this.refused();
-      untracked(() => this.dialogRef.close(refused ? { outcome: 'none-to-pick' } : undefined));
+      const asked = this.afterRefusal() || this.refused() !== null;
+      untracked(() => this.dialogRef.close(asked ? { outcome: 'none-to-pick' } : undefined));
     });
   }
 
