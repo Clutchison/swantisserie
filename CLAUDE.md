@@ -4,7 +4,9 @@ Rotisserie draft app for our Discord server; drafted pools are played on MTG Are
 
 ## Conventions
 
-New feature tests go in that feature's spec file. Split templates, styles and JSON fixtures before they pass 1000 lines, as lint already forces for TypeScript.
+New feature tests go in that feature's spec file. Split templates, styles and JSON fixtures before they pass 1000 lines, as lint already forces for TypeScript. Fixtures a recorder script writes from live answers, such as the pool search's (`web/scripts/record-pool-search-fixtures.mts`), are exempt: nobody edits them by hand.
+
+Update `PLAN.md` in the PR that changes the behaviour it describes. Mark a line that isn't built yet "Not yet built (#N)", naming the ticket that builds it; that ticket removes its own markers.
 
 Before writing or editing a web spec, read `docs/agents/web-specs.md`: query by role and name, assert behaviour, flush requests by URL.
 
