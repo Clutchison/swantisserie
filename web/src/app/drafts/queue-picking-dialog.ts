@@ -6,6 +6,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   signal,
   untracked,
 } from '@angular/core';
@@ -67,16 +68,27 @@ export class QueuePickingDialog {
   protected readonly refused = signal<string | null>(null);
   /** Whether the cards may change before they can be confirmed: they are being read again. */
   protected readonly rereading = this.store.rereadingQueuePicks;
+  /**
+   * Whether the player asked for queue picking, by a refusal it opened on or
+   * by confirming cards since refused, and the re-read since has yet to
+   * settle on cards to confirm. Once it has, the cards are what is asked,
+   * and none of them is confirmed yet.
+   */
+  private readonly askedBeforeReread = linkedSignal(() => this.afterRefusal());
 
   constructor() {
     // Once the cards settle on none, with no confirm on its way, there is
-    // nothing to confirm. After a refusal, the player asked for queue picking
-    // already, so it is set queue picking with none. Otherwise, as when the
-    // turn passes while it is open, the dialog closes as Cancel does, sending
-    // nothing: the player confirmed nothing.
+    // nothing to confirm. Should a refusal's re-read settle on none, the
+    // player asked for queue picking already, so it is set queue picking with
+    // none. Otherwise, as when the turn passes while it is open, the dialog
+    // closes as Cancel does: the player confirmed nothing.
     effect(() => {
-      if (this.sending() || this.rereading() || this.picks().length > 0) return;
-      const asked = this.afterRefusal() || this.refused() !== null;
+      if (this.sending() || this.rereading()) return;
+      if (this.picks().length > 0) {
+        untracked(() => this.askedBeforeReread.set(false));
+        return;
+      }
+      const asked = this.askedBeforeReread();
       untracked(() => this.dialogRef.close(asked ? { outcome: 'none-to-pick' } : undefined));
     });
   }
@@ -106,6 +118,7 @@ export class QueuePickingDialog {
         return;
       }
       this.refused.set(changeFailure(err, QUEUE_CHANGE_FAILED));
+      this.askedBeforeReread.set(true);
       this.sending.set(false);
     }
   }

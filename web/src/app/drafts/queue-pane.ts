@@ -472,7 +472,7 @@ export class QueuePane {
         status: queueStateName(queuePaused),
         refused: (err) => {
           if (!this.store.caughtUpOnQueuePicks(err)) return false;
-          this.confirmQueuePicking(true);
+          this.confirmQueuePicking({ afterRefusal: true });
           return true;
         },
       },
@@ -480,12 +480,12 @@ export class QueuePane {
   }
 
   /**
-   * Opens the Set queue picking dialog, `afterRefusal` if queue picking with
-   * none was just refused. A failure it closes with is said by the
+   * Opens the Set queue picking dialog, `afterRefusal` when queue picking
+   * with none was just refused. A failure it closes with is said by the
    * play/pause button, where focus returns; should the queue, read again
    * after a refusal, pick nothing after all, it is set queue picking with none.
    */
-  private confirmQueuePicking(afterRefusal = false) {
+  private confirmQueuePicking({ afterRefusal = false }: { afterRefusal?: boolean } = {}) {
     this.dialogShell
       .open<QueuePickingDialog, QueuePickingResult>(QueuePickingDialog, {
         labelledBy: QUEUE_PICKING_HEADING,

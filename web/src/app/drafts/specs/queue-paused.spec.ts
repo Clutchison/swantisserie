@@ -498,6 +498,25 @@ describe('setting a queue picking on the player’s own turn', () => {
     expect(items(await question(asked), picksList)).toEqual(['Lightning Bolt']);
     expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');
   });
+
+  it('closes, sending nothing and leaving the queue paused, once an undo returns the turn to another player after a refusal named the cards', async () => {
+    const { fixture, page } = await aliceAtTurnaround([]);
+    const queue = queuePane(page);
+
+    queuePlayPauseButton(queue).click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+    // A card was queued elsewhere.
+    await flushRereads(fixture, ['bolt']);
+    await question(asked);
+    undoReturnsTurnToBob();
+    await flushUndoRereads([bolt]);
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue picking');
+    expect(accessibleDescription(queuePlayPauseButton(queue))).toBe('Queue paused');
+  });
 });
 
 describe('"next up" strip while the queue is paused', () => {
