@@ -33,7 +33,7 @@ describe('webhookPostError', () => {
   it('says how long to wait on a 429 that says so', () => {
     const error = webhookPostError(429, 1_500);
     expect(error).toBeInstanceOf(WebhookRateLimitedError);
-    expect((error as WebhookRateLimitedError).retryAfterMs).toBe(1_500);
+    expect(error).toMatchObject({ retryAfterMs: 1_500 });
   });
 
   it.each([429, 500, 502, 503])(
@@ -135,7 +135,7 @@ describe('FetchWebhookClient', () => {
     const error = await failure();
 
     expect(error).toBeInstanceOf(WebhookRateLimitedError);
-    expect((error as WebhookRateLimitedError).retryAfterMs).toBe(64_570);
+    expect(error).toMatchObject({ retryAfterMs: 64_570 });
   });
 
   it('throws WebhookRateLimitedError with the Retry-After header’s wait on a 429 whose body has none', async () => {
@@ -146,7 +146,7 @@ describe('FetchWebhookClient', () => {
     const error = await failure();
 
     expect(error).toBeInstanceOf(WebhookRateLimitedError);
-    expect((error as WebhookRateLimitedError).retryAfterMs).toBe(7_000);
+    expect(error).toMatchObject({ retryAfterMs: 7_000 });
   });
 
   it.each<[string, () => void]>([

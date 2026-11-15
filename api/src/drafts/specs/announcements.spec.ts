@@ -1,5 +1,9 @@
 import { Logger } from '@nestjs/common';
-import { RATE_LIMIT_CAP_MS } from '../../discord/draft-notifier.js';
+import {
+  DraftNotifier,
+  RATE_LIMIT_CAP_MS,
+  RATE_LIMIT_MIN_WAIT_MS,
+} from '../../discord/draft-notifier.js';
 import {
   WebhookGoneError,
   webhookPostError,
@@ -12,6 +16,7 @@ import {
   bob,
   carol,
   aliceCookie,
+  app,
   webhookClient,
   useDraftsApp,
   signIn,
@@ -492,7 +497,25 @@ describe('announcements', () => {
       await posted(id, 3);
     });
 
-    it('drops and logs a post whose wait would pass the cap, and posts the next', async () => {
+    it('waits a little even when Discord says not to wait', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValueOnce(new WebhookRateLimitedError(0));
+      await start(id).expect(200);
+      await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+
+      await vi.advanceTimersByTimeAsync(RATE_LIMIT_MIN_WAIT_MS - 1);
+      expect(webhookClient.post).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+
+      await posted(id, 2);
+    });
+
+    it('drops and logs posts while the wait would pass the cap, without a request, then posts again', async () => {
       const id = await readyDraft(
         [aliceCookie, bobCookie],
         1,
@@ -500,23 +523,30 @@ describe('announcements', () => {
         webhookId,
       );
       const ids = await poolCardIds(id);
+      const rateLimitMs = RATE_LIMIT_CAP_MS + RATE_LIMIT_MS;
       webhookClient.post.mockRejectedValueOnce(
-        new WebhookRateLimitedError(RATE_LIMIT_CAP_MS + 1),
+        new WebhookRateLimitedError(rateLimitMs),
       );
       const logged = vi
         .spyOn(Logger.prototype, 'error')
         .mockImplementation(() => {});
       await start(id).expect(200);
 
+      // Sent no request: it would only be rate limited too.
       await pick(id, ids.Shock).expect(200);
+      await posted(id, 1);
+      expect(logged.mock.calls).toEqual([
+        [expect.stringMatching(new RegExp(`draft ${id}.*rate limit`))],
+        [expect.stringMatching(new RegExp(`draft ${id}.*rate limit`))],
+      ]);
+
+      await vi.advanceTimersByTimeAsync(rateLimitMs);
+      await app.get(DraftNotifier).notify(id, [{ type: 'frozen' }]);
 
       const [dropped, next] = await posted(id, 2);
       expect(dropped).toContain('has started');
       expect(next).not.toContain('has started');
-      expect(logged).toHaveBeenCalledOnce();
-      expect(logged).toHaveBeenCalledWith(
-        expect.stringMatching(new RegExp(`draft ${id}.*rate limit`)),
-      );
+      expect(logged).toHaveBeenCalledTimes(2);
     });
   });
 

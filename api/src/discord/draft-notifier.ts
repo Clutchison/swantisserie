@@ -32,14 +32,23 @@ import {
 export const SHUTDOWN_DEADLINE_MS = 25_000;
 
 /**
- * The longest Discord rate limit a post waits out; a post rate limited for
- * longer is dropped. A webhook's usual limit is per channel, about 30 posts a
+ * The longest a post waits out a Discord rate limit. While a webhook's rate
+ * limit has longer than this left, its posts are dropped without a request,
+ * which would only be rate limited too and count towards Discord's limit on
+ * invalid requests. A webhook's usual limit is per channel, about 30 posts a
  * minute, so its waits stay within a minute; a longer one means something
  * worse, such as a global or Cloudflare limit, and waiting it out would stall
  * every announcement on the webhook. Above the shutdown deadline, which ends
  * any wait still going at shutdown.
  */
 export const RATE_LIMIT_CAP_MS = 60_000;
+
+/**
+ * The shortest a rate limit holds a webhook, however little Discord says:
+ * a `retry_after` of 0 (Discord gives it to the millisecond, and may round
+ * down) would let the next try go at once and spend it on another 429.
+ */
+export const RATE_LIMIT_MIN_WAIT_MS = 500;
 
 /** An announcement queued or still sending, which shutdown may drop. */
 interface Announcement {
@@ -58,8 +67,8 @@ export class DraftNotifierRetries {
  * Announces draft events on each draft's webhook. Each draft's posts go one
  * at a time, in the order notified, and a failed post is retried if a retry
  * may help, then logged. When Discord rate limits a post, every post on that
- * webhook, from any draft, waits as long as Discord says, up to
- * RATE_LIMIT_CAP_MS. A post that finds the webhook gone marks it so, and
+ * webhook, from any draft, waits as long as Discord says; a post that would
+ * wait longer than RATE_LIMIT_CAP_MS is logged and dropped. A post that finds the webhook gone marks it so, and
  * nothing more is posted on it until its URL is replaced. At shutdown, posts
  * go on until the shutdown deadline; then those still queued or sending are
  * logged as dropped, and no new post starts.
@@ -245,14 +254,14 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   /**
    * Posts `message`, retrying after each of the retry delays unless the
    * failure is one a retry won't fix. A try Discord rate limits counts as one
-   * of the tries, and the next waits as long as Discord said instead of the
-   * delay; a rate limit holds every post on the webhook, and one longer than
-   * RATE_LIMIT_CAP_MS fails the post. Gives up without posting once the
-   * shutdown deadline has passed.
+   * of the tries: it holds every post on the webhook for as long as Discord
+   * said, and the next try waits out that hold instead of the delay. Fails
+   * without posting when the hold has longer left than RATE_LIMIT_CAP_MS.
+   * Gives up without posting once the shutdown deadline has passed.
    */
   private async post(url: string, message: WebhookMessage): Promise<void> {
-    for (const delay of this.retries.delaysMs) {
-      await this.waitOutRateLimit(url);
+    for (let tries = 0; ; tries++) {
+      await this.waitOutRateLimitOrDrop(url);
       if (this.deadlinePassed) return;
       try {
         return await this.webhooks.post(url, message);
@@ -263,31 +272,21 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
         ) {
           throw err;
         }
-        if (err instanceof WebhookRateLimitedError) this.rateLimit(url, err);
-        else await this.wait(delay);
+        const rateLimited = err instanceof WebhookRateLimitedError;
+        if (rateLimited) this.holdWebhook(url, err.retryAfterMs);
+        const delay = this.retries.delaysMs.at(tries);
+        if (delay === undefined) throw err;
+        if (!rateLimited) await this.wait(delay);
       }
-    }
-    await this.waitOutRateLimit(url);
-    if (this.deadlinePassed) return;
-    try {
-      await this.webhooks.post(url, message);
-    } catch (err) {
-      if (err instanceof WebhookRateLimitedError) this.rateLimit(url, err);
-      throw err;
     }
   }
 
   /**
-   * Holds posts on the webhook at `url` for as long as Discord's rate limit
-   * says, or throws if that is longer than RATE_LIMIT_CAP_MS, holding none.
+   * Holds posts on the webhook at `url` for `retryAfterMs`, at least
+   * RATE_LIMIT_MIN_WAIT_MS, or longer if it is held longer already.
    */
-  private rateLimit(url: string, { retryAfterMs }: WebhookRateLimitedError) {
-    if (retryAfterMs > RATE_LIMIT_CAP_MS) {
-      throw new Error(
-        `Discord rate limited the webhook for ${retryAfterMs} ms, longer than the ${RATE_LIMIT_CAP_MS} ms a post waits, so the post was dropped.`,
-      );
-    }
-    const until = Date.now() + retryAfterMs;
+  private holdWebhook(url: string, retryAfterMs: number): void {
+    const until = Date.now() + Math.max(retryAfterMs, RATE_LIMIT_MIN_WAIT_MS);
     this.rateLimitedUntil.set(
       url,
       Math.max(until, this.rateLimitedUntil.get(url) ?? 0),
@@ -295,10 +294,12 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   }
 
   /**
-   * Waits until the webhook at `url` is no longer rate limited, or until the
-   * shutdown deadline passes if that is sooner.
+   * Waits until the webhook at `url` is no longer held by a rate limit, or
+   * until the shutdown deadline passes if that is sooner. Throws, dropping the
+   * post without a request, when the hold has longer left than
+   * RATE_LIMIT_CAP_MS.
    */
-  private async waitOutRateLimit(url: string): Promise<void> {
+  private async waitOutRateLimitOrDrop(url: string): Promise<void> {
     for (;;) {
       const until = this.rateLimitedUntil.get(url);
       if (until === undefined || this.deadlinePassed) return;
@@ -306,6 +307,11 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
       if (left <= 0) {
         this.rateLimitedUntil.delete(url);
         return;
+      }
+      if (left > RATE_LIMIT_CAP_MS) {
+        throw new Error(
+          `Discord rate limited the webhook for another ${left} ms, longer than the ${RATE_LIMIT_CAP_MS} ms a post waits, so the post was dropped.`,
+        );
       }
       await this.wait(left);
     }
