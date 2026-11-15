@@ -10,6 +10,11 @@ p {
   margin: 0;
 }
 
+/* Its live region stays on the page, and while empty takes no room: it takes back the body's gap before it. */
+.loading:empty {
+  margin-top: calc(-1 * var(--space-md));
+}
+
 figure {
   display: flex;
   flex-direction: column;

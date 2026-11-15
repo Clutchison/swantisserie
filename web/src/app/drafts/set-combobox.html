@@ -34,8 +34,18 @@
         <li [appSetOption]="set" (click)="choose(set)">{{ setText(set) }}</li>
       }
     </ul>
-    @if (options().length === 0) {
-      <p role="status">No set matches</p>
+    @if (noMatch()) {
+      <!-- Said by the live region below, which is on the page before the list opens. -->
+      <p aria-hidden="true">No set matches</p>
     }
   </div>
 </ng-template>
+<!--
+  Outside the list, which typing can open already saying so: a region that
+  arrives holding its text may go unspoken.
+-->
+<p class="visually-hidden" role="status" aria-label="Set matches">
+  @if (noMatch()) {
+    No set matches
+  }
+</p>
