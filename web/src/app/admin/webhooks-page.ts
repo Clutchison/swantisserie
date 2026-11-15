@@ -66,8 +66,9 @@ export class WebhooksPage {
   }
 
   /**
-   * Renames `webhook` to what its row's `field` holds. A refused name goes
-   * back to the stored one, so the row shows what is stored.
+   * Renames `webhook` to what its row's `field` holds. A rename that fails,
+   * refused or not sent through a lost connection, puts the stored name
+   * back, so the row shows what is stored.
    */
   protected async rename(webhook: WebhookWithUrlView, field: HTMLInputElement) {
     const name = field.value;
@@ -111,13 +112,13 @@ export class WebhooksPage {
   /**
    * Sends the change `request` makes from `place` (none if the app admin
    * thinks better of it), then shows the list as it now is; answers whether
-   * it was made. A failure shows at `place`, and `refused` runs once the
-   * change is refused. Focus is kept as `Changes.send` keeps it.
+   * it was made. A failure shows at `place`, and `failed` runs once the
+   * change fails: refused, or not sent through a lost connection. Focus is kept as `Changes.send` keeps it.
    */
   private save(
     place: ProblemPlace,
     request: () => Observable<unknown> | Promise<Observable<unknown> | undefined>,
-    refused?: () => void,
+    failed?: () => void,
   ): Promise<boolean> {
     return this.changes.send(async () => {
       const sending = await request();
@@ -134,7 +135,7 @@ export class WebhooksPage {
               : 'Saving failed. Check your connection and try again.',
         }),
       });
-      if (!made) refused?.();
+      if (!made) failed?.();
       return made;
     });
   }

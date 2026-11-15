@@ -374,6 +374,20 @@ describe('webhooks page', () => {
     expect(nameField(li)!.value).toBe('#roto-side');
   });
 
+  it('shows the stored name again when a rename is lost to the connection', async () => {
+    const { page } = await openPage([main]);
+    const li = mainRow(page);
+    fill(nameField(li)!, '#roto-league');
+    button(li, 'Rename').click();
+
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).error(
+      new ProgressEvent('error'),
+    );
+    await vi.waitFor(() => expect(alertIn(li)).not.toBeNull());
+
+    expect(nameField(li)!.value).toBe('#roto-main');
+  });
+
   it('keeps a name typed while another change saves', async () => {
     const { fixture, page } = await openPage([main, side]);
     button(mainRow(page), 'Rename').click();
