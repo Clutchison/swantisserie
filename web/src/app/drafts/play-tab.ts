@@ -28,7 +28,7 @@ import { DialogShell } from '../dialog-shell';
 import { formatName, summaryOf, SWISS_ROUND_OPTION_NAMES } from './tournament-format-names';
 import { Questions, type Question } from '../question-dialog';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { ChangeStatus, Changes, SendsChange } from './changes';
+import { ChangeStatus, Changes, SendsChange } from '../changes';
 import { COMPLETE_ROUND_HEADING, CompleteRoundDialog } from './complete-round-dialog';
 import { DeckLockReminder } from './deck-lock-reminder';
 import { DraftStore } from './draft-store';
