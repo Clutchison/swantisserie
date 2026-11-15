@@ -430,12 +430,13 @@ export function byesSendingOn(
 
 /**
  * The standings of a single elimination tournament's `players`, in seed
- * order, after `matches`, with `byes` holding each bye. Only the matches
- * and byes countedInStandings counts by `completed` count. Players rank by the
- * tournament round each reached, as counted by the matches they won, byes
- * included, so the winner of the final ranks first alone. Players out
- * in the same tournament round, or still in it, share a rank and keep seed
- * order, the rank after a shared one skipping, as in 1, 1, 3. Unreported
+ * order, after `matches`, with `byes` holding each bye. The standings count
+ * only the matches and byes `countedInStandings` keeps for `completed`.
+ * Players rank by the tournament round each reached, as counted by the
+ * matches they won, byes included, so the winner of the final ranks first
+ * alone. Players out in the same tournament round, or still in it, share a
+ * rank and keep seed order, the rank after a shared one skipping, as in
+ * 1, 1, 3. Unreported
  * matches count for nothing, and so does a forfeit whose players both
  * dropped before the next tournament round was paired with either of them,
  * `dropped` holding every player who has. Such a forfeit still puts both
@@ -463,7 +464,7 @@ export function singleEliminationStandings(
       ),
   );
   const table = players.map((playerId) =>
-    standingOf(playerId, decided, counted.byesOf(playerId)),
+    standingOf(playerId, decided, counted.byeCount(playerId)),
   );
   const standings = ranked(table, (a, b) => b.matches.won - a.matches.won);
   const out = new Set(

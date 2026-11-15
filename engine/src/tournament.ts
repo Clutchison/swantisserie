@@ -155,13 +155,13 @@ export function countedInStandings<M extends RoundMatch>(
   matches: readonly M[],
   byes: readonly RoundBye[],
   { lastCompletedRound, complete }: CompletedRounds,
-): { matches: M[]; byesOf: (playerId: string) => number } {
+): { matches: M[]; byeCount: (playerId: string) => number } {
   const counts = ({ round }: { round: number }) =>
     complete || round <= lastCompletedRound;
   const counted = byes.filter(counts);
   return {
     matches: matches.filter(counts),
-    byesOf: (playerId) =>
+    byeCount: (playerId) =>
       counted.filter((bye) => bye.playerId === playerId).length,
   };
 }
