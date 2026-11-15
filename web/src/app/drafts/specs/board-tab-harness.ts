@@ -63,3 +63,13 @@ export function stubBoardScrolling() {
       element.querySelector(ROW_HEADERS) ? rowName(element as HTMLElement) : 'something else',
     );
 }
+
+/** The focusable seat heading the column named `column`, as a screen reader names it: its seat's player. */
+export function boardSeat(page: HTMLElement, column: string) {
+  const header = [...board(page).querySelectorAll<HTMLElement>(COLUMN_HEADERS)].find(
+    (candidate) => accessibleName(candidate) === column,
+  );
+  const seat = header?.querySelector<HTMLElement>('[tabindex]');
+  if (!seat) throw new Error(`boardSeat: no seat heading column "${column}"`);
+  return seat;
+}
