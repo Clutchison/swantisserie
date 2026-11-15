@@ -1,4 +1,4 @@
-import { accessibleName, stubScrollIntoView, text } from '../../specs-harness';
+import { accessibleName, byAriaLabel, stubScrollIntoView, text } from '../../specs-harness';
 import { panel, regionTable } from './harness';
 
 /** A table's rows, column headers, row headers and cells, by their roles, native or ARIA. */
@@ -64,12 +64,12 @@ export function stubBoardScrolling() {
     );
 }
 
-/** The focusable seat heading the column named `column`, as a screen reader names it: its seat's player. */
+/** The seat heading the column named `column`, an image named as the column is: its seat's player. */
 export function boardSeat(page: HTMLElement, column: string) {
   const header = [...board(page).querySelectorAll<HTMLElement>(COLUMN_HEADERS)].find(
     (candidate) => accessibleName(candidate) === column,
   );
-  const seat = header?.querySelector<HTMLElement>('[tabindex]');
+  const seat = header && byAriaLabel(header, '[role="img"]', column);
   if (!seat) throw new Error(`boardSeat: no seat heading column "${column}"`);
   return seat;
 }

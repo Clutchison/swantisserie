@@ -194,7 +194,9 @@ export class BoardTab {
    */
   protected bringFocusedPickIntoView(event: FocusEvent) {
     const target = event.target;
-    if (target instanceof Element && target.closest('tbody')) target.scrollIntoView(TO_FOCUSED);
+    if (target instanceof Element && target.closest('app-card-name')) {
+      target.scrollIntoView(TO_FOCUSED);
+    }
   }
 
   protected isOwn(player: PlayerView) {
