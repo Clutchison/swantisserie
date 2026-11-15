@@ -224,6 +224,18 @@ export class CardDetail {
   });
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
   protected readonly yourTurn = this.store.yourTurn;
+  /**
+   * The one note about picking the card that shows: who picked it, that the
+   * latest picks couldn't load, or that the viewer can pick on their turn;
+   * null for none.
+   */
+  protected readonly pickNote = computed(() => {
+    const picker = this.picked().get(this.card().id);
+    if (picker) return { kind: 'picked-by', picker } as const;
+    if (!this.actions().pick) return null;
+    if (this.picksFailed()) return { kind: 'picks-failed' } as const;
+    return this.yourTurn() ? null : ({ kind: 'your-turn' } as const);
+  });
   /** The number of the pick whose turn it is, if any: a change means the turn has moved on. */
   private readonly turnPick = computed(() => this.store.turn()?.pick ?? null);
 

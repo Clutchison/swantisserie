@@ -707,11 +707,13 @@ export const comboboxOptions = (field: HTMLInputElement) =>
           ?.querySelectorAll<HTMLElement>('[role="option"]') ?? []),
       ]
     : [];
-/** What the status beside an editable combobox's open list says, such as that nothing matches; null if none. */
-export const comboboxStatus = (field: HTMLInputElement) => {
-  const list = document.getElementById(field.getAttribute('aria-controls') ?? '');
-  const status = list?.parentElement?.querySelector('[role="status"]');
-  return status ? collapseWhitespace(status.textContent) : null;
+/** What an editable combobox's open list shows beside its options, such as that nothing matches; null while it is closed. */
+export const comboboxNote = (field: HTMLInputElement) => {
+  const popup = document.getElementById(field.getAttribute('aria-controls') ?? '')?.parentElement;
+  const note = popup?.cloneNode(true);
+  if (!(note instanceof Element)) return null;
+  note.querySelector('[role="listbox"]')?.remove();
+  return collapseWhitespace(note.textContent);
 };
 /** The option an editable combobox highlights, by its text, if any. */
 export const highlightedOption = (field: HTMLInputElement) => {
