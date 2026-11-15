@@ -1,8 +1,13 @@
 import {
+  countedInStandings,
+  roundByes,
   ranked,
   standingOf,
+  type CompletedRounds,
   type DecidedMatch,
   type MatchOutcome,
+  type RoundBye,
+  type RoundMatch,
   type Standing,
   type TournamentMatch,
 } from './tournament.js';
@@ -14,6 +19,15 @@ import {
  */
 export function singleEliminationRoundCount(joined: number): number {
   return Math.max(1, Math.ceil(Math.log2(joined)));
+}
+
+/**
+ * How many bracket places tournament round `round` of a bracket of
+ * `roundCount` tournament rounds has: half the round before's, down to the
+ * final's one.
+ */
+function bracketPlaceCount(roundCount: number, round: number): number {
+  return 2 ** (roundCount - round);
 }
 
 /**
@@ -38,10 +52,13 @@ export interface BracketMatch {
 export function firstBracketRound(
   seedOrder: readonly string[],
 ): BracketMatch[] {
-  const size = 2 ** singleEliminationRoundCount(seedOrder.length);
-  const layout = seedLayout(size);
+  const places = bracketPlaceCount(
+    singleEliminationRoundCount(seedOrder.length),
+    1,
+  );
+  const layout = seedLayout(2 * places);
   const player = (seed: number) => seedOrder[seed - 1] ?? null;
-  return Array.from({ length: size / 2 }, (_, bracketPlace) => ({
+  return Array.from({ length: places }, (_, bracketPlace) => ({
     bracketPlace,
     players: [
       player(layout[2 * bracketPlace])!,
@@ -51,25 +68,41 @@ export function firstBracketRound(
 }
 
 /**
- * The next tournament round of a bracket from `advancing`, the player each
- * bracket place of the round before sends on, in bracket place order, or
- * null where nobody advances: the players advancing from neighbouring
- * bracket places meet. A player whose would-be opponent is null has a bye,
- * and a bracket place nobody reaches is left out.
+ * Who a bracket place of a tournament round sends on to the next: a
+ * player, or null when nobody advances from it.
+ */
+export interface AdvancingFrom {
+  bracketPlace: number;
+  advancing: string | null;
+}
+
+/**
+ * Tournament round `round` of a bracket of `roundCount` tournament rounds,
+ * from `previous`, who each bracket place of the round before sends on, in
+ * any order; a place it doesn't list sends nobody on. The players
+ * advancing from neighbouring bracket places meet. A player whose
+ * would-be opponent nobody sends on has a bye, and a bracket place nobody
+ * reaches is left out.
  */
 export function nextBracketRound(
-  advancing: readonly (string | null)[],
+  previous: readonly AdvancingFrom[],
+  { roundCount, round }: { roundCount: number; round: number },
 ): BracketMatch[] {
-  // Stryker disable next-line ArithmeticOperator: the extra places are `null` and filtered out.
-  return Array.from({ length: advancing.length / 2 }, (_, bracketPlace) => {
-    const [first = null, second = null] = [
-      advancing[2 * bracketPlace],
-      advancing[2 * bracketPlace + 1],
-    ].filter((id) => id !== null);
-    return first === null
-      ? null
-      : { bracketPlace, players: [first, second] as const };
-  }).filter((match) => match !== null);
+  const sentOn = new Map(
+    previous.map(({ bracketPlace, advancing }) => [bracketPlace, advancing]),
+  );
+  return Array.from(
+    { length: bracketPlaceCount(roundCount, round) },
+    (_, bracketPlace) => {
+      const [first = null, second = null] = [
+        sentOn.get(2 * bracketPlace) ?? null,
+        sentOn.get(2 * bracketPlace + 1) ?? null,
+      ].filter((id) => id !== null);
+      return first === null
+        ? null
+        : { bracketPlace, players: [first, second] as const };
+    },
+  ).filter((match) => match !== null);
 }
 
 /**
@@ -301,7 +334,7 @@ export function bracketRounds(
       return { kind: 'WinnerToCome', bracketPlace };
     };
     const places = Array.from(
-      { length: 2 ** (roundCount - round) },
+      { length: bracketPlaceCount(roundCount, round) },
       (_, bracketPlace): [BracketPlace['sides'], Advancing] => {
         const match = played.find(
           (m) => m.round === round && m.bracketPlace === bracketPlace,
@@ -369,7 +402,8 @@ function unpairedAdvancing(
  * The byes of each tournament round of `rounds`, with the players paired
  * in the tournament round after it.
  */
-export interface RoundByes {
+export interface ByesWithNextRoundPlayers {
+  round: number;
   byes: readonly string[];
   nextRoundPlayers: readonly string[];
 }
@@ -381,23 +415,28 @@ export interface RoundByes {
  * nobody advances; `dropped` holds every player who has.
  */
 export function byesSendingOn(
-  rounds: readonly RoundByes[],
+  rounds: readonly ByesWithNextRoundPlayers[],
   dropped: readonly string[],
-): string[] {
-  return rounds.flatMap(({ byes, nextRoundPlayers }) =>
-    byes.filter(
-      (id) => !droppedBeforeNextRoundPaired(id, dropped, nextRoundPlayers),
+): RoundBye[] {
+  return rounds.flatMap(({ round, byes, nextRoundPlayers }) =>
+    roundByes(
+      round,
+      byes.filter(
+        (id) => !droppedBeforeNextRoundPaired(id, dropped, nextRoundPlayers),
+      ),
     ),
   );
 }
 
 /**
  * The standings of a single elimination tournament's `players`, in seed
- * order, after `matches`, with `byes` holding the player with each bye: by
- * the tournament round each reached, as counted by the matches they won,
- * byes included, so the winner of the final ranks first alone. Players out
- * in the same tournament round, or still in it, share a rank and keep seed
- * order, the rank after a shared one skipping, as in 1, 1, 3. Unreported
+ * order, after `matches`, with `byes` holding each bye. The standings count
+ * only the matches and byes `countedInStandings` keeps for `completed`.
+ * Players rank by the tournament round each reached, as counted by the
+ * matches they won, byes included, so the winner of the final ranks first
+ * alone. Players out in the same tournament round, or still in it, share a
+ * rank and keep seed order, the rank after a shared one skipping, as in
+ * 1, 1, 3. Unreported
  * matches count for nothing, and so does a forfeit whose players both
  * dropped before the next tournament round was paired with either of them,
  * `dropped` holding every player who has. Such a forfeit still puts both
@@ -408,13 +447,15 @@ export function byesSendingOn(
  */
 export function singleEliminationStandings(
   players: readonly string[],
-  matches: readonly SingleEliminationMatch[],
-  byes: readonly string[],
+  matches: readonly RoundMatch<SingleEliminationMatch>[],
+  byes: readonly RoundBye[],
+  completed: CompletedRounds,
   // Stryker disable next-line ArrayDeclaration: an extra id in the default `dropped` changes nothing.
   dropped: readonly string[] = [],
 ): Standing[] {
-  const decided = matches.filter(
-    (match): match is DecidedMatch =>
+  const counted = countedInStandings(matches, byes, completed);
+  const decided = counted.matches.filter(
+    (match): match is RoundMatch<SingleEliminationMatch> & DecidedMatch =>
       match.outcome !== null &&
       !nobodyWins(
         { players: match.players, outcome: match.outcome },
@@ -423,11 +464,11 @@ export function singleEliminationStandings(
       ),
   );
   const table = players.map((playerId) =>
-    standingOf(playerId, decided, byes.filter((id) => id === playerId).length),
+    standingOf(playerId, decided, counted.byeCount(playerId)),
   );
   const standings = ranked(table, (a, b) => b.matches.won - a.matches.won);
   const out = new Set(
-    matches.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
+    counted.matches.flatMap(({ players: pair, outcome, nextRoundPlayers }) => {
       // Stryker disable next-line ArrayDeclaration: an extra id in the empty list changes nothing.
       if (outcome === null) return [];
       const match: DecidedMatch = { players: pair, outcome };
