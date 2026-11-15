@@ -1,11 +1,11 @@
 <main class="page-narrow">
   <h1>New draft</h1>
   <form [formGroup]="form" (ngSubmit)="create()">
-    <label>
+    <label class="field">
       Name
       <input name="name" formControlName="name" [maxlength]="maxNameLength" required />
     </label>
-    <label>
+    <label class="field">
       Platform
       <select name="platform" formControlName="platform">
         @for (platform of platforms; track platform) {
@@ -14,20 +14,41 @@
       </select>
       <span class="hint">The game this draft is played on. It can’t change later.</span>
     </label>
+    <!-- Each choice is a native radio, hidden, in a label styled as a segment. -->
     <fieldset class="pool-source">
       <legend>Pool from</legend>
-      <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="pool-query" />
-        Pool query
-      </label>
-      <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="cube" />
-        Cube link
-      </label>
-      <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="set-list" />
-        Sets
-      </label>
+      <div class="segmented">
+        <label class="button compact quiet">
+          <input
+            class="visually-hidden"
+            type="radio"
+            name="poolSource"
+            formControlName="poolSource"
+            value="pool-query"
+          />
+          Pool query
+        </label>
+        <label class="button compact quiet">
+          <input
+            class="visually-hidden"
+            type="radio"
+            name="poolSource"
+            formControlName="poolSource"
+            value="cube"
+          />
+          Cube link
+        </label>
+        <label class="button compact quiet">
+          <input
+            class="visually-hidden"
+            type="radio"
+            name="poolSource"
+            formControlName="poolSource"
+            value="set-list"
+          />
+          Sets
+        </label>
+      </div>
     </fieldset>
     <!-- Only the chosen pool source's group shows; the others keep what was typed. -->
     <ng-container formGroupName="poolSources">
@@ -35,7 +56,7 @@
       @let kind = poolSource();
       @switch (kind) {
         @case ('pool-query') {
-          <label formGroupName="pool-query">
+          <label class="field" formGroupName="pool-query">
             Pool query
             <textarea
               name="poolQuery"
@@ -54,7 +75,7 @@
           </label>
         }
         @case ('cube') {
-          <label formGroupName="cube">
+          <label class="field" formGroupName="cube">
             Cube link
             <input
               name="cubeLink"
@@ -78,7 +99,7 @@
         @default never;
       }
     </ng-container>
-    <label>
+    <label class="field">
       Picks per player
       <input
         name="picksPerPlayer"
@@ -105,7 +126,7 @@
       </button>
       @if (doublePicksOn()) {
         @let problem = doublePicksProblem();
-        <label class="inline">
+        <label class="field inline">
           for each player’s last
           <input
             name="doublePicks"
@@ -126,7 +147,7 @@
       }
     </div>
 
-    <label>
+    <label class="field">
       Announcements
       <select name="webhookId" formControlName="webhookId">
         @for (webhook of webhooks(); track webhook.id) {

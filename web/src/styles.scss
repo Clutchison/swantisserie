@@ -220,10 +220,12 @@ button {
 
 /*
  * A row of choices, the chosen one marked: aria-pressed buttons, or labels
- * styled as buttons each holding a visually hidden native radio.
+ * styled as buttons each holding a visually hidden native radio. A row too
+ * long for a phone, such as the Swiss round options, wraps onto the next line.
  */
 .segmented {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-xs);
 
   /* The hidden radio sits inside its label, not off at the page's edge. */
@@ -252,8 +254,14 @@ button {
   background: transparent;
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--color-raised);
+  }
+
+  /* As a disabled button looks, such as a set the full set list picker can't add. */
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 
   &[aria-pressed='true'] {
@@ -278,6 +286,18 @@ button {
       padding-inline: var(--space-sm);
       border-color: var(--color-text);
       color: var(--color-text);
+    }
+
+    /*
+     * One whose label can be too long for a phone, such as a set in the set
+     * list picker: it wraps onto more lines, growing taller than the 44px
+     * touch target rather than overflowing its list.
+     */
+    &.wraps {
+      height: auto;
+      min-height: 44px;
+      white-space: normal;
+      text-align: start;
     }
   }
 }
