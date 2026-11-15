@@ -26,6 +26,7 @@ import {
   toggleButton,
   webhooksAnswer,
 } from './harness';
+import { listItemTextsIn } from '../../specs-harness';
 import { landOnDraftList, listedDrafts, listItem, listItemOf, settle } from './draft-list-harness';
 
 useDraftsApp();
@@ -607,8 +608,13 @@ describe('create form', () => {
   it('lists the cube’s cards that CubeCobra links to no Scryfall card', async () => {
     const form = await openForm();
     const { fixture, page } = form;
+    await choosePoolSource(form, 'Cube link');
+    fill(page, 'Name', 'Custom');
+    fill(page, 'Cube link', 'customcube');
+    await fixture.whenStable();
+    submit(page);
 
-    fail(await create(form), 422, {
+    fail(await vi.waitFor(() => http.expectOne('/api/drafts')), 422, {
       error: 'unidentified-cards',
       message:
         'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
@@ -621,10 +627,7 @@ describe('create form', () => {
     expect(error.textContent).toContain(
       'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
     );
-    expect([...error.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
-      'Goblin Homebrew',
-      'Wandering Prototype',
-    ]);
+    expect(listItemTextsIn(error)).toEqual(['Goblin Homebrew', 'Wandering Prototype']);
     expect(router.url).toBe('/drafts/new');
   });
 

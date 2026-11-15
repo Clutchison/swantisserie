@@ -329,6 +329,28 @@ describe('creating a draft from a cube', () => {
     await listDrafts().expect(200).expect([]);
   });
 
+  it('refuses a cube with an unidentified card named like a basic land, rather than leaving it out', async () => {
+    const { mainboard } = cube('Custom Cube', 'Lightning Bolt', 'Mountain');
+    cubesAre({
+      customcube: {
+        name: 'Custom Cube',
+        mainboard: [...mainboard, { oracleId: null, name: 'Island' }],
+      },
+    });
+    onPlatform('Lightning Bolt');
+
+    const res = await createDraft({
+      name: 'Custom',
+      poolSource: { kind: 'cube', cubeLink: 'customcube' },
+    }).expect(422);
+
+    expect(res.body).toMatchObject({
+      error: 'unidentified-cards',
+      cards: ['Island'],
+      totalCards: 1,
+    });
+  });
+
   it('refuses a cube with one card CubeCobra links to no Scryfall card, saying it can’t be in a pool', async () => {
     cubesAre({
       customcube: {

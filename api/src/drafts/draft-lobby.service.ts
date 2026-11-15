@@ -363,22 +363,19 @@ export class DraftLobbyService {
       });
     }
     // The basic lands are left out: a player adds them to their plan one
-    // copy at a time.
-    const cube = {
-      ...found,
-      mainboard: found.mainboard.filter((card) => !isBasicLand(card.name)),
-    };
-    if (cube.mainboard.length === 0) {
+    // copy at a time. An unidentified card is never one, whatever its name:
+    // a custom card could be named "Island".
+    const identified: CubeCard[] = [];
+    const unidentified = new Set<string>();
+    for (const card of found.mainboard) {
+      if (card.oracleId === null) unidentified.add(card.name);
+      else if (!isBasicLand(card.name)) identified.push(card);
+    }
+    if (identified.length === 0 && unidentified.size === 0) {
       throw new CubeLinkError({
         error: 'no-cards',
         message: 'This cube has no mainboard cards.',
       });
-    }
-    const identified: CubeCard[] = [];
-    const unidentified = new Set<string>();
-    for (const card of cube.mainboard) {
-      if (card.oracleId === null) unidentified.add(card.name);
-      else identified.push(card);
     }
     if (unidentified.size > 0) {
       throw new CubeLinkError({
@@ -405,7 +402,7 @@ export class DraftLobbyService {
         totalCards: missing.length,
       });
     }
-    return { cubeId, cubeName: cube.name, printings };
+    return { cubeId, cubeName: found.name, printings };
   }
 
   private async checkPoolQuery(

@@ -52,6 +52,10 @@ export function onlyAlert(root: HTMLElement) {
   return alerts[0];
 }
 
+/** The text of each list item inside `root`, by role, trimmed and in reading order. */
+export const listItemTextsIn = (root: HTMLElement) =>
+  [...root.querySelectorAll('li, [role="listitem"]')].map((item) => item.textContent?.trim());
+
 /**
  * How `statusIn` finds a status region: by its accessible name (its
  * aria-label, or the text of the element its aria-labelledby names), or by
