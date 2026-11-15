@@ -32,7 +32,8 @@ import { toOutcome } from './tournament-view.js';
  * SINGLE_ELIMINATION_CHANGES, in bracket-changes.ts, says when Reinstate
  * is refused.
  * Throws InvalidTournamentRequestError for granted draws, as single
- * elimination never has a draw.
+ * elimination never has a draw, and for a match listed more than once in
+ * the granted wins.
  */
 export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
   start: seedBracket,
@@ -43,6 +44,11 @@ export const SINGLE_ELIMINATION_STEPS: RoundSteps = {
       );
     }
     const won = new Set(request.grantedWins.map((win) => win.matchId));
+    if (won.size < request.grantedWins.length) {
+      throw new InvalidTournamentRequestError(
+        'An unreported match gets one granted win.',
+      );
+    }
     if (request.drops.some((drop) => won.has(drop.matchId))) {
       throw new InvalidTournamentRequestError(
         'An unreported match gets a granted win or its players dropped, not both.',
