@@ -11,7 +11,7 @@ import {
 import type { DraftListItemView, DraftView, TournamentBadgeView } from 'contract';
 import { Auth } from '../auth/auth';
 import { DraftUpdates } from './draft-updates';
-import { isTurnOf } from './drafts';
+import { isTurnOf } from './turns';
 
 /**
  * The drafts the draft list lists for the signed-in viewer, theirs and
