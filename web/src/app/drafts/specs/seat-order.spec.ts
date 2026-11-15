@@ -41,8 +41,8 @@ describe('the Players panel', () => {
     viewOn('mobile');
     const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
-    const heading = panel(page).querySelector('summary h2, summary [role="heading"]');
-    expect(text(heading)).toBe('Players · 1');
+    const summaryHeading = panel(page).querySelector('summary h2, summary [role="heading"]');
+    expect(text(summaryHeading)).toBe('Players · 1');
   });
 
   it('is still there in a complete draft, always open, with the seat order', async () => {
