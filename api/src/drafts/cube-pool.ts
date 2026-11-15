@@ -17,16 +17,19 @@ export interface CubePrintings {
 
 /**
  * Looks up a printing on the platform of each card in the cube's mainboard
- * by its oracle id: the cube's own chosen printing often isn't on it.
+ * by its oracle id: the cube's own chosen printing often isn't on it. Sends
+ * no more searches once `signal` is aborted.
  */
 export async function cubePrintings(
   scryfall: ScryfallClient,
   cube: Cube,
   platform: Platform,
+  signal?: AbortSignal,
 ): Promise<CubePrintings> {
   const found = await scryfall.printingsOn(
     SCRYFALL_GAME[platform],
     cube.mainboard.map((card) => card.oracleId),
+    signal,
   );
   const byOracleId = new Map(
     found.map((printing) => [oracleIdOf(printing), printing]),

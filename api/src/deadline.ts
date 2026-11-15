@@ -37,12 +37,18 @@ export class Deadline {
 
   /**
    * What `work` answers, or throws `passedError()` (DeadlinePassedError
-   * unless given) if the deadline passes before `work` settles.
+   * unless given) if the deadline passes before `work` settles, or had
+   * already passed, even if `work` has settled.
    */
   race<T>(
     work: Promise<T>,
     passedError: () => Error = () => new DeadlinePassedError(this.name),
   ): Promise<T> {
+    if (this.passed) {
+      // Nobody waits on work any more, so its failure is no one's to handle.
+      work.catch(() => {});
+      return Promise.reject(passedError());
+    }
     let timer: ReturnType<typeof setTimeout> | undefined;
     const passed = new Promise<never>((_, reject) => {
       timer = setTimeout(
