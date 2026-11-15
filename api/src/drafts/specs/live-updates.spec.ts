@@ -24,13 +24,26 @@ import {
   cancelDraft,
   changeWebhook,
 } from './harness.js';
-import { useSockets } from './socket-harness.js';
+import request from 'supertest';
+import { app } from '../../testing/app.js';
+import { type DraftSocket, useSockets } from './socket-harness.js';
 
 useDraftsApp();
 
 describe('live updates', () => {
   const { socketFor, connected, watching, watch, listeningToOwnRoom } =
     useSockets();
+
+  /** Logs out the session that `cookie` signs in with. */
+  const logOut = (cookie: string) =>
+    request(app.getHttpServer())
+      .post('/api/auth/logout')
+      .set('Cookie', cookie)
+      .expect(204);
+
+  /** Why the api closed `socket`, once it has. */
+  const closedByTheApi = (socket: DraftSocket) =>
+    new Promise<string>((resolve) => socket.on('disconnect', resolve));
 
   it('tells everyone watching a draft that it was cancelled, with its id', async () => {
     const id = await readyDraft([aliceCookie]);
@@ -344,6 +357,59 @@ describe('live updates', () => {
       gone: false,
     });
     expect(changes[0].version).toBeGreaterThan(before.body.version);
+  });
+
+  describe('when a session ends', () => {
+    it('closes every socket of the session logged out, and none of its user’s other session', async () => {
+      const id = await readyDraft([aliceCookie]);
+      const loggedOut = await signIn(bob);
+      const stillIn = await signIn(bob);
+      const watcher = await watching(id, loggedOut);
+      const ownRoom = await listeningToOwnRoom(loggedOut);
+      const otherWatcher = await watching(id, stillIn);
+      const otherOwnRoom = await listeningToOwnRoom(stillIn);
+      const closed = [watcher.socket, ownRoom.socket].map(closedByTheApi);
+
+      await logOut(loggedOut);
+
+      expect(await Promise.all(closed)).toEqual([
+        'io server disconnect',
+        'io server disconnect',
+      ]);
+      await join(id, stillIn).expect(201);
+      await vi.waitFor(() => expect(otherWatcher.changes).toHaveLength(1));
+      await vi.waitFor(() => expect(otherOwnRoom.changes).toHaveLength(1));
+      expect(otherWatcher.socket.connected).toBe(true);
+      expect(otherOwnRoom.socket.connected).toBe(true);
+      expect(watcher.changes).toEqual([]);
+      expect(ownRoom.changes).toEqual([]);
+    });
+
+    it('closes a socket that asks to watch once its session has expired, answering nothing', async () => {
+      const id = await readyDraft([aliceCookie]);
+      vi.useFakeTimers({
+        toFake: ['Date'],
+        now: new Date('2026-11-01T12:00:00Z'),
+      });
+      try {
+        const socket = await connected(await signIn(bob));
+        const heard = vi.fn();
+        socket.onAny(heard);
+        const answered = vi.fn();
+        const closed = closedByTheApi(socket);
+
+        socket.emit('watch', id, answered);
+        // After sending: the client would call its own connection timed out.
+        // The api reads the watch only once this tick is done.
+        vi.setSystemTime(new Date('2026-12-01T12:01:00Z'));
+
+        expect(await closed).toBe('io server disconnect');
+        expect(answered).not.toHaveBeenCalled();
+        expect(heard).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe('to each player, watching no draft', () => {
