@@ -530,11 +530,14 @@ export const link = (root: HTMLElement, name: string) =>
 export const matchesName = (found: string, name: string | RegExp) =>
   typeof name === 'string' ? found === name : name.test(found);
 
+/** The headings inside `root`, by role, in page order. */
+export const headings = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]'),
+];
+
 /** A heading inside `root`, by its accessible name, or a pattern it matches. */
 export const heading = (root: HTMLElement, name: string | RegExp) =>
-  [...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]')].find(
-    (element) => matchesName(accessibleName(element), name),
-  );
+  headings(root).find((element) => matchesName(accessibleName(element), name));
 
 /** The images inside `root` that a screen reader names, in page order. */
 export const namedImages = (root: HTMLElement) =>

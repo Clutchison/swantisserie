@@ -2,10 +2,12 @@ import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
+import type { BasicLandPrintingsView, BasicLandPrintingView, PlanBoard, PlanView } from 'contract';
 import {
   byAriaLabel,
   collapseWhitespace,
+  expectAlertBetween,
+  expectAlertInItem,
   filledStatusIn,
   focusAndClick,
   openDialog,
@@ -17,6 +19,7 @@ import {
   button,
   comboboxOptions,
   editableCombobox,
+  headings,
   http,
   image,
   namedList,
@@ -103,6 +106,32 @@ export const exportButton = (page: HTMLElement) =>
   [...planPanel(page).querySelectorAll('button')].find((candidate) =>
     ['Export', 'Copied'].includes(accessibleName(candidate)),
   );
+
+/**
+ * Expects `alert` directly after the Deck tab's tools row, outside it, and
+ * before the plan boards, which the mainboard's heading starts.
+ */
+export const expectByTools = (plan: HTMLElement, alert: HTMLElement) =>
+  expectAlertBetween(
+    alert,
+    [byAriaLabel(plan, '[role="group"]', 'Deck tools')!],
+    [planBoardHeading(plan, 'Mainboard')!],
+  );
+
+/** The heading of `planBoard` inside `plan`, named by the plan board then its counts, as `Mainboard 4 (4 picked)`. */
+export const planBoardHeading = (plan: HTMLElement, planBoard: PlanBoard) =>
+  headings(plan).find((candidate) => accessibleName(candidate).startsWith(`${planBoard} `));
+
+/** The API's refusal of a change to a card no longer in the plan, and its status. */
+export const notInPlan = { error: 'not-in-plan', message: 'That card isn’t in your deck.' };
+export const conflict = { status: 409, statusText: 'Conflict' };
+
+/**
+ * Expects the one alert inside `plan` to show inside the list item of the
+ * line or stacked card whose button `name` failed, after that button.
+ */
+export const expectInItemOf = (plan: HTMLElement, name: string) =>
+  expectAlertInItem(plan, button(plan, name)!);
 
 /** Opens the Deck tab and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');

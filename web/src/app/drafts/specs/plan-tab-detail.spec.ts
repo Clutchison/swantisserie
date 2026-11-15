@@ -37,6 +37,7 @@ import {
   expectNotBusy,
   focusAndClick,
   openDialog,
+  statusIn,
 } from '../../specs-harness';
 import { playing, withTournament } from './play-tab-harness';
 import {
@@ -535,6 +536,25 @@ describe('plan tab', () => {
       );
     });
 
+    it('clears the Deck tab’s failure as Remove from Deck is sent, so only one shows', async () => {
+      const withUnpicked = planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] });
+      const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn }, withUnpicked);
+      button(tab, `Move ${brightclimb.name} to the sideboard`)!.click();
+      http.expectOne(`/api/drafts/draft-1/plan/${brightclimb.id}`).flush(null, serverError);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(withUnpicked);
+      await vi.waitFor(() => expect(alertIn(tab)).not.toBeNull());
+
+      button(await open('Shivan Dragon'), 'Remove from Deck')!.click();
+      await fixture.whenStable();
+      expect(alertIn(tab)).toBeNull();
+
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(planOf({ mainboard: [planned(brightclimb)] }));
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      expect(alertIn(tab)).toBeNull();
+    });
+
     it('stays open, saying so, when removing the card from the plan fails', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: bobsTurn },
@@ -609,9 +629,10 @@ describe('plan tab', () => {
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
         .flush(null, { status: 500, statusText: 'Server Error' });
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
-      await vi.waitFor(() => expect(alertIn(tab)).not.toBeNull());
+      await vi.waitFor(() => expect(text(statusIn(detail, { name: 'Deck note' })!)).not.toBe(''));
       await fixture.whenStable();
 
+      expect(alertIn(tab)).toBeNull();
       expectFocusOn(detail, 'Move to sideboard');
       expectNotBusy(button(detail, 'Move to sideboard')!);
     });
@@ -632,7 +653,7 @@ describe('plan tab', () => {
       expect(button(detail, 'Move to sideboard')).toBeDefined();
     });
 
-    it('says why a move was refused as the Deck tab does, leaving the card where it was', async () => {
+    it('says in its Deck note why a move was refused, the Deck tab showing no alert, leaving the card where it was', async () => {
       const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn });
       const detail = await open('Shivan Dragon');
 
@@ -646,7 +667,8 @@ describe('plan tab', () => {
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
       await fixture.whenStable();
 
-      expect(alertIn(tab)?.textContent).toContain('That card isn’t in your deck.');
+      expect(text(statusIn(detail, { name: 'Deck note' })!)).toBe('That card isn’t in your deck.');
+      expect(alertIn(tab)).toBeNull();
       expect(openDialog()).toBe(detail);
       expect(button(detail, 'Move to sideboard')).toBeDefined();
     });

@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import { answer, comesBefore, question } from '../../specs-harness';
+import { answer, comesBefore, onlyAlert, question } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
 import {
   ALL_POWERS,
@@ -42,6 +42,7 @@ import {
 import {
   answerChange,
   answerChangeFailingReread,
+  carol,
   complete,
   currentSteps,
   dave,
@@ -51,13 +52,16 @@ import {
   joinedNames,
   openComplete,
   openPlayTab,
+  openPlaying,
   playing,
+  pushTournament,
   registration,
   stateSteps,
   threePlayers,
   withTournament,
   completed,
 } from './play-tab-harness';
+import { expectByActions, expectByRegistration, expectInRow } from './play-tab-placement-harness';
 import { cards, openPlan, planOf } from './plan-tab-harness';
 
 useDraftsApp();
@@ -443,6 +447,106 @@ describe('Play tab', () => {
       await answerChange(fixture, ENTRIES_URL, 'POST', registration(bob.id, alice.id));
 
       expect(alertIn(panel(page))).toBeNull();
+    });
+
+    it.each([
+      {
+        doing: 'joining',
+        tournament: registration(bob.id),
+        options: {},
+        label: JOIN_PRIVATE,
+        asked: null,
+        url: ENTRIES_URL,
+      },
+      {
+        doing: 'leaving',
+        tournament: registration(bob.id, alice.id),
+        options: {},
+        label: 'Leave',
+        asked: null,
+        url: `${ENTRIES_URL}/${alice.id}`,
+      },
+      {
+        doing: 'cancelling the tournament',
+        tournament: registration(bob.id),
+        options: { powers: ORGANIZE_ONLY },
+        label: 'Cancel tournament',
+        asked: ['Cancel the tournament?', 'Cancel tournament'],
+        url: '/api/drafts/draft-1/tournament',
+      },
+    ] as const)(
+      'says $doing failed right after the registration row, before Joined players',
+      async ({ tournament, options, label, asked, url }) => {
+        const { fixture, page } = await openComplete(tournament, options);
+        const tab = await openPlayTab(fixture, page);
+
+        button(tab, label)!.click();
+        if (asked) await answer(await question(asked[0]), asked[1]);
+        await failChange(fixture, page, url);
+
+        expectByRegistration(page, tab);
+      },
+    );
+
+    it('says removing a player failed in that player’s row of Joined players', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id, alice.id), {
+        powers: ORGANIZE_ONLY,
+      });
+      const tab = await openPlayTab(fixture, page);
+
+      button(tab, 'Remove Bob')!.click();
+      await failChange(fixture, page, `${ENTRIES_URL}/${bob.id}`);
+
+      expectInRow(page, tab, 'Joined players', 'Remove Bob');
+    });
+
+    it('clears a failure in a row once a registration change goes through, and one by the registration row once a row’s does', async () => {
+      const { fixture, page } = await openComplete(registration(bob.id), {
+        powers: ORGANIZE_ONLY,
+      });
+      const tab = await openPlayTab(fixture, page);
+
+      button(tab, 'Remove Bob')!.click();
+      await failChange(fixture, page, `${ENTRIES_URL}/${bob.id}`);
+      button(tab, JOIN_PRIVATE)!.click();
+      await answerChange(fixture, ENTRIES_URL, 'POST', registration(bob.id, alice.id));
+      expect(alertIn(panel(page))).toBeNull();
+
+      button(panel(page), 'Leave')!.click();
+      await failChange(fixture, page, `${ENTRIES_URL}/${alice.id}`);
+      button(panel(page), 'Remove Bob')!.click();
+      await answerChange(fixture, `${ENTRIES_URL}/${bob.id}`, 'DELETE', registration(alice.id), 2);
+
+      expect(alertIn(panel(page))).toBeNull();
+    });
+
+    it('says a removal failed by the registration row once that player has left Joined players', async () => {
+      const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
+        powers: ORGANIZE_ONLY,
+      });
+
+      button(tab, 'Remove Bob')!.click();
+      await failChange(fixture, page, `${ENTRIES_URL}/${bob.id}`);
+      await pushTournament(fixture, registration(alice.id, carol.id), 1, { asPlayer: true });
+
+      await vi.waitFor(() => expect(joinedNames(tab)).toEqual(['Alice', 'Carol']));
+      expectByRegistration(page, tab);
+      expect(text(onlyAlert(panel(page)))).toBe(
+        "Couldn't remove the player. Try again in a moment.",
+      );
+    });
+
+    it('says a removal failed right after the action rows once the tournament has started', async () => {
+      const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
+        powers: ORGANIZE_ONLY,
+      });
+
+      button(tab, 'Remove Bob')!.click();
+      await failChange(fixture, page, `${ENTRIES_URL}/${bob.id}`);
+      await pushTournament(fixture, playing(), 1, { asPlayer: true });
+
+      await vi.waitFor(() => expect(namedList(tab, 'Players')).toBeDefined());
+      expectByActions(page, tab);
     });
 
     it.each([

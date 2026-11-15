@@ -8,6 +8,7 @@ import {
   draft,
   http,
   playersPanel,
+  panelSeatNames,
   bob,
   alicePlayer,
   openDraft,
@@ -28,11 +29,10 @@ import {
 import { moreButton, openMore } from './draft-header-harness';
 import { disclosure, plainlyHeaded } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
-import { comesBefore } from '../../specs-harness';
+import { comesBefore, onlyAlert } from '../../specs-harness';
+import { expectBySeatingTools, expectInSeat, PLAYERS_FAILED } from './players-panel-harness';
 
 useDraftsApp();
-
-const PLAYERS_FAILED = "Couldn't update the players.";
 
 describe('lobby', () => {
   it('lists the players with their avatars', async () => {
@@ -194,7 +194,7 @@ describe('lobby', () => {
     await flushPicks([]);
     await fixture.whenStable();
 
-    expect(page.querySelector('.error')?.textContent).toContain('This draft has started.');
+    expect(onlyAlert(page).textContent).toContain('This draft has started.');
     expect(page.textContent).toContain('Drafting');
     expect(button(page, 'Join')).toBeUndefined();
   });
@@ -208,6 +208,7 @@ describe('lobby', () => {
     );
     await fixture.whenStable();
     await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+    onlyAlert(page);
 
     button(page, 'Join')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/players'))).flush(
@@ -361,6 +362,54 @@ describe('lobby', () => {
 
       await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
       expect(statusMessage(players, 'Bob moved to seat 3')).toBeUndefined();
+    });
+
+    it.each(['Move Bob later', 'Move Alice earlier'])(
+      'says a failed %s in that seat',
+      async (move) => {
+        const { fixture, page } = await openDraft(completeSnapshot, {
+          players: [bob, alicePlayer, carol],
+        });
+
+        button(playersPanel(page), move)!.click();
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'))).flush(
+          null,
+          serverError,
+        );
+        await fixture.whenStable();
+
+        await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+        expectInSeat(page, move);
+      },
+    );
+
+    it('forgets a failed seat move once another change is sent, wherever it showed', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob, carol],
+      });
+      button(playersPanel(page), 'Move Bob later')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+
+      button(page, 'Randomize seats')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+      await vi.waitFor(() => expectBySeatingTools(page));
+
+      button(page, 'Randomize seats')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'))).flush(
+        draft({ players: [carol, alicePlayer, bob] }),
+      );
+      await fixture.whenStable();
+      await vi.waitFor(() => expect(panelSeatNames(page)).toEqual(['Carol', 'Alice', 'Bob']));
+      expect(alertIn(page)).toBeNull();
     });
 
     it('moves focus from Join to Leave, and back', async () => {

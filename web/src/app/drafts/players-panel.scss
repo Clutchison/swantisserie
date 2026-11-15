@@ -49,6 +49,13 @@ h2 {
   text-align: right;
 }
 
+/* A seat's failed change, on its own line under the seat, small as every row's is. */
+li > .error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: var(--font-size-sm);
+}
+
 /* In line with the name on a narrow screen. Remove comes before the arrows in the markup, so it shows first at every width. */
 .seat-controls {
   display: contents;
@@ -98,7 +105,8 @@ h2 {
     grid-template-rows: 1fr;
   }
 
-  .seat-controls {
+  .seat-controls,
+  li > .error {
     display: flex;
     grid-column: 3 / -1;
   }

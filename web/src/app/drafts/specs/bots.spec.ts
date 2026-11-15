@@ -18,11 +18,15 @@ import {
   ORGANIZE_ONLY,
   viewOn,
   findPlayersBesideTabs,
+  serverError,
+  updates,
+  flushQueueAndPlan,
 } from './harness';
+import { expectBySeatingTools, expectInSeat, PLAYERS_FAILED } from './players-panel-harness';
 import { plainlyHeaded } from './disclosure-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
 import { boardColumns } from './board-tab-harness';
-import { clickOn, pressEscape, text } from '../../specs-harness';
+import { alertIn, clickOn, pressEscape, text } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -113,6 +117,66 @@ describe('bots', () => {
 
     expect(plainlyHeaded(findPlayersBesideTabs(page)!, 'Players · 2')).toBe(true);
     expect(playersPanel(page).textContent).toContain('Bot 1');
+  });
+
+  describe('a failed change', () => {
+    const otherBot = { ...bot, id: 'bot:2', name: 'Bot 2' };
+
+    it('says a failed Add bot just after the seating tools, before the seat order', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        { players: [alicePlayer] },
+        { powers: ALL_POWERS },
+      );
+
+      button(page, 'Add bot')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots'))).flush(null, serverError);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+      expectBySeatingTools(page);
+    });
+
+    it('says a failed Remove in that bot’s seat', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        { players: [alicePlayer, bot, otherBot] },
+        { powers: ALL_POWERS },
+      );
+
+      button(page, 'Remove Bot 2')!.click();
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots/bot%3A2'))).flush(
+        null,
+        serverError,
+      );
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+      expectInSeat(page, 'Remove Bot 2');
+    });
+
+    it('says a failed Remove just after the seating tools once that bot has left the seats', async () => {
+      const { fixture, page } = await openDraft(
+        completeSnapshot,
+        { players: [alicePlayer, bot, otherBot] },
+        { powers: ALL_POWERS },
+      );
+
+      button(page, 'Remove Bot 2')!.click();
+      const removed = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots/bot%3A2'));
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ players: [alicePlayer, bot], version: 1 }),
+      });
+      // Alice is a player, so her queue is re-read too.
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+      removed.flush(null, serverError);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+      expectBySeatingTools(page);
+    });
   });
 
   describe('focus after a change', () => {

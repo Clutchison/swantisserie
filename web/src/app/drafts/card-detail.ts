@@ -59,8 +59,11 @@ export class CardDetailRequests {
   readonly planning = signal(false);
 }
 
-/** How a host moves a Card detail's card to a plan board, settling once the move has been made or has failed. */
-export type MoveToPlanBoard = (planBoard: PlanBoard) => Promise<unknown>;
+/**
+ * How a host moves a Card detail's card to a plan board, settling once the
+ * move has been made, on null, or has failed, on the failure's message.
+ */
+export type MoveToPlanBoard = (planBoard: PlanBoard) => Promise<string | null>;
 
 /** What a Card detail closes with: `picked` once its card has been picked, else nothing. */
 export type CardDetailResult = 'picked';
@@ -80,6 +83,8 @@ export interface CardDetailOptions {
   ) => HTMLElement | null | undefined;
   /** Called once Remove from Deck has succeeded. */
   removedFromPlan?: () => void;
+  /** Called as Add to Deck or Remove from Deck is sent, so the host can clear a failure it shows. */
+  planChangeSent?: () => void;
   /** How the host moves the card to a plan board while it offers Move, else null: see `CardDetail.move`. */
   move?: () => MoveToPlanBoard | null;
   /** Whether Move waits for another of the host's changes on its way: see `CardDetail.moveWaits`. */
@@ -154,6 +159,7 @@ function openCardDetail(dialogs: DialogShell, options: CardDetailOptions) {
       inputBinding('move', options.move ?? (() => null)),
       inputBinding('moveWaits', options.moveWaits ?? (() => false)),
       outputBinding('removedFromPlan', () => options.removedFromPlan?.()),
+      outputBinding('planChangeSent', () => options.planChangeSent?.()),
     ],
     returnFocus: (opener, result) => options.returnFocus(result, opener),
   });
@@ -199,8 +205,9 @@ export class CardDetail {
   readonly closesOnPick = input(true);
   /**
    * How its host moves the card to a plan board; Move is offered only while
-   * it's given. The host says how a move went, so a refused one shows where
-   * the host's other moves' refusals do, not in this Card detail's plan note.
+   * it's given. The host hands back a failed move's message, which shows in
+   * this Card detail's plan note, as its other plan changes' failures do,
+   * not behind it on the host.
    */
   readonly move = input<MoveToPlanBoard | null>(null);
   /**
@@ -212,6 +219,8 @@ export class CardDetail {
   readonly moveWaits = input(false);
   /** Remove from Deck has succeeded. */
   readonly removedFromPlan = output<void>();
+  /** Add to Deck or Remove from Deck has been sent. */
+  readonly planChangeSent = output<void>();
 
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   protected readonly picked = this.store.picked;
@@ -400,6 +409,7 @@ export class CardDetail {
       this.planning,
       async () => {
         this.planNote.set(null);
+        this.planChangeSent.emit();
         try {
           await this.store.changePlan(request());
           this.planNote.set(done);
@@ -415,8 +425,8 @@ export class CardDetail {
   }
 
   /**
-   * Moves the card to `planBoard` through the host's `move`, which says how
-   * that went. It stays open, offering to move the card back once the plan
+   * Moves the card to `planBoard` through the host's `move`, noting why if
+   * it failed. It stays open, offering to move the card back once the plan
    * shows it moved, with focus on that Move. Sends nothing while a change to
    * the deck, or another of the host's changes, is on its way.
    */
@@ -425,7 +435,10 @@ export class CardDetail {
     await this.sendAs(
       this.planning,
       async () => {
-        await move(planBoard);
+        this.planNote.set(null);
+        const failure = await move(planBoard);
+        this.planNote.set(failure);
+        return failure === null;
       },
       KEYS.move(OTHER_PLAN_BOARD[planBoard].otherName),
     );
