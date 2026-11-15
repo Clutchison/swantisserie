@@ -1,5 +1,9 @@
 import { hangOnce } from '../testing/hanging-fetch.js';
-import { fetchWithTimeout, UnreachableError } from './fetch-with-timeout.js';
+import {
+  cancelBody,
+  fetchWithTimeout,
+  UnreachableError,
+} from './fetch-with-timeout.js';
 
 describe('fetchWithTimeout', () => {
   const fetch = vi.fn<typeof globalThis.fetch>();
@@ -97,5 +101,26 @@ describe('fetchWithTimeout', () => {
     ).catch((err: unknown) => err);
 
     expect(String(error)).not.toContain('secret-token');
+  });
+});
+
+describe('cancelBody', () => {
+  it('cancels the body', async () => {
+    const cancel = vi.fn();
+
+    await cancelBody(new Response(new ReadableStream({ cancel })));
+
+    expect(cancel).toHaveBeenCalledOnce();
+  });
+
+  it('shrugs off a cancel that fails, and a response with no body', async () => {
+    const failing = new Response(
+      new ReadableStream({
+        cancel: () => Promise.reject(new Error('cancel failed')),
+      }),
+    );
+
+    await expect(cancelBody(failing)).resolves.toBeUndefined();
+    await expect(cancelBody(new Response(null))).resolves.toBeUndefined();
   });
 });
