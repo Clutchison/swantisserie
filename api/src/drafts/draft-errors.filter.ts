@@ -60,8 +60,8 @@ export class DraftErrorsFilter extends BaseExceptionFilter {
  * 403 for a power the viewer lacks and for `not-a-player`; 422 for a pick
  * import refusal; 409 for every other refusal. Undefined for any other
  * error. The answers to DraftGoneError and CannotSeeDraftError (404) and
- * NoDraftPowerError (403) are bare, with no body of ours, as the contract's
- * failure types say; every other answer carries the refusal's body.
+ * NoDraftPowerError (403) are bare, with no body of ours: the web handles
+ * both by status alone. Every other answer carries a body with its `error`.
  */
 export function toHttpError(err: unknown): HttpException | undefined {
   if (err instanceof DraftGoneError || err instanceof CannotSeeDraftError) {
