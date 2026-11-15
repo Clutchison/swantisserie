@@ -11,10 +11,8 @@ import { DraftLifecycleService } from './draft-lifecycle.service.js';
 import { DraftLobbyService } from './draft-lobby.service.js';
 import { DraftLock } from './draft-lock.js';
 import { DraftPublisher } from './draft-publisher.js';
-import { DraftAccess } from './draft-access.js';
-import { DraftReadsService } from './draft-reads.service.js';
+import { DraftPushesModule } from './draft-pushes.module.js';
 import { DraftsController } from './drafts.controller.js';
-import { DraftsGateway } from './drafts.gateway.js';
 import { PickImportService } from './pick-import.service.js';
 import { PreferredPrintingsController } from './preferred-printings.controller.js';
 import { PlansController } from './plans.controller.js';
@@ -31,6 +29,7 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
     BasicLandPrintingsModule,
     CubeCobraModule,
     DiscordModule,
+    DraftPushesModule,
     ScryfallModule,
     SetsModule,
   ],
@@ -42,13 +41,10 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
   ],
   providers: [
     DraftLock,
-    DraftAccess,
-    DraftReadsService,
     DraftLobbyService,
     PickImportService,
     TurnsService,
     DraftLifecycleService,
-    DraftsGateway,
     PoolSnapshotService,
     DraftPublisher,
     DraftChanges,
@@ -63,8 +59,9 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
     // The draft list reads tournament badges.
     TournamentBadges,
   ],
-  // For the tournaments module, which sits beside drafts, and for every
-  // read of many drafts, which goes through draft access.
-  exports: [DraftAccess, DraftLock, DraftPublisher],
+  // For the tournaments module, which sits beside drafts, the webhook
+  // registry, and every read of many drafts, which goes through draft access:
+  // DraftPushesModule for DraftAccess and DraftPushes.
+  exports: [DraftPushesModule, DraftLock, DraftPublisher],
 })
 export class DraftsModule {}

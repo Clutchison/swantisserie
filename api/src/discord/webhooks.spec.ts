@@ -1,4 +1,27 @@
+import type { DraftView } from 'contract';
 import request from 'supertest';
+import { Logger } from '@nestjs/common';
+import { DraftPushes } from '../drafts/draft-pushes.js';
+import {
+  aliceCookie,
+  announcementsSettled,
+  bob,
+  failedPushes,
+  getDraft,
+  post,
+  readyDraft,
+  removeWebhook,
+  renameWebhook,
+  replaceWebhookUrl,
+  start,
+  useDraftsApp,
+  webhookClient,
+} from '../drafts/specs/harness.js';
+import {
+  expectPushedOnce,
+  useSockets,
+  versionsOf,
+} from '../drafts/specs/socket-harness.js';
 import {
   alice,
   app,
@@ -7,6 +30,7 @@ import {
   signIn,
   useTestApp,
 } from '../testing/app.js';
+import { WebhookGoneError } from './webhook-client.js';
 
 const mainUrl =
   'https://discord.com/api/webhooks/1234567890/main-token_ABC-xyz';
@@ -222,5 +246,169 @@ describe('webhook registry', () => {
       await replaceUrl(mainId, { url: sideUrl }).expect(404);
       await remove(mainId).expect(404);
     });
+  });
+});
+
+describe('drafts using a webhook', () => {
+  useDraftsApp();
+  const { listening, listeningToOwnRoom } = useSockets();
+
+  let webhookId: string;
+  /** A draft of each state, all using the webhook: Lobby, Drafting, Frozen. */
+  let draftIds: string[];
+  /** Each draft's version before the test's registry change. */
+  let versionsBefore: Map<string, number>;
+  let bobCookie: string;
+
+  beforeEach(async () => {
+    bobCookie = await signIn(bob);
+    webhookId = await registerWebhook('#roto-main');
+    const lobby = await readyDraft([aliceCookie], 1, undefined, webhookId);
+    const drafting = await readyDraft(
+      [aliceCookie, bobCookie],
+      1,
+      undefined,
+      webhookId,
+    );
+    const frozen = await readyDraft(
+      [aliceCookie, bobCookie],
+      1,
+      undefined,
+      webhookId,
+    );
+    await start(drafting).expect(200);
+    await start(frozen).expect(200);
+    await post(frozen, 'freeze').expect(200);
+    draftIds = [lobby, drafting, frozen];
+    await Promise.all(draftIds.map(announcementsSettled));
+    webhookClient.post.mockClear();
+    await noteVersions();
+  });
+
+  /** Notes each draft's version now as `versionsBefore`. */
+  async function noteVersions() {
+    versionsBefore = await versionsOf(draftIds);
+  }
+
+  /**
+   * What is pushed to a socket watching each draft, and to each player's own
+   * room: Alice plays in every draft, Bob in all but the Lobby one.
+   */
+  async function listeningToEach() {
+    return listening(draftIds, await signIn(carol), {
+      alice: aliceCookie,
+      bob: bobCookie,
+    });
+  }
+
+  /**
+   * Waits until each of `listeningToEach`'s sockets is pushed every draft it
+   * hears of once, newer and as `expected` says.
+   */
+  async function expectEachPushedOnce(
+    { watched, rooms }: Awaited<ReturnType<typeof listeningToEach>>,
+    expected: Partial<DraftView>,
+  ) {
+    const check = (draft: DraftView) => expect(draft).toMatchObject(expected);
+    await expectPushedOnce(rooms.alice, draftIds, versionsBefore, check);
+    await expectPushedOnce(rooms.bob, draftIds.slice(1), versionsBefore, check);
+    for (const id of draftIds) {
+      await expectPushedOnce(watched[id], [id], versionsBefore, check);
+    }
+  }
+
+  it('pushes every draft using a renamed webhook, in every state, with its new name', async () => {
+    const pushed = await listeningToEach();
+
+    await renameWebhook(webhookId, '#roto-league');
+
+    await expectEachPushedOnce(pushed, {
+      webhook: { id: webhookId, name: '#roto-league', gone: false },
+    });
+  });
+
+  it('pushes every draft using a gone webhook once its URL is replaced, no longer gone', async () => {
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    webhookClient.post.mockRejectedValueOnce(new WebhookGoneError(404));
+    const [, drafting] = draftIds;
+    await post(drafting, 'freeze').expect(200);
+    await announcementsSettled(drafting);
+    expect((await getDraft(drafting).expect(200)).body.webhook.gone).toBe(true);
+    await noteVersions();
+    const pushed = await listeningToEach();
+
+    await replaceWebhookUrl(webhookId, sideUrl);
+
+    await expectEachPushedOnce(pushed, {
+      webhook: { id: webhookId, name: '#roto-main', gone: false },
+    });
+  });
+
+  it('pushes every draft that used a removed webhook, with no webhook', async () => {
+    const pushed = await listeningToEach();
+
+    await removeWebhook(webhookId);
+
+    await expectEachPushedOnce(pushed, { webhook: null });
+  });
+
+  it('bumps and pushes no draft for a change none of them shows', async () => {
+    await registerWebhook('#roto-side', sideUrl);
+    const alicesRoom = await listeningToOwnRoom(aliceCookie);
+
+    await renameWebhook(webhookId, '#roto-main');
+    await replaceWebhookUrl(webhookId, sideUrl);
+    await request(app.getHttpServer())
+      .patch(`/api/admin/webhooks/${webhookId}`)
+      .set('Cookie', await signIn(carol))
+      .send({ name: '#roto-side' })
+      .expect(409);
+
+    expect(await versionsOf(draftIds)).toEqual(versionsBefore);
+    // Its push comes after any the changes above made.
+    await renameWebhook(webhookId, '#roto-league');
+    await expectPushedOnce(
+      alicesRoom.changes,
+      draftIds,
+      versionsBefore,
+      (draft) =>
+        expect(draft.webhook).toEqual({
+          id: webhookId,
+          name: '#roto-league',
+          gone: false,
+        }),
+    );
+  });
+
+  it('answers a registry change whose push fails, logging it, and pushes the rest', async () => {
+    const logged = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    vi.spyOn(DraftPushes.prototype, 'push').mockRejectedValueOnce(
+      new Error('Connection dropped'),
+    );
+    const alicesRoom = await listeningToOwnRoom(aliceCookie);
+
+    await renameWebhook(webhookId, '#roto-league');
+
+    await vi.waitFor(() => expect(alicesRoom.changes).toHaveLength(2));
+    const pushed = alicesRoom.changes.map((draft) => draft.id);
+    const [failed] = draftIds.filter((id) => !pushed.includes(id));
+    expect(logged).toHaveBeenCalledOnce();
+    expect(failedPushes(logged, draftIds)).toEqual([
+      { draftId: failed, err: expect.any(Error) },
+    ]);
+    expect((await getDraft(failed).expect(200)).body.webhook.name).toBe(
+      '#roto-league',
+    );
+  });
+
+  it('announces no registry change', async () => {
+    await renameWebhook(webhookId, '#roto-league');
+    await replaceWebhookUrl(webhookId, sideUrl);
+    await removeWebhook(webhookId);
+
+    await Promise.all(draftIds.map(announcementsSettled));
+    expect(webhookClient.post).not.toHaveBeenCalled();
   });
 });
