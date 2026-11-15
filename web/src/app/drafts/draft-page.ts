@@ -26,7 +26,7 @@ import { OwnTurnLoop } from './own-turn-loop';
 import { DESKTOP_QUERY, hasTurn, matching, setListText, titleWithTurn } from './drafts';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
-import { Changes } from './changes';
+import { Changes } from '../changes';
 import { DraftHeader } from './draft-header';
 import { PlayersPanel } from './players-panel';
 import { PicksLeft } from './picks-left';

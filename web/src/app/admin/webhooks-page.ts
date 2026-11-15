@@ -15,8 +15,10 @@ import {
   type WebhookRenameRequest,
   type WebhookUrlReplaceRequest,
 } from 'contract';
-import { firstValueFrom } from 'rxjs';
+import type { Observable } from 'rxjs';
+import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { Questions } from '../question-dialog';
+import { saveThenReread } from '../reread';
 
 const API = '/api/admin/webhooks';
 
@@ -35,24 +37,26 @@ interface Problem {
 
 /**
  * Where app admins add, rename, replace the URLs of and remove the webhooks
- * drafts announce to, and see which are gone.
+ * drafts announce to, and see which are gone. One change saves at a time,
+ * and focus stays near the control it was sent from.
  */
 @Component({
   selector: 'app-webhooks-page',
-  imports: [ReactiveFormsModule],
+  imports: [ChangeStatus, ReactiveFormsModule, SendsChange],
+  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './webhooks-page.html',
   styleUrls: ['../page.scss', './webhooks-page.scss'],
 })
 export class WebhooksPage {
   private readonly http = inject(HttpClient);
+  private readonly changes = inject(Changes);
   private readonly questions = inject(Questions);
   private readonly injector = inject(Injector);
 
   protected readonly webhooks = httpResource<WebhookWithUrlView[]>(() => API);
   // Validated by the API, whose messages say exactly what to fix.
   protected readonly form = inject(FormBuilder).nonNullable.group({ name: '', url: '' });
-  protected readonly saving = signal(false);
   protected readonly maxNameLength = MAX_WEBHOOK_NAME_LENGTH;
   /** The one failure showing, with the place its change came from. */
   private readonly problem = signal<Problem | null>(null);
@@ -76,67 +80,65 @@ export class WebhooksPage {
   }
 
   protected async add() {
-    if (
-      await this.save(
-        'add',
-        this.http.post(API, this.form.getRawValue() satisfies NewWebhookRequest),
-      )
-    )
-      this.form.reset();
+    const webhook = this.form.getRawValue() satisfies NewWebhookRequest;
+    if (await this.save('add', () => this.http.post(API, webhook))) this.form.reset();
   }
 
   protected async rename(webhook: WebhookWithUrlView, name: string) {
-    await this.save(
-      { webhook: webhook.id },
+    await this.save({ webhook: webhook.id }, () =>
       this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
     );
   }
 
   protected async replaceUrl(webhook: WebhookWithUrlView, url: string) {
-    await this.save(
-      { webhook: webhook.id },
+    await this.save({ webhook: webhook.id }, () =>
       this.http.put(`${API}/${webhook.id}/url`, { url } satisfies WebhookUrlReplaceRequest),
     );
   }
 
+  /**
+   * Removes `webhook`, once the app admin goes ahead. The question is part of
+   * the change, so focus goes back on Remove if they think better of it.
+   */
   protected async remove(webhook: WebhookWithUrlView) {
-    const goAhead = await this.questions.ask(
-      {
-        question: `Remove ${webhook.name}?`,
-        detail: 'Drafts that announce there will announce nowhere.',
-        action: 'Remove',
-      },
-      this.injector,
-    );
-    if (!goAhead) return;
-    await this.save({ webhook: webhook.id }, this.http.delete(`${API}/${webhook.id}`));
+    await this.save({ webhook: webhook.id }, async () => {
+      const goAhead = await this.questions.ask(
+        {
+          question: `Remove ${webhook.name}?`,
+          detail: 'Drafts that announce there will announce nowhere.',
+          action: 'Remove',
+        },
+        this.injector,
+      );
+      return goAhead ? this.http.delete(`${API}/${webhook.id}`) : undefined;
+    });
   }
 
   /**
-   * Sends a change from `place`, then shows the list as it now is; returns whether it
-   * worked. A failure shows at `place`.
+   * Sends the change `request` makes from `place` (none if the app admin
+   * thinks better of it), then shows the list as it now is; answers whether
+   * it was made. A failure shows at `place`. Focus is kept as
+   * `Changes.send` keeps it.
    */
-  private async save(
+  private save(
     place: ProblemPlace,
-    request: ReturnType<HttpClient['delete']>,
+    request: () => Observable<unknown> | Promise<Observable<unknown> | undefined>,
   ): Promise<boolean> {
-    this.saving.set(true);
-    this.problem.set(null);
-    try {
-      await firstValueFrom(request);
-      this.webhooks.reload();
-      return true;
-    } catch (err) {
-      this.problem.set({
-        place,
-        message:
-          err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
-            ? err.error.message
-            : 'Saving failed. Check your connection and try again.',
+    return this.changes.send(async () => {
+      const sending = await request();
+      if (!sending) return false;
+      return saveThenReread(sending, {
+        resource: this.webhooks,
+        injector: this.injector,
+        problem: this.problem,
+        failure: (err) => ({
+          place,
+          message:
+            err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
+              ? err.error.message
+              : 'Saving failed. Check your connection and try again.',
+        }),
       });
-      return false;
-    } finally {
-      this.saving.set(false);
-    }
+    });
   }
 }

@@ -2,10 +2,13 @@ import type { TestRequest } from '@angular/common/http/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { App } from '../app';
 import {
+  alertIn,
   alice,
   button,
   clickBackdrop,
   dialogBackdrop,
+  expectFocusOn,
+  focusAndClick,
   hiddenFromAssistiveTech,
   http,
   openApp,
@@ -53,8 +56,9 @@ describe('sending feedback', () => {
     await fixture.whenStable();
   }
 
+  /** Presses Submit as a keyboard user does, focusing it first. */
   async function submit() {
-    anyButton('Submit')!.click();
+    focusAndClick(anyButton('Submit')!);
     await fixture.whenStable();
     return http.expectOne('/api/feedback');
   }
@@ -124,17 +128,35 @@ describe('sending feedback', () => {
     succeed(req);
   });
 
-  it('disables Submit while sending, so nothing is sent twice', async () => {
+  it('marks Submit busy while sending, keeping focus on it, so nothing is sent twice', async () => {
     await open();
     await type('Nice app');
 
     const req = await submit();
-    expect(anyButton('Submit')!.disabled).toBe(true);
+    expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBe('true');
+    expect(anyButton('Submit')!.disabled).toBe(false);
+    expectFocusOn(dialog()!, 'Submit');
     anyButton('Submit')!.click();
     http.expectNone('/api/feedback');
 
     succeed(req);
     await expectThanks();
+  });
+
+  // Passes under jsdom without the fix, as jsdom keeps focus on a disabled button: the busy-while-sending spec guards the bug.
+  it('puts focus on Submit, inside the dialog, when sending fails', async () => {
+    await open();
+    await type('Nice app');
+
+    (await submit()).flush(null, { status: 500, statusText: 'Server Error' });
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(alertIn(dialog()!)).not.toBeNull();
+    });
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expectFocusOn(dialog()!, 'Submit'));
+    expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBeNull();
   });
 
   it('thanks the sender on success, with a Close button', async () => {
@@ -168,9 +190,7 @@ describe('sending feedback', () => {
     (await submit()).flush(null, { status: 500, statusText: 'Server Error' });
     await vi.waitFor(() => {
       fixture.detectChanges();
-      expect(dialog()!.querySelector('[role="alert"]')?.textContent).toContain(
-        "Couldn't send your feedback.",
-      );
+      expect(alertIn(dialog()!)?.textContent).toContain("Couldn't send your feedback.");
     });
 
     expect(field().value).toBe('Nice app');

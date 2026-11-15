@@ -50,7 +50,7 @@ import {
 import { PicksLeft } from './picks-left';
 import { QueueAddBump, QueueAddStatus, queueAddsFromNow } from './queue-add-status';
 import { DraftStore } from './draft-store';
-import { Changes, ChangeStatus, SendsChange } from './changes';
+import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { QueueApi } from './queue-api';
 import {
   QUEUE_PICKING_HEADING,
