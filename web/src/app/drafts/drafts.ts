@@ -11,6 +11,7 @@ import type {
   QueueView,
   SetListEntryView,
   TurnState,
+  TurnView,
 } from 'contract';
 import { draftSize, isTurnState, picksPerTurn } from 'engine';
 import type { Changes } from '../changes';
@@ -273,7 +274,17 @@ export function isDoubleTurn(draft: DraftView): boolean {
  * picks". It starts lower case, for the middle of a sentence.
  */
 export function pickAndRound(draft: DraftView): string {
-  const turn = draft.turn!;
-  const suffix = isDoubleTurn(draft) ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
+  return turnWords(draft.turn!, isDoubleTurn(draft));
+}
+
+/**
+ * A turn's pick and round, worded as `pickAndRound` words a draft's, for a
+ * turn that isn't the draft's own, such as a pick import preview's next one.
+ */
+export function turnWords(
+  turn: Pick<TurnView, 'pick' | 'round' | 'picksBeforeTurnPasses'>,
+  doubleTurn: boolean,
+): string {
+  const suffix = doubleTurn ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
   return `pick ${turn.pick}, round ${turn.round}${suffix}`;
 }

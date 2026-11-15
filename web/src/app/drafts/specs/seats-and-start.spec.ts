@@ -327,7 +327,7 @@ describe('seats and start', () => {
       expect(shown).toContain('Ann → Alice');
       expect(shown).toContain('Ben → Bob');
       expect(shown).toContain('70 picks');
-      expect(shown).toContain('Next turn: Pick 71, Bob.');
+      expect(shown).toContain('Next turn: Bob, pick 71, round 36.');
     });
 
     it('previews a file that stops partway through a double turn, saying the player has 1 more pick on it', async () => {
@@ -344,7 +344,7 @@ describe('seats and start', () => {
       });
 
       expect((await shownPreview(page)).textContent).toContain(
-        'Next turn: Pick 4, Bob · 1 more pick.',
+        'Next turn: Bob, pick 4, round 2 · 1 more pick.',
       );
     });
 
