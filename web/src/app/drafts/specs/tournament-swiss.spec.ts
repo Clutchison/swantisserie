@@ -17,6 +17,7 @@ import {
   pressed,
   region,
   text,
+  toggleButton,
   useDraftsApp,
 } from './harness';
 import {
@@ -223,7 +224,7 @@ describe('Swiss tournaments on the Play tab', () => {
     expect(text(dialog)).toContain('Its unreported matches will become granted draws.');
     const choices = group(dialog, 'Drop from Carol vs Bob')!;
     expect(pressed(choices, 'Drop Carol')).toBe('false');
-    button(choices, 'Drop Bob')!.click();
+    toggleButton(choices, 'Drop Bob')!.click();
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
@@ -249,7 +250,7 @@ describe('Swiss tournaments on the Play tab', () => {
     );
     expect(text(dialog)).toContain('Alice vs Carol');
     expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull();
-    expect(button(dialog, 'Drop Alice')).toBeUndefined();
+    expect(toggleButton(dialog, 'Drop Alice')).toBeUndefined();
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
@@ -288,7 +289,7 @@ describe('Swiss tournaments on the Play tab', () => {
   /** Alice and Carol's Drop choices in the Complete round dialog `dialog`. */
   const aliceVsCarolDrops = (dialog: HTMLElement) => group(dialog, 'Drop from Alice vs Carol')!;
   /** The Drop Carol toggle button in the Complete round dialog `dialog`. */
-  const dropCarol = (dialog: HTMLElement) => button(aliceVsCarolDrops(dialog), 'Drop Carol')!;
+  const dropCarol = (dialog: HTMLElement) => toggleButton(aliceVsCarolDrops(dialog), 'Drop Carol')!;
 
   it('says the tournament completes once fewer than 2 undropped players would remain, counting the drops chosen', async () => {
     const { dialog } = await openCompleteRound(bobDroppedAfterBye);

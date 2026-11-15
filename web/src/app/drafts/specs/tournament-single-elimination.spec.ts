@@ -12,6 +12,7 @@ import {
   panel,
   pressed,
   text,
+  toggleButton,
   useDraftsApp,
 } from './harness';
 import {
@@ -180,7 +181,7 @@ describe('dropping players from the single elimination Complete round dialog', (
 
     const drops = group(dialog, 'Drop from Bob vs Carol')!;
     expect(pressed(drops, 'Drop Bob')).toBe('false');
-    button(drops, 'Drop Bob')!.click();
+    toggleButton(drops, 'Drop Bob')!.click();
     await fixture.whenStable();
 
     expect(pressed(drops, 'Drop Bob')).toBe('true');
@@ -198,9 +199,9 @@ describe('dropping players from the single elimination Complete round dialog', (
     const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
     const drops = group(dialog, 'Drop from Bob vs Carol')!;
 
-    button(drops, 'Drop Bob')!.click();
+    toggleButton(drops, 'Drop Bob')!.click();
     await fixture.whenStable();
-    button(drops, 'Drop Bob')!.click();
+    toggleButton(drops, 'Drop Bob')!.click();
     await fixture.whenStable();
 
     expect(pressed(drops, 'Drop Bob')).toBe('false');
@@ -221,8 +222,8 @@ describe('dropping players from the single elimination Complete round dialog', (
     const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
     const drops = group(dialog, 'Drop from Bob vs Carol')!;
 
-    button(drops, 'Drop Bob')!.click();
-    button(drops, 'Drop Carol')!.click();
+    toggleButton(drops, 'Drop Bob')!.click();
+    toggleButton(drops, 'Drop Carol')!.click();
     await fixture.whenStable();
 
     expect(text(dialog)).toContain(
@@ -249,8 +250,8 @@ describe('both finalists dropping', () => {
     const { fixture, page, dialog } = await openCompleteRound(final);
     const drops = group(dialog, 'Drop from Alice vs Carol')!;
 
-    button(drops, 'Drop Alice')!.click();
-    button(drops, 'Drop Carol')!.click();
+    toggleButton(drops, 'Drop Alice')!.click();
+    toggleButton(drops, 'Drop Carol')!.click();
     await fixture.whenStable();
 
     expect(text(dialog)).toContain(
@@ -277,7 +278,7 @@ describe('both finalists dropping', () => {
   it('still awards the trophy when one finalist drops', async () => {
     const { fixture, dialog } = await openCompleteRound(final);
 
-    button(group(dialog, 'Drop from Alice vs Carol')!, 'Drop Alice')!.click();
+    toggleButton(group(dialog, 'Drop from Alice vs Carol')!, 'Drop Alice')!.click();
     await fixture.whenStable();
 
     expect(text(dialog)).toContain('award the trophy');
