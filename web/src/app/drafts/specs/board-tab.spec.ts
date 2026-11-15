@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PoolCardView } from 'contract';
-import { carol, openDialog } from '../../specs-harness';
+import { carol, openDialog, table } from '../../specs-harness';
 import {
   useDraftsApp,
   alice,
@@ -11,6 +11,7 @@ import {
   alicePlayer,
   tabButton,
   panel,
+  region,
   openDraft,
   completeSnapshot,
   expectLoadingAnimation,
@@ -189,6 +190,15 @@ describe('board tab', () => {
     tabButton(page, 'Pool').click();
     await fixture.whenStable();
     expect(panel(page).querySelector('h2')?.textContent).toBe('Pool');
+  });
+
+  it('scrolls the grid in its own region, which a keyboard can reach and which alone names it', async () => {
+    const { page } = await openBoard(picks);
+
+    const scroller = region(panel(page), 'Picks by round')!;
+    expect(scroller.contains(findBoard(page))).toBe(true);
+    expect(scroller.tabIndex).toBe(0);
+    expect(table(panel(page), 'Picks by round')).toBeNull();
   });
 
   it('heads a column for each seat, in seat order, naming its player, a bot and the viewer', async () => {

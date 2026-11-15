@@ -61,8 +61,8 @@ export class BoardRowElement {
  * The draft view's Board tab: every pick on a grid of seats by rounds, a
  * column for each seat, in seat order, and a row for each round begun, or two
  * for a round of double turns, as a pick import file lays them out. It
- * scrolls on both axes in its own scroller, the round labels and the seats
- * heading the columns pinned.
+ * scrolls on both axes in its own scroller, the region "Picks by round" that a
+ * keyboard can reach, the round labels and the seats heading the columns pinned.
  */
 @Component({
   selector: 'app-board-tab',
