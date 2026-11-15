@@ -28,7 +28,17 @@ import {
   queued,
   statusTexts,
 } from './harness';
-import { emptyStatusIn, openDialog, statusIn, watchChanges } from '../../specs-harness';
+import {
+  clickOn,
+  emptyStatusIn,
+  expectBusy,
+  expectFocusOn,
+  expectNotBusy,
+  focusAndClick,
+  openDialog,
+  statusIn,
+  watchChanges,
+} from '../../specs-harness';
 import {
   useTallScreen,
   hidePicked,
@@ -348,22 +358,25 @@ describe('pool tab', () => {
       expect(text(alertIn(detail))).toContain(pickFailed);
     });
 
-    it('shows Picking… while a pick is on its way, and says when it fails for a reason other than a refusal, until it is tried again', async () => {
+    it('shows Picking…, focused and busy, while a pick is on its way, sending it once, and says when it fails for a reason other than a refusal, with focus on Pick, until it is tried again', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: alicesTurn }), {
         cards: [shivan],
       });
       const detail = await openDetail(fixture, page, 0);
 
-      button(detail, 'Pick')!.click();
-      TestBed.tick();
+      focusAndClick(button(detail, 'Pick')!);
+      const req = http.expectOne('/api/drafts/draft-1/picks');
       expect(button(detail, 'Pick')).toBeUndefined();
-      expect(button(detail, 'Picking…')!.disabled).toBe(true);
+      expectBusy(button(detail, 'Picking…')!);
+      expectFocusOn(detail, 'Picking…');
+      clickOn(button(detail, 'Picking…')!);
+      http.expectNone('/api/drafts/draft-1/picks');
       // Not a refusal, so its message isn't the pick's to show.
-      http
-        .expectOne('/api/drafts/draft-1/picks')
-        .flush({ error: 'internal', message: 'Something went wrong.' }, serverError);
+      req.flush({ error: 'internal', message: 'Something went wrong.' }, serverError);
       await vi.waitFor(() => expect(text(alertIn(detail))).toContain(pickFailed));
-      expect(button(detail, 'Pick')!.disabled).toBe(false);
+      await fixture.whenStable();
+      expectFocusOn(detail, 'Pick');
+      expectNotBusy(button(detail, 'Pick')!);
 
       button(detail, 'Pick')!.click();
       TestBed.tick();
@@ -408,6 +421,21 @@ describe('pool tab', () => {
         expect(alertIn(other)).toBeNull();
         expect(button(other, 'Pick')!.disabled).toBe(true);
         expect(tiles(page)[1].textContent).toContain('Picked');
+      });
+
+      it('marks Pick busy in the Card detail now open, and a press sends nothing', async () => {
+        const { fixture, other, pick } = await pickThenOpenAnother();
+
+        expectBusy(button(other, 'Picking…')!);
+        focusAndClick(button(other, 'Picking…')!);
+        http.expectNone('/api/drafts/draft-1/picks');
+        expectFocusOn(other, 'Picking…');
+
+        pick.flush(draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })));
+        await flushPicks([shivanPick]);
+        await fixture.whenStable();
+        await answered(other);
+        expect(button(other, 'Pick')!.getAttribute('aria-disabled')).toBeNull();
       });
 
       it('shows no refusal in the Card detail now open', async () => {

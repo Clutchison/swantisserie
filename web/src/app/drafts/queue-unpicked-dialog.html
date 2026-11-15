@@ -1,4 +1,5 @@
 <div class="dialog">
+  <app-change-status />
   <h3 [id]="headingId">Queue unpicked cards</h3>
   <div class="dialog-body">
     @if (queueCount() === 0) {
@@ -22,12 +23,21 @@
     </button>
   </div>
   <div class="dialog-actions">
-    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
+    <button
+      class="button secondary"
+      type="button"
+      cdkFocusInitial
+      appFocusKey="cancel"
+      (click)="close()"
+    >
+      Cancel
+    </button>
     <button
       class="button"
       type="button"
       (click)="queueUnpicked()"
-      [disabled]="sending() || queueCount() === 0"
+      [disabled]="queueCount() === 0"
+      appSendsChange="queue unpicked"
     >
       Queue {{ queueCountText() }}
     </button>

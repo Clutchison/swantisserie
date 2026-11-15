@@ -7,6 +7,7 @@ import {
   alice,
   answerViewerDrafts,
   banner,
+  expectBusy,
   expectSignedOut,
   http,
   openApp,
@@ -523,6 +524,23 @@ describe('App', () => {
 
     await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
     expect(banner(page)?.textContent ?? '').not.toContain('Alice');
+  });
+
+  it('sends one logout request however often Log out is pressed while signing out', async () => {
+    const page = await openSettled('/', alice);
+
+    clickLogOut(page);
+    const logout = await vi.waitFor(() => http.expectOne('/api/auth/logout'));
+    userMenuButton(page)!.click();
+    TestBed.tick();
+    expectBusy(button(page, 'Log out')!);
+    button(page, 'Log out')!.click();
+    TestBed.tick();
+    http.expectNone('/api/auth/logout');
+    logout.flush(null, { status: 204, statusText: 'No Content' });
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    http.expectNone('/api/auth/logout');
   });
 
   it('stops hearing of the viewer’s drafts once logged out', async () => {

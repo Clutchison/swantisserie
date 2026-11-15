@@ -33,6 +33,9 @@ import {
 import {
   clickBackdrop,
   emptyStatusIn,
+  expectBusy,
+  expectFocusOn,
+  expectNotBusy,
   openDialog,
   pressEscape,
   pressKey,
@@ -636,29 +639,56 @@ describe('the Printing picker', () => {
     ]);
   });
 
-  it('disables both choices while a save is on its way, and apologises for a failure the API gives no reason for, until the next try', async () => {
+  it('keeps focus on the pressed choice, busy, while a save is on its way, the other choices ignoring presses, and apologises for a failure the API gives no reason for, until the next try', async () => {
     const { fixture, plan } = await openWith(
       withIslands({ preferredPrintings: { Island: khm394 } }),
     );
     const dialog = await openPicker(fixture, plan);
+    const use = button(dialog, 'Use this printing')!;
 
-    button(dialog, 'Use this printing')!.click();
+    use.focus();
+    use.click();
     TestBed.tick();
-    expect(button(dialog, 'Use this printing')!.disabled).toBe(true);
-    expect(button(dialog, 'Use default')!.disabled).toBe(true);
-    http.expectOne(`/api/preferred-printings/Island`).flush(null, serverError);
+    expectBusy(use);
+    expectFocusOn(dialog, 'Use this printing');
+    use.click();
+    button(dialog, 'Use default')!.click();
+    button(dialog, 'Remove')!.click();
+    const saving = http.expectOne(`/api/preferred-printings/Island`);
+    http.expectNone('/api/drafts/draft-1/plan/basics/Island/Mainboard');
+    saving.flush(null, serverError);
     await vi.waitFor(() =>
       expect(text(alertIn(dialog))).toBe('Couldn’t save your printing. Try again in a moment.'),
     );
-    expect(button(dialog, 'Use this printing')!.disabled).toBe(false);
-    expect(button(dialog, 'Use default')!.disabled).toBe(false);
+    await fixture.whenStable();
+    expectFocusOn(dialog, 'Use this printing');
+    expectNotBusy(use);
 
-    button(dialog, 'Use this printing')!.click();
+    use.click();
     TestBed.tick();
     expect(alertIn(dialog)).toBeNull();
     http.expectOne(`/api/preferred-printings/Island`).flush({ Island: khm394 });
     await fixture.whenStable();
     expect(openDialog()).toBeNull();
+  });
+
+  it('keeps focus on Remove when Remove fails', async () => {
+    const { fixture, plan } = await openWith();
+    const dialog = await openPicker(fixture, plan);
+    const remove = button(dialog, 'Remove')!;
+
+    remove.focus();
+    remove.click();
+    TestBed.tick();
+    expectBusy(remove);
+    remove.click();
+    http.expectOne('/api/drafts/draft-1/plan/basics/Island/Mainboard').flush(null, serverError);
+    await flushPlan(withIslands());
+    await vi.waitFor(() => expect(alertIn(dialog)).not.toBeNull());
+    await fixture.whenStable();
+
+    expect(openDialog()).toBe(dialog);
+    expectFocusOn(dialog, 'Remove');
   });
 
   it('opens on a preferred printing that isn’t the first of its set', async () => {
