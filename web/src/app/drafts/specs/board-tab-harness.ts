@@ -1,5 +1,5 @@
-import { accessibleName, stubScrollIntoView, table, text } from '../../specs-harness';
-import { panel } from './harness';
+import { accessibleName, stubScrollIntoView, text } from '../../specs-harness';
+import { panel, regionTable } from './harness';
 
 /** A table's rows, column headers, row headers and cells, by their roles, native or ARIA. */
 const ROWS = 'tr, [role="row"]';
@@ -7,8 +7,8 @@ const COLUMN_HEADERS = 'th[scope="col"], [role="columnheader"]';
 const ROW_HEADERS = 'th[scope="row"], [role="rowheader"]';
 const CELLS = 'td, [role="cell"], [role="gridcell"]';
 
-/** The Board tab's grid of picks: the table "Picks by round"; null if there is none. */
-export const findBoard = (page: HTMLElement) => table(panel(page), 'Picks by round');
+/** The Board tab's grid of picks: the table in the region "Picks by round"; null if there is none. */
+export const findBoard = (page: HTMLElement) => regionTable(panel(page), 'Picks by round');
 
 /** The Board tab's grid of picks, which is there. */
 export const board = (page: HTMLElement) => findBoard(page)!;
