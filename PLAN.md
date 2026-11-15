@@ -23,6 +23,7 @@ Today, only members of the one guild in `DISCORD_GUILD_ID` can sign in, with the
 The organizer picks one **pool source** when creating the draft: a **pool query**, a **cube link** or a **set list**. Whichever it is, the pool leaves out the basic lands, and every pool card has a printing on the draft's platform (`arena` or `mtgo`).
 
 - **Pool query:** the organizer enters a Scryfall search. Every card in the results is in the pool, once.
+  - **Validation:** creation fails if the pool query matches no cards once the basic lands are left out, or if Scryfall rejects it or ignores part of it.
   - **Platform validation:** the app runs `(q) -in:<platform>` for the draft's platform. If that returns any cards, creation fails and lists the cards that aren't on the platform. (Not `-game:<platform>`: `game:` matches printings, so it would also catch cards on the platform that have a printing off it.)
   - **Snapshot:** after creation, a background job pages through `(q) <no basic lands> game:<platform> unique:cards` (175/page, ≤2 req/s, progress bar).
 - **Cube link:** the organizer gives a CubeCobra cube link or a bare cube id. Only the cube's mainboard goes in the pool.

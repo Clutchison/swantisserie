@@ -313,7 +313,7 @@ A pool card in a player's deck that no one has picked: the player added it from 
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
 **Queue order**:
-The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck loses its place.
+The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck, by the player or by a loss, loses its place, even if an undo puts it back.
 _Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:

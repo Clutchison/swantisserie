@@ -132,12 +132,16 @@ describe('queue paused', () => {
     it('can’t be set in the lobby, only once the draft starts', async () => {
       const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
 
-      expect((await setQueuePaused(id, true).expect(409)).body).toEqual({
+      const refusal = {
         error: 'not-started',
-        message: 'You can queue once the draft starts.',
-      });
-      expect((await setQueuePaused(id, false).expect(409)).body.error).toBe(
-        'not-started',
+        message:
+          'You can pause your queue or set it picking once the draft starts.',
+      };
+      expect((await setQueuePaused(id, true).expect(409)).body).toEqual(
+        refusal,
+      );
+      expect((await setQueuePaused(id, false).expect(409)).body).toEqual(
+        refusal,
       );
 
       await start(id).expect(200);

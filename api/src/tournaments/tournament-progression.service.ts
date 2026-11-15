@@ -3,7 +3,7 @@ import type { CompleteRoundRequest } from 'contract';
 import { roundCompletion } from 'engine';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { REINSTATE_VIEW, reinstateRefusalOf } from './change-steps.js';
+import { REINSTATE_VIEW, reinstateRefusalOf } from './reinstate-steps.js';
 import { ROUND_STEPS } from './format-steps.js';
 import { reopenRound } from './reopen-round.js';
 import type { RoundSteps } from './round-steps.js';

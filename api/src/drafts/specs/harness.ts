@@ -106,6 +106,27 @@ export function failNextPublish(err = new Error('Connection dropped')) {
     .mockRejectedValueOnce(err);
 }
 
+/** The message of the database's error when its connection drops: how the specs' database refuses a write. */
+export const DROPPED_CONNECTION = 'Connection terminated unexpectedly';
+
+/**
+ * The database refuses the pool snapshot reset of the next draft created.
+ * Picks it by count: it assumes creation's only transactions are the one that
+ * saves the draft and then the reset, both interactive and so alike to a spy.
+ * If another comes first, creation answers 500 and the test fails, rather
+ * than passing falsely. Silences Logger's `error` and returns its spy.
+ */
+export function refuseNextSnapshotReset() {
+  const prisma = app.get(PrismaService);
+  const save = prisma.$transaction.bind(prisma);
+  vi.spyOn(prisma, '$transaction')
+    .mockImplementationOnce((...args) =>
+      save(...(args as Parameters<typeof save>)),
+    )
+    .mockRejectedValueOnce(new Error(DROPPED_CONNECTION));
+  return vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+}
+
 /**
  * Each push or publish of one of `draftIds` that `logged`, a spy on
  * Logger's `error`, says failed, in the order logged, with the error logged.
@@ -266,6 +287,25 @@ export function card(
   };
 }
 
+/**
+ * A reversible card's printing, as Scryfall gives it: its oracle id, mana
+ * value and type line on its two faces, not on the card.
+ */
+export function reversibleCard(
+  name: string,
+  front: { cmc: number; type_line: string },
+): ScryfallCard {
+  const face = { name, oracle_id: card(name).oracle_id, ...front };
+  return {
+    ...card(`${name} // ${name}`),
+    layout: 'reversible_card',
+    oracle_id: undefined,
+    cmc: undefined,
+    type_line: undefined,
+    card_faces: [face, face],
+  };
+}
+
 /** A one-page search result of `cards`, each named or given whole. */
 export function page(...cards: (string | ScryfallCard)[]): ScryfallSearchPage {
   return {
@@ -277,6 +317,13 @@ export function page(...cards: (string | ScryfallCard)[]): ScryfallSearchPage {
 }
 
 /**
+ * The search that checks, at creation, that `poolQuery` matches a card,
+ * leaving the basic lands out as the snapshot does.
+ */
+export const creationMatchQuery = (poolQuery: string) =>
+  `(${poolQuery}) ${NO_BASICS}`;
+
+/**
  * The search the snapshot pages through for `poolQuery` on `platform`,
  * which leaves the basic lands out.
  */
@@ -284,12 +331,12 @@ export const snapshotQuery = (
   poolQuery: string,
   platform: Platform = 'Arena',
 ) =>
-  `(${poolQuery}) ${NO_BASICS} game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
+  `${creationMatchQuery(poolQuery)} game:${platform === 'Arena' ? 'arena' : 'mtgo'} unique:cards`;
 
 /** A pool query whose cards are all on Arena, with a two-card pool. */
 export function allOnArena(poolQuery: string) {
   scryfallAnswers({
-    [poolQuery]: page('Balefire Dragon', 'Shivan Dragon'),
+    [creationMatchQuery(poolQuery)]: page('Balefire Dragon', 'Shivan Dragon'),
     [`(${poolQuery}) -in:arena`]: null,
     [snapshotQuery(poolQuery)]: page('Balefire Dragon', 'Shivan Dragon'),
   });
@@ -368,7 +415,7 @@ export async function draftWithRunningSnapshot() {
   });
   scryfall.search.mockImplementation(async (searched, number = 1) => {
     if (searched !== query) {
-      return searched === 'c:r' ? page('Shock') : null;
+      return searched === creationMatchQuery('c:r') ? page('Shock') : null;
     }
     if (number === 1) {
       return { ...page('Shock'), totalCards: 2, hasMore: true };
@@ -625,7 +672,7 @@ export async function readyDraft(
   doublePicks = 0,
 ) {
   scryfallAnswers({
-    'c:r': page(...cards),
+    [creationMatchQuery('c:r')]: page(...cards),
     '(c:r) -in:arena': null,
     [snapshotQuery('c:r')]: page(...cards),
   });

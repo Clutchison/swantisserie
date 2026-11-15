@@ -11,14 +11,14 @@ import {
  * worker and the test database (PGlite) of the spec file it's running.
  * Measured on 2026-11-08 (#558), with only other agents' idle sessions
  * running: two runs at `--concurrency 1`, narrowed to `queue-order.ts` and to
- * `turn-state.ts`, sampling the runner's process tree's resident memory once a
+ * `turn-read.ts`, sampling the runner's process tree's resident memory once a
  * second. Each dry run sends every `api` spec file through the one runner, so
  * the heaviest spec files are in it. The runner peaked at 1,905 MiB over
- * queue-order's 25 mutants and 2,162 MiB over turn-state's 52, so it may
+ * queue-order's 25 mutants and 2,162 MiB over turn-read's 52, so it may
  * grow with a run's length; this leaves about 10% over the higher peak.
  * Confirmed on 2026-11-09 (#559) by the full run over all five files from
  * scratch (380 mutants, 5 runners, 36 minutes), sampled the same way: its
- * largest runner peaked at 2,162 MiB, no higher than turn-state's run, so
+ * largest runner peaked at 2,162 MiB, no higher than turn-read's run, so
  * growth with length hasn't shown past that. Stryker's own main process
  * isn't a runner and is in the margin below. Whole runs, for scale, sampled
  * over the run's own process tree: #557's run narrowed to queue-order at
@@ -70,7 +70,7 @@ export default {
   // (docs/agents/pick-effects.md). Widen or narrow a run with `--mutate`.
   mutate: [
     'src/drafts/turns.service.ts',
-    'src/drafts/turn-state.ts',
+    'src/drafts/turn-read.ts',
     'src/drafts/plan-picks.ts',
     'src/drafts/queue-clearing.ts',
     'src/drafts/queue-order.ts',
