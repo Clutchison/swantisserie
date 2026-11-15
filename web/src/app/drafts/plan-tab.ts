@@ -737,21 +737,15 @@ export class PlanTab {
       ],
       returnFocus: (opener) => {
         if (!opener || opener.isConnected) return opener;
-        const at = openers.indexOf(opener);
-        const still = (element: HTMLElement) => element.isConnected;
-        return (
-          openers.slice(at + 1).find(still) ??
-          openers.slice(0, Math.max(at, 0)).reverse().find(still)
-        );
+        return besideIn(openers, opener, (element) => element.isConnected);
       },
     });
   }
 
   /**
-   * Opens the Basic lands dialog. Focus returns to the button that opened
-   * it, Add basics, or, should the deck have locked, which takes Add basics
-   * away, to the next of the Deck tab's tools: Export, or without it the
-   * one before Add basics, as Add basics comes last but Export.
+   * Opens the Basic lands dialog. Focus returns to Add basics. If the deck
+   * has locked, which removes Add basics, it moves to the next of the Deck
+   * tab's tools, or the one before if there is none after.
    */
   protected openBasics() {
     const addingBasics = this.dialogs.open(BasicLandsDialog, {
@@ -760,8 +754,8 @@ export class PlanTab {
       returnFocus: (opener) => {
         if (!this.deckLocked()) return opener;
         // The dialog closes as the deck locks, before Add basics leaves the page.
-        const tools = this.tools().nativeElement.querySelectorAll<HTMLElement>('button');
-        return [...tools].filter((tool) => tool !== opener).at(-1);
+        const tools = [...this.tools().nativeElement.querySelectorAll<HTMLElement>('button')];
+        return besideIn(tools, opener, () => true);
       },
     });
     this.addingBasics = addingBasics;
@@ -893,6 +887,21 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
 /** The cards `planBoard` holds: its planned pool cards, then a card per copy of each of its basic lands. */
 function heldOn(plan: PlanView, planBoard: PlanBoard): PlanBoardCard[] {
   return [...cardsOn(plan, planBoard), ...basicsOn(plan.basics, planBoard).flatMap(basicCopies)];
+}
+
+/**
+ * The first of `elements` after `element` that `fits`, or else the last
+ * before it that does: where focus goes once `element` has gone.
+ */
+function besideIn(
+  elements: HTMLElement[],
+  element: HTMLElement | null,
+  fits: (element: HTMLElement) => boolean,
+) {
+  const at = element ? elements.indexOf(element) : -1;
+  return (
+    elements.slice(at + 1).find(fits) ?? elements.slice(0, Math.max(at, 0)).reverse().find(fits)
+  );
 }
 
 /** One card per copy of a basic land on its plan board, each with an id of its own to track and drag it by. */
