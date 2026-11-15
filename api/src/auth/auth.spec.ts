@@ -1,4 +1,5 @@
-import { Controller, Get, Module, UseGuards } from '@nestjs/common';
+import { Controller, Get, Logger, Module, UseGuards } from '@nestjs/common';
+import type { DraftView } from 'contract';
 import request from 'supertest';
 import { DiscordProfile } from '../discord/discord-client.js';
 import { DiscordConfig } from '../discord/discord-config.js';
@@ -12,6 +13,21 @@ import {
 import { AppAdminConfig } from './app-admin-config.js';
 import { AppAdminGuard } from './app-admin.guard.js';
 import { AuthModule } from './auth.module.js';
+import { DraftPushes } from '../drafts/draft-pushes.js';
+import {
+  aliceCookie,
+  announcementsSettled,
+  bob,
+  carol,
+  dave,
+  getDraft,
+  readyDraft,
+  registerWebhook,
+  signIn,
+  signInAlice,
+  webhookClient,
+} from '../drafts/specs/harness.js';
+import { useSockets } from '../drafts/specs/socket-harness.js';
 
 const config = new DiscordConfig({
   DISCORD_CLIENT_ID: 'client-123',
@@ -33,6 +49,41 @@ class AppAdminOnlyController {
 
 @Module({ imports: [AuthModule], controllers: [AppAdminOnlyController] })
 class AppAdminOnlyModule {}
+
+/** Runs the redirect → callback round trip in a cookie-keeping agent. */
+async function signInThroughDiscord(
+  profile: DiscordProfile,
+  {
+    isGuildMember = true,
+    returnTo,
+  }: { isGuildMember?: boolean; returnTo?: string } = {},
+) {
+  discord.exchangeCode.mockResolvedValue('access-token');
+  discord.getCurrentUser.mockResolvedValue(profile);
+  discord.isGuildMember.mockResolvedValue(isGuildMember);
+  const agent = request.agent(app.getHttpServer());
+  const start = await agent
+    .get('/api/auth/discord')
+    .query(returnTo === undefined ? {} : { returnTo });
+  const state = new URL(start.headers.location).searchParams.get('state');
+  const callback = await agent
+    .get('/api/auth/discord/callback')
+    .query({ code: 'auth-code', state, iss: 'https://discord.com' });
+  return { agent, callback };
+}
+
+/** `session=<token>`, ready for a Cookie header. */
+function sessionCookieFrom(res: request.Response): string {
+  const cookies = res.headers['set-cookie'] as unknown as string[];
+  return cookies.find((c) => c.startsWith('session='))!.split(';')[0];
+}
+
+const aliceProfile: DiscordProfile = {
+  id: alice.id,
+  username: 'alice',
+  global_name: alice.name,
+  avatar: '8342729096ea3675442027381ff50dfe',
+};
 
 describe('Discord sign-in', () => {
   useTestApp(() =>
@@ -68,41 +119,6 @@ describe('Discord sign-in', () => {
       expect.arrayContaining([expect.stringMatching(`^oauth_state=${state};`)]),
     );
   });
-
-  /** Runs the redirect → callback round trip in a cookie-keeping agent. */
-  async function signInThroughDiscord(
-    profile: DiscordProfile,
-    {
-      isGuildMember = true,
-      returnTo,
-    }: { isGuildMember?: boolean; returnTo?: string } = {},
-  ) {
-    discord.exchangeCode.mockResolvedValue('access-token');
-    discord.getCurrentUser.mockResolvedValue(profile);
-    discord.isGuildMember.mockResolvedValue(isGuildMember);
-    const agent = request.agent(app.getHttpServer());
-    const start = await agent
-      .get('/api/auth/discord')
-      .query(returnTo === undefined ? {} : { returnTo });
-    const state = new URL(start.headers.location).searchParams.get('state');
-    const callback = await agent
-      .get('/api/auth/discord/callback')
-      .query({ code: 'auth-code', state, iss: 'https://discord.com' });
-    return { agent, callback };
-  }
-
-  /** `session=<token>`, ready for a Cookie header. */
-  function sessionCookieFrom(res: request.Response): string {
-    const cookies = res.headers['set-cookie'] as unknown as string[];
-    return cookies.find((c) => c.startsWith('session='))!.split(';')[0];
-  }
-
-  const aliceProfile: DiscordProfile = {
-    id: alice.id,
-    username: 'alice',
-    global_name: alice.name,
-    avatar: '8342729096ea3675442027381ff50dfe',
-  };
 
   it('signs the user in on callback and reports them from /me', async () => {
     const { agent, callback } = await signInThroughDiscord(aliceProfile);
@@ -340,5 +356,231 @@ describe('Discord sign-in', () => {
     it('reject signed-out requests', async () => {
       await request(app.getHttpServer()).get('/api/admin-only').expect(401);
     });
+  });
+});
+
+describe('signing in again, to the drafts the user is in', () => {
+  useTestApp(async () => {
+    await startTestApp({
+      overrides: [{ provide: DiscordConfig, useValue: config }],
+    });
+    await signInAlice();
+  });
+  const { watch, listeningToOwnRoom } = useSockets();
+
+  let bobCookie: string;
+  let carolCookie: string;
+  /** Organized by Alice: Alice and Bob play in it. It has a webhook. */
+  let both: string;
+  /** Organized by Alice: Bob alone plays in it. */
+  let bobs: string;
+  /** Organized by Alice: Carol alone plays in it. */
+  let carols: string;
+  /** Each draft's version before the test's sign-in. */
+  let versionsBefore: Map<string, number>;
+
+  const bobProfile: DiscordProfile = {
+    id: bob.id,
+    username: 'bob',
+    global_name: bob.name,
+    avatar: null,
+  };
+
+  beforeEach(async () => {
+    bobCookie = await signIn(bob);
+    carolCookie = await signIn(carol);
+    const webhookId = await registerWebhook('#roto-main');
+    both = await readyDraft([aliceCookie, bobCookie], 1, undefined, webhookId);
+    bobs = await readyDraft([bobCookie]);
+    carols = await readyDraft([carolCookie]);
+    await announcementsSettled(both);
+    webhookClient.post.mockClear();
+    versionsBefore = await versions();
+  });
+
+  /**
+   * What is pushed to a socket watching each draft, as Dave, who is in none,
+   * and to each player's own room.
+   */
+  async function listening() {
+    const daveCookie = await signIn(dave);
+    return {
+      watching: {
+        [both]: await watch(both, daveCookie),
+        [bobs]: await watch(bobs, daveCookie),
+        [carols]: await watch(carols, daveCookie),
+      },
+      rooms: {
+        alice: (await listeningToOwnRoom(aliceCookie)).changes,
+        bob: (await listeningToOwnRoom(bobCookie)).changes,
+        carol: (await listeningToOwnRoom(carolCookie)).changes,
+      },
+    };
+  }
+
+  /**
+   * Waits until `pushed` holds each of `ids` once, then expects each to be
+   * newer than before and to pass `check`.
+   */
+  async function expectPushedOnce(
+    pushed: DraftView[],
+    ids: string[],
+    check: (draft: DraftView) => void,
+  ) {
+    await vi.waitFor(() => expect(pushed).toHaveLength(ids.length));
+    expect(pushed.map((draft) => draft.id).sort()).toEqual([...ids].sort());
+    for (const draft of pushed) {
+      check(draft);
+      expect(draft.version).toBeGreaterThan(versionsBefore.get(draft.id)!);
+    }
+  }
+
+  /** Each draft's version now, by draft. */
+  async function versions() {
+    return new Map(
+      await Promise.all(
+        [both, bobs, carols].map(
+          async (id) =>
+            [id, (await getDraft(id).expect(200)).body.version] as const,
+        ),
+      ),
+    );
+  }
+
+  /** Bob, as `draft` shows him. */
+  function bobIn(draft: DraftView) {
+    return draft.players.find((player) => player.id === bob.id);
+  }
+
+  it('pushes each draft a renamed player plays in, with their new name, to its room and its players’ own', async () => {
+    const pushed = await listening();
+
+    await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
+
+    const renamed = (draft: DraftView) =>
+      expect(bobIn(draft)).toMatchObject({ name: 'Robert' });
+    await expectPushedOnce(pushed.watching[both], [both], renamed);
+    await expectPushedOnce(pushed.watching[bobs], [bobs], renamed);
+    await expectPushedOnce(pushed.rooms.alice, [both], renamed);
+    await expectPushedOnce(pushed.rooms.bob, [both, bobs], renamed);
+    expect(pushed.watching[carols]).toEqual([]);
+    expect(pushed.rooms.carol).toEqual([]);
+    expect((await getDraft(carols).expect(200)).body.version).toBe(
+      versionsBefore.get(carols),
+    );
+  });
+
+  it('pushes each draft a player plays in with their new avatar', async () => {
+    const pushed = await listening();
+
+    await signInThroughDiscord({
+      ...bobProfile,
+      avatar: 'a_0123456789abcdef0123456789abcdef',
+    });
+
+    await expectPushedOnce(pushed.rooms.bob, [both, bobs], (draft) =>
+      expect(bobIn(draft)).toMatchObject({
+        avatarUrl: `https://cdn.discordapp.com/avatars/${bob.id}/a_0123456789abcdef0123456789abcdef.png`,
+      }),
+    );
+  });
+
+  it('pushes each draft a renamed organizer organizes, with their new name, including those they don’t play in', async () => {
+    const pushed = await listening();
+
+    await signInThroughDiscord({
+      id: alice.id,
+      username: 'alice',
+      global_name: 'Alicia',
+      avatar: null,
+    });
+
+    const renamed = (draft: DraftView) =>
+      expect(draft.organizer).toEqual({ id: alice.id, name: 'Alicia' });
+    for (const id of [both, bobs, carols]) {
+      await expectPushedOnce(pushed.watching[id], [id], renamed);
+    }
+    await expectPushedOnce(pushed.rooms.bob, [both, bobs], renamed);
+    await expectPushedOnce(pushed.rooms.carol, [carols], renamed);
+  });
+
+  it('bumps and pushes nothing for a sign-in with the same name and avatar', async () => {
+    const pushed = await listening();
+
+    await signInThroughDiscord(bobProfile);
+
+    expect(await versions()).toEqual(versionsBefore);
+    // Its push comes after any the sign-in above made.
+    await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
+    await expectPushedOnce(pushed.rooms.bob, [both, bobs], (draft) =>
+      expect(bobIn(draft)).toMatchObject({ name: 'Robert' }),
+    );
+  });
+
+  it('bumps and pushes nothing for a first sign-in', async () => {
+    const pushed = await listening();
+
+    const { agent } = await signInThroughDiscord({
+      id: '80351110224678916',
+      username: 'erin',
+      global_name: 'Erin',
+      avatar: null,
+    });
+
+    await agent.get('/api/auth/me').expect(200);
+    expect(await versions()).toEqual(versionsBefore);
+    await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
+    await expectPushedOnce(pushed.rooms.bob, [both, bobs], () => {});
+  });
+
+  it('keeps the user’s old name when bumping their drafts fails, and bumps none', async () => {
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    vi.spyOn(DraftPushes.prototype, 'bump').mockRejectedValueOnce(
+      new Error('Connection dropped'),
+    );
+
+    const { callback } = await signInThroughDiscord({
+      ...bobProfile,
+      global_name: 'Robert',
+    });
+
+    expect(callback.headers.location).toBe('/sign-in?error=failed');
+    expect(await versions()).toEqual(versionsBefore);
+    const draft = (await getDraft(both).expect(200)).body as DraftView;
+    expect(bobIn(draft)).toMatchObject({ name: 'Bob' });
+  });
+
+  it('signs the user in when a push fails, logging it, and pushes the rest', async () => {
+    const logged = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    vi.spyOn(DraftPushes.prototype, 'push').mockRejectedValueOnce(
+      new Error('Connection dropped'),
+    );
+    const bobsRoom = (await listeningToOwnRoom(bobCookie)).changes;
+
+    const { agent, callback } = await signInThroughDiscord({
+      ...bobProfile,
+      global_name: 'Robert',
+    });
+
+    expect(callback.headers.location).toBe('/');
+    await agent
+      .get('/api/auth/me')
+      .expect(200)
+      .expect((res) => expect(res.body.name).toBe('Robert'));
+    await vi.waitFor(() => expect(bobsRoom).toHaveLength(1));
+    const [failed] = [both, bobs].filter((id) => id !== bobsRoom[0].id);
+    expect(logged).toHaveBeenCalledExactlyOnceWith(
+      expect.stringContaining(failed),
+      expect.any(Error),
+    );
+  });
+
+  it('announces no sign-in', async () => {
+    await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
+
+    await announcementsSettled(both);
+    expect(webhookClient.post).not.toHaveBeenCalled();
   });
 });
