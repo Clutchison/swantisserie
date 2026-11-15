@@ -1,35 +1,30 @@
 import { comesBefore, onlyAlert } from '../../specs-harness';
-import { button, namedList, panel, region } from './harness';
+import { accessibleName, namedList, panel, region } from './harness';
 import { bracket, roundLists } from './play-tab-harness';
 
-/** The labels of the buttons in the Play tab's action rows during play: Drop from tournament, then the organizer's. */
-const ACTION_LABELS = [
-  'Drop from tournament',
+/** The accessible names of the buttons in the Play tab's action rows during play: Drop from tournament and the organizer's. */
+const ACTION_NAMES = [
+  /^Drop from tournament$/,
   /^Reopen round \d+$/,
-  'Cancel tournament',
-  'Complete round',
-  'Complete tournament',
+  /^Cancel tournament$/,
+  /^Complete (round|tournament)$/,
 ];
 
-/** The buttons of the action rows during play inside `tab`, those it shows, in the order `ACTION_LABELS` names them. */
-export function actionButtons(tab: HTMLElement) {
-  return ACTION_LABELS.flatMap((label) => {
-    if (typeof label === 'string') return button(tab, label) ?? [];
-    return [...tab.querySelectorAll('button')].filter((shown) =>
-      label.test(shown.textContent!.trim()),
-    );
-  });
-}
+/** The buttons of the action rows during play inside `tab`, those it shows, in page order. */
+export const actionButtons = (tab: HTMLElement) =>
+  [...tab.querySelectorAll('button')].filter((shown) =>
+    ACTION_NAMES.some((name) => name.test(accessibleName(shown))),
+  );
 
 /**
  * What follows the action rows during play inside `tab`, those it shows:
- * Your matches (or "Your match"), the results grid, the standings, the
- * bracket, the lists of matches, and the Players list.
+ * the signed-in player's own matches ("Your match" in Swiss and single
+ * elimination, Your matches in round robin), the results grid or the
+ * standings, the bracket, the lists of matches, and the Players list.
  */
 export const listsAfterActions = (tab: HTMLElement) =>
   [
-    region(tab, 'Your matches'),
-    region(tab, 'Your match'),
+    region(tab, 'Your match') ?? region(tab, 'Your matches'),
     region(tab, 'Results grid'),
     region(tab, 'Standings'),
     bracket(tab),
@@ -37,18 +32,25 @@ export const listsAfterActions = (tab: HTMLElement) =>
     namedList(tab, 'Players'),
   ].filter((part) => !!part);
 
+/** Expects `node` to come before Your matches and every list that follows the action rows in `tab`. */
+export function expectBeforeLists(tab: HTMLElement, node: Node) {
+  for (const list of listsAfterActions(tab)) expect(comesBefore(node, list)).toBe(true);
+}
+
 /**
- * Expects the open tab of `page` to show its one alert directly after the
- * action rows in `tab`, after their every button, before Your matches and
- * every list that follows.
+ * Expects `node` to come directly after the action rows in `tab`, after
+ * their every button, and before Your matches and every list that follows.
  */
-export function expectByActions(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(panel(page));
+export function expectByActionRows(tab: HTMLElement, node: Node) {
   const actions = actionButtons(tab);
   expect(actions).not.toHaveLength(0);
-  for (const action of actions) expect(comesBefore(action, alert)).toBe(true);
-  for (const list of listsAfterActions(tab)) expect(comesBefore(alert, list)).toBe(true);
+  for (const action of actions) expect(comesBefore(action, node)).toBe(true);
+  expectBeforeLists(tab, node);
 }
+
+/** Expects the open tab of `page` to show its one alert directly after the action rows in `tab`. */
+export const expectByActions = (page: HTMLElement, tab: HTMLElement) =>
+  expectByActionRows(tab, onlyAlert(panel(page)));
 
 /**
  * Expects the open tab of `page` to show its one alert directly after
