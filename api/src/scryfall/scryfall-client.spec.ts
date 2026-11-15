@@ -353,6 +353,34 @@ describe('FetchScryfallClient', () => {
       expect(await scryfall.printingsOn('arena', ['bolt'])).toEqual([]);
     });
 
+    it('sends no more searches after the one under way once its signal is aborted', async () => {
+      vi.useFakeTimers();
+      try {
+        const ids = Array.from({ length: 50 }, (_, n) => oracleId(n));
+        let answer!: () => void;
+        fetch.mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              answer = () => resolve(Response.json(found([])));
+            }),
+        );
+        fetch.mockImplementation(async () => Response.json(found([])));
+        const searches = new AbortController();
+
+        const cards = scryfall.printingsOn('arena', ids, searches.signal);
+        const failed = expect(cards).rejects.toThrow('stop');
+        await vi.advanceTimersByTimeAsync(0);
+        searches.abort(new Error('stop'));
+        answer();
+        await vi.advanceTimersByTimeAsync(10_000);
+
+        await failed;
+        expect(fetch).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('asks nothing for no cards', async () => {
       expect(await scryfall.printingsOn('arena', [])).toEqual([]);
       expect(fetch).not.toHaveBeenCalled();

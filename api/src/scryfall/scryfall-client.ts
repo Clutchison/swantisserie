@@ -162,11 +162,13 @@ export abstract class ScryfallClient {
    * with one of these oracle ids, leaving out cards with none. Asks for as
    * many cards per search as Scryfall's query length allows. Throws
    * ScryfallUnavailableError if Scryfall itself is in trouble or can't be
-   * reached, even after retrying.
+   * reached, even after retrying. Once `signal` is aborted, sends no more
+   * searches after the one under way, and throws its reason.
    */
   abstract printingsOn(
     game: string,
     oracleIds: string[],
+    signal?: AbortSignal,
   ): Promise<ScryfallCard[]>;
 
   /**
@@ -233,10 +235,12 @@ export class FetchScryfallClient extends ScryfallClient {
   async printingsOn(
     game: string,
     oracleIds: string[],
+    signal?: AbortSignal,
   ): Promise<ScryfallCard[]> {
     const cards: ScryfallCard[] = [];
     for (const query of oracleIdQueries(game, [...new Set(oracleIds)])) {
       for (let page = 1; ; page++) {
+        signal?.throwIfAborted();
         const result = await this.search(query, page);
         if (!result) break;
         cards.push(...result.cards);

@@ -4,7 +4,10 @@ import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   ScryfallRejectedSearchError,
   ScryfallUnavailableError,
+  type ScryfallSearchPage,
 } from '../../scryfall/scryfall-client.js';
+import { held } from '../../testing/deadlines.js';
+import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
   alice,
   app,
@@ -251,6 +254,26 @@ it('answers 502 when Scryfall cannot be reached', async () => {
   }).expect(502);
 
   expect(res.body).toMatchObject({ error: 'scryfall-unavailable' });
+  await listDrafts().expect(200).expect([]);
+});
+
+it('answers 502 within the draft creation deadline when Scryfall doesn’t answer the check, and saves no draft once it does', async () => {
+  allOnArena('c:r');
+  const search = held<ScryfallSearchPage | null>();
+  scryfall.search.mockReturnValueOnce(search.promise);
+
+  const res = await createPastDeadline(
+    () =>
+      createDraft({
+        name: 'Red',
+        poolSource: { kind: 'pool-query', poolQuery: 'c:r' },
+      }),
+    scryfall.search,
+  );
+
+  expect(res.status).toBe(502);
+  expect(res.body).toMatchObject({ error: 'scryfall-unavailable' });
+  search.letGo(page('Balefire Dragon', 'Shivan Dragon'));
   await listDrafts().expect(200).expect([]);
 });
 

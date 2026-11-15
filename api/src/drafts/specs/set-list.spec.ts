@@ -1,6 +1,8 @@
 import type { Platform } from 'contract';
 import request from 'supertest';
 import { ScryfallUnavailableError } from '../../scryfall/scryfall-client.js';
+import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
+import { holdScryfallSets } from '../../testing/set-names-deadline.js';
 import {
   countAnswers,
   OTJ_SETS,
@@ -223,6 +225,27 @@ describe('creating a draft from a set list', () => {
     }).expect(502);
 
     expect(refused.body.error).toBe('scryfall-unavailable');
+  });
+
+  it('answers 502 within the draft creation deadline when Scryfall doesn’t list its sets, and saves no draft once it does', async () => {
+    const answer = holdScryfallSets();
+
+    const refused = await createPastDeadline(
+      () =>
+        createDraft({
+          name: 'Outlaws',
+          poolSource: {
+            kind: 'set-list',
+            setList: [{ code: 'otj', sublists: [] }],
+          },
+        }),
+      scryfall.sets,
+    );
+
+    expect(refused.status).toBe(502);
+    expect(refused.body.error).toBe('scryfall-unavailable');
+    answer();
+    await listDrafts().expect(200).expect([]);
   });
 });
 
