@@ -199,6 +199,23 @@ describe('the bracket of a single elimination tournament', () => {
     expect(ownPath(tab)).toEqual(['Bob (seed 2) 1–2 Carol (seed 3) · Carol won']);
   });
 
+  it('names no next match for a player who dropped after their win was agreed, still marking their path', async () => {
+    const carolWonThenDropped = {
+      ...carolWon,
+      entries: [alice.id, bob.id, carol.id].map((playerId, i) =>
+        entry(playerId, { seed: i + 1, dropped: playerId === carol.id }),
+      ),
+    };
+
+    const { tab } = await openPlaying(carolWonThenDropped, { user: signedIn(carol) });
+
+    expect(text(bracket(tab))).not.toContain(YOUR_NEXT_MATCH);
+    expect(ownPath(tab)).toEqual([
+      'Bob (seed 2) 1–2 Carol (seed 3) · Carol won · Confirmed',
+      'Alice (seed 1) vs Carol (seed 3)',
+    ]);
+  });
+
   it('gives a bye at once to the player waiting on a match both players dropped from, naming no next match for them', async () => {
     const bothDropped = singleEliminationPlaying({
       entries: [alice.id, bob.id, carol.id].map((playerId, i) =>

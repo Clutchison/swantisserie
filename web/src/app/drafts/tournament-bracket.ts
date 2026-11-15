@@ -67,11 +67,14 @@ export class TournamentBracket {
    * Who the signed-in player faces next, or which match decides it: at
    * their last bracket place, while its match is unreported or not yet
    * paired. None while their reported result waits to be agreed, once they
-   * are out or hold the trophy, or if they aren't playing. A bye sends them
-   * on at once, so their next match is the one after it.
+   * are out, have dropped or hold the trophy, or if they aren't playing. A
+   * player who dropped after advancing still has places further on, kept
+   * as their path, but no match to play. A bye sends them on at once, so
+   * their next match is the one after it.
    */
   protected readonly nextMatch = computed(() => {
     const own = this.ownId();
+    if (this.tournament().entries.find((entry) => entry.playerId === own)?.dropped) return null;
     const reached = this.bracket()
       .flatMap((round) => round.places.map((place) => ({ round: round.round, place })))
       .filter(({ place }) => this.includes(place, own))
@@ -81,8 +84,8 @@ export class TournamentBracket {
     // Stryker disable next-line OptionalChaining: every paired place's match is in `lines`, built from the same read's tournament rounds.
     if (reached.place.matchId && this.lines().get(reached.place.matchId)?.decided) return null;
     const opponent = reached.place.sides.find((side) => !isPlayer(side, own))!;
-    // A bye at their last place is a dropped player's, or one both of whose players dropped from
-    // the match it waits on: either way they have no next match.
+    // A bye at their last place, for a player who plays on, is one both of whose players dropped
+    // from the match it waits on: they have no next match.
     if (opponent.kind === 'Bye') return null;
     return `Your next match, ${this.inRound(reached.round)}, is against ${this.describe(reached.round, opponent)}.`;
   });
