@@ -289,9 +289,11 @@ describe('Swiss tournaments on the Play tab', () => {
   const completesEarly =
     'Fewer than 2 undropped players will remain, so completing the round will complete the tournament';
   const pairsRoundTwo = 'Completing the round will pair tournament round 2 and open its matches.';
-  /** Alice and Carol's choices of who to drop in the Complete round dialog `dialog`. */
-  const dropCarol = (dialog: HTMLElement) =>
-    controlByLabel(group(dialog, 'Drop from Alice vs Carol')!, 'checkbox', 'Drop Carol')!;
+  /** The Complete round dialog `dialog`'s checkbox to drop `player` from the match `matchLabel`. */
+  const dropFrom = (dialog: HTMLElement, matchLabel: string, player: string) =>
+    controlByLabel(group(dialog, `Drop from ${matchLabel}`)!, 'checkbox', `Drop ${player}`)!;
+  /** Carol's checkbox to drop from Alice vs Carol in the Complete round dialog `dialog`. */
+  const dropCarol = (dialog: HTMLElement) => dropFrom(dialog, 'Alice vs Carol', 'Carol');
 
   it('says the tournament completes once fewer than 2 undropped players would remain, counting the drops chosen', async () => {
     const { dialog } = await openCompleteRound(bobDroppedAfterBye);
@@ -358,6 +360,40 @@ describe('Swiss tournaments on the Play tab', () => {
     expect(req.request.body).toEqual({ round: 1, grantedDraws: [] });
   });
 
+  it('forgets a drop chosen on a match reported while the dialog is open, once it is unreported again', async () => {
+    const { fixture, dialog } = await openCompleteRound(bobDroppedAfterBye);
+    dropCarol(dialog).click();
+    await vi.waitFor(() => expect(text(dialog)).toContain(completesEarly));
+    const [roundOne] = bobDroppedAfterBye.rounds;
+    await pushTournament(
+      fixture,
+      {
+        ...bobDroppedAfterBye,
+        rounds: [{ ...roundOne, matches: [reported(roundOne.matches[0], [2, 1], carol.id)] }],
+      },
+      1,
+      { asPlayer: true },
+    );
+    await vi.waitFor(() => expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull());
+
+    await pushTournament(fixture, bobDroppedAfterBye, 2, { asPlayer: true });
+
+    await vi.waitFor(() => expect(group(dialog, 'Drop from Alice vs Carol')).not.toBeNull());
+    expect(dropCarol(dialog).checked).toBe(false);
+    expect(text(dialog)).toContain(pairsRoundTwo);
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      COMPLETE_ROUND_URL,
+      'POST',
+      swissPlaying(),
+      3,
+      threePlayers,
+    );
+
+    expect(req.request.body).toEqual({ round: 1, grantedDraws: [{ matchId: 'm1', drop: [] }] });
+  });
+
   it('keeps the drops chosen on the other unreported matches once one is reported while the dialog is open', async () => {
     const aliceVsBob = unreportedMatch('m1', alice.id, bob.id);
     const carolVsErin = unreportedMatch('m2', carol.id, erin.id);
@@ -371,10 +407,8 @@ describe('Swiss tournaments on the Play tab', () => {
     const { fixture, dialog } = await openCompleteRound(roundOneOfFour(carolVsErin), {
       fields: fourPlayers,
     });
-    const dropBob = () =>
-      controlByLabel(group(dialog, 'Drop from Alice vs Bob')!, 'checkbox', 'Drop Bob')!;
-    dropBob().click();
-    await fixture.whenStable();
+    dropFrom(dialog, 'Alice vs Bob', 'Bob').click();
+    await vi.waitFor(() => expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').checked).toBe(true));
 
     await pushTournament(fixture, roundOneOfFour(reported(carolVsErin, [2, 0])), 1, {
       asPlayer: true,
@@ -382,7 +416,7 @@ describe('Swiss tournaments on the Play tab', () => {
     });
 
     await vi.waitFor(() => expect(group(dialog, 'Drop from Carol vs Erin')).toBeNull());
-    expect(dropBob().checked).toBe(true);
+    expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').checked).toBe(true);
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
