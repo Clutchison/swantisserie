@@ -5,7 +5,7 @@ import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { Router, RouterLink, type UrlTree } from '@angular/router';
 import type { Observable } from 'rxjs';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
-import { LoadingAnimation } from '../loading/loading-animation';
+import { Loaded, LoadBlock } from '../loading/load-block';
 import { saveThenReread } from '../reread';
 import { tabInUrl } from '../tab-in-url';
 import { Tab, TabList } from '../tab-list';
@@ -29,7 +29,8 @@ interface Problem {
     ChangeStatus,
     DatePipe,
     FocusKey,
-    LoadingAnimation,
+    LoadBlock,
+    Loaded,
     RouterLink,
     SendsChange,
     Tab,

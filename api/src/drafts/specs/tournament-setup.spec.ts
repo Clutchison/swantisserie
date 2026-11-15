@@ -211,7 +211,7 @@ describe('tournament setup', () => {
         (await setUpTournament(id, aliceCookie, body).expect(400)).body,
       ).toEqual({
         error: 'invalid',
-        message: `Choose round robin, single elimination, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
+        message: `Choose round robin, Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds, or single elimination.`,
       });
     }
     await tournament(id).expect(404);

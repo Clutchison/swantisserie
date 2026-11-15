@@ -7,11 +7,6 @@
 .scroller {
   max-width: 100%;
   overflow-x: auto;
-
-  &:focus-visible {
-    outline: 2px solid var(--color-muted);
-    outline-offset: 2px;
-  }
 }
 
 .grid {

@@ -31,6 +31,13 @@ const TO_ROW: ScrollIntoContainerOptions = {
   container: 'nearest',
 };
 
+/**
+ * How the Board tab brings a focused card name into view: as little as it
+ * takes, inside the scroller's scroll padding, so clear of the pinned seats
+ * and round labels.
+ */
+const TO_FOCUSED: ScrollIntoViewOptions = { block: 'nearest', inline: 'nearest' };
+
 /** Which of a round of double turns' two rows: each double turn's first pick, or its second; null in a round of single turns. */
 export type RoundHalf = 'first' | 'second' | null;
 
@@ -176,6 +183,20 @@ export class BoardTab {
       first?.scrollIntoView(TO_ROW);
       scrolled = true;
     });
+  }
+
+  /**
+   * Brings a card name in the grid that has taken focus fully into view,
+   * clear of the pinned seats and round labels. The scroller's scroll padding
+   * keeps it clear of them, but Chrome scrolls a focused element only when it
+   * is hidden completely, not when it is partly covered. A seat heading a
+   * column is left alone: it is one of the pinned seats, always in view.
+   */
+  protected bringFocusedPickIntoView(event: FocusEvent) {
+    const target = event.target;
+    if (target instanceof Element && target.closest('app-card-name')) {
+      target.scrollIntoView(TO_FOCUSED);
+    }
   }
 
   protected isOwn(player: PlayerView) {

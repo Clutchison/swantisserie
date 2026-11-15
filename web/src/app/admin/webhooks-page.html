@@ -39,63 +39,61 @@
   </form>
 
   <h2 id="registered-webhooks">Registered webhooks</h2>
-  @if (webhooks.error()) {
-    <p class="error">Couldn't load the webhooks. Try reloading the page.</p>
-  } @else if (webhooks.isLoading() && !webhooks.hasValue()) {
-    <app-loading-animation size="page">Loading…</app-loading-animation>
-  } @else if (webhooks.hasValue()) {
-    <ul aria-labelledby="registered-webhooks">
-      @for (webhook of webhooks.value(); track webhook.id) {
-        <li>
-          <input #name [value]="webhook.name" [maxLength]="maxNameLength" aria-label="Name" />
-          <div class="actions">
-            <button
-              class="button secondary"
-              type="button"
-              [appSendsChange]="'remove ' + webhook.id"
-              (click)="remove(webhook)"
-            >
-              Remove
-            </button>
-            <button
-              class="button secondary"
-              type="button"
-              [appSendsChange]="'rename ' + webhook.id"
-              (click)="rename(webhook, name)"
-            >
-              Rename
-            </button>
-          </div>
-          @if (webhook.gone) {
-            <p class="gone">
-              <strong>Gone:</strong> Discord no longer accepts posts here, so drafts' announcements
-              on it are dropped. Replace its URL with a working webhook's.
-            </p>
-          }
-          <span class="url">{{ webhook.url }}</span>
-          <div class="replace">
-            <input
-              #url
-              type="url"
-              aria-label="New URL"
-              placeholder="https://discord.com/api/webhooks/…"
-            />
-            <button
-              class="button secondary"
-              type="button"
-              [appSendsChange]="'replace url ' + webhook.id"
-              (click)="replaceUrl(webhook, url)"
-            >
-              Replace URL
-            </button>
-          </div>
-          @if (problemAt({ webhook: webhook.id }); as problem) {
-            <p class="error" role="alert">{{ problem }}</p>
-          }
-        </li>
-      } @empty {
-        <li class="empty">No webhooks yet.</li>
-      }
-    </ul>
-  }
+  <app-load-block noun="the webhooks">
+    <ng-template [appLoaded]="webhooks" let-registered>
+      <ul aria-labelledby="registered-webhooks">
+        @for (webhook of registered; track webhook.id) {
+          <li>
+            <input #name [value]="webhook.name" [maxLength]="maxNameLength" aria-label="Name" />
+            <div class="actions">
+              <button
+                class="button secondary"
+                type="button"
+                [appSendsChange]="'remove ' + webhook.id"
+                (click)="remove(webhook)"
+              >
+                Remove
+              </button>
+              <button
+                class="button secondary"
+                type="button"
+                [appSendsChange]="'rename ' + webhook.id"
+                (click)="rename(webhook, name)"
+              >
+                Rename
+              </button>
+            </div>
+            @if (webhook.gone) {
+              <p class="gone">
+                <strong>Gone:</strong> Discord no longer accepts posts here, so drafts'
+                announcements on it are dropped. Replace its URL with a working webhook's.
+              </p>
+            }
+            <span class="url">{{ webhook.url }}</span>
+            <div class="replace">
+              <input
+                #url
+                type="url"
+                aria-label="New URL"
+                placeholder="https://discord.com/api/webhooks/…"
+              />
+              <button
+                class="button secondary"
+                type="button"
+                [appSendsChange]="'replace url ' + webhook.id"
+                (click)="replaceUrl(webhook, url)"
+              >
+                Replace URL
+              </button>
+            </div>
+            @if (problemAt({ webhook: webhook.id }); as problem) {
+              <p class="error" role="alert">{{ problem }}</p>
+            }
+          </li>
+        } @empty {
+          <li class="empty">No webhooks yet.</li>
+        }
+      </ul>
+    </ng-template>
+  </app-load-block>
 </main>
