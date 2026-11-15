@@ -692,6 +692,8 @@ export class PlanTab {
       injector: this.injector,
       closesOnPick: false,
       removedFromPlan: () => detail.close(),
+      // One failure shows at a time, as for the tab's own changes.
+      planChangeSent: () => this.error.set(null),
       move: computed(() =>
         this.deckLocked()
           ? null

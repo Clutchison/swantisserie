@@ -80,6 +80,8 @@ export interface CardDetailOptions {
   ) => HTMLElement | null | undefined;
   /** Called once Remove from Deck has succeeded. */
   removedFromPlan?: () => void;
+  /** Called as Add to Deck or Remove from Deck is sent, so the host can clear a failure it shows. */
+  planChangeSent?: () => void;
   /** How the host moves the card to a plan board while it offers Move, else null: see `CardDetail.move`. */
   move?: () => MoveToPlanBoard | null;
   /** Whether Move waits for another of the host's changes on its way: see `CardDetail.moveWaits`. */
@@ -154,6 +156,7 @@ function openCardDetail(dialogs: DialogShell, options: CardDetailOptions) {
       inputBinding('move', options.move ?? (() => null)),
       inputBinding('moveWaits', options.moveWaits ?? (() => false)),
       outputBinding('removedFromPlan', () => options.removedFromPlan?.()),
+      outputBinding('planChangeSent', () => options.planChangeSent?.()),
     ],
     returnFocus: (opener, result) => options.returnFocus(result, opener),
   });
@@ -208,6 +211,8 @@ export class CardDetail {
   readonly moveWaits = input(false);
   /** Remove from Deck has succeeded. */
   readonly removedFromPlan = output<void>();
+  /** Add to Deck or Remove from Deck has been sent. */
+  readonly planChangeSent = output<void>();
 
   /** The cards picked so far: each one's pool card id, and the player who picked it. */
   protected readonly picked = this.store.picked;
@@ -376,6 +381,7 @@ export class CardDetail {
    */
   private changePlan(request: Observable<PlanView>, done: string, failure: string) {
     return this.planningWhile(async () => {
+      this.planChangeSent.emit();
       try {
         await this.store.changePlan(request);
         this.planNote.set(done);

@@ -528,6 +528,25 @@ describe('plan tab', () => {
       );
     });
 
+    it('clears the Deck tab’s failure as Remove from Deck is sent, so only one shows', async () => {
+      const withUnpicked = planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] });
+      const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn }, withUnpicked);
+      button(tab, `Move ${brightclimb.name} to the sideboard`)!.click();
+      http.expectOne(`/api/drafts/draft-1/plan/${brightclimb.id}`).flush(null, serverError);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(withUnpicked);
+      await vi.waitFor(() => expect(alertIn(tab)).not.toBeNull());
+
+      button(await open('Shivan Dragon'), 'Remove from Deck')!.click();
+      await fixture.whenStable();
+      expect(alertIn(tab)).toBeNull();
+
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(planOf({ mainboard: [planned(brightclimb)] }));
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      expect(alertIn(tab)).toBeNull();
+    });
+
     it('stays open, saying so, when removing the card from the plan fails', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: bobsTurn },
