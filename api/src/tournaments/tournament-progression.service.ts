@@ -126,9 +126,12 @@ export class TournamentProgressionService {
   /**
    * Drops the draft's player `userId` from its tournament: every unplayed
    * match of theirs becomes a forfeit by them, and their played matches
-   * stand. Their deck stays locked. Throws TournamentRefusedError if they
-   * haven't joined, are a bot or have dropped already, or the tournament
-   * isn't playing, worded for `actor` (see notJoined).
+   * stand. Their deck stays locked. Throws as entryOf does if they aren't in
+   * the tournament: NotAPlayerError when someone who isn't one of the
+   * draft's players drops themselves, TournamentRefusedError (notJoined,
+   * worded for `actor`) otherwise. Throws TournamentRefusedError too if they
+   * are a bot, have dropped already (worded for `actor`), or the tournament
+   * isn't playing.
    */
   async drop(
     draftId: string,
@@ -158,7 +161,9 @@ export class TournamentProgressionService {
    * playing, or their drop has fed a later pairing, as reinstateRefusalOf
    * decides, which the tournament read also asks: by default once a
    * tournament round was paired without them. The joined and dropped
-   * refusals are worded for `actor` (see notJoined).
+   * refusals are worded for `actor` (see notJoined); an organizer who isn't
+   * one of the draft's players reinstating themselves gets NotAPlayerError,
+   * as entryOf decides.
    */
   async reinstate(
     draftId: string,

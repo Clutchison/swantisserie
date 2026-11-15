@@ -46,6 +46,10 @@ _Avoid_: Permissions, rights, capabilities, role (that is the organizer role)
 One rotisserie event in a guild: a pool, its players, and the picks they make in snake order.
 _Avoid_: Game, league, room
 
+**Draft list**:
+The home page, listing every draft: Your turn first (the drafting drafts on the viewer's turn), then Active drafts, Complete drafts and Closed drafts.
+_Avoid_: Home (alone), lobby (that is a draft's state), dashboard
+
 **Pool**:
 The fixed set of cards on the platform that a draft picks from, which no longer changes once its pool snapshot is complete. It never holds a basic land, whatever its pool source names.
 _Avoid_: Card list, cube
@@ -247,7 +251,7 @@ Cards leaving a player's queue together: the cards one pick took out of it, a ca
 _Avoid_: Removal (that is the player taking a card out by hand), exit, drop
 
 **Steal behavior**:
-A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where the queue is paused, or **pick next**, where it keeps picking and their next available queued card is picked on their turn. Players start on pause queue and can change it while the draft is drafting or frozen.
+A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where it is set to queue paused, or **pick next**, where it stays as it was: queue picking, so their next available queued card is picked on their turn, or queue paused, if it already was. Players start on pause queue and can change it while the draft is drafting or frozen.
 _Avoid_: Loss setting, fallback, keep queue, clear queue (no longer one)
 
 **Queue pane**:
@@ -509,7 +513,7 @@ A tournament's first state, after setup, when the draft's players join and leave
 _Avoid_: Open, lobby (that is the draft's), sign-up
 
 **Join**:
-A draft's player entering a tournament. Every player joins at tournament setup, without asking; a player who has left can join again during registration.
+A draft's player entering a tournament. Every player joins at tournament setup, without asking; a player who has left, or been removed, can join again during registration.
 _Avoid_: Register, enter, sign up
 
 **Leave**:
