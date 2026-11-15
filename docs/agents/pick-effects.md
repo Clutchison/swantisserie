@@ -17,7 +17,7 @@ Adding a new effect of a pick means: a pure engine function with its own spec, w
 
 ## The web side
 
-`web/src/app/drafts/draft-store.ts`, the draft-scoped service the draft page provides, re-reads the pick log and the signed-in player's queue and plan whenever the draft's `version` changes, which every pick, undo and lifecycle change bumps. A tab that must learn about a pick's effect injects it and needs nothing more than its read there; the Queue and Deck tabs are the models. A change to the player's queue that no one else sees, such as pausing it, bumps no version, so the store also re-reads the queue whenever the window gains focus or is shown again, which is how a player's second window catches up.
+`web/src/app/drafts/draft-store.ts`, the draft-scoped service the draft page provides, re-reads the pick log and the signed-in player's queue and plan whenever the draft's `version` changes, which every pick, undo and lifecycle change bumps. A tab that must learn about a pick's effect injects it and needs nothing more than its read there; the Queue and Deck tabs are the models. A change to the player's queue or deck (the store's plan) that no one else sees, such as pausing the queue or moving a card to the sideboard, bumps no version, so the store also re-reads both whenever the window gains focus or is shown again, which is how a player's second window catches up; while their deck locks at Start it re-reads the tournament then too, as the deck decides whether they may mark themselves ready.
 
 ## Specs
 
