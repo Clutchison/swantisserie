@@ -32,8 +32,9 @@ import {
   nextUpStrip,
   queuePaneToggle,
   pickChangesQueue,
+  openQueueHelp,
 } from './harness';
-import { openDialog, pressEscape, question } from '../../specs-harness';
+import { comesBefore, openDialog, pressEscape, question } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, card } from './pool-tab-harness';
 
 useDraftsApp();
@@ -189,6 +190,27 @@ describe('queue play/pause button', () => {
     await fixture.whenStable();
     expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
   });
+  it('says it couldn’t set the queue directly under the button, before the help when the help is open', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    const queue = queuePane(page);
+    const help = await openQueueHelp(fixture, queue);
+
+    queuePlayPauseButton(queue).click();
+    http
+      .expectOne('/api/drafts/draft-1/queue/paused')
+      .flush(
+        { error: 'draft-closed', message: 'This draft is closed.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    await flushQueue(queueOf({ cards: [queued(shivan)] }));
+    await vi.waitFor(() => expect(alertIn(queue)?.textContent).toContain('This draft is closed.'));
+
+    expect(comesBefore(queuePlayPauseButton(queue), alertIn(queue)!)).toBe(true);
+    expect(comesBefore(alertIn(queue)!, help)).toBe(true);
+  });
 });
 
 describe('setting a queue picking on the player’s own turn', () => {
@@ -325,6 +347,28 @@ describe('setting a queue picking on the player’s own turn', () => {
       queuePaused: false,
       poolCardIds: ['skewer', 'bolt'],
     });
+  });
+
+  it('says a confirmed change failed under the Queue pane’s header, before the help, once the dialog closes', async () => {
+    const { fixture, page } = await aliceAtTurnaround([bolt]);
+    const queue = queuePane(page);
+    const help = await openQueueHelp(fixture, queue);
+
+    queuePlayPauseButton(queue).click();
+    button(await question(asked), 'Set queue picking').click();
+    http
+      .expectOne('/api/drafts/draft-1/queue/paused')
+      .flush(
+        { error: 'draft-closed', message: 'This draft is closed.' },
+        { status: 409, statusText: 'Conflict' },
+      );
+    await flushQueue(queueOf({ cards: [queued(bolt)], queuePaused: true }));
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    await fixture.whenStable();
+
+    expect(alertIn(queue)?.textContent).toContain('This draft is closed.');
+    expect(comesBefore(queuePlayPauseButton(queue), alertIn(queue)!)).toBe(true);
+    expect(comesBefore(alertIn(queue)!, help)).toBe(true);
   });
 
   it('sets it queue picking with none, asking nothing, once confirmed cards are refused and the queue picks none', async () => {

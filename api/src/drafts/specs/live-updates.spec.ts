@@ -419,27 +419,47 @@ describe('live updates', () => {
       );
     });
 
-    it('starts pushing a draft to a player who joins it, and stops once they leave', async () => {
+    it('starts pushing a draft to a player who joins it, pushes them their leave, and stops after it', async () => {
       const id = await readyDraft([aliceCookie]);
       const bobCookie = await signIn(bob);
       const bobsRoom = await listeningToOwnRoom(bobCookie);
       const carolCookie = await signIn(carol);
-      const carolSees = await watch(id, carolCookie);
 
       await join(id, bobCookie).expect(201);
       await vi.waitFor(() => expect(bobsRoom.changes).toHaveLength(1));
       await leave(id, bobCookie).expect(200);
       await join(id, carolCookie).expect(201);
+      // Bob's join again is pushed to him after any push of Carol's join.
+      await join(id, bobCookie).expect(201);
 
-      await vi.waitFor(() => expect(carolSees).toHaveLength(3));
-      expect(bobsRoom.changes).toEqual([
-        expect.objectContaining({
-          id,
-          players: [
-            expect.objectContaining({ id: alice.id }),
-            expect.objectContaining({ id: bob.id }),
-          ],
-        }),
+      await vi.waitFor(() => expect(bobsRoom.changes).toHaveLength(3));
+      expect(
+        bobsRoom.changes.map((draft) => [
+          draft.id,
+          draft.players.map((player) => player.id),
+        ]),
+      ).toEqual([
+        [id, [alice.id, bob.id]],
+        [id, [alice.id]],
+        [id, [alice.id, carol.id, bob.id]],
+      ]);
+    });
+
+    it('pushes a leave by a guild member who wasn’t a player only to the draft’s viewers', async () => {
+      const id = await readyDraft([aliceCookie]);
+      const bobCookie = await signIn(bob);
+      const bobsRoom = await listeningToOwnRoom(bobCookie);
+      const carolSees = await watch(id, await signIn(carol));
+
+      await leave(id, bobCookie).expect(200);
+      // Bob's join is pushed to him after any push of his leave.
+      await join(id, bobCookie).expect(201);
+
+      await vi.waitFor(() => expect(carolSees).toHaveLength(2));
+      await vi.waitFor(() => expect(bobsRoom.changes).toHaveLength(1));
+      expect(bobsRoom.changes[0].players.map((player) => player.id)).toEqual([
+        alice.id,
+        bob.id,
       ]);
     });
 

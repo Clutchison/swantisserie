@@ -96,6 +96,9 @@
         }
       }
     </div>
+    @if (errorAt('header'); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
     @if (offerHelp()) {
       <p class="detail help" [id]="helpId" [hidden]="!helpOpen()">
         @if (draftState() === 'Closed') {
@@ -109,11 +112,6 @@
         If another player picks a queued card first and no copy is left, it is lost.
         {{ stealBehaviorHelp }}
       </p>
-    }
-    @if (error(); as failure) {
-      @if (failure.place === 'queuePaused' || failure.place === 'stealBehavior') {
-        <p class="error" role="alert">{{ failure.message }}</p>
-      }
     }
     @if (failed()) {
       <p class="error">Couldn't load your queue. Try reloading the page.</p>
@@ -281,10 +279,8 @@
           </li>
         }
       </ol>
-      @if (error(); as failure) {
-        @if (failure.place === 'queue') {
-          <p class="error" role="alert">{{ failure.message }}</p>
-        }
+      @if (errorAt('queue'); as message) {
+        <p class="error" role="alert">{{ message }}</p>
       }
     }
   </div>

@@ -52,6 +52,7 @@ import {
 
 export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
 export { resizeTo, viewOn } from './screen-harness';
+export { pressed, toggleButton, toggleButtons } from './toggle-harness';
 export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
 export {
   chooseInOpenRowMenu,
@@ -62,6 +63,7 @@ export {
   findQueuePlayPauseButton,
   justAddedCards,
   nextUpStrip,
+  openQueueHelp,
   openQueueSheet,
   openRowMenu,
   pickChangesQueue,
@@ -535,10 +537,6 @@ export const region = (root: HTMLElement, name: string) =>
 export const regionTable = (root: HTMLElement, name: string) =>
   region(root, name)?.querySelector<HTMLElement>('table') ?? null;
 
-/** Whether the toggle button inside `root` named `label` is pressed, such as a chosen mode or grouping; undefined if there is none. */
-export const pressed = (root: HTMLElement, label: string) =>
-  button(root, label)?.getAttribute('aria-pressed');
-
 /**
  * A group of controls inside `root`, such as a fieldset, by its accessible
  * name: its aria-label, or else a fieldset's legend. Null if there is none.
@@ -669,10 +667,10 @@ const ownText = (label: HTMLLabelElement) =>
       .join(' '),
   );
 
-/** Each checkbox inside `root`, in page order: ☑ or ☐, then its label's text. */
-export const checkboxes = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLInputElement>(CONTROLS.checkbox)].map(
-    (box) => `${box.checked ? '☑' : '☐'} ${text(box.labels?.[0])}`,
+/** Each radio inside `root`, in page order, by its label's own text. */
+export const radios = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLInputElement>(CONTROLS.radio)].map((radio) =>
+    ownText(radio.labels![0]),
   );
 
 /** The controls among `controls` whose label's own text is `label`. */

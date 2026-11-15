@@ -9,16 +9,22 @@ import {
 import {
   useDraftsApp,
   alertIn,
+  alice,
+  drafting,
   button,
   buttonOrder,
   controlByLabel,
   draft,
+  group,
   http,
   link,
   router,
   openUrl,
+  radios,
+  serverError,
   webhooksAnswer,
 } from './harness';
+import { landOnDraftList, listedDrafts, listItem, listItemOf, settle } from './draft-list-harness';
 
 useDraftsApp();
 beforeEach(() => webhooksAnswer(null));
@@ -81,12 +87,11 @@ describe('create form', () => {
   }
 
   it('offers a way back to the draft list', async () => {
-    const { fixture, page } = await openForm();
+    const { page } = await openForm();
 
     link(page, 'Cancel')!.click();
 
-    await vi.waitFor(() => expect(router.url).toBe('/'));
-    await fixture.whenStable();
+    await landOnDraftList();
   });
 
   it('offers Cancel, then Create draft', async () => {
@@ -285,6 +290,68 @@ describe('create form', () => {
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
   });
 
+  describe('the created draft', () => {
+    /** Creates Red dragons, a lobby draft, lands on its page, then follows the link back to the draft list. */
+    async function createAndGoBack() {
+      const form = await openForm();
+      const created = draft({ id: 'draft-9', name: 'Red dragons', state: 'Lobby' });
+      (await create(form)).flush(created, { status: 201, statusText: 'Created' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9'))).flush(created);
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
+      await form.fixture.whenStable();
+
+      link(form.page, 'Drafts')!.click();
+      await vi.waitFor(() => expect(router.url).toBe('/'));
+      TestBed.tick();
+      return form;
+    }
+
+    it('is listed under Active drafts on going back, before the drafts are read again', async () => {
+      const { page } = await createAndGoBack();
+
+      const reread = http.expectOne('/api/drafts');
+      expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
+      expect(listItem(page, 'Red dragons').textContent).not.toContain('Tournament');
+
+      reread.flush([]);
+    });
+
+    it('stays listed when reading the drafts again fails', async () => {
+      const { page } = await createAndGoBack();
+
+      http.expectOne('/api/drafts').flush(null, serverError);
+      await settle();
+
+      expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
+    });
+
+    it('gives way to a read of a newer version', async () => {
+      const { page } = await createAndGoBack();
+
+      http.expectOne('/api/drafts').flush([
+        listItemOf({
+          id: 'draft-9',
+          name: 'Red dragons',
+          version: 1,
+          ...drafting({ turn: { pick: 1, round: 1, playerId: alice.id } }),
+        }),
+      ]);
+      await settle();
+
+      expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+      expect(listedDrafts(page, 'Active drafts')).toEqual([]);
+    });
+
+    it('goes once a read begun after it lists it no more, as when it was cancelled unseen', async () => {
+      const { page } = await createAndGoBack();
+
+      http.expectOne('/api/drafts').flush([]);
+      await settle();
+
+      expect(page.textContent).not.toContain('Red dragons');
+    });
+  });
+
   /** Chooses where the pool comes from by its radio button's label. */
   async function choosePoolSource(
     { fixture, page }: Awaited<ReturnType<typeof openForm>>,
@@ -301,6 +368,13 @@ describe('create form', () => {
     expect(textBox(form.page, 'Pool query')!.value).toBe('');
     await choosePoolSource(form, 'Cube link');
     expect(textBox(form.page, 'Cube link')!.value).toBe('');
+  });
+
+  it('offers the pool sources as three radios in the Pool from group', async () => {
+    const { page } = await openForm();
+    const poolFrom = group(page, 'Pool from')!;
+
+    expect(radios(poolFrom)).toEqual(['Pool query', 'Cube link', 'Sets']);
   });
 
   it('starts on a pool query, with no cube link field', async () => {
