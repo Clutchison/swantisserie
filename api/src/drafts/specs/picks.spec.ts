@@ -322,11 +322,11 @@ describe('picks', () => {
     await pick(id, first).expect(200);
     await pick(id, second, bobCookie).expect(200);
 
-    const state = await app
+    const turn = await app
       .get(PrismaService)
       .$transaction((tx) => readTurn(tx, id));
 
-    expect(state.picked).toEqual([first, second]);
+    expect(turn.picked).toEqual([first, second]);
   });
 
   it('is 404 for a draft that does not exist', async () => {
