@@ -1,6 +1,7 @@
 import { STEAL_BEHAVIORS, type StealBehavior } from 'contract';
+import { isOneOf } from '../one-of.js';
 
 /** Whether `value` names a steal behavior. */
 export function isStealBehavior(value: unknown): value is StealBehavior {
-  return (STEAL_BEHAVIORS as readonly unknown[]).includes(value);
+  return isOneOf(STEAL_BEHAVIORS, value);
 }
