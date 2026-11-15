@@ -18,7 +18,11 @@ import {
 } from '../scryfall/scryfall-client.js';
 import { NO_BASIC_LANDS } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
-import { NoOracleIdError, toPoolCard } from './pool-card.js';
+import {
+  MissingCardFieldError,
+  NoOracleIdError,
+  toPoolCard,
+} from './pool-card.js';
 import { storedSetList } from './pool-source.js';
 import { setListPrintings } from './set-list-pool.js';
 import { SetCatalog } from '../sets/set-catalog.js';
@@ -293,7 +297,11 @@ export const UNEXPECTED_SNAPSHOT_FAILURE =
 
 /** A failure's explanation, fit to show the organizer. */
 function explain(err: unknown): string {
-  if (err instanceof PoolSnapshotError || err instanceof NoOracleIdError) {
+  if (
+    err instanceof PoolSnapshotError ||
+    err instanceof NoOracleIdError ||
+    err instanceof MissingCardFieldError
+  ) {
     return err.message;
   }
   if (err instanceof ScryfallRejectedSearchError) {
