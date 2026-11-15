@@ -640,6 +640,9 @@ export class DraftStore implements TournamentViewer {
    * that no one else sees, such as pausing the queue or moving a card to the
    * sideboard, makes no new draft version, so a second window of theirs
    * learns of it only this way. A viewer who isn't a player reads neither.
+   * While their deck locks at Start, the tournament is read again too, as
+   * `changePlan` reads it: a deck changed in the other window may change
+   * whether they may mark themselves ready, with no new draft version.
    * A change answered while a re-read is in flight still wins: showing its
    * answer sets the read, which aborts the re-read.
    */
@@ -650,6 +653,7 @@ export class DraftStore implements TournamentViewer {
     const reloadOwn = () => {
       this.queueResource.reload();
       this.planResource.reload();
+      if (this.deckLocksAtStart()) this.rereadTournament();
     };
     document.defaultView?.addEventListener('focus', reloadOwn, { signal: stopped.signal });
     document.addEventListener(

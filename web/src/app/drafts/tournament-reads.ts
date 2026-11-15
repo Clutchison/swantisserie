@@ -38,8 +38,9 @@ export interface TournamentReads {
    * The draft's tournament as the signed-in viewer reads it: null until it
    * has loaded, and while there is none. It is read once the draft says it
    * has one, and again for each version, as every tournament change bumps it,
-   * and after each change to their deck during registration (see
-   * `DraftStore.changePlan`).
+   * and after each change to their deck during registration, in this window
+   * or, once they come back to it, another (see `DraftStore.changePlan` and
+   * `rereadTournament`).
    */
   readonly tournament: DraftRead<ViewerTournamentView | null>;
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
