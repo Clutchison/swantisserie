@@ -12,6 +12,9 @@ import {
   namedList,
   viewOn,
   type AppFixture,
+  pickOf,
+  alice,
+  bob,
   drafting,
   serverError,
   image,
@@ -42,10 +45,11 @@ import {
   dropped,
   answerPrintingsRequest,
   detailOpener,
+  exportButton,
   WIDE_STACKS_AREA,
 } from './plan-tab-harness';
 import { measuredAs } from './measure-harness';
-import { playing, withTournament } from './play-tab-harness';
+import { playing, pushTournament, registration, withTournament } from './play-tab-harness';
 import { goToDraftList } from './draft-list-harness';
 
 useDraftsApp();
@@ -696,6 +700,36 @@ describe('basic lands on the plan tab', () => {
 
     await goToDraftList();
 
+    expect(openDialog()).toBeNull();
+  });
+
+  it('closes once the tournament starts and locks the deck, sending nothing, and stays closed once it is cancelled', async () => {
+    const tournament = registration(bob.id, alice.id);
+    const plan = boltAndShivanWith();
+    // Alice's picks, so the Deck tab offers Export.
+    const picks = [pickOf({ poolCardId: bolt.id }), pickOf({ pick: 2, poolCardId: shivan.id })];
+    const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
+      cards,
+      picks,
+      plan,
+      tournament,
+    });
+    const deck = await openPlan(fixture, page);
+    basicsButton(deck)!.focus();
+    await openBasics(fixture, deck);
+    const unlocked = { asPlayer: true, plan, picks, fields: {} };
+
+    await pushTournament(fixture, playing(), 1, unlocked);
+
+    expect(openDialog()).toBeNull();
+    expect(basicsButton(deck)).toBeUndefined();
+    http.expectNone((request) => request.url.includes('/plan/basics/'));
+    // Add basics went with the lock: focus moves on to the next of the Deck tab's tools.
+    expect(document.activeElement).toBe(exportButton(page));
+
+    await pushTournament(fixture, null, 2, unlocked);
+
+    expect(basicsButton(deck)).toBeDefined();
     expect(openDialog()).toBeNull();
   });
 

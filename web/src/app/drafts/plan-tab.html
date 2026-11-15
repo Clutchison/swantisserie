@@ -84,7 +84,7 @@
 }
 <app-deck-lock-reminder />
 <!-- The Deck tab's tools, in one row that wraps: Queue unpicked, Stacks or list, how the stacks group, Add basics and Copy. -->
-<div class="mode-controls">
+<div #tools class="mode-controls">
   @if (offerQueueUnpicked()) {
     <button
       class="button compact secondary"

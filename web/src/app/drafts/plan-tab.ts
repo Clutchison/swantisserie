@@ -254,6 +254,8 @@ export class PlanTab {
   protected readonly onDesktop = matching(DESKTOP_QUERY);
   /** The stacks area, the deck boards' row and stack headers, whose width stacks mode lays out by. */
   private readonly stacksArea = viewChild.required<ElementRef<HTMLElement>>('stacksArea');
+  /** The Deck tab's tools row: Queue unpicked, the modes and groupings, Add basics and Export. */
+  private readonly tools = viewChild.required<ElementRef<HTMLElement>>('tools');
   /**
    * Whether stacks mode has room for the wide layout, by the stacks area's
    * width as it is measured: else the mainboard's stacks are a strip that
@@ -413,6 +415,8 @@ export class PlanTab {
 
   /** The Queue unpicked dialog, while it's open. */
   private queueing: DialogRef<QueueUnpickedResult, QueueUnpickedDialog> | null = null;
+  /** The Basic lands dialog, while it's open. */
+  private addingBasics: DialogRef<unknown, BasicLandsDialog> | null = null;
   /** Whether Queue unpicked has anything to add, from either plan board. */
   protected readonly anythingToQueue = computed(() =>
     Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
@@ -446,6 +450,11 @@ export class PlanTab {
     // dialog then, so it can't come back by itself once the turn passes.
     effect(() => {
       if (!this.offerQueueUnpicked()) untracked(() => this.queueing?.close());
+    });
+    // A locked deck takes no basics: close the Basic lands dialog as it locks,
+    // so it can't come back by itself once the deck unlocks.
+    effect(() => {
+      if (this.deckLocked()) untracked(() => this.addingBasics?.close());
     });
   }
 
@@ -738,12 +747,25 @@ export class PlanTab {
     });
   }
 
-  /** Opens the Basic lands dialog; focus returns to the button that opened it. */
+  /**
+   * Opens the Basic lands dialog. Focus returns to the button that opened
+   * it, Add basics, or, should the deck have locked, which takes Add basics
+   * away, to the next of the Deck tab's tools: Export, or without it the
+   * one before Add basics, as Add basics comes last but Export.
+   */
   protected openBasics() {
-    this.dialogs.open(BasicLandsDialog, {
+    const addingBasics = this.dialogs.open(BasicLandsDialog, {
       labelledBy: BASIC_LANDS_HEADING,
       injector: this.injector,
+      returnFocus: (opener) => {
+        if (!this.deckLocked()) return opener;
+        // The dialog closes as the deck locks, before Add basics leaves the page.
+        const tools = this.tools().nativeElement.querySelectorAll<HTMLElement>('button');
+        return [...tools].filter((tool) => tool !== opener).at(-1);
+      },
     });
+    this.addingBasics = addingBasics;
+    addingBasics.closed.subscribe(() => (this.addingBasics = null));
   }
 
   /**
