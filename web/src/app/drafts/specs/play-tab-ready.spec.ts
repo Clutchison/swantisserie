@@ -11,7 +11,9 @@ import {
   inLiveRegion,
   namedList,
   panel,
+  pressed,
   text,
+  toggleButton,
   useDraftsApp,
 } from './harness';
 import {
@@ -59,8 +61,8 @@ describe('marking yourself ready on the Play tab', () => {
 
     const tab = await openPlayTab(fixture, page);
 
-    const ready = button(tab, IM_READY)!;
-    expect(ready.getAttribute('aria-pressed')).toBe('false');
+    const ready = toggleButton(tab, IM_READY)!;
+    expect(pressed(tab, IM_READY)).toBe('false');
     expect(variant(ready)).toBe('primary');
     expect(ready.disabled).toBe(false);
     expect(variant(button(tab, 'Leave')!)).toBe('secondary');
@@ -76,7 +78,7 @@ describe('marking yourself ready on the Play tab', () => {
     const { fixture, page } = await openComplete(registration(bob.id, alice.id));
     const tab = await openPlayTab(fixture, page);
 
-    button(tab, IM_READY)!.click();
+    toggleButton(tab, IM_READY)!.click();
     await answerChange(
       fixture,
       READY_URL,
@@ -84,8 +86,8 @@ describe('marking yourself ready on the Play tab', () => {
       withReady(registration(bob.id, alice.id), alice.id),
     );
 
-    const ready = button(panel(page), IM_READY)!;
-    expect(ready.getAttribute('aria-pressed')).toBe('true');
+    const ready = toggleButton(panel(page), IM_READY)!;
+    expect(pressed(panel(page), IM_READY)).toBe('true');
     expect(variant(ready)).toBe('secondary');
   });
 
@@ -95,10 +97,10 @@ describe('marking yourself ready on the Play tab', () => {
     );
     const tab = await openPlayTab(fixture, page);
 
-    button(tab, IM_READY)!.click();
+    toggleButton(tab, IM_READY)!.click();
     await answerChange(fixture, READY_URL, 'DELETE', registration(bob.id, alice.id));
 
-    expect(button(panel(page), IM_READY)!.getAttribute('aria-pressed')).toBe('false');
+    expect(pressed(panel(page), IM_READY)).toBe('false');
   });
 
   it('disables I’m ready, and says to fill the deck first, when the api says the player may not mark it', async () => {
@@ -110,7 +112,7 @@ describe('marking yourself ready on the Play tab', () => {
 
     const tab = await openPlayTab(fixture, page);
 
-    const ready = button(tab, IM_READY)!;
+    const ready = toggleButton(tab, IM_READY)!;
     expect(ready.disabled).toBe(true);
     expect(variant(ready)).toBe('primary');
     expect(text(tab)).toContain(
@@ -124,10 +126,11 @@ describe('marking yourself ready on the Play tab', () => {
       { cards, plan: planOf() },
     );
 
-    const ready = button(await openPlayTab(fixture, page), IM_READY)!;
+    const tab = await openPlayTab(fixture, page);
+    const ready = toggleButton(tab, IM_READY)!;
 
     expect(ready.disabled).toBe(true);
-    expect(ready.getAttribute('aria-pressed')).toBe('true');
+    expect(pressed(tab, IM_READY)).toBe('true');
     expect(variant(ready)).toBe('secondary');
   });
 
@@ -146,14 +149,14 @@ describe('marking yourself ready on the Play tab', () => {
     await fixture.whenStable();
     const tab = await openPlayTab(fixture, page);
 
-    expect(button(tab, IM_READY)!.disabled).toBe(false);
+    expect(toggleButton(tab, IM_READY)!.disabled).toBe(false);
   });
 
   it('shows a refused mark, and disables I’m ready once the tournament read again says so', async () => {
     const { fixture, page } = await openComplete(registration(bob.id, alice.id));
     const tab = await openPlayTab(fixture, page);
 
-    button(tab, IM_READY)!.click();
+    toggleButton(tab, IM_READY)!.click();
     (await vi.waitFor(() => http.expectOne(READY_URL))).flush(
       {
         error: 'deck-too-small-for-ready',
@@ -174,13 +177,13 @@ describe('marking yourself ready on the Play tab', () => {
         'Fill your deck to at least 40 before marking yourself ready.',
       ),
     );
-    expect(button(panel(page), IM_READY)!.disabled).toBe(true);
+    expect(toggleButton(panel(page), IM_READY)!.disabled).toBe(true);
   });
 
   it('says marking ready failed when the api gives no reason', async () => {
     const { fixture, page } = await openComplete(registration(bob.id, alice.id));
 
-    button(await openPlayTab(fixture, page), IM_READY)!.click();
+    toggleButton(await openPlayTab(fixture, page), IM_READY)!.click();
 
     expect(await failChange(fixture, page, READY_URL)).toBe(
       "Couldn't change whether you're ready. Try again in a moment.",

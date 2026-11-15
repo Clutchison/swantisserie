@@ -22,6 +22,7 @@ import {
   openUrl,
   radios,
   serverError,
+  pressed,
   toggleButton,
   webhooksAnswer,
 } from './harness';
@@ -171,7 +172,7 @@ describe('create form', () => {
       const { page } = await openForm();
 
       expect(doublePicksToggle(page).type).toBe('button');
-      expect(doublePicksToggle(page).getAttribute('aria-pressed')).toBe('false');
+      expect(pressed(page, 'Double picks')).toBe('false');
       expect(doublePicks(page)).toBeUndefined();
     });
 
@@ -180,7 +181,7 @@ describe('create form', () => {
 
       await toggleDoublePicks(form);
 
-      expect(doublePicksToggle(form.page).getAttribute('aria-pressed')).toBe('true');
+      expect(pressed(form.page, 'Double picks')).toBe('true');
       expect(doublePicksToggle(form.page).textContent?.trim()).toBe('Double picks');
       expect(doublePicks(form.page)?.value).toBe('20');
     });
@@ -217,7 +218,7 @@ describe('create form', () => {
 
       await toggleDoublePicks(form);
 
-      expect(doublePicksToggle(form.page).getAttribute('aria-pressed')).toBe('false');
+      expect(pressed(form.page, 'Double picks')).toBe('false');
       expect(doublePicks(form.page)).toBeUndefined();
       const req = await create(form);
       expect(req.request.body).toMatchObject({ doublePicks: 0 });

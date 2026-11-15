@@ -49,7 +49,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
-import { toggleButton } from './toggle-harness';
+import { pressed, toggleButton } from './toggle-harness';
 import {
   comesBefore,
   onlyAlert,
@@ -641,6 +641,13 @@ export async function openCompleteRound(
 /** The Complete round dialog `dialog`'s toggle button to drop `player` from the match `matchLabel`. */
 export const dropFrom = (dialog: HTMLElement, matchLabel: string, player: string) =>
   toggleButton(group(dialog, `Drop from ${matchLabel}`)!, `Drop ${player}`)!;
+
+/**
+ * Whether the Complete round dialog `dialog`'s toggle to drop `player` from
+ * the match `matchLabel` is pressed, as `pressed` reads it.
+ */
+export const droppingFrom = (dialog: HTMLElement, matchLabel: string, player: string) =>
+  pressed(group(dialog, `Drop from ${matchLabel}`)!, `Drop ${player}`);
 
 /** The Complete round dialog `dialog`'s radio to choose `player` as the winner of the match `matchLabel`. */
 export const winnerOf = (dialog: HTMLElement, matchLabel: string, player: string) =>
