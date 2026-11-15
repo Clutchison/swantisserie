@@ -385,13 +385,10 @@ function toSets(body: unknown): ScryfallSet[] {
       typeof set.code !== 'string' ||
       typeof set.name !== 'string' ||
       typeof set.set_type !== 'string' ||
-      !(
-        set.parent_set_code === undefined ||
-        typeof set.parent_set_code === 'string'
-      ) ||
-      !(set.released_at === undefined || typeof set.released_at === 'string')
+      !isOptionalString(set.parent_set_code) ||
+      !isOptionalString(set.released_at)
     ) {
-      throw new TypeError('A set has no code, name or type.');
+      throw new TypeError('A set isn’t the shape Scryfall documents.');
     }
     return {
       code: set.code,
@@ -411,6 +408,11 @@ function warningsIn(value: unknown): string[] {
     throw new TypeError('The warnings aren’t a list of strings.');
   }
   return value as string[];
+}
+
+/** Whether `value` is a string, or absent or null as Scryfall's nullable fields may be. */
+function isOptionalString(value: unknown): value is string | null | undefined {
+  return value === undefined || value === null || typeof value === 'string';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
