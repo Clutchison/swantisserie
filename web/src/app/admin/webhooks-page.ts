@@ -114,7 +114,11 @@ export class WebhooksPage {
    * Sends the change `request` makes from `place` (none if the app admin
    * thinks better of it), then shows the list as it now is; answers whether
    * it was made. A failure shows at `place`, and `failed` runs once the
-   * change fails: refused, or not sent through a lost connection. Focus is kept as `Changes.send` keeps it.
+   * change fails: refused, or not sent through a lost connection. It is a
+   * callback, not a test of the answer, because the answer is also false
+   * when the app admin thinks better of it or a click is held while another
+   * change saves, and a rename must not then reset the name typed. Focus is
+   * kept as `Changes.send` keeps it.
    */
   private save(
     place: ProblemPlace,

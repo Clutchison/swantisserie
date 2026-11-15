@@ -47,17 +47,17 @@ const side: WebhookWithUrlView = {
 describe('webhooks page', () => {
   useApp();
 
-  /** Opens the page as Carol, an app admin, with its read of the webhooks still pending as `list`. */
+  /** Opens the page as Carol, an app admin, with its read of the webhooks still pending as `req`. */
   async function openLoading() {
     const opened = await openApp('/admin/webhooks', carol);
     answerTopBar(http);
-    return { ...opened, list: http.expectOne('/api/admin/webhooks') };
+    return { ...opened, req: http.expectOne('/api/admin/webhooks') };
   }
 
   /** Opens the page as Carol, an app admin, with `webhooks` registered. */
   async function openPage(webhooks: WebhookWithUrlView[]) {
-    const { list, ...opened } = await openLoading();
-    list.flush(webhooks);
+    const { req, ...opened } = await openLoading();
+    req.flush(webhooks);
     await opened.fixture.whenStable();
     return opened;
   }
@@ -132,17 +132,17 @@ describe('webhooks page', () => {
   });
 
   it('says so with the loading animation while the webhooks load', async () => {
-    const { fixture, page, list } = await openLoading();
+    const { fixture, page, req } = await openLoading();
     await expectLoadingAnimation(() => page, 'Loading…', 288);
 
-    list.flush([main]);
+    req.flush([main]);
     await fixture.whenStable();
     expect(loadingAnimation(page)).toBeNull();
   });
 
   it('says when the webhooks cannot be loaded', async () => {
-    const { fixture, page, list } = await openLoading();
-    list.flush(null, serverError);
+    const { fixture, page, req } = await openLoading();
+    req.flush(null, serverError);
     await fixture.whenStable();
 
     expect(page.querySelector('main')?.textContent).toContain("Couldn't load the webhooks");
@@ -215,7 +215,7 @@ describe('webhooks page', () => {
   });
 
   it('reads the list afresh once a load sent before the change settles', async () => {
-    const { page, list: early } = await openLoading();
+    const { page, req: early } = await openLoading();
     const form = addForm(page);
     fill(addField(form, 'Name'), '#roto-side');
     fill(addField(form, 'URL'), side.url);

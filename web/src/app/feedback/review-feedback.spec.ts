@@ -60,17 +60,17 @@ describe('reviewing feedback', () => {
     answerAppVersion(http);
   }
 
-  /** Opens the page as Carol, an app admin, with its read of the feedback still pending as `list`. */
+  /** Opens the page as Carol, an app admin, with its read of the feedback still pending as `req`. */
   async function openLoading() {
     const opened = await openApp('/admin/feedback', carol);
     answerAdminHeader();
-    return { ...opened, list: http.expectOne('/api/admin/feedback') };
+    return { ...opened, req: http.expectOne('/api/admin/feedback') };
   }
 
   /** Opens the page as Carol, an app admin, with `feedback` waiting. */
   async function openPage(feedback: FeedbackView[]) {
-    const { list, ...opened } = await openLoading();
-    list.flush(feedback);
+    const { req, ...opened } = await openLoading();
+    req.flush(feedback);
     await opened.fixture.whenStable();
     return opened;
   }
@@ -612,17 +612,17 @@ describe('reviewing feedback', () => {
   });
 
   it('says so with the loading animation while the feedback loads', async () => {
-    const { fixture, page, list } = await openLoading();
+    const { fixture, page, req } = await openLoading();
     await expectLoadingAnimation(() => panel(page), 'Loading…', 288);
 
-    list.flush([fromAlice]);
+    req.flush([fromAlice]);
     await fixture.whenStable();
     expect(loadingAnimation(page)).toBeNull();
   });
 
   it('says when the feedback cannot be loaded', async () => {
-    const { fixture, page, list } = await openLoading();
-    list.flush(null, serverError);
+    const { fixture, page, req } = await openLoading();
+    req.flush(null, serverError);
     await fixture.whenStable();
 
     expect(page.querySelector('main')?.textContent).toContain("Couldn't load the feedback");
