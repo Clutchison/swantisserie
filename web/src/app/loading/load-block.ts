@@ -25,7 +25,7 @@ export class Loaded<T> {
   readonly resource = input.required<Resource<T>>({ alias: 'appLoaded' });
   readonly template = inject<TemplateRef<LoadedContext<T>>>(TemplateRef);
 
-  static ngTemplateContextGuard<T>(_dir: Loaded<T>, ctx: unknown): ctx is LoadedContext<T> {
+  static ngTemplateContextGuard<T>(_dir: Loaded<T>, _ctx: unknown): _ctx is LoadedContext<T> {
     return true;
   }
 }
