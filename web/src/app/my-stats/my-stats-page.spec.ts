@@ -162,7 +162,7 @@ describe('the My stats page', () => {
       ['Best finish', '=1st'],
     ]);
     expect(text(page)).toContain(
-      'Win rates and their records count played matches only: byes, forfeits and granted results are left out.',
+      'Match and game win rates and their records count played matches only: byes, forfeits and granted results are left out.',
     );
   });
 

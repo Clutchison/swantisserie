@@ -50,3 +50,15 @@ label {
 .error {
   color: var(--color-error);
 }
+
+.load-failed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+/* Out of the flow while empty, so it adds no gap; still on the page, as a live region must be. */
+.reread:empty {
+  position: absolute;
+}
