@@ -1,11 +1,11 @@
 import { Logger } from '@nestjs/common';
 import type { MyStatsView } from 'contract';
 import request from 'supertest';
+import { OTJ_SETS } from '../../testing/scryfall-sets.js';
 import {
   holdScryfallSets,
-  OTJ_SETS,
   readPastSetNamesDeadline,
-} from '../../testing/scryfall-sets.js';
+} from '../../testing/set-names-deadline.js';
 import {
   alice,
   aliceCookie,
@@ -195,7 +195,7 @@ describe('My stats', () => {
         setList: [{ code: 'otj', name: 'OTJ', sublists: [] }],
       });
       expect(warnings).toHaveBeenCalledWith(
-        expect.stringContaining('set names'),
+        expect.stringContaining('set names deadline'),
       );
     });
 

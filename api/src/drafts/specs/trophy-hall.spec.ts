@@ -4,12 +4,11 @@ import request from 'supertest';
 import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { landPrinting } from '../../testing/scryfall-printings.js';
+import { OTJ_SETS, scryfallSet } from '../../testing/scryfall-sets.js';
 import {
   holdScryfallSets,
-  OTJ_SETS,
   readPastSetNamesDeadline,
-  scryfallSet,
-} from '../../testing/scryfall-sets.js';
+} from '../../testing/set-names-deadline.js';
 import {
   alice,
   aliceCookie,
@@ -239,7 +238,7 @@ describe('the Trophy Hall', () => {
         ],
       });
       expect(warnings).toHaveBeenCalledWith(
-        expect.stringContaining('set names'),
+        expect.stringContaining('set names deadline'),
       );
     });
 
