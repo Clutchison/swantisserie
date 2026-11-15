@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import type { MyStatsView } from 'contract';
 import { CompletionDatePipe } from '../completion-date';
-import { LoadingAnimation } from '../loading/loading-animation';
+import { Loaded, LoadBlock } from '../loading/load-block';
 import { poolSourceHeader } from '../pool-source-header';
 import { percent, place, record } from '../record';
 
@@ -13,7 +13,7 @@ import { percent, place, record } from '../record';
  */
 @Component({
   selector: 'app-my-stats-page',
-  imports: [CompletionDatePipe, LoadingAnimation, RouterLink],
+  imports: [CompletionDatePipe, LoadBlock, Loaded, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './my-stats-page.html',
   styleUrls: ['../page.scss', './my-stats-page.scss'],

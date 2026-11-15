@@ -5,15 +5,22 @@ import type {
   TrophyHallView,
   TrophyRankingEntryView,
 } from 'contract';
-import { alice, button, http, openApp, router, useApp } from '../specs-harness';
+import {
+  alice,
+  button,
+  expectLoadingAnimation,
+  http,
+  loadingAnimation,
+  openApp,
+  router,
+  useApp,
+} from '../specs-harness';
 import {
   banner,
-  expectLoadingAnimation,
   findNamedList,
   heading,
   items,
   link,
-  loadingAnimation,
   poolCardOf,
   previewInList,
   text,

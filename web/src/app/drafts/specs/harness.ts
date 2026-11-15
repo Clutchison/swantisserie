@@ -45,7 +45,9 @@ import {
   byName,
   collapseWhitespace,
   draftClosed,
+  expectLoadingAnimation,
   filledStatusIn,
+  loadingAnimation,
   opensDraftList,
   panel,
   serverError,
@@ -65,6 +67,8 @@ export {
   button,
   buttons,
   draftClosed,
+  expectLoadingAnimation,
+  loadingAnimation,
   serverError,
   table,
   tableRows,
@@ -279,24 +283,6 @@ export async function openUrl(
   answerTopBar(http);
   if (!opensDraftList(url)) answerViewerDrafts(http, viewerDrafts);
   return { fixture, page: fixture.nativeElement as HTMLElement };
-}
-
-/** The loading animation inside `root`, its status named "Loading", while something loads; null once nothing does. */
-export const loadingAnimation = (root: HTMLElement) =>
-  byAriaLabel(root, '[role="status"]', 'Loading');
-
-/** Waits out a load's delay, then checks it shows its text under a logo of the given width. */
-export async function expectLoadingAnimation(
-  root: () => HTMLElement,
-  text: string,
-  logoWidth: 288 | 64,
-) {
-  await vi.waitFor(() => {
-    TestBed.tick();
-    const loading = loadingAnimation(root());
-    expect(loading?.textContent).toContain(text);
-    expect(loading?.querySelector('svg')?.getAttribute('width')).toBe(String(logoWidth));
-  });
 }
 
 /**

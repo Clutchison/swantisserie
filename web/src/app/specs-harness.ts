@@ -557,6 +557,24 @@ export const byAriaLabel = (root: HTMLElement, selector: string, name: string) =
     (element) => element.getAttribute('aria-label') === name,
   ) ?? null;
 
+/** The loading animation inside `root`, its status named "Loading", while something loads; null once nothing does. */
+export const loadingAnimation = (root: HTMLElement) =>
+  byAriaLabel(root, '[role="status"]', 'Loading');
+
+/** Waits out a load's delay, then checks it shows its text under a logo of the given width. */
+export async function expectLoadingAnimation(
+  root: () => HTMLElement,
+  text: string,
+  logoWidth: 288 | 64,
+) {
+  await vi.waitFor(() => {
+    TestBed.tick();
+    const loading = loadingAnimation(root());
+    expect(loading?.textContent).toContain(text);
+    expect(loading?.querySelector('svg')?.getAttribute('width')).toBe(String(logoWidth));
+  });
+}
+
 /**
  * The element inside `root` that `selector` finds and whose accessible name
  * is `name`: its aria-label, or the text of the element its

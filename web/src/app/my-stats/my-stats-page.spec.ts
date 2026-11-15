@@ -3,7 +3,9 @@ import type { MyStatsView } from 'contract';
 import {
   alice,
   button,
+  expectLoadingAnimation,
   http,
+  loadingAnimation,
   openApp,
   byAriaLabel,
   router,
@@ -13,15 +15,7 @@ import {
   text,
   useApp,
 } from '../specs-harness';
-import {
-  banner,
-  expectLoadingAnimation,
-  heading,
-  link,
-  loadingAnimation,
-  region,
-  regionTable,
-} from '../drafts/specs/harness';
+import { banner, heading, link, region, regionTable } from '../drafts/specs/harness';
 import { describedTerms } from '../drafts/specs/outline-harness';
 
 const tally = (won: number, lost: number, drawn = 0) => ({ won, lost, drawn });
