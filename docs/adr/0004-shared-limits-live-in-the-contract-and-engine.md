@@ -11,4 +11,5 @@ The web checks the same limits the api enforces, such as field lengths, picks pe
 
 ## Consequences
 
+- The rule covers any plain value both sides need, not only limits: a list of allowed values, such as the steal behaviors, follows it too, and so does the list a parser checks a shared enum against (#749, #783).
 - New limits follow the same rule, such as a guild name's or a channel name's in the multi-guild work (#169): the contract if the api checks them on a request and the web checks them too, the engine if the engine enforces them. A limit only the api checks, such as a feedback's page path length, stays private to the api (#375, #783).
