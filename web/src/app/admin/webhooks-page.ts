@@ -1,12 +1,5 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-  Injector,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, Injector, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import {
   MAX_WEBHOOK_NAME_LENGTH,
@@ -61,22 +54,10 @@ export class WebhooksPage {
   /** The one failure showing, with the place its change came from. */
   private readonly problem = signal<Problem | null>(null);
 
-  /**
-   * Where the failure shows: the place its change came from, or the Add
-   * form's place once a row's webhook is no longer listed, so it is never lost.
-   */
-  private readonly problemPlace = computed((): ProblemPlace | null => {
-    const place = this.problem()?.place;
-    if (!place || place === 'add') return place ?? null;
-    const listed =
-      this.webhooks.hasValue() && this.webhooks.value().some((w) => w.id === place.webhook);
-    return listed ? place : 'add';
-  });
-
-  /** The failure's message if it shows at `place`, else null. */
+  /** The failure's message if its change came from `place`, else null. */
   protected problemAt(place: ProblemPlace) {
-    const shown = this.problemPlace();
-    return shown && samePlace(shown, place) ? this.problem()!.message : null;
+    const problem = this.problem();
+    return problem && samePlace(problem.place, place) ? problem.message : null;
   }
 
   protected async add() {

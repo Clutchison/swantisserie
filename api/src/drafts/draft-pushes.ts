@@ -30,6 +30,16 @@ export const pushFailedMessage = (draftId: string) =>
  * UPDATE doesn't wait on, so neither waits on the other in turn. A webhook's
  * removal locks its row FOR UPDATE instead, to wait for them: see
  * `WebhooksService.remove`.
+ *
+ * The writes that take a user's row, in this order:
+ * - sign-in (`AuthService`) locks it FOR NO KEY UPDATE, then bumps the
+ *   drafts' rows;
+ * - a Lobby join (`DraftLock.inLobbyShowing`) locks it FOR SHARE, then the
+ *   draft's row FOR UPDATE;
+ * - draft creation locks it FOR SHARE, then inserts the draft.
+ * So a join or creation waits for a sign-in recording the user, and shows
+ * them as it leaves them, and a sign-in waits for a join or creation, then
+ * bumps that draft too (`shareLockUser`).
  */
 @Injectable()
 export class DraftPushes {

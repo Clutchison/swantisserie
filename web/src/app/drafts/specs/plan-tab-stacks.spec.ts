@@ -15,6 +15,7 @@ import {
   group,
   draggable,
   pressed,
+  toggleButton,
   updates,
   draft,
   flushPicks,
@@ -77,7 +78,7 @@ describe('plan tab', () => {
       const plan = await openPlan(fixture, page);
       expect(pressed(plan, 'List')).toBe('true');
 
-      button(plan, 'Stacks')!.click();
+      toggleButton(plan, 'Stacks')!.click();
       await fixture.whenStable();
 
       expect(pressed(plan, 'Color')).toBe('true');
@@ -129,12 +130,12 @@ describe('plan tab', () => {
       expect(plan.querySelectorAll('section')[1].querySelector('h4')).toBeNull();
 
       for (const grouping of ['Color', 'Type']) {
-        button(plan, grouping)!.click();
+        toggleButton(plan, grouping)!.click();
         await fixture.whenStable();
         expect(stacksOf(plan)[1]).toEqual(sideboard);
       }
 
-      button(plan, 'List')!.click();
+      toggleButton(plan, 'List')!.click();
       await fixture.whenStable();
       expect(stacksOf(plan)).toEqual([[], []]);
     });
@@ -146,7 +147,7 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      button(plan, 'Color')!.click();
+      toggleButton(plan, 'Color')!.click();
       await fixture.whenStable();
       expect(pressed(plan, 'Color')).toBe('true');
       expect(pressed(plan, 'Mana value')).toBe('false');
@@ -155,7 +156,7 @@ describe('plan tab', () => {
         'Lands: Brightclimb Pathway // Grimclimb Pathway',
       ]);
 
-      button(plan, 'Type')!.click();
+      toggleButton(plan, 'Type')!.click();
       await fixture.whenStable();
       expect(stacksOf(plan)[0]).toEqual([
         'Creature: Shivan Dragon',
@@ -167,7 +168,7 @@ describe('plan tab', () => {
         grouping: 'type',
       });
 
-      button(plan, 'List')!.click();
+      toggleButton(plan, 'List')!.click();
       await fixture.whenStable();
       expect(pressed(plan, 'List')).toBe('true');
       expect(button(plan, 'Type')).toBeUndefined();
@@ -222,7 +223,7 @@ describe('plan tab', () => {
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
 
       // The list is a drop target too.
-      button(plan, 'List')!.click();
+      toggleButton(plan, 'List')!.click();
       await fixture.whenStable();
       const [listMainboard, listSideboard] = planDropLists(fixture);
       dropped('Lightning Bolt', listSideboard, listMainboard);
@@ -257,7 +258,7 @@ describe('plan tab', () => {
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      button(plan, 'Color')!.click();
+      toggleButton(plan, 'Color')!.click();
       await fixture.whenStable();
 
       for (const width of [NARROW_STACKS_AREA, WIDE_STACKS_AREA]) {
@@ -267,7 +268,7 @@ describe('plan tab', () => {
         expect(stacksOf(plan)[0][0]).toBe('R: Lightning Bolt, Lightning Bolt, Shivan Dragon');
       }
 
-      button(plan, 'List')!.click();
+      toggleButton(plan, 'List')!.click();
       await fixture.whenStable();
       resizeStacksArea(NARROW_STACKS_AREA);
       expect(pressed(plan, 'List')).toBe('true');
@@ -361,7 +362,7 @@ describe('plan tab', () => {
       expect(pressed(plan, 'Mana value')).toBe('true');
 
       // A choice that can't be kept still takes effect.
-      button(plan, 'List')!.click();
+      toggleButton(plan, 'List')!.click();
       await fixture.whenStable();
       expect(pressed(plan, 'List')).toBe('true');
       expect(plan.querySelector('.stack')).toBeNull();
@@ -391,7 +392,7 @@ describe('plan tab', () => {
       expect(pressed(plan, 'List')).toBe('true');
       expect(stacksOf(plan)).toEqual([[], []]);
 
-      button(plan, 'Stacks')!.click();
+      toggleButton(plan, 'Stacks')!.click();
       await fixture.whenStable();
 
       expect(pressed(plan, 'Mana value')).toBe('true');
@@ -400,7 +401,7 @@ describe('plan tab', () => {
       expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
       expect(heading(plan, '1 2')).toBeDefined();
 
-      button(plan, 'Type')!.click();
+      toggleButton(plan, 'Type')!.click();
       await fixture.whenStable();
       expect(stack(plan, 'Instant')).toEqual(['Lightning Bolt', 'Lightning Bolt (unpicked)']);
     });
@@ -453,14 +454,14 @@ describe('plan tab', () => {
       await vi.waitFor(() => expect(stacksOf(plan)[1]).toEqual(['Sideboard: Shivan Dragon']));
       expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(300);
 
-      button(plan, 'Color')!.click();
+      toggleButton(plan, 'Color')!.click();
       await fixture.whenStable();
       expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(0);
 
       group(plan, 'Deck stacks')!.scrollLeft = 300;
-      button(plan, 'List')!.click();
+      toggleButton(plan, 'List')!.click();
       await fixture.whenStable();
-      button(plan, 'Stacks')!.click();
+      toggleButton(plan, 'Stacks')!.click();
       await fixture.whenStable();
       expect(group(plan, 'Deck stacks')!.scrollLeft).toBe(0);
     });
@@ -496,7 +497,7 @@ describe('plan tab', () => {
           ]),
         );
 
-        button(plan, 'Type')!.click();
+        toggleButton(plan, 'Type')!.click();
         await fixture.whenStable();
         expect(stackHeaders(plan)).toEqual([
           'Instant, 2 cards (current)',
@@ -575,7 +576,7 @@ describe('plan tab', () => {
           { images: [], hiddenParts: 1, text: [] },
         ]);
 
-        button(plan, 'Color')!.click();
+        toggleButton(plan, 'Color')!.click();
         await fixture.whenStable();
         expect(stackHeaders(plan)).toEqual([
           'Red, 3 cards (current)',
@@ -597,7 +598,7 @@ describe('plan tab', () => {
           plan: planOf(),
         });
         const plan = await openPlan(fixture, page);
-        button(plan, 'Type')!.click();
+        toggleButton(plan, 'Type')!.click();
         await fixture.whenStable();
         expect(stackHeaders(plan)).toEqual([
           'Creature, 1 card (current)',
@@ -767,7 +768,7 @@ describe('plan tab', () => {
         expect(stackHeaders(plan)).toEqual(['1, 2 cards', '6, 1 card (current)', 'Lands, 1 card']);
 
         // The strip starts again at its first stack.
-        button(plan, 'Color')!.click();
+        toggleButton(plan, 'Color')!.click();
         await fixture.whenStable();
         expect(stackHeaders(plan)).toEqual(['Red, 3 cards (current)', 'Lands, 1 card']);
         scrolling.showStacks({ R: 0.3, Lands: 1 });
@@ -787,11 +788,11 @@ describe('plan tab', () => {
         });
         const plan = await openPlan(fixture, page);
 
-        button(plan, 'List')!.click();
+        toggleButton(plan, 'List')!.click();
         await fixture.whenStable();
         expect(stackHeaders(plan)).toBeNull();
 
-        button(plan, 'Stacks')!.click();
+        toggleButton(plan, 'Stacks')!.click();
         await fixture.whenStable();
         expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
 
@@ -859,7 +860,7 @@ describe('plan tab', () => {
         plan: planOf(),
       });
       const plan = await openPlan(fixture, page);
-      button(plan, 'Stacks')!.click();
+      toggleButton(plan, 'Stacks')!.click();
       await fixture.whenStable();
 
       resizeStacksArea(NARROW_STACKS_AREA);

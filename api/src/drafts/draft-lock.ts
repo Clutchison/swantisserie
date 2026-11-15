@@ -76,12 +76,37 @@ export async function lockPlayer(
   return draft && player ? { playerId: player.id, state: draft.state } : null;
 }
 
+/**
+ * Share-locks user `userId`'s row, for a change that shows them in a draft,
+ * such as their joining it or creating it. A sign-in still recording their
+ * name or avatar holds the row (`AuthService`), so the change waits for it
+ * and reads them as it leaves them; a sign-in that comes after waits for
+ * the change, then finds the draft among theirs and bumps it. Take it
+ * before the draft's row, in `DraftPushes`' lock order.
+ */
+export async function shareLockUser(
+  tx: Transaction,
+  userId: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT 1 FROM "User" WHERE "id" = ${userId} FOR SHARE`;
+}
+
 /** Throws DraftGoneError if there is no draft, and DraftStartedError if it has left Lobby. */
 export function checkInLobby<T extends { state: DraftState }>(
   draft: T | null | undefined,
 ): asserts draft is T {
   if (!draft) throw new DraftGoneError();
   if (draft.state !== 'Lobby') throw new DraftStartedError();
+}
+
+/** `change`, run only on a draft in Lobby, as `checkInLobby` says. */
+function onlyInLobby<T>(
+  change: (draft: LockedDraft) => Promise<T>,
+): (draft: LockedDraft | undefined) => Promise<T> {
+  return async (draft) => {
+    checkInLobby(draft);
+    return change(draft);
+  };
 }
 
 /** The draft row lock, which changes to a draft run under one at a time. */
@@ -98,10 +123,25 @@ export class DraftLock {
     draftId: string,
     change: (draft: LockedDraft) => Promise<T>,
   ): Promise<T> {
-    return this.run(draftId, async (draft) => {
-      checkInLobby(draft);
-      return change(draft);
-    });
+    return this.run(draftId, onlyInLobby(change));
+  }
+
+  /**
+   * As `inLobby`, for a change that shows user `userId`, such as their
+   * joining the draft: their row is share-locked first (`shareLockUser`),
+   * then the draft's.
+   */
+  async inLobbyShowing<T>(
+    draftId: string,
+    userId: string,
+    change: (draft: LockedDraft) => Promise<T>,
+  ): Promise<T> {
+    return this.transaction(
+      draftId,
+      onlyInLobby(change),
+      () => true,
+      (tx) => shareLockUser(tx, userId),
+    );
   }
 
   /**
@@ -155,8 +195,22 @@ export class DraftLock {
     change: (draft: LockedDraft | undefined) => Promise<T>,
     seen: (result: T) => boolean,
   ): Promise<T> {
+    return this.transaction(draftId, change, seen);
+  }
+
+  /**
+   * As `runSeenIf`, running `first`, if given, in the transaction before
+   * the draft's row is locked.
+   */
+  private async transaction<T>(
+    draftId: string,
+    change: (draft: LockedDraft | undefined) => Promise<T>,
+    seen: (result: T) => boolean,
+    first?: (tx: Transaction) => Promise<void>,
+  ): Promise<T> {
     return this.prisma.$transaction(
       async (tx) => {
+        await first?.(tx);
         // Every column of LockedRow, the DraftSizeFields among them.
         // FOR UPDATE, not a conditional update: Prisma writes a draft's
         // players and picks after a plain SELECT of the draft, which takes no
