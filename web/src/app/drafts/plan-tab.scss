@@ -74,6 +74,11 @@ ul {
     padding-inline: 0;
   }
 
+  /* A failed move or Remove shows inside its line, on a row of its own under it. */
+  li > .error {
+    grid-column: 1 / -1;
+  }
+
   /* Where a plan board has a Remove button, a line without one keeps its place, so the move buttons line up too. */
   &.with-remove .move:last-child {
     margin-inline-end: calc(#{$line-action-width} + var(--space-sm));
@@ -101,6 +106,12 @@ ul {
 
 .empty {
   color: var(--color-muted);
+}
+
+/* A failed change's message inside a line's or a stacked card's list item. */
+li > .error {
+  margin: 0;
+  font-size: var(--font-size-sm);
 }
 
 .mark {

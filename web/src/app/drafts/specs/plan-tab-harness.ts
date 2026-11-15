@@ -2,10 +2,11 @@ import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'contract';
+import type { BasicLandPrintingsView, BasicLandPrintingView, PlanBoard, PlanView } from 'contract';
 import {
   byAriaLabel,
   collapseWhitespace,
+  comesBefore,
   filledStatusIn,
   focusAndClick,
   openDialog,
@@ -17,6 +18,7 @@ import {
   button,
   comboboxOptions,
   editableCombobox,
+  headings,
   http,
   image,
   namedList,
@@ -103,6 +105,28 @@ export const exportButton = (page: HTMLElement) =>
   [...planPanel(page).querySelectorAll('button')].find((candidate) =>
     ['Export', 'Copied'].includes(accessibleName(candidate)),
   );
+
+/**
+ * Expects `alert` directly after the Deck tab's tools row, outside it, and
+ * before the plan boards, which the mainboard's heading starts.
+ */
+export function expectByTools(plan: HTMLElement, alert: HTMLElement) {
+  const tools = byAriaLabel(plan, '[role="group"]', 'Deck tools')!;
+  expect(comesBefore(tools, alert) && !tools.contains(alert)).toBe(true);
+  expect(comesBefore(alert, planBoardHeading(plan, 'Mainboard')!)).toBe(true);
+}
+
+/** The heading of `planBoard` inside `plan`, named by the plan board then its counts, as `Mainboard 4 (4 picked)`. */
+export const planBoardHeading = (plan: HTMLElement, planBoard: PlanBoard) =>
+  headings(plan).find((candidate) => accessibleName(candidate).startsWith(`${planBoard} `));
+
+/** The API's refusal of a change to a card no longer in the plan, and its status. */
+export const notInPlan = { error: 'not-in-plan', message: 'That card isn’t in your deck.' };
+export const conflict = { status: 409, statusText: 'Conflict' };
+
+/** The list item of the line or stacked card inside `plan` whose button is named `name`. */
+export const itemOf = (plan: HTMLElement, name: string) =>
+  button(plan, name)!.closest<HTMLElement>('li')!;
 
 /** Opens the Deck tab and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');
