@@ -21,13 +21,8 @@ import type {
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import {
-  doubleTurnSuffix,
-  hasTurn,
-  isRefusal,
-  PLAYERS_CHANGE_FAILED,
-  sendDraftChange,
-} from './drafts';
+import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
+import { doubleTurnSuffix } from './turns';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';
