@@ -59,6 +59,12 @@ const carolReported = singleEliminationPlaying({
   ],
 });
 
+/** Alice, Bob and Carol's entries, seeded in that order, with `dropped` the players who dropped. */
+const seededEntries = (dropped: readonly string[]) =>
+  [alice.id, bob.id, carol.id].map((playerId, i) =>
+    entry(playerId, { seed: i + 1, dropped: dropped.includes(playerId) }),
+  );
+
 /** How the bracket starts telling the signed-in player who they face next. */
 const YOUR_NEXT_MATCH = 'Your next match';
 
@@ -202,9 +208,7 @@ describe('the bracket of a single elimination tournament', () => {
   it('names no next match for a player who dropped after their win was agreed, still marking their path', async () => {
     const carolWonThenDropped = {
       ...carolWon,
-      entries: [alice.id, bob.id, carol.id].map((playerId, i) =>
-        entry(playerId, { seed: i + 1, dropped: playerId === carol.id }),
-      ),
+      entries: seededEntries([carol.id]),
     };
 
     const { tab } = await openPlaying(carolWonThenDropped, { user: signedIn(carol) });
@@ -218,9 +222,7 @@ describe('the bracket of a single elimination tournament', () => {
 
   it('gives a bye at once to the player waiting on a match both players dropped from, naming no next match for them', async () => {
     const bothDropped = singleEliminationPlaying({
-      entries: [alice.id, bob.id, carol.id].map((playerId, i) =>
-        entry(playerId, { dropped: playerId !== alice.id, seed: i + 1 }),
-      ),
+      entries: seededEntries([bob.id, carol.id]),
       rounds: [
         {
           round: 1,

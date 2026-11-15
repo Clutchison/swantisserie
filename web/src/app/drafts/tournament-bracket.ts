@@ -55,6 +55,11 @@ export class TournamentBracket {
 
   private readonly seeds = computed(() => seedsOf(this.tournament().entries));
 
+  /** Whether the signed-in player's entry is dropped; never for a viewer who didn't join. */
+  private readonly ownDropped = computed(
+    () => this.tournament().entries.find((entry) => entry.playerId === this.ownId())?.dropped,
+  );
+
   protected readonly rounds = computed(() =>
     this.bracket().map((round) => ({
       round: round.round,
@@ -74,7 +79,7 @@ export class TournamentBracket {
    */
   protected readonly nextMatch = computed(() => {
     const own = this.ownId();
-    if (this.tournament().entries.find((entry) => entry.playerId === own)?.dropped) return null;
+    if (this.ownDropped()) return null;
     const reached = this.bracket()
       .flatMap((round) => round.places.map((place) => ({ round: round.round, place })))
       .filter(({ place }) => this.includes(place, own))
