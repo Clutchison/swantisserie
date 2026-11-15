@@ -6,6 +6,7 @@ import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'co
 import {
   byAriaLabel,
   collapseWhitespace,
+  focusAndClick,
   openDialog,
   stubScrollIntoView,
 } from '../../specs-harness';
@@ -74,16 +75,14 @@ export const deckNotice = (root: HTMLElement) =>
  * is in flight, answers its DELETE to `url` with `answer`, then `answered`
  * (for the requests the answer sets off), and waits for the notice to go.
  */
-export async function dismissNotice(
+export async function pressDismiss(
   fixture: AppFixture,
   notice: HTMLElement,
   url: string,
   answer: object,
   { meanwhile, answered }: { meanwhile?: () => void; answered?: () => Promise<unknown> } = {},
 ) {
-  const dismiss = button(notice, 'Dismiss')!;
-  dismiss.focus();
-  dismiss.click();
+  focusAndClick(button(notice, 'Dismiss')!);
   meanwhile?.();
   http.expectOne(url).flush(answer);
   await answered?.();

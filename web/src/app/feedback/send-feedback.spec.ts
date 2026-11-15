@@ -7,8 +7,8 @@ import {
   button,
   clickBackdrop,
   dialogBackdrop,
+  expectFocusOn,
   focusAndClick,
-  focusedControl,
   hiddenFromAssistiveTech,
   http,
   openApp,
@@ -131,7 +131,7 @@ describe('sending feedback', () => {
     const req = await submit();
     expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBe('true');
     expect(anyButton('Submit')!.disabled).toBe(false);
-    expect(focusedControl()).toEqual({ role: 'button', name: 'Submit' });
+    expectFocusOn(dialog()!, 'Submit');
     anyButton('Submit')!.click();
     http.expectNone('/api/feedback');
 
@@ -151,8 +151,7 @@ describe('sending feedback', () => {
     });
     await fixture.whenStable();
 
-    await vi.waitFor(() => expect(focusedControl()).toEqual({ role: 'button', name: 'Submit' }));
-    expect(dialog()!.contains(document.activeElement)).toBe(true);
+    await vi.waitFor(() => expectFocusOn(dialog()!, 'Submit'));
     expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBeNull();
   });
 

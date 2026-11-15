@@ -47,7 +47,7 @@
               <button
                 class="button secondary"
                 type="button"
-                [appSendsChange]="'unreviewed ' + item.id"
+                [appSendsChange]="'mark unreviewed ' + item.id"
                 (click)="markUnreviewed(item)"
               >
                 Mark unreviewed
@@ -56,7 +56,7 @@
               <button
                 class="button secondary"
                 type="button"
-                [appSendsChange]="'reviewed ' + item.id"
+                [appSendsChange]="'mark reviewed ' + item.id"
                 (click)="markReviewed(item)"
               >
                 Mark reviewed

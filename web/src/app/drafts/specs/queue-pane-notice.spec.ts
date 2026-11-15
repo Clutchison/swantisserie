@@ -33,9 +33,9 @@ import {
   rowMenu,
   rowMenuName,
 } from './harness';
-import { disabledMenuItems } from '../../specs-harness';
+import { disabledMenuItems, expectFocusOn } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
-import { bolt, dismissNotice } from './plan-tab-harness';
+import { bolt, pressDismiss } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -326,14 +326,14 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       });
       const queue = queuePane(page);
 
-      await dismissNotice(
+      await pressDismiss(
         fixture,
         queueNotice(queue)!,
         NOTICE_URL,
         queueOf({ cards: [queued(bolt), queued(shivan)] }),
       );
 
-      await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, 'Lightning Bolt')));
+      await vi.waitFor(() => expectFocusOn(queue, rowMenuName('Lightning Bolt')));
     });
 
     it('moves focus to the nearest control before Dismiss when the queue is empty', async () => {
@@ -343,11 +343,9 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       });
       const queue = queuePane(page);
 
-      await dismissNotice(fixture, queueNotice(queue)!, NOTICE_URL, queueOf());
+      await pressDismiss(fixture, queueNotice(queue)!, NOTICE_URL, queueOf());
 
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(queue, 'Steal behavior: Pause queue')),
-      );
+      await vi.waitFor(() => expectFocusOn(queue, 'Steal behavior: Pause queue'));
     });
 
     it('leaves focus where the viewer moved it while the dismiss was in flight', async () => {
@@ -357,7 +355,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
       });
       const queue = queuePane(page);
 
-      await dismissNotice(
+      await pressDismiss(
         fixture,
         queueNotice(queue)!,
         NOTICE_URL,
@@ -365,7 +363,7 @@ describe('Queue pane notice, cutoff and read-only state', () => {
         { meanwhile: () => tabButton(page, 'Pool').focus() },
       );
 
-      expect(document.activeElement).toBe(tabButton(page, 'Pool'));
+      expectFocusOn(page, 'Pool', 'tab');
     });
   });
 });

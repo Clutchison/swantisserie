@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, expect, onTestFinished, vi } from 'vitest';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -304,6 +304,26 @@ export function focusedControl(): { role: string; name: string } | null {
   const role = focused.getAttribute('role') ?? IMPLICIT_ROLES[focused.tagName] ?? 'generic';
   return { role, name: accessibleName(focused) };
 }
+
+/**
+ * Expects focus on the control inside `root` with this accessible name and
+ * role, a button unless said, as a screen reader announces it.
+ */
+export function expectFocusOn(root: Element, name: string, role = 'button') {
+  expect(focusedControl()).toEqual({ role, name });
+  expect(root.contains(document.activeElement)).toBe(true);
+}
+
+/** The buttons in the tab bar inside `root`, in order. */
+export const tabs = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLButtonElement>('[role="tab"]'),
+];
+/** A button in the tab bar inside `root`, by its label. */
+export const tabButton = (root: HTMLElement, tab: string) =>
+  tabs(root).find((b) => b.textContent?.trim() === tab)!;
+/** The tab panel showing inside `root`. */
+export const panel = (root: HTMLElement) =>
+  root.querySelector<HTMLElement>('[role="tabpanel"]:not([hidden])')!;
 
 /** Focuses `control` and clicks it, as a keyboard user presses it, and renders what came of it. */
 export function focusAndClick(control: HTMLElement) {

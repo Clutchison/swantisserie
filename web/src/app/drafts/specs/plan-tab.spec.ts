@@ -33,6 +33,7 @@ import {
   hiddenInClosedSection,
   toggleDisclosure,
 } from './disclosure-harness';
+import { expectFocusOn } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -40,7 +41,7 @@ import {
   boltAgain,
   cards,
   deckNotice,
-  dismissNotice,
+  pressDismiss,
   planned,
   unpicked,
   planOf,
@@ -602,18 +603,14 @@ describe('plan tab', () => {
       });
       const plan = await openPlan(fixture, page);
 
-      await dismissNotice(
+      await pressDismiss(
         fixture,
         deckNotice(plan)!,
         '/api/drafts/draft-1/plan/notice',
         planOf({ mainboard: [planned(brightclimb)] }),
       );
 
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(
-          button(plan, `Move ${brightclimb.name} to the sideboard`),
-        ),
-      );
+      await vi.waitFor(() => expectFocusOn(plan, `Move ${brightclimb.name} to the sideboard`));
     });
   });
 });

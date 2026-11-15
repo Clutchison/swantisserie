@@ -1,4 +1,5 @@
-import { DestroyRef, effect, type Injector, type Signal } from '@angular/core';
+import { DestroyRef, effect, type Injector, type Signal, type WritableSignal } from '@angular/core';
+import { firstValueFrom, type Observable } from 'rxjs';
 
 /** A resource that can be read afresh, as `httpResource` makes. */
 interface Rereadable {
@@ -17,6 +18,37 @@ export async function reread(resource: Rereadable, injector: Injector) {
   await loaded(resource, injector);
   resource.reload();
   await loaded(resource, injector);
+}
+
+/**
+ * Saves the change `request` makes, then reads `resource` afresh as
+ * `reread` does; answers whether the change was made. The page's `problem`
+ * is cleared as it saves, and says what `failure` makes of the error if the
+ * change fails, when nothing is read afresh.
+ */
+export async function saveThenReread(
+  request: Observable<unknown>,
+  {
+    resource,
+    injector,
+    problem,
+    failure,
+  }: {
+    resource: Rereadable;
+    injector: Injector;
+    problem: WritableSignal<string | null>;
+    failure: (err: unknown) => string;
+  },
+): Promise<boolean> {
+  problem.set(null);
+  try {
+    await firstValueFrom(request);
+  } catch (err) {
+    problem.set(failure(err));
+    return false;
+  }
+  await reread(resource, injector);
+  return true;
 }
 
 /** Settles once no load of `resource` is in flight, or the component is gone. */

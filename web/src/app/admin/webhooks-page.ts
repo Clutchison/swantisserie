@@ -8,10 +8,10 @@ import {
   type WebhookRenameRequest,
   type WebhookUrlReplaceRequest,
 } from 'contract';
-import { firstValueFrom, type Observable } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { Questions } from '../question-dialog';
-import { reread } from '../reread';
+import { saveThenReread } from '../reread';
 
 const API = '/api/admin/webhooks';
 
@@ -86,19 +86,15 @@ export class WebhooksPage {
     return this.changes.send(async () => {
       const sending = await request();
       if (!sending) return false;
-      this.problem.set(null);
-      try {
-        await firstValueFrom(sending);
-      } catch (err) {
-        this.problem.set(
+      return saveThenReread(sending, {
+        resource: this.webhooks,
+        injector: this.injector,
+        problem: this.problem,
+        failure: (err) =>
           err instanceof HttpErrorResponse && typeof err.error?.message === 'string'
             ? err.error.message
             : 'Saving failed. Check your connection and try again.',
-        );
-        return false;
-      }
-      await reread(this.webhooks, this.injector);
-      return true;
+      });
     });
   }
 }

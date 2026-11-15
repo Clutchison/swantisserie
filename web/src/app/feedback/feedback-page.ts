@@ -3,9 +3,9 @@ import { HttpClient, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, Injector, signal } from '@angular/core';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { Router, RouterLink, type UrlTree } from '@angular/router';
-import { firstValueFrom, type Observable } from 'rxjs';
+import type { Observable } from 'rxjs';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
-import { reread } from '../reread';
+import { saveThenReread } from '../reread';
 import { tabInUrl } from '../tab-in-url';
 import { Tab, TabList } from '../tab-list';
 
@@ -69,16 +69,13 @@ export class FeedbackPage {
    * nearest control before it.
    */
   private save(request: Observable<unknown>, failure: string) {
-    return this.changes.send(async () => {
-      this.problem.set(null);
-      try {
-        await firstValueFrom(request);
-      } catch {
-        this.problem.set(failure);
-        return false;
-      }
-      await reread(this.feedback, this.injector);
-      return true;
-    });
+    return this.changes.send(() =>
+      saveThenReread(request, {
+        resource: this.feedback,
+        injector: this.injector,
+        problem: this.problem,
+        failure: () => failure,
+      }),
+    );
   }
 }

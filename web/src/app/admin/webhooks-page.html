@@ -10,8 +10,8 @@
     <p class="error" role="alert">{{ problem }}</p>
   }
 
-  <h2>Add a webhook</h2>
-  <form class="add" [formGroup]="form" (ngSubmit)="add()">
+  <h2 id="add-webhook">Add a webhook</h2>
+  <form class="add" aria-labelledby="add-webhook" [formGroup]="form" (ngSubmit)="add()">
     <label>
       Name
       <input
