@@ -16,14 +16,13 @@ import {
   flushPicks,
   completeSnapshot,
   button,
-  type AppFixture,
   ORGANIZE_ONLY,
   powersAnswer,
   ALL_POWERS,
   openUrl,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore } from './draft-header-harness';
-import { openList } from './draft-list-harness';
+import { landOnDraftList, openList } from './draft-list-harness';
 
 useDraftsApp();
 
@@ -34,16 +33,15 @@ describe('cancel', () => {
   const failed: PoolSnapshotView = { state: 'Failed', cards: 0, total: null, error: 'Nope' };
 
   /** Waits for the draft list the page sent the viewer to, and returns its notice. */
-  async function flushList(fixture: AppFixture, page: HTMLElement) {
-    await vi.waitFor(() => expect(router.url).toBe('/'));
-    await fixture.whenStable();
+  async function flushList(page: HTMLElement) {
+    await landOnDraftList();
     return page.querySelector('.notice')?.textContent?.trim();
   }
 
   it.each([running, failed, completeSnapshot])(
     'lets the organizer cancel with a $state pool snapshot, once they go ahead',
     async (snapshot) => {
-      const { fixture, page } = await openDraft(snapshot);
+      const { page } = await openDraft(snapshot);
 
       chooseFromMore(page, 'Cancel draft');
 
@@ -60,7 +58,7 @@ describe('cancel', () => {
         poll.flush(draft({ snapshot }));
       }
       req.flush(null, { status: 204, statusText: 'No Content' });
-      expect(await flushList(fixture, page)).toBe('Red dragons was cancelled.');
+      expect(await flushList(page)).toBe('Red dragons was cancelled.');
       expect(router.url).toBe('/');
     },
   );
@@ -169,26 +167,22 @@ describe('cancel', () => {
   });
 
   it('sends everyone viewing to the draft list, with a notice, when it is cancelled', async () => {
-    const { fixture, page } = await openDraft(
-      completeSnapshot,
-      {},
-      { user: { ...alice, id: 'bob' } },
-    );
+    const { page } = await openDraft(completeSnapshot, {}, { user: { ...alice, id: 'bob' } });
 
     updates.events.next({ type: 'cancelled' });
 
-    expect(await flushList(fixture, page)).toBe('Red dragons was cancelled.');
+    expect(await flushList(page)).toBe('Red dragons was cancelled.');
     expect(router.url).toBe('/');
   });
 
   it('names no draft in the notice when it is cancelled before it has loaded', async () => {
-    const { fixture, page } = await openUrl('/drafts/draft-1');
+    const { page } = await openUrl('/drafts/draft-1');
 
     updates.events.next({ type: 'cancelled' });
     // Its read, sent as the page opened, answers too late to name it.
     http.expectOne('/api/drafts/draft-1').flush(draft({}));
 
-    expect(await flushList(fixture, page)).toBe('The draft was cancelled.');
+    expect(await flushList(page)).toBe('The draft was cancelled.');
   });
 
   it('shows no notice on the draft list otherwise', async () => {

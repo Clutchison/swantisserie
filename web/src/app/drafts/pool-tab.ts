@@ -18,7 +18,6 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { LucideCheck } from '@lucide/angular';
 import type { PoolCardView } from 'contract';
 import { CardDetailRequests, CardDetails, loadedPlaceholder } from './card-detail';
 import { CardImageSource, type ImageVersion } from './card-image-source';
@@ -38,6 +37,7 @@ import { onResize } from './resizes';
 import { TileImage, TileImageLoader } from './tile-image';
 import { LoadingAnimation } from '../loading/loading-animation';
 import { ordinalWords } from '../record';
+import { ToggleButton } from '../toggle-button';
 
 /**
  * The draft view's Pool tab: a grid of the pool's cards, narrowed by a pool
@@ -53,7 +53,7 @@ import { ordinalWords } from '../record';
     CdkVirtualForOf,
     TileImage,
     PlayerAvatar,
-    LucideCheck,
+    ToggleButton,
   ],
   providers: [TileImageLoader, CardDetailRequests, CardDetails],
   changeDetection: ChangeDetectionStrategy.OnPush,

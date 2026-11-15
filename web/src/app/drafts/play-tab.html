@@ -70,7 +70,8 @@
   <p class="error">Couldn't load the tournament. Try reloading the page.</p>
 } @else if (tournament(); as tournament) {
   <app-tournament-progress [tournament]="tournament" [ownId]="playsOn() ? ownId() : undefined" />
-  @if (tournament.state === 'Registration') {
+  <!-- Registration until the tab shows the results: the same signal that places failures. -->
+  @if (!showsResults()) {
     <p class="detail registration-note">
       {{ summary() }}.
       @if (tournament.publicDecklists) {
@@ -171,14 +172,18 @@
     } @else if (tournament.state === 'Complete') {
       <p class="detail">Nobody holds the trophy: no player was left in the bracket to win it.</p>
     }
-    @if (showsOwnMatches()) {
+    @if (showsYourMatches()) {
       <app-your-matches
         [tournament]="tournament"
         [ownId]="ownId()!"
         [matches]="ownMatches()"
         (report)="report($event)"
-        (confirmMatch)="confirmMatch($event)"
+        (confirmMatch)="confirmMatch($event, 'yourMatches')"
       />
+    }
+    <!-- Each failure shows by the controls that made it, before what follows them. -->
+    @if (errorAt('yourMatches'); as message) {
+      <p class="error" role="alert">{{ message }}</p>
     }
     @if (roundRobin()) {
       <app-results-grid
@@ -192,10 +197,13 @@
         [ownId]="joined() ? ownId() : undefined"
         [currentId]="ownMatch()?.match?.id"
         (choose)="chosen.set($event)"
-        (confirmMatch)="confirmMatch($event)"
+        (confirmMatch)="confirmMatch($event, 'results')"
         (setGameScore)="setGameScore($event)"
         (clearGameScore)="clearGameScore($event)"
       />
+    }
+    @if (errorAt('results'); as message) {
+      <p class="error" role="alert">{{ message }}</p>
     }
     <h3>Players</h3>
     <ul class="entries" aria-label="Players">
@@ -286,6 +294,6 @@
 } @else {
   <app-loading-animation size="tab">Loading the tournament…</app-loading-animation>
 }
-@if (error(); as message) {
+@if (errorAt('foot'); as message) {
   <p class="error" role="alert">{{ message }}</p>
 }

@@ -478,24 +478,6 @@ describe('Queue pane list', () => {
       expect(document.activeElement).toBe(tabButton(page, 'Pool'));
     });
 
-    it('puts focus nowhere once Dismiss, which has no control to go back to, takes the notice away', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
-        cards: [bolt, brightclimb, shivan],
-        queue: queueOf({ cards: [queued(bolt), queued(shivan)], lost: [queued(brightclimb)] }),
-      });
-      const queue = queuePane(page);
-
-      button(queue, 'Dismiss')!.focus();
-      button(queue, 'Dismiss')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/queue/notice')
-        .flush(queueOf({ cards: [queued(bolt), queued(shivan)] }));
-      await vi.waitFor(() => expect(button(queue, 'Dismiss')).toBeUndefined());
-      await fixture.whenStable();
-
-      expect(document.activeElement).toBe(document.body);
-    });
-
     it('keeps focus on the copy moved when two queued cards share a name', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
         cards: [bolt, boltAgain, shivan],

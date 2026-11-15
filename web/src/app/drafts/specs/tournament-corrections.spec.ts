@@ -1,11 +1,14 @@
-import { answer, openDialog, question } from '../../specs-harness';
+import { answer, onlyAlert, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
+  alertIn,
   alice,
   bob,
   button,
   group,
   http,
+  panel,
+  region,
   text,
   useDraftsApp,
   type AppFixture,
@@ -15,6 +18,8 @@ import {
   carol,
   completed,
   dave,
+  expectByResults,
+  expectByYourMatches,
   failChange,
   forfeited,
   gridCell,
@@ -38,6 +43,9 @@ useDraftsApp();
 
 /** The game score of Bob and Carol's match (m1), which an organizer sets and clears. */
 const BOB_VS_CAROL_GAME_SCORE_URL = '/api/drafts/draft-1/tournament/matches/m1/game-score';
+
+/** Bob's reported win over Alice (m2), which Alice can confirm from Your matches. */
+const BOB_BEAT_ALICE = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
 
 /** What clearing a match against Carol says once she has dropped. */
 const CAROL_FORFEITS = 'It will become a forfeit by Carol, who has dropped.';
@@ -193,6 +201,108 @@ describe('organizer reports, corrections and clears', () => {
     expect(await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL)).toBe(
       "Couldn't save the match’s game score. Try again in a moment.",
     );
+    expectByResults(page, tab);
+  });
+
+  it('shows only the latest failure, by the control that made it', async () => {
+    const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+    const { fixture, page, tab } = await openPlaying(playing([bobBeatAlice]), {
+      powers: ORGANIZE_ONLY,
+    });
+    button(tab, 'Confirm your match against Bob')!.click();
+    await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm');
+
+    const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+    button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
+    await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL);
+
+    await vi.waitFor(() =>
+      expect(text(onlyAlert(panel(page)))).toBe(
+        "Couldn't save the match’s game score. Try again in a moment.",
+      ),
+    );
+    expectByResults(page, tab);
+  });
+
+  it.each([
+    [
+      'by the results',
+      async (fixture: AppFixture, page: HTMLElement, tab: HTMLElement) => {
+        const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+        button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
+        await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL);
+      },
+    ],
+    [
+      'at the foot of the tab',
+      async (fixture: AppFixture, page: HTMLElement, tab: HTMLElement) => {
+        button(tab, 'Complete tournament')!.click();
+        await answer(await question('Complete the tournament?'), 'Complete tournament');
+        await failChange(fixture, page, '/api/drafts/draft-1/tournament/complete');
+      },
+    ],
+  ])('clears a failure %s once a change from Your matches saves', async (_, fail) => {
+    const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+    const { fixture, page, tab } = await openPlaying(playing([bobBeatAlice]), {
+      powers: ORGANIZE_ONLY,
+    });
+    await fail(fixture, page, tab);
+
+    button(tab, 'Confirm your match against Bob')!.click();
+    await answerChange(
+      fixture,
+      '/api/drafts/draft-1/tournament/matches/m2/confirm',
+      'POST',
+      playing([confirmedMatch(bobBeatAlice)]),
+      1,
+      threePlayers,
+    );
+
+    expect(alertIn(panel(page))).toBeNull();
+  });
+
+  it.each([
+    [
+      'the results',
+      async (fixture: AppFixture, tab: HTMLElement) => {
+        const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+        button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
+        await answerChange(
+          fixture,
+          BOB_VS_CAROL_GAME_SCORE_URL,
+          'PUT',
+          playing([BOB_BEAT_ALICE, reported(unreportedMatch('m1', bob.id, carol.id), [2, 0])]),
+          1,
+          threePlayers,
+        );
+      },
+    ],
+    [
+      'the foot of the tab',
+      async (fixture: AppFixture, tab: HTMLElement) => {
+        button(tab, 'Complete tournament')!.click();
+        await answer(await question('Complete the tournament?'), 'Complete tournament');
+        await answerChange(
+          fixture,
+          '/api/drafts/draft-1/tournament/complete',
+          'POST',
+          completed(playing([BOB_BEAT_ALICE])),
+          1,
+          threePlayers,
+        );
+      },
+    ],
+  ])('clears a failure by Your matches once a change from %s saves', async (_, save) => {
+    const { fixture, page, tab } = await openPlaying(playing([BOB_BEAT_ALICE]), {
+      powers: ORGANIZE_ONLY,
+    });
+    button(region(tab, 'Your matches')!, 'Confirm your match against Bob')!.click();
+    await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm');
+    expectByYourMatches(page, tab);
+
+    await save(fixture, tab);
+
+    expect(alertIn(panel(page))).toBeNull();
   });
 
   it('says clearing a game score failed when the api gives no reason', async () => {
@@ -208,6 +318,7 @@ describe('organizer reports, corrections and clears', () => {
     expect(await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL)).toBe(
       "Couldn't clear the match’s game score. Try again in a moment.",
     );
+    expectByResults(page, tab);
   });
 
   it('offers Clear game score only for a match with a game score', async () => {

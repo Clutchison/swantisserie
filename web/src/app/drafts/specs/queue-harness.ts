@@ -107,6 +107,13 @@ export const queueStatuses = (root: HTMLElement) =>
   );
 /** The Queue pane, which is there. */
 export const queuePane = (page: HTMLElement) => findQueuePane(page)!;
+/** Opens the help "How this works" in the Queue pane `queue`, and gives the help it controls. */
+export async function openQueueHelp(fixture: AppFixture, queue: HTMLElement) {
+  const [howThisWorks] = buttons(queue, 'How this works');
+  howThisWorks.click();
+  await fixture.whenStable();
+  return document.getElementById(howThisWorks.getAttribute('aria-controls')!)!;
+}
 /**
  * The Queue pane's collapse toggle, which as its rail expands it again:
  * the button that controls the pane's body.

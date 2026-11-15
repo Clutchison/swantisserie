@@ -32,10 +32,12 @@
         @for (match of unreported(); track match.id) {
           <li>
             <span>{{ match.label }}</span>
-            <div class="winners" role="group" [attr.aria-label]="'Winner of ' + match.label">
+            <!-- Each choice is a native radio, hidden, in a label styled as a segment. -->
+            <div class="segmented" role="group" [attr.aria-label]="'Winner of ' + match.label">
               @for (player of match.players; track player.id) {
-                <label>
+                <label class="button compact quiet">
                   <input
+                    class="visually-hidden"
                     type="radio"
                     [name]="'winner-' + match.id"
                     [checked]="isWinner(match.id, player.id)"
@@ -47,18 +49,7 @@
               }
             </div>
             @if (match.droppable.length > 0) {
-              <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-                @for (player of match.droppable; track player.id) {
-                  <label>
-                    <input
-                      type="checkbox"
-                      [checked]="isDropping(match.id, player.id)"
-                      (change)="setDropping(match.id, player.id, $any($event.target).checked)"
-                    />
-                    Drop {{ player.name }}
-                  </label>
-                }
-              </div>
+              <ng-container *ngTemplateOutlet="dropChoices; context: { $implicit: match }" />
             }
           </li>
         }
@@ -75,18 +66,7 @@
           <li>
             <span>{{ match.label }}</span>
             @if (!finalRound() && match.droppable.length > 0) {
-              <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-                @for (player of match.droppable; track player.id) {
-                  <label>
-                    <input
-                      type="checkbox"
-                      [checked]="isDropping(match.id, player.id)"
-                      (change)="setDropping(match.id, player.id, $any($event.target).checked)"
-                    />
-                    Drop {{ player.name }}
-                  </label>
-                }
-              </div>
+              <ng-container *ngTemplateOutlet="dropChoices; context: { $implicit: match }" />
             }
           </li>
         }
@@ -100,3 +80,19 @@
     </button>
   </div>
 </div>
+
+<!-- A match's Drop choices, offered in either layout. -->
+<ng-template #dropChoices let-match>
+  <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
+    @for (player of match.droppable; track player.id) {
+      <button
+        appToggleButton
+        class="wraps"
+        [pressed]="isDropping(match.id, player.id)"
+        (click)="setDropping(match.id, player.id, !isDropping(match.id, player.id))"
+      >
+        Drop {{ player.name }}
+      </button>
+    }
+  </div>
+</ng-template>
