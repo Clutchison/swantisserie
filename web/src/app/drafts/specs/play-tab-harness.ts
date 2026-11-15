@@ -5,6 +5,7 @@ import type {
   DecklistView,
   DraftPowersView,
   MatchView,
+  PickView,
   PlanView,
   PlayerView,
   PoolCardView,
@@ -796,8 +797,9 @@ export const announcements = (root: HTMLElement) => statusTexts(root).filter(Boo
  * `version` with `tournament`, or with none once it is cancelled, as another
  * viewer's change does, and answers the reads it makes for Dave, who isn't
  * one of its players, or, `asPlayer`, for one who is, their queue and
- * `plan` included, and its decklists once `tournament` shows them, unless
- * they were shown before (`decklistsShownBefore`).
+ * `plan` included, its pick log with `picks`, and its decklists once
+ * `tournament` shows them, unless they were shown before
+ * (`decklistsShownBefore`).
  */
 export async function pushTournament(
   fixture: AppFixture,
@@ -806,11 +808,13 @@ export async function pushTournament(
   {
     asPlayer = false,
     plan = EMPTY_PLAN,
+    picks = [],
     fields = threePlayers,
     decklistsShownBefore = false,
   }: {
     asPlayer?: boolean;
     plan?: PlanView;
+    picks?: PickView[];
     fields?: DraftFixture;
     decklistsShownBefore?: boolean;
   } = {},
@@ -819,7 +823,7 @@ export async function pushTournament(
     type: 'changed',
     draft: draft({ ...withTournament(tournament, fields), version }),
   });
-  await flushPicks([]);
+  await flushPicks(picks);
   if (asPlayer) await flushQueueAndPlan(undefined, plan);
   if (tournament) {
     await flushTournament(tournament);
