@@ -12,14 +12,14 @@
     } @else {
       <p>Adds {{ queueCountText() }} to the end of your queue.</p>
     }
-    <label>
-      <input
-        type="checkbox"
-        [checked]="includeSideboard()"
-        (change)="includeSideboard.set($any($event.target).checked)"
-      />
+    <button
+      appToggleButton
+      class="include-sideboard"
+      [pressed]="includeSideboard()"
+      (click)="includeSideboard.set(!includeSideboard())"
+    >
       Include sideboard
-    </label>
+    </button>
   </div>
   <div class="dialog-actions">
     <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>

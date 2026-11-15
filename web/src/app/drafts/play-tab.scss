@@ -24,11 +24,6 @@ legend {
   font-weight: 600;
 }
 
-/* A long choice, such as a Swiss round option, wraps onto a phone's next line. */
-.segmented {
-  flex-wrap: wrap;
-}
-
 /* Public or private decklists: a label, then a pill that switches it, then what public means. */
 .decklists {
   display: flex;
