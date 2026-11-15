@@ -59,10 +59,11 @@ import {
   type PlanBoardCard,
   type PlanLine,
 } from './plan-board-cards';
-import { GROUPINGS, type PlanMode, rememberChoice, rememberedChoice } from './plan-choice';
+import { GROUPINGS, type PlanMode, readChoice, saveChoice } from './plan-choice';
 import { type DropTarget, planDrag } from './plan-drag';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
-import { besideIn, printingPickerReturnFocus } from './printing-picker-focus';
+import { besideIn } from './focus-beside';
+import { printingPickerReturnFocus } from './printing-picker-focus';
 import { TypeLetter } from './type-letter';
 import {
   QUEUE_UNPICKED_HEADING,
@@ -219,7 +220,7 @@ export class PlanTab {
    * scrolls sideways, which offers no drag. Until measured, the strip.
    */
   protected readonly wideStacks = signal(false);
-  private readonly remembered = rememberedChoice();
+  private readonly remembered = readChoice();
   /** The mode: for a new viewer, stacks mode where the wide layout fits, once measured, else list mode. */
   protected readonly mode = signal(this.remembered.mode ?? 'list');
   /** Whether the mode is settled: kept from last time, chosen, or set by the stacks area's first measure. */
@@ -442,7 +443,7 @@ export class PlanTab {
     this.modeSettled = true;
     this.mode.set(mode);
     this.scrollToFirstStack();
-    this.keepChoice();
+    saveChoice({ mode: this.mode(), grouping: this.grouping() });
   }
 
   /**
@@ -452,7 +453,7 @@ export class PlanTab {
   protected setGrouping(grouping: Grouping) {
     this.grouping.set(grouping);
     this.scrollToFirstStack();
-    this.keepChoice();
+    saveChoice({ mode: this.mode(), grouping: this.grouping() });
   }
 
   /** Scrolls the strip, and each plan board's stacks, back to their start. */
@@ -472,11 +473,6 @@ export class PlanTab {
   protected scrollToStack(name: string) {
     this.stripLocation.goTo(name);
     stackElement(this.strip(), name)?.scrollIntoView(TO_STACK);
-  }
-
-  /** Keeps the chosen mode and grouping for next time, if the browser allows. */
-  private keepChoice() {
-    rememberChoice({ mode: this.mode(), grouping: this.grouping() });
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */

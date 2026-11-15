@@ -24,7 +24,7 @@ export const GROUPINGS: { grouping: Grouping; name: string }[] = [
  * The mode and grouping the viewer last chose, one choice for every screen;
  * if none is kept or storage is refused, no mode, grouped by mana value.
  */
-export function rememberedChoice(): Partial<PlanChoice> & Pick<PlanChoice, 'grouping'> {
+export function readChoice(): Partial<PlanChoice> & Pick<PlanChoice, 'grouping'> {
   const defaults = { mode: undefined, grouping: DEFAULT_GROUPING };
   try {
     // Stryker disable next-line StringLiteral: JSON.parse("") throws into the catch, which returns the same defaults.
@@ -45,7 +45,7 @@ const isGrouping = (value: unknown): value is Grouping =>
   GROUPINGS.some((option) => option.grouping === value);
 
 /** Keeps `choice`, the chosen mode and grouping, for next time, if the browser allows. */
-export function rememberChoice(choice: PlanChoice) {
+export function saveChoice(choice: PlanChoice) {
   try {
     localStorage.setItem(CHOICE_KEY, JSON.stringify(choice));
   } catch {
