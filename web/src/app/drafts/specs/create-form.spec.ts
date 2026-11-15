@@ -13,10 +13,12 @@ import {
   buttonOrder,
   controlByLabel,
   draft,
+  group,
   http,
   link,
   router,
   openUrl,
+  radios,
   webhooksAnswer,
 } from './harness';
 
@@ -301,6 +303,13 @@ describe('create form', () => {
     expect(textBox(form.page, 'Pool query')!.value).toBe('');
     await choosePoolSource(form, 'Cube link');
     expect(textBox(form.page, 'Cube link')!.value).toBe('');
+  });
+
+  it('offers the pool sources as a group named Pool from of three radios', async () => {
+    const { page } = await openForm();
+    const poolFrom = group(page, 'Pool from')!;
+
+    expect(radios(poolFrom)).toEqual(['Pool query', 'Cube link', 'Sets']);
   });
 
   it('starts on a pool query, with no cube link field', async () => {

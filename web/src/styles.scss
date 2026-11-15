@@ -252,8 +252,14 @@ button {
   background: transparent;
   cursor: pointer;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: var(--color-raised);
+  }
+
+  /* As a disabled button looks, such as a set the full set list picker can't add. */
+  &:disabled {
+    opacity: 0.6;
+    cursor: default;
   }
 
   &[aria-pressed='true'] {

@@ -14,20 +14,41 @@
       </select>
       <span class="hint">The game this draft is played on. It can’t change later.</span>
     </label>
+    <!-- Each choice is a native radio, hidden, in a label styled as a segment. -->
     <fieldset class="pool-source">
       <legend>Pool from</legend>
-      <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="pool-query" />
-        Pool query
-      </label>
-      <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="cube" />
-        Cube link
-      </label>
-      <label class="choice">
-        <input type="radio" name="poolSource" formControlName="poolSource" value="set-list" />
-        Sets
-      </label>
+      <div class="segmented">
+        <label class="button compact quiet">
+          <input
+            class="visually-hidden"
+            type="radio"
+            name="poolSource"
+            formControlName="poolSource"
+            value="pool-query"
+          />
+          Pool query
+        </label>
+        <label class="button compact quiet">
+          <input
+            class="visually-hidden"
+            type="radio"
+            name="poolSource"
+            formControlName="poolSource"
+            value="cube"
+          />
+          Cube link
+        </label>
+        <label class="button compact quiet">
+          <input
+            class="visually-hidden"
+            type="radio"
+            name="poolSource"
+            formControlName="poolSource"
+            value="set-list"
+          />
+          Sets
+        </label>
+      </div>
     </fieldset>
     <!-- Only the chosen pool source's group shows; the others keep what was typed. -->
     <ng-container formGroupName="poolSources">

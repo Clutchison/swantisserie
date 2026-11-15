@@ -52,6 +52,7 @@ import {
 
 export { accessibleName, alertIn, alice, button, buttons, serverError, table, tableRows, text };
 export { resizeTo, viewOn } from './screen-harness';
+export { toggleButton, toggleButtons } from './toggle-harness';
 export { draggable, dragHandle, dropAt, startDrag, touchDrag } from './drag-harness';
 export {
   chooseInOpenRowMenu,
@@ -669,10 +670,10 @@ const ownText = (label: HTMLLabelElement) =>
       .join(' '),
   );
 
-/** Each checkbox inside `root`, in page order: ☑ or ☐, then its label's text. */
-export const checkboxes = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLInputElement>(CONTROLS.checkbox)].map(
-    (box) => `${box.checked ? '☑' : '☐'} ${text(box.labels?.[0])}`,
+/** Each radio inside `root`, in page order, by its label's own text. */
+export const radios = (root: HTMLElement) =>
+  [...root.querySelectorAll<HTMLInputElement>(CONTROLS.radio)].map((radio) =>
+    ownText(radio.labels![0]),
   );
 
 /** The controls among `controls` whose label's own text is `label`. */

@@ -8,12 +8,13 @@ import {
 import {
   useDraftsApp,
   button,
-  checkboxes,
   controlByLabel,
   group,
   http,
   namedList,
   openUrl,
+  toggleButton,
+  toggleButtons,
   typeInto,
   wait,
   webhooksAnswer,
@@ -69,8 +70,8 @@ async function answerSets(platform: string, answer: SetCatalogView) {
   (await vi.waitFor(() => http.expectOne(`/api/sets?platform=${platform}`))).flush(answer);
 }
 
-const checkbox = (root: HTMLElement, label: string) => controlByLabel(root, 'checkbox', label);
-const setBox = (page: HTMLElement, label: string) => checkbox(namedList(page, 'Sets'), label);
+/** The toggle button for the set named `name` (its code, name and card count) in the list of sets. */
+const setToggle = (page: HTMLElement, name: string) => toggleButton(namedList(page, 'Sets'), name);
 /** Fills in the name, submits the form and returns the POST it sends. */
 async function create(fixture: Awaited<ReturnType<typeof openSets>>['fixture'], page: HTMLElement) {
   const name = controlByLabel(page, 'textbox', 'Name')!;
@@ -99,7 +100,7 @@ describe('choosing a set list on the create form', () => {
   it('offers the sets on the platform, newest first, each with how many cards it adds', async () => {
     const { page } = await openSets();
 
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
       '☐ MKM Murders at Karlov Manor 286 cards',
     ]);
@@ -108,10 +109,10 @@ describe('choosing a set list on the create form', () => {
   it('shows a chosen set’s sublists, with its bonus sheets included and its add-ons not', async () => {
     const { fixture, page } = await openSets();
 
-    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
     await fixture.whenStable();
 
-    expect(checkboxes(group(page, 'OTJ sublists')!)).toEqual([
+    expect(toggleButtons(group(page, 'OTJ sublists')!)).toEqual([
       '☑ BIG The Big Score 30 cards',
       '☑ OTP Breaking News 65 cards',
       '☐ YOTJ Alchemy: Thunder Junction 30 cards',
@@ -120,12 +121,12 @@ describe('choosing a set list on the create form', () => {
 
   it('sends the sets chosen, each with the sublists included', async () => {
     const { fixture, page } = await openSets();
-    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
-    setBox(page, 'MKM Murders at Karlov Manor')!.click();
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
+    setToggle(page, 'MKM Murders at Karlov Manor 286 cards')!.click();
     await fixture.whenStable();
     const sublists = group(page, 'OTJ sublists')!;
-    checkbox(sublists, 'OTP Breaking News')!.click();
-    checkbox(sublists, 'YOTJ Alchemy: Thunder Junction')!.click();
+    toggleButton(sublists, 'OTP Breaking News 65 cards')!.click();
+    toggleButton(sublists, 'YOTJ Alchemy: Thunder Junction 30 cards')!.click();
     await fixture.whenStable();
 
     const req = await create(fixture, page);
@@ -140,13 +141,31 @@ describe('choosing a set list on the create form', () => {
     stopHere(req);
   });
 
+  it('presses a set’s toggle button when it is chosen, and lets it go when pressed again', async () => {
+    const { fixture, page } = await openSets();
+
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
+    await fixture.whenStable();
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
+      '☑ OTJ Outlaws of Thunder Junction 276 cards',
+      '☐ MKM Murders at Karlov Manor 286 cards',
+    ]);
+
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
+    await fixture.whenStable();
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
+      '☐ OTJ Outlaws of Thunder Junction 276 cards',
+      '☐ MKM Murders at Karlov Manor 286 cards',
+    ]);
+  });
+
   it('drops a set and its sublists when it is unchosen', async () => {
     const { fixture, page } = await openSets();
-    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
-    setBox(page, 'MKM Murders at Karlov Manor')!.click();
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
+    setToggle(page, 'MKM Murders at Karlov Manor 286 cards')!.click();
     await fixture.whenStable();
 
-    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
     await fixture.whenStable();
 
     expect(group(page, 'OTJ sublists')).toBeNull();
@@ -162,14 +181,14 @@ describe('choosing a set list on the create form', () => {
     find.value = 'karlov';
     find.dispatchEvent(new Event('input'));
     await fixture.whenStable();
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
       '☐ MKM Murders at Karlov Manor 286 cards',
     ]);
 
     find.value = 'MIR';
     find.dispatchEvent(new Event('input'));
     await fixture.whenStable();
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual(['☐ MIR Mirage 335 cards']);
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual(['☐ MIR Mirage 335 cards']);
   });
 
   it('finds the sets the Printing picker would: part of a code or name, whatever its case', async () => {
@@ -177,27 +196,27 @@ describe('choosing a set list on the create form', () => {
     const find = controlByLabel(page, 'textbox', 'Find a set')!;
 
     typeInto(find, 'Tj');
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
     ]);
 
     typeInto(find, 'thunder');
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
     ]);
 
     typeInto(find, ' otj ');
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
     ]);
 
     typeInto(find, 'zzz');
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([]);
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([]);
   });
 
   it('keeps a chosen set chosen while the search hides it', async () => {
     const { fixture, page } = await openSets();
-    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
     await fixture.whenStable();
     const find = controlByLabel(page, 'textbox', 'Find a set')!;
     find.value = 'karlov';
@@ -214,15 +233,15 @@ describe('choosing a set list on the create form', () => {
 
   it('offers the sets on MTGO once MTGO is chosen, dropping chosen sets not on it', async () => {
     const { fixture, page } = await openSets();
-    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
-    setBox(page, 'MKM Murders at Karlov Manor')!.click();
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
+    setToggle(page, 'MKM Murders at Karlov Manor 286 cards')!.click();
     await fixture.whenStable();
 
     choosePlatform(page, 'MTGO');
     await answerSets('MTGO', catalog([mkm, mir]));
     await fixture.whenStable();
 
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
       '☑ MKM Murders at Karlov Manor 286 cards',
       '☐ MIR Mirage 335 cards',
     ]);
@@ -234,7 +253,7 @@ describe('choosing a set list on the create form', () => {
   it('shows no sublists for a chosen set that has none', async () => {
     const { fixture, page } = await openSets();
 
-    setBox(page, 'MKM Murders at Karlov Manor')!.click();
+    setToggle(page, 'MKM Murders at Karlov Manor 286 cards')!.click();
     await fixture.whenStable();
 
     expect(group(page, 'MKM sublists')).toBeNull();
@@ -242,7 +261,7 @@ describe('choosing a set list on the create form', () => {
 
   it('keeps only the sublists the platform chosen offers of a set on both platforms', async () => {
     const { fixture, page } = await openSets();
-    setBox(page, 'OTJ Outlaws of Thunder Junction')!.click();
+    setToggle(page, 'OTJ Outlaws of Thunder Junction 276 cards')!.click();
     await fixture.whenStable();
 
     choosePlatform(page, 'MTGO');
@@ -251,7 +270,7 @@ describe('choosing a set list on the create form', () => {
     await fixture.whenStable();
 
     expect(page.textContent).toContain('Chosen: OTJ (+ BIG)');
-    expect(checkboxes(group(page, 'OTJ sublists')!)).toEqual([
+    expect(toggleButtons(group(page, 'OTJ sublists')!)).toEqual([
       '☑ BIG The Big Score 30 cards',
       '☐ YOTJ Alchemy: Thunder Junction 30 cards',
     ]);
@@ -275,7 +294,7 @@ describe('choosing a set list on the create form', () => {
     TestBed.tick();
 
     expect(page.textContent).not.toContain('Loading the sets');
-    expect(checkboxes(namedList(page, 'Sets'))).toEqual([
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([
       '☐ OTJ Outlaws of Thunder Junction 276 cards',
     ]);
     again.flush(catalog([otj, mkm]));
@@ -314,7 +333,7 @@ describe('choosing a set list on the create form', () => {
     await fixture.whenStable();
 
     expect(page.textContent).not.toContain('Still counting cards on Scryfall');
-    expect(checkboxes(namedList(page, 'Sets'))).toHaveLength(2);
+    expect(toggleButtons(namedList(page, 'Sets'))).toHaveLength(2);
   });
 
   it('offers no more sets once as many are chosen as a set list can hold', async () => {
@@ -326,13 +345,15 @@ describe('choosing a set list on the create form', () => {
     const { fixture, page } = await openSets(catalog(many));
 
     for (const set of many.slice(0, MAX_SET_LIST_SETS)) {
-      setBox(page, `${set.code.toUpperCase()} ${set.name}`)!.click();
+      setToggle(page, `${set.code.toUpperCase()} ${set.name} 335 cards`)!.click();
     }
     await fixture.whenStable();
 
     const last = many[MAX_SET_LIST_SETS];
-    expect(setBox(page, `${last.code.toUpperCase()} ${last.name}`)!.disabled).toBe(true);
-    expect(setBox(page, 'S0 Set 0')!.disabled).toBe(false);
+    expect(setToggle(page, `${last.code.toUpperCase()} ${last.name} 335 cards`)!.disabled).toBe(
+      true,
+    );
+    expect(setToggle(page, 'S0 Set 0 335 cards')!.disabled).toBe(false);
     expect(page.textContent).toContain(`A set list holds at most ${MAX_SET_LIST_SETS} sets.`);
   });
 

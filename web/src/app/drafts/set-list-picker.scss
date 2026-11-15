@@ -12,6 +12,10 @@ label {
 }
 
 .sets {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-xs);
   max-height: 18rem;
   overflow-y: auto;
   margin: 0;
@@ -21,17 +25,18 @@ label {
   list-style: none;
 }
 
-.choice {
-  flex-direction: row;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-sm);
-  font-weight: normal;
+/* A set's or sublist's toggle: a long name wraps onto a phone's next line rather than overflow the list. */
+.toggle-button.labelled {
+  height: auto;
+  min-height: 44px;
+  white-space: normal;
+  text-align: start;
 }
 
 .sublists {
   display: flex;
   flex-direction: column;
+  align-items: flex-start;
   gap: var(--space-xs);
   margin: 0;
   padding: var(--space-sm);

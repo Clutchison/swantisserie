@@ -15,16 +15,20 @@
   <ul class="sets" aria-label="Sets">
     @for (set of shown(); track set.code) {
       <li>
-        <label class="choice">
-          <input
-            type="checkbox"
-            [checked]="isChosen(set.code)"
-            [disabled]="full() && !isChosen(set.code)"
-            (change)="toggleSet(set)"
-          />
+        <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
+        <button
+          type="button"
+          class="toggle-button labelled"
+          [attr.aria-pressed]="isChosen(set.code)"
+          [disabled]="full() && !isChosen(set.code)"
+          (click)="toggleSet(set)"
+        >
+          @if (isChosen(set.code)) {
+            <svg lucideCheck size="16" aria-hidden="true"></svg>
+          }
           {{ set.code.toUpperCase() }} {{ set.name }}
           <span class="hint">{{ set.cards }} cards</span>
-        </label>
+        </button>
       </li>
     } @empty {
       <li class="hint">No set on {{ platform() }} matches.</li>
@@ -48,15 +52,19 @@
   <fieldset class="sublists">
     <legend>{{ chosen.set.code.toUpperCase() }} sublists</legend>
     @for (sublist of chosen.set.sublists; track sublist.code) {
-      <label class="choice">
-        <input
-          type="checkbox"
-          [checked]="chosen.entry.sublists.includes(sublist.code)"
-          (change)="toggleSublist(chosen.set, sublist.code)"
-        />
+      @let included = chosen.entry.sublists.includes(sublist.code);
+      <button
+        type="button"
+        class="toggle-button labelled"
+        [attr.aria-pressed]="included"
+        (click)="toggleSublist(chosen.set, sublist.code)"
+      >
+        @if (included) {
+          <svg lucideCheck size="16" aria-hidden="true"></svg>
+        }
         {{ sublist.code.toUpperCase() }} {{ sublist.name }}
         <span class="hint">{{ sublist.cards }} cards</span>
-      </label>
+      </button>
     }
   </fieldset>
 }
