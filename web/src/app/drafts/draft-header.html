@@ -100,7 +100,7 @@
         type="button"
         (click)="start()"
         [disabled]="!poolReady() || startProblem() !== null"
-        [attr.aria-describedby]="startProblem() ? 'start-problem' : null"
+        [attr.aria-describedby]="startProblem() !== null ? 'start-problem' : null"
         appSendsChange="start"
       >
         Start draft

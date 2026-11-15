@@ -689,8 +689,10 @@ describe('seats and start', () => {
       const bot = { ...bob, id: 'bot:1', name: 'Bot 1', isBot: true };
       const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bot] });
 
-      expect(button(page, 'Start draft')!.disabled).toBe(false);
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(false);
       expect(page.textContent).not.toContain(PLAYER_COUNT);
+      expect(accessibleDescription(start)).toBe('');
     });
 
     it('gives no reason from the pool’s partial count while the snapshot runs', async () => {
