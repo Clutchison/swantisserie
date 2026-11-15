@@ -21,6 +21,7 @@ import {
   text,
   alertIn,
   serverError,
+  pressed,
 } from './harness';
 import {
   clickBackdrop,
@@ -50,10 +51,10 @@ describe('queueing the unpicked cards on the plan tab', () => {
 
   /** The open dialog, if any: it opens over the page, outside the tab. */
   const dialog = openDialog;
-  const sideboardBox = () =>
-    [...openDialog()!.querySelectorAll('label')]
-      .find((label) => label.textContent?.trim() === 'Include sideboard')!
-      .querySelector('input')!;
+  /** The dialog's Include sideboard toggle button. */
+  const sideboardToggle = () => button(dialog()!, 'Include sideboard')!;
+  /** Whether Include sideboard is pressed, as its `aria-pressed` says. */
+  const sideboardPressed = () => pressed(dialog()!, 'Include sideboard');
 
   /** Opens the Queue unpicked dialog on the Deck tab. */
   async function openQueueUnpicked(fixture: AppFixture, page: HTMLElement) {
@@ -101,11 +102,12 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await openQueueUnpicked(fixture, page);
 
     expect(dialog()!.getAttribute('aria-modal')).toBe('true');
-    expect(sideboardBox().checked).toBe(false);
+    expect(sideboardPressed()).toBe('false');
     expect(text(dialog())).toContain('Adds 1 card to the end of your queue.');
 
-    sideboardBox().click();
+    sideboardToggle().click();
     await fixture.whenStable();
+    expect(sideboardPressed()).toBe('true');
     expect(text(dialog())).toContain('Adds 2 cards to the end of your queue.');
   });
 
@@ -162,7 +164,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     expect(dialog()).toBeNull();
   });
 
-  it('includes the sideboard when checked, and opens unchecked each time', async () => {
+  it('includes the sideboard when Include sideboard is pressed, and opens unpressed each time', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ turn: bobsSecondPick }),
@@ -172,7 +174,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
       },
     );
     const tab = await openQueueUnpicked(fixture, page);
-    sideboardBox().click();
+    sideboardToggle().click();
     await fixture.whenStable();
     button(dialog()!, 'Cancel')!.click();
     await fixture.whenStable();
@@ -180,8 +182,8 @@ describe('queueing the unpicked cards on the plan tab', () => {
 
     button(tab, 'Queue unpicked')!.click();
     await fixture.whenStable();
-    expect(sideboardBox().checked).toBe(false);
-    sideboardBox().click();
+    expect(sideboardPressed()).toBe('false');
+    sideboardToggle().click();
     await fixture.whenStable();
     button(dialog()!, 'Queue 3 cards')!.click();
 
@@ -219,7 +221,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await openQueueUnpicked(fixture, page);
     expect(text(dialog())).toContain('Nothing on your mainboard to queue.');
 
-    sideboardBox().click();
+    sideboardToggle().click();
     await fixture.whenStable();
     expect(text(dialog())).toContain('Adds 1 card to the end of your queue.');
     expect(button(dialog()!, 'Queue 1 card')!.disabled).toBe(false);
@@ -264,7 +266,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
       },
     );
     const tab = await openQueueUnpicked(fixture, page);
-    sideboardBox().click();
+    sideboardToggle().click();
     await fixture.whenStable();
 
     updates.events.next({
@@ -289,7 +291,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     expect(document.activeElement).toBe(tabButton(page, 'Deck'));
     button(tab, 'Queue unpicked')!.click();
     await fixture.whenStable();
-    expect(sideboardBox().checked).toBe(false);
+    expect(sideboardPressed()).toBe('false');
   });
 
   it('opens on Cancel, and keeps Tab and Shift+Tab inside the dialog, wrapping at either end', async () => {
@@ -304,7 +306,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     pressTab();
     expect(document.activeElement).toBe(button(dialog()!, 'Queue 2 cards'));
     pressTab();
-    expect(document.activeElement).toBe(sideboardBox());
+    expect(document.activeElement).toBe(sideboardToggle());
     pressTab({ shift: true });
     expect(document.activeElement).toBe(button(dialog()!, 'Queue 2 cards'));
   });

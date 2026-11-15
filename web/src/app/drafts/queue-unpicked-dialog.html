@@ -12,14 +12,18 @@
     } @else {
       <p>Adds {{ queueCountText() }} to the end of your queue.</p>
     }
-    <label>
-      <input
-        type="checkbox"
-        [checked]="includeSideboard()"
-        (change)="includeSideboard.set($any($event.target).checked)"
-      />
+    <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
+    <button
+      type="button"
+      class="toggle-button labelled include-sideboard"
+      [attr.aria-pressed]="includeSideboard()"
+      (click)="includeSideboard.set(!includeSideboard())"
+    >
+      @if (includeSideboard()) {
+        <svg lucideCheck size="16" aria-hidden="true"></svg>
+      }
       Include sideboard
-    </label>
+    </button>
   </div>
   <div class="dialog-actions">
     <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
