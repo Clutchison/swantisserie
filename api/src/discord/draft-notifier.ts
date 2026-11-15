@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnApplicationShutdown,
+  OnModuleDestroy,
+} from '@nestjs/common';
 import { setTimeout } from 'node:timers/promises';
 import { Deadline, DeadlinePassedError } from '../deadline.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
@@ -16,11 +21,22 @@ import {
 } from './webhook-client.js';
 
 /**
- * How long shutdown waits for queued announcements, from when it starts.
- * Stays under Heroku's 30 s from SIGTERM to SIGKILL, leaving time for the
- * database to disconnect after it.
+ * How long shutdown waits for queued announcements, measured from when
+ * shutdown starts: the notifier's `onModuleDestroy`. Nest calls that before
+ * it closes the HTTP server, so the wait for requests in flight counts against
+ * it; only shallower modules' own `onModuleDestroy` (the bots' brief wait for
+ * picks already being made) comes before. Stays under Heroku's 30 s from
+ * SIGTERM to SIGKILL, leaving time for the database to disconnect after it.
  */
 export const SHUTDOWN_DEADLINE_MS = 25_000;
+
+/** An announcement queued or still sending, which shutdown may drop. */
+interface Announcement {
+  draftId: string;
+  events: DraftEvent[];
+  /** Whether its posts have started: some may have gone, or still go. */
+  sending: boolean;
+}
 
 /** How long to wait before each retry of a failed post. */
 export class DraftNotifierRetries {
@@ -36,17 +52,16 @@ export class DraftNotifierRetries {
  * logged as dropped, and no new post starts.
  */
 @Injectable()
-export class DraftNotifier implements OnApplicationShutdown {
+export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   private readonly logger = new Logger(DraftNotifier.name);
   /** Each draft's posts so far, so the next waits for them. */
   private readonly queues = new Map<string, Promise<void>>();
   /** Announcements queued or still sending, which shutdown may drop. */
-  private readonly pending = new Set<{
-    draftId: string;
-    events: DraftEvent[];
-  }>();
+  private readonly pending = new Set<Announcement>();
+  /** Set when shutdown starts, in `onModuleDestroy`. */
+  private shutdownDeadline?: Deadline;
   /** Aborted once the shutdown deadline has passed: no new post starts. */
-  private readonly stopping = new AbortController();
+  private readonly pastShutdownDeadline = new AbortController();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -55,54 +70,63 @@ export class DraftNotifier implements OnApplicationShutdown {
     private readonly retries: DraftNotifierRetries,
   ) {}
 
+  /** Starts the shutdown deadline's clock, as shutdown starts. */
+  onModuleDestroy(): void {
+    this.startShutdownDeadline();
+  }
+
+  private startShutdownDeadline(): Deadline {
+    // Holds the process while raced, so the dropped posts are logged and the
+    // database disconnects even if nothing else is keeping it alive.
+    return (this.shutdownDeadline ??= new Deadline(
+      'shutdown',
+      SHUTDOWN_DEADLINE_MS,
+      { holdsProcess: true },
+    ));
+  }
+
   /**
    * Waits for every queued post, retries included, so none is dropped at an
    * ordinary deploy or restart. Keeps waiting while more are queued: by bots
    * finishing their picks and by requests finishing as the HTTP server
-   * closed. Waits only until the shutdown deadline, though: then it logs each
-   * announcement still queued or still sending as dropped, naming its draft,
-   * starts no new post (a post already sending is left to finish or not), and
-   * returns. Runs before PrismaService disconnects, as announcing reads the
-   * database.
+   * closed. Waits only until the shutdown deadline, though, which started
+   * with shutdown in `onModuleDestroy`: then it logs each announcement still
+   * queued or still sending as dropped, naming its draft, starts no new post
+   * (a post already sending is left to land or not), and returns. Runs
+   * before PrismaService disconnects, as announcing reads the database.
    */
   async onApplicationShutdown(): Promise<void> {
-    // Holds the process, so the dropped posts are logged and the database
-    // disconnects even if nothing else is keeping it alive.
-    const deadline = new Deadline('shutdown', SHUTDOWN_DEADLINE_MS, {
-      holdsProcess: true,
-    });
+    const deadline = this.startShutdownDeadline();
     try {
       while (this.queues.size > 0) {
         await deadline.race(Promise.all(this.queues.values()));
       }
     } catch (err) {
       if (!(err instanceof DeadlinePassedError)) throw err;
-      this.stop();
+      this.dropPending();
     }
   }
 
   /** Whether the shutdown deadline has passed, so no new post may start. */
-  private get stopped(): boolean {
-    return this.stopping.signal.aborted;
+  private get deadlinePassed(): boolean {
+    return this.pastShutdownDeadline.signal.aborted;
   }
 
   /** Drops every announcement still queued or sending, logging each. */
-  private stop(): void {
-    this.stopping.abort();
+  private dropPending(): void {
+    this.pastShutdownDeadline.abort();
     for (const announcement of this.pending) this.logDropped(announcement);
     this.pending.clear();
     this.queues.clear();
   }
 
-  private logDropped({
-    draftId,
-    events,
-  }: {
-    draftId: string;
-    events: DraftEvent[];
-  }): void {
+  private logDropped({ draftId, events, sending }: Announcement): void {
+    const types = events.map((e) => e.type).join(', ');
+    const posted = sending
+      ? 'may not have been posted, or only in part'
+      : 'was not posted';
     this.logger.error(
-      `Shutdown dropped an announcement on draft ${draftId} (${events.map((e) => e.type).join(', ')}): the shutdown deadline passed before it was posted.`,
+      `Shutdown dropped an announcement on draft ${draftId} (${types}): the shutdown deadline passed, so it ${posted}.`,
     );
   }
 
@@ -116,19 +140,20 @@ export class DraftNotifier implements OnApplicationShutdown {
    * the old one.
    */
   notify(draftId: string, events: DraftEvent[]): Promise<void> {
-    const announcement = { draftId, events };
-    if (this.stopped) {
+    const announcement: Announcement = { draftId, events, sending: false };
+    if (this.deadlinePassed) {
       this.logDropped(announcement);
       return Promise.resolve();
     }
     this.pending.add(announcement);
     const queued = (this.queues.get(draftId) ?? Promise.resolve()).then(
       async () => {
+        announcement.sending = true;
         try {
           await this.announce(draftId, events);
         } catch (err) {
-          // Once stopped, shutdown has logged it as dropped already.
-          if (!this.stopped) {
+          // Once past the deadline, shutdown has logged it as dropped already.
+          if (!this.deadlinePassed) {
             this.logger.error(
               `Couldn’t announce on draft ${draftId}’s webhook: ${String(err)}`,
             );
@@ -147,7 +172,7 @@ export class DraftNotifier implements OnApplicationShutdown {
   }
 
   private async announce(draftId: string, events: DraftEvent[]): Promise<void> {
-    if (this.stopped) return;
+    if (this.deadlinePassed) return;
     const row = await this.prisma.draft.findUnique({
       where: { id: draftId },
       select: {
@@ -163,12 +188,12 @@ export class DraftNotifier implements OnApplicationShutdown {
       url: new URL(`/drafts/${draftId}`, this.config.redirectUri).href,
     };
     for (const message of draftMessages(draft, events)) {
-      if (this.stopped) return;
+      if (this.deadlinePassed) return;
       try {
         await this.post(webhook.url, message);
       } catch (err) {
         // Shutdown has logged it as dropped, and the database may be gone.
-        if (this.stopped) return;
+        if (this.deadlinePassed) return;
         if (err instanceof WebhookGoneError) {
           // The rest of the announcement would only find it gone too.
           return this.markGone(webhook, err);
@@ -206,7 +231,7 @@ export class DraftNotifier implements OnApplicationShutdown {
    */
   private async post(url: string, message: WebhookMessage): Promise<void> {
     for (const delay of this.retries.delaysMs) {
-      if (this.stopped) return;
+      if (this.deadlinePassed) return;
       try {
         return await this.webhooks.post(url, message);
       } catch (err) {
@@ -219,16 +244,18 @@ export class DraftNotifier implements OnApplicationShutdown {
         await this.wait(delay);
       }
     }
-    if (this.stopped) return;
+    if (this.deadlinePassed) return;
     await this.webhooks.post(url, message);
   }
 
   /** Waits `ms`, or until the shutdown deadline passes if that is sooner. */
   private async wait(ms: number): Promise<void> {
     try {
-      await setTimeout(ms, undefined, { signal: this.stopping.signal });
+      await setTimeout(ms, undefined, {
+        signal: this.pastShutdownDeadline.signal,
+      });
     } catch (err) {
-      if (!this.stopped) throw err;
+      if (!this.deadlinePassed) throw err;
     }
   }
 }

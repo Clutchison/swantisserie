@@ -6,8 +6,9 @@ export class DeadlinePassedError extends Error {
 }
 
 /**
- * A point in time, `ms` after it is set, that work on a request path waits
- * for no longer than. Racing work against it stops the wait but doesn't
+ * A point in time, `ms` after it is set, that work waits for no longer
+ * than: a request path's outside calls, or shutdown's wait for queued
+ * announcements. Racing work against it stops the wait but doesn't
  * cancel the work, which may still settle, and fill a cache, later. Several
  * pieces of work raced against one deadline share its time.
  */

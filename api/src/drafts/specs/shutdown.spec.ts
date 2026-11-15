@@ -3,7 +3,11 @@ import {
   DraftNotifier,
   SHUTDOWN_DEADLINE_MS,
 } from '../../discord/draft-notifier.js';
-import { held, pastDeadline } from '../../testing/deadlines.js';
+import {
+  held,
+  pastDeadline,
+  useDeadlineTimers,
+} from '../../testing/deadlines.js';
 import {
   aliceCookie,
   app,
@@ -144,16 +148,53 @@ describe('shutting down', () => {
         const errors = vi.spyOn(Logger.prototype, 'error');
         const fail = holdPost();
         await start(id).expect(200);
-        void app.get(DraftNotifier).notify(id, [{ type: 'frozen' }]);
+        const freeze = app.get(DraftNotifier).notify(id, [{ type: 'frozen' }]);
 
         await closePastDeadline();
         // A retry, or the queued freeze, would be a new post.
         fail();
-        await new Promise((resolve) => setTimeout(resolve, 50));
+        await freeze;
 
         expect(webhookClient.post).toHaveBeenCalledTimes(1);
         // The start still sending and the freeze still queued.
-        expect(errors).toHaveBeenCalledTimes(2);
+        expect(errors.mock.calls).toEqual([
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*started`))],
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*frozen`))],
+        ]);
+      });
+
+      it('counts the time the server takes to close against the deadline', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        holdPost();
+        await start(id).expect(200);
+        await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+        useDeadlineTimers();
+        try {
+          // A request in flight holds the server's close for the whole
+          // deadline.
+          slowDownDatabase(SHUTDOWN_DEADLINE_MS);
+          const reading = slowQueryUnderway();
+          const read = getDraft(id).then((res) => res);
+          await reading;
+          // Only that reply: the database disconnects at its usual speed.
+          slowDownDatabase(0);
+
+          let closed = false;
+          void app.close().then(() => {
+            closed = true;
+          });
+          await vi.advanceTimersByTimeAsync(SHUTDOWN_DEADLINE_MS);
+
+          // Not a second deadline's worth later.
+          await vi.waitFor(() => expect(closed).toBe(true), { timeout: 5_000 });
+
+          expect((await read).status).toBe(200);
+          expect(errors).toHaveBeenCalledWith(
+            expect.stringMatching(new RegExp(`dropped.*draft ${id}`)),
+          );
+        } finally {
+          vi.useRealTimers();
+        }
       });
 
       it('drops and logs an announcement notified after the deadline', async () => {
