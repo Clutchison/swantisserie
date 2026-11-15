@@ -8,12 +8,18 @@ import { app, discord } from './app.js';
  * http, so the sign-in's cookies aren't Secure and a test's agent sends
  * them back.
  */
-export const signInConfig = new DiscordConfig({
+const signInConfig = new DiscordConfig({
   DISCORD_CLIENT_ID: 'client-123',
   DISCORD_CLIENT_SECRET: 'shh',
   DISCORD_REDIRECT_URI: 'http://localhost:4200/api/auth/discord/callback',
   DISCORD_GUILD_ID: 'guild-1',
 });
+
+/** The override that gives the app `signInConfig`'s Discord application. */
+export const signInConfigOverride = {
+  provide: DiscordConfig,
+  useValue: signInConfig,
+};
 
 /**
  * Starts sign-in in a cookie-keeping agent, and gives the callback Discord

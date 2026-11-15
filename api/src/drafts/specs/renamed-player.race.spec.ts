@@ -2,16 +2,15 @@ import { setTimeout } from 'node:timers/promises';
 import type { DraftView } from 'contract';
 import type request from 'supertest';
 import type { DiscordProfile } from '../../discord/discord-client.js';
-import { DiscordConfig } from '../../discord/discord-config.js';
-import { signInConfig, startSignInAs } from '../../testing/discord-sign-in.js';
 import {
-  bobCookie,
-  describeRaces,
-  raceLastCommitFirst,
-} from './race-harness.js';
+  signInConfigOverride,
+  startSignInAs,
+} from '../../testing/discord-sign-in.js';
+import { describeRaces, raceLastCommitFirst } from './race-harness.js';
 import {
   aliceCookie,
   bob,
+  bobCookie,
   card,
   createDraft,
   cubeCobra,
@@ -52,7 +51,7 @@ const after = (send: () => PromiseLike<request.Response>) => async () => {
 };
 
 /** The app with a Discord application to sign in through. */
-const signingIn = [{ provide: DiscordConfig, useValue: signInConfig }];
+const signingIn = { overrides: [signInConfigOverride] };
 
 /** Bob, as `draft` shows him. */
 const bobIn = (draft: DraftView) =>

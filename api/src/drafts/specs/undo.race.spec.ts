@@ -1,13 +1,12 @@
 import {
   aliceThenBob,
   answered,
-  bobCookie,
   describeRaces,
   mainboard,
   race,
   sortedAnswers,
 } from './race-harness.js';
-import { aliceCookie, pick, pickLogLines, undo } from './harness.js';
+import { aliceCookie, bobCookie, pick, pickLogLines, undo } from './harness.js';
 
 describeRaces('undo', () => {
   it('lets a pick land on the pick before it, or the undo take that back and the pick be refused', async () => {

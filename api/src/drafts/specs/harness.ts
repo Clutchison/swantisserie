@@ -61,12 +61,16 @@ export let aliceCookie: string;
 /**
  * Registers the hooks that give each test a fresh database and running app,
  * with Alice signed in. The database is PGlite, unless `startDatabase`
- * starts another. `overrides` are provided as `startApp` says.
+ * starts another. `overrides` are values provided in place of the app's own
+ * providers, or of the fakes and settings the harness provides.
  */
-export function useDraftsApp(
-  startDatabase?: () => Promise<TestDatabase>,
-  overrides?: TestAppOptions['overrides'],
-) {
+export function useDraftsApp({
+  startDatabase,
+  overrides,
+}: {
+  startDatabase?: () => Promise<TestDatabase>;
+  overrides?: TestAppOptions['overrides'];
+} = {}) {
   useTestApp(async () => {
     await startApp({ overrides });
     await signInAlice();
@@ -138,15 +142,23 @@ export async function posted(draftId: string, count: number) {
   return webhookClient.post.mock.calls.map(([, message]) => message.content);
 }
 
-/** `session=<token>` for Bob, once `useAnnouncements` has signed him in. */
+/** `session=<token>` for Bob, once `useBob` has signed him in. */
 export let bobCookie: string;
+
+/** Signs Bob in as `bobCookie` before each spec. */
+export function useBob(): void {
+  beforeEach(async () => {
+    bobCookie = await signIn(bob);
+  });
+}
+
 /** The webhook `useAnnouncements` registers. */
 export let webhookId: string;
 
-/** Signs Bob in and registers a webhook before each spec. */
+/** Signs Bob in, as `useBob` does, and registers a webhook before each spec. */
 export function useAnnouncements(): void {
+  useBob();
   beforeEach(async () => {
-    bobCookie = await signIn(bob);
     webhookId = await registerWebhook();
   });
 }
@@ -160,7 +172,8 @@ export function readyDraftOnWebhook(): Promise<string> {
  * Starts the app as `app`. `botDelayMs` is how long bots wait before picking:
  * at once, unless told otherwise. `botRetryDelaysMs` are the waits before
  * each retry of a bot's failed pick: two retries at once, unless told
- * otherwise. `overrides` are provided in place of the app's own providers.
+ * otherwise. `overrides` are values provided in place of the app's own
+ * providers, or of the fakes and settings the harness provides.
  */
 export async function startApp({
   botDelayMs = 0,

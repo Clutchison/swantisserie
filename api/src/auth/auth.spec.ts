@@ -2,7 +2,6 @@ import { Controller, Get, Logger, Module, UseGuards } from '@nestjs/common';
 import type { DraftView } from 'contract';
 import request from 'supertest';
 import { DiscordProfile } from '../discord/discord-client.js';
-import { DiscordConfig } from '../discord/discord-config.js';
 import {
   alice,
   app,
@@ -11,7 +10,7 @@ import {
   useTestApp,
 } from '../testing/app.js';
 import {
-  signInConfig,
+  signInConfigOverride,
   signInThroughDiscord,
   startSignIn,
 } from '../testing/discord-sign-in.js';
@@ -73,7 +72,7 @@ describe('Discord sign-in', () => {
   useTestApp(() =>
     startTestApp({
       overrides: [
-        { provide: DiscordConfig, useValue: signInConfig },
+        signInConfigOverride,
         { provide: AppAdminConfig, useValue: admins },
       ],
       imports: [AppAdminOnlyModule],
@@ -423,7 +422,7 @@ describe('Discord sign-in', () => {
 describe('signing in again, to the drafts the user is in', () => {
   useTestApp(async () => {
     await startTestApp({
-      overrides: [{ provide: DiscordConfig, useValue: signInConfig }],
+      overrides: [signInConfigOverride],
     });
     await signInAlice();
   });

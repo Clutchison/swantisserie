@@ -9,14 +9,14 @@ import {
 } from '../../testing/race-database.js';
 import {
   aliceCookie,
-  bob,
+  bobCookie,
   fourCards,
   plan,
   poolCardIds,
   queue,
   readyDraft,
-  signIn,
   start,
+  useBob,
   useDraftsApp,
 } from './harness.js';
 
@@ -29,9 +29,6 @@ const HOLD_MS = 1_000;
 
 let database: RaceDatabase;
 
-/** `session=<token>` for Bob, signed in before each race spec. */
-export let bobCookie: string;
-
 /**
  * Describes races of two requests at once, each a transaction holding a
  * row lock, such as the draft's, a player's or a webhook's, on a real
@@ -42,24 +39,23 @@ export let bobCookie: string;
  * state is one that taking the two one at a time, in either order, leaves.
  *
  * Skipped unless RACE_DATABASE_URL names a local Postgres server; see
- * `startRaceDatabase`. Alice and Bob are signed in. `overrides` are
- * provided in place of the app's own providers.
+ * `startRaceDatabase`. Alice is signed in, and Bob as `useBob` signs him
+ * in. `overrides` are values provided in place of the app's own providers,
+ * or of the fakes and settings the harness provides.
  */
 export function describeRaces(
   name: string,
   specs: () => void,
-  overrides?: TestAppOptions['overrides'],
+  { overrides }: { overrides?: TestAppOptions['overrides'] } = {},
 ) {
   describe.skipIf(!raceServer(process.env))(
     `${name}, raced on a real Postgres`,
     () => {
-      useDraftsApp(
-        async () => (database = await startRaceDatabase()),
+      useDraftsApp({
+        startDatabase: async () => (database = await startRaceDatabase()),
         overrides,
-      );
-      beforeEach(async () => {
-        bobCookie = await signIn(bob);
       });
+      useBob();
       specs();
     },
   );

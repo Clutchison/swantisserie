@@ -1,8 +1,9 @@
 import type { ViewerTournamentView } from 'contract';
-import { answered, bobCookie, describeRaces, race } from './race-harness.js';
+import { answered, describeRaces, race } from './race-harness.js';
 import {
   aliceCookie,
   bob,
+  bobCookie,
   inRegistration,
   markReady,
   shrinkDeck,

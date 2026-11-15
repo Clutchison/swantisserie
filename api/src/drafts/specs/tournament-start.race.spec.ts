@@ -1,12 +1,7 @@
-import {
-  answered,
-  bobCookie,
-  describeRaces,
-  planOf,
-  race,
-} from './race-harness.js';
+import { answered, describeRaces, planOf, race } from './race-harness.js';
 import {
   aliceCookie,
+  bobCookie,
   clearBasics,
   completeDraft,
   fullDeck,
