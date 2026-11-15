@@ -1,5 +1,5 @@
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { readTurnState } from '../turn-state.js';
+import { readTurn } from '../turn-read.js';
 import {
   alice,
   app,
@@ -322,11 +322,11 @@ describe('picks', () => {
     await pick(id, first).expect(200);
     await pick(id, second, bobCookie).expect(200);
 
-    const state = await app
+    const turnRead = await app
       .get(PrismaService)
-      .$transaction((tx) => readTurnState(tx, id));
+      .$transaction((tx) => readTurn(tx, id));
 
-    expect(state.picked).toEqual([first, second]);
+    expect(turnRead.picked).toEqual([first, second]);
   });
 
   it('is 404 for a draft that does not exist', async () => {

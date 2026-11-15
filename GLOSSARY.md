@@ -251,7 +251,7 @@ Cards leaving a player's queue together: the cards one pick took out of it, a ca
 _Avoid_: Removal (that is the player taking a card out by hand), exit, drop
 
 **Steal behavior**:
-A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where the queue is paused, or **pick next**, where it keeps picking and their next available queued card is picked on their turn. Players start on pause queue and can change it while the draft is drafting or frozen.
+A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where it is set to queue paused, or **pick next**, where it stays as it was: queue picking, so their next available queued card is picked on their turn, or queue paused, if it already was. Players start on pause queue and can change it while the draft is drafting or frozen.
 _Avoid_: Loss setting, fallback, keep queue, clear queue (no longer one)
 
 **Queue pane**:
@@ -317,7 +317,7 @@ A pool card in a player's deck that no one has picked: the player added it from 
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
 **Queue order**:
-The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck loses its place.
+The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck, by the player or by a loss, loses its place, even if an undo puts it back.
 _Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:

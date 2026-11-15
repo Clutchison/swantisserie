@@ -23,6 +23,7 @@ Today, only members of the one guild in `DISCORD_GUILD_ID` can sign in, with the
 The organizer picks one **pool source** when creating the draft: a **pool query**, a **cube link** or a **set list**. Whichever it is, the pool leaves out the basic lands, and every pool card has a printing on the draft's platform (`arena` or `mtgo`).
 
 - **Pool query:** the organizer enters a Scryfall search. Every card in the results is in the pool, once.
+  - **Validation:** creation fails if the pool query matches no cards once the basic lands are left out, or if Scryfall rejects it or ignores part of it.
   - **Platform validation:** the app runs `(q) -in:<platform>` for the draft's platform. If that returns any cards, creation fails and lists the cards that aren't on the platform. (Not `-game:<platform>`: `game:` matches printings, so it would also catch cards on the platform that have a printing off it.)
   - **Snapshot:** after creation, a background job pages through `(q) <no basic lands> game:<platform> unique:cards` (175/page, ≤2 req/s, progress bar).
 - **Cube link:** the organizer gives a CubeCobra cube link or a bare cube id. Only the cube's mainboard goes in the pool.
@@ -66,9 +67,9 @@ The organizer picks one **pool source** when creating the draft: a **pool query*
 - If nothing in your queue is available, it stops and waits for you. It never picks randomly.
 - When someone else picks a card in your queue, by hand, from their queue or as a bot, and no other copy is available for it, that card is **lost**. Only the lost card leaves; the rest keeps its order. What happens to your queue is your **steal behavior** for that draft:
   - **Pause queue** (the default): your queue is set to queue paused, even mid-cascade, which then stops at your next turn, so a stale queue never fires. A queue already queue paused stays so.
-  - **Pick next**: your queue stays queue picking, and on your turn your next available queued card is picked as usual, even in the same cascade.
+  - **Pick next**: your queue stays as it was. Queue picking, it picks your next available queued card on your turn as usual, even in the same cascade; queue paused, if it already was, it stays so.
 - You set your steal behavior with the Steal behavior pill in the Queue pane while the draft is drafting or frozen, including on your own turn; it's locked once the draft is closed or complete. Like the queue, it's private. Changing it affects only cards lost afterwards.
-- Your own pick just leaves your queue. If you pick a copy of a card by hand and your queue holds only other copies of it, the first available one leaves instead, so your queue doesn't pick a second copy; an undo puts it back in its place. The Queue notice, in the Queue pane, names the lost cards, building up until dismissed, and says of each whether its loss set your queue to queue paused or, under pick next, left it queue picking. Losing a card is private: it adds no announcement or ping.
+- Your own pick just leaves your queue. If you pick a copy of a card by hand and your queue holds only other copies of it, the first available one leaves instead, so your queue doesn't pick a second copy; an undo puts it back in its place. The Queue notice, in the Queue pane, names the lost cards, building up until dismissed, and says of each whether its loss set your queue to queue paused or, under pick next, left it as it was, so it stayed queue picking, or stayed queue paused, if it already was. Losing a card is private: it adds no announcement or ping.
 - You **can't add to your queue on your own turn**, drafting or frozen: that pick is made by hand, including the second of two turns in a row at a snake round boundary. There is no queueing in the lobby: you can add once the draft has started, whenever it isn't your turn, and can always remove and reorder while the draft is active.
 
 ### Deck

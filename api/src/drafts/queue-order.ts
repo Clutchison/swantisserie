@@ -1,6 +1,6 @@
 import type { Prisma } from '../generated/prisma/client.js';
 import type { Transaction } from './draft-shapes.js';
-import type { QueuedRow } from './turn-state.js';
+import type { QueuedRow } from './turn-read.js';
 
 /**
  * Takes `leaving`, cards in the player's queue as they sit there, out of it

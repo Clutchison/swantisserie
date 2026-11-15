@@ -26,6 +26,7 @@ import {
   alertIn,
   openQueueHelp,
   flushQueue,
+  draftClosed,
 } from './harness';
 import { comesBefore } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -39,7 +40,7 @@ describe('steal behavior', () => {
 
   const EXPLANATION =
     'Pause queue: the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand. ' +
-    'Pick next: the rest of your queue stays, and your next available card is picked on your turn.';
+    'Pick next: the rest of your queue stays as it was, and while it is queue picking, your next available card is picked on your turn.';
 
   /** The steal behavior pill. */
   function pill(queue: HTMLElement) {
@@ -63,7 +64,7 @@ describe('steal behavior', () => {
     expect(pill(queue).textContent).toContain('Pause queue');
     expect(pill(queue).getAttribute('aria-label')).toBe('Steal behavior: Pause queue');
     const notice = queueNotice(queue)!;
-    expect(control.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(comesBefore(control, notice)).toBe(true);
     expect(queue.querySelector('input[type="radio"]')).toBeNull();
     expect(queue.querySelector('legend')).toBeNull();
   });
@@ -189,22 +190,15 @@ describe('steal behavior', () => {
     const queue = queuePane(page);
 
     pill(queue).click();
-    http
-      .expectOne('/api/drafts/draft-1/queue/steal-behavior')
-      .flush(
-        { error: 'draft-closed', message: 'This draft is closed.' },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne('/api/drafts/draft-1/queue/steal-behavior').flush(...draftClosed);
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
     // Before the queue is re-read.
     await vi.waitFor(() => {
-      expect(queue.querySelector('[role="alert"]')?.textContent).toContain('This draft is closed.');
+      expect(alertIn(queue)?.textContent).toContain('This draft is closed.');
       expect(pill(queue).textContent).toContain('Pause queue');
     });
     // By the pill, not under a queue that may run off the screen.
-    const alert = queue.querySelector('[role="alert"]')!;
-    const list = queueList(queue);
-    expect(alert.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(comesBefore(alertIn(queue)!, queueList(queue))).toBe(true);
 
     reread.flush(queueOf({ cards: [queued(shivan)] }));
     await fixture.whenStable();
@@ -220,12 +214,7 @@ describe('steal behavior', () => {
     const help = await openQueueHelp(fixture, queue);
 
     pill(queue).click();
-    http
-      .expectOne('/api/drafts/draft-1/queue/steal-behavior')
-      .flush(
-        { error: 'draft-closed', message: 'This draft is closed.' },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne('/api/drafts/draft-1/queue/steal-behavior').flush(...draftClosed);
     await flushQueue(queueOf({ cards: [queued(shivan)] }));
     await vi.waitFor(() => expect(alertIn(queue)?.textContent).toContain('This draft is closed.'));
 
@@ -244,7 +233,7 @@ describe('steal behavior', () => {
     expect(help.textContent?.replace(/\s+/g, ' ')).toContain(
       'If another player picks a queued card first and no copy is left, it is lost. ' +
         'Under Pause queue, your queue is set to queue paused, for you to pick by hand; ' +
-        'under Pick next, it stays queue picking.',
+        'under Pick next, it stays as it was: queue picking, or queue paused if it already was.',
     );
   });
 });

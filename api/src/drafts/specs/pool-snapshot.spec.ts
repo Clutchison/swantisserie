@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import { Logger } from '@nestjs/common';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   ScryfallRejectedSearchError,
@@ -23,18 +24,44 @@ import {
   getDraft,
   snapshotted,
   readyDraft,
+  reversibleCard,
   copyIds,
   pool,
   post,
+  refuseNextSnapshotReset,
+  DROPPED_CONNECTION,
+  creationMatchQuery,
 } from './harness.js';
 
 useDraftsApp();
 
 describe('pool snapshot', () => {
+  /**
+   * A draft of the pool source whose snapshot a previous process left
+   * Running. Written directly: no route leaves a snapshot running across a
+   * restart, nor a cube link's running at all.
+   */
+  const draftLeftRunning = (
+    name: string,
+    poolSource: Pick<
+      Prisma.DraftUncheckedCreateInput,
+      'poolSourceKind' | 'poolQuery' | 'cubeId' | 'cubeName'
+    >,
+  ) =>
+    app.get(PrismaService).draft.create({
+      data: {
+        name,
+        ...poolSource,
+        picksPerPlayer: 40,
+        organizerId: alice.id,
+        snapshotState: 'Running',
+      },
+    });
+
   it('pages through the pool after creation, and the draft shows progress then the pool size', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: { ...page('Balefire Dragon'), totalCards: 2, hasMore: true },
       [`${query} page 2`]: { ...page('Shivan Dragon'), totalCards: 2 },
@@ -58,7 +85,7 @@ describe('pool snapshot', () => {
 
   it('leaves the basic lands out of the pool, as a player adds them to their plan one copy at a time', async () => {
     scryfallAnswers({
-      't:land': page('Plains', 'Snow-Covered Plains'),
+      [creationMatchQuery('t:land')]: page('Plains', 'Snow-Covered Plains'),
       '(t:land) -in:arena': null,
       [snapshotQuery('t:land')]: page('Snow-Covered Plains'),
     });
@@ -77,7 +104,7 @@ describe('pool snapshot', () => {
 
   it('takes each card’s MTGO printing for an MTGO draft', async () => {
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:mtgo': null,
       [snapshotQuery('c:r', 'MTGO')]: page('Shock'),
     });
@@ -101,7 +128,7 @@ describe('pool snapshot', () => {
 
   it('names the platform when the pool query no longer matches any cards on it', async () => {
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:mtgo': null,
       [snapshotQuery('c:r', 'MTGO')]: null,
     });
@@ -130,7 +157,7 @@ describe('pool snapshot', () => {
       },
     });
     scryfallAnswers({
-      't:dragon': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon')]: page('Balefire Dragon'),
       '(t:dragon) -in:arena': null,
       [query]: {
         ...page(),
@@ -172,10 +199,38 @@ describe('pool snapshot', () => {
     expect(res.body[0].images[0]).not.toHaveProperty('png');
   });
 
+  it('makes a pool card of a reversible card’s printing, in its front face’s mana value and type line', async () => {
+    const query = snapshotQuery('c:c');
+    scryfallAnswers({
+      [creationMatchQuery('c:c')]: page('Ugin, Eye of the Storms'),
+      '(c:c) -in:arena': null,
+      [query]: page(
+        reversibleCard('Ugin, Eye of the Storms', {
+          cmc: 7,
+          type_line: 'Legendary Planeswalker — Ugin',
+        }),
+      ),
+    });
+
+    const created = await createDraft({
+      name: 'Colorless',
+      poolSource: { kind: 'pool-query', poolQuery: 'c:c' },
+    }).expect(201);
+    const draft = await snapshotted(created.body.id);
+    expect(draft.snapshot).toEqual({ state: 'Complete', cards: 1, total: 1 });
+
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body[0]).toMatchObject({
+      oracleId: 'ugin-eye-of-the-storms-oracle',
+      manaValue: 7,
+      typeLine: 'Legendary Planeswalker — Ugin',
+    });
+  });
+
   it('stores each face’s text, cost, colors and stats, so a search can match either face', async () => {
     const query = snapshotQuery('t:giant');
     scryfallAnswers({
-      't:giant': page('Bonecrusher Giant // Stomp'),
+      [creationMatchQuery('t:giant')]: page('Bonecrusher Giant // Stomp'),
       '(t:giant) -in:arena': null,
       [query]: {
         ...page(),
@@ -257,7 +312,9 @@ describe('pool snapshot', () => {
   it('stores a battle’s defense on its face', async () => {
     const query = snapshotQuery('t:battle');
     scryfallAnswers({
-      't:battle': page('Invasion of Tarkir // Defiant Thundermaw'),
+      [creationMatchQuery('t:battle')]: page(
+        'Invasion of Tarkir // Defiant Thundermaw',
+      ),
       '(t:battle) -in:arena': null,
       [query]: {
         ...page(),
@@ -308,7 +365,7 @@ describe('pool snapshot', () => {
   it('fails rather than completing when Scryfall runs out of pages early', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: { ...page('Shock'), totalCards: 200, hasMore: true },
       [`${query} page 2`]: null,
@@ -328,7 +385,7 @@ describe('pool snapshot', () => {
   it('fails on a card with no oracle id rather than inventing one', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: {
         ...page(),
@@ -346,10 +403,35 @@ describe('pool snapshot', () => {
     });
   });
 
+  it.each([
+    [{ cmc: undefined }, 'Shock has no mana value.'],
+    [{ type_line: undefined }, 'Shock has no type line.'],
+  ])(
+    'fails on a card missing %o on the card and its front face rather than inventing it',
+    async (missing, error) => {
+      const query = snapshotQuery('c:r');
+      scryfallAnswers({
+        [creationMatchQuery('c:r')]: page('Shock'),
+        '(c:r) -in:arena': null,
+        [query]: page(
+          card('Shock', { ...missing, card_faces: [{ name: 'Shock' }] }),
+        ),
+      });
+      const created = await createDraft({
+        name: 'Red',
+      });
+
+      expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
+        state: 'Failed',
+        error,
+      });
+    },
+  );
+
   it('keeps unexpected errors’ details out of the organizer’s view', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new TypeError('connect ECONNREFUSED 10.0.0.7:5432'),
     });
@@ -385,7 +467,7 @@ describe('pool snapshot', () => {
   it('surfaces a failure on the draft, and the organizer can retry it', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
@@ -415,10 +497,95 @@ describe('pool snapshot', () => {
     });
   });
 
+  it('creates the draft with its snapshot failed when the database refuses the snapshot’s start, and the organizer can retry it', async () => {
+    const query = snapshotQuery('t:dragon c:r');
+    scryfallAnswers({
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
+      '(t:dragon c:r) -in:arena': null,
+      [query]: page('Balefire Dragon', 'Shivan Dragon'),
+    });
+    const errors = refuseNextSnapshotReset();
+
+    const created = await createDraft({
+      name: 'Red dragons',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
+    }).expect(201);
+
+    const failed = {
+      state: 'Failed',
+      cards: 0,
+      total: null,
+      error: 'Snapshotting the pool failed unexpectedly.',
+    };
+    expect(created.body.snapshot).toEqual(failed);
+    expect((await getDraft(created.body.id).expect(200)).body.snapshot).toEqual(
+      failed,
+    );
+    expect(await app.get(PrismaService).draft.count()).toBe(1);
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining(created.body.id),
+      expect.objectContaining({
+        message: DROPPED_CONNECTION,
+      }),
+    );
+
+    await post(created.body.id, 'snapshot').expect(202);
+    expect((await snapshotted(created.body.id)).snapshot).toEqual({
+      state: 'Complete',
+      cards: 2,
+      total: 2,
+    });
+  });
+
+  it('leaves a snapshot Running for the next boot when it can’t record its failure, and logs both the failure and the write', async () => {
+    const query = snapshotQuery('t:dragon c:r');
+    scryfallAnswers({
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
+      '(t:dragon c:r) -in:arena': null,
+      [query]: new ScryfallUnavailableError(503),
+    });
+    const errors = vi.spyOn(Logger.prototype, 'error').mockReturnValue();
+    const drafts = app.get(PrismaService).draft;
+    // The snapshot's only write to a draft outside a transaction is its failure.
+    vi.spyOn(drafts, 'updateMany').mockRejectedValueOnce(
+      new Error(DROPPED_CONNECTION),
+    );
+    const created = await createDraft({
+      name: 'Red dragons',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
+    }).expect(201);
+    const { id } = created.body;
+
+    await vi.waitFor(() =>
+      expect(errors).toHaveBeenCalledWith(
+        `Could not record the pool snapshot for draft ${id} as Failed; it stays Running until the next boot resumes it`,
+        expect.objectContaining({
+          message: DROPPED_CONNECTION,
+        }),
+      ),
+    );
+    expect(errors).toHaveBeenCalledWith(
+      `Pool snapshot for draft ${id} failed`,
+      expect.any(ScryfallUnavailableError),
+    );
+    expect((await getDraft(id).expect(200)).body.snapshot.state).toBe(
+      'Running',
+    );
+
+    scryfallAnswers({ [query]: page('Balefire Dragon') });
+    await app.close();
+    await startApp();
+    expect((await snapshotted(id)).snapshot).toEqual({
+      state: 'Complete',
+      cards: 1,
+      total: 1,
+    });
+  });
+
   it('starts a retried snapshot over, dropping the cards of the failed one', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: { ...page('Balefire Dragon'), totalCards: 2, hasMore: true },
       [`${query} page 2`]: new ScryfallUnavailableError(503),
@@ -450,7 +617,7 @@ describe('pool snapshot', () => {
   it('explains a pool query Scryfall now rejects', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new ScryfallRejectedSearchError('Too many terms.', []),
     });
@@ -506,7 +673,7 @@ describe('pool snapshot', () => {
   it('lets an app admin retry, but not other guild members', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({
-      'c:r': page('Shock'),
+      [creationMatchQuery('c:r')]: page('Shock'),
       '(c:r) -in:arena': null,
       [query]: new ScryfallUnavailableError(503),
     });
@@ -533,16 +700,9 @@ describe('pool snapshot', () => {
   it('resumes a snapshot a previous process left running', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({ [query]: page('Shock', 'Lightning Bolt') });
-    // Written directly: no route leaves a snapshot running across a restart.
-    const { id } = await app.get(PrismaService).draft.create({
-      data: {
-        name: 'Red',
-        poolSourceKind: 'PoolQuery',
-        poolQuery: 'c:r',
-        picksPerPlayer: 40,
-        organizerId: alice.id,
-        snapshotState: 'Running',
-      },
+    const { id } = await draftLeftRunning('Red', {
+      poolSourceKind: 'PoolQuery',
+      poolQuery: 'c:r',
     });
     await app.close();
 
@@ -555,19 +715,79 @@ describe('pool snapshot', () => {
     });
   });
 
-  it('fails a cube draft’s snapshot that a previous process left running, as a cube’s pool is taken only at creation', async () => {
-    // Written directly: a cube link's snapshot is complete from creation, so
-    // only a draft left running by an older version reaches the snapshot.
-    const { id } = await app.get(PrismaService).draft.create({
-      data: {
-        name: 'Vintage cube',
-        poolSourceKind: 'Cube',
-        cubeId: 'vintage',
-        cubeName: 'Vintage Cube',
-        picksPerPlayer: 40,
-        organizerId: alice.id,
-        snapshotState: 'Running',
+  it('still starts when a snapshot it resumes can’t be reset, and resumes the others', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    onTestFinished(() => {
+      process.off('unhandledRejection', onUnhandled);
+    });
+    const errors = vi.spyOn(Logger.prototype, 'error').mockReturnValue();
+    scryfallAnswers({
+      [snapshotQuery('c:r')]: page('Shock'),
+      [snapshotQuery('c:g')]: page('Giant Growth'),
+    });
+    const drafts = [
+      await draftLeftRunning('Red', {
+        poolSourceKind: 'PoolQuery',
+        poolQuery: 'c:r',
+      }),
+      await draftLeftRunning('Green', {
+        poolSourceKind: 'PoolQuery',
+        poolQuery: 'c:g',
+      }),
+    ];
+    await app.close();
+    // The first transaction after the restart is the first resumed reset;
+    // nothing else at boot writes.
+    vi.spyOn(PrismaService.prototype, '$transaction').mockRejectedValueOnce(
+      new Error(DROPPED_CONNECTION),
+    );
+
+    await startApp();
+
+    // One snapshot completes; the other stays Running for the next boot.
+    // Which is refused depends on the order the app reads them in.
+    const states = await vi.waitFor(
+      async () => {
+        const read = await Promise.all(
+          drafts.map(async ({ id }) => {
+            const res = await getDraft(id).expect(200);
+            return { id, snapshot: res.body.snapshot };
+          }),
+        );
+        const states = read.map(({ snapshot }) => snapshot.state as string);
+        expect(states.sort((a, b) => a.localeCompare(b))).toEqual([
+          'Complete',
+          'Running',
+        ]);
+        return read;
       },
+      { timeout: 5_000 },
+    );
+    const resumed = states.find(({ snapshot }) => snapshot.state !== 'Running');
+    const refused = states.find(({ snapshot }) => snapshot.state === 'Running');
+    expect(resumed?.snapshot).toEqual({
+      state: 'Complete',
+      cards: 1,
+      total: 1,
+    });
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining(refused!.id),
+      expect.objectContaining({
+        message: DROPPED_CONNECTION,
+      }),
+    );
+    expect(unhandled).toEqual([]);
+  });
+
+  it('fails a cube draft’s snapshot that a previous process left running, as a cube’s pool is taken only at creation', async () => {
+    // A cube link's snapshot is complete from creation, so only a draft left
+    // running by an older version reaches the snapshot.
+    const { id } = await draftLeftRunning('Vintage cube', {
+      poolSourceKind: 'Cube',
+      cubeId: 'vintage',
+      cubeName: 'Vintage Cube',
     });
     await app.close();
 
@@ -586,7 +806,7 @@ describe('pool snapshot', () => {
   it('stores each card’s identity, printing, images and the fields the pool search needs', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
-      't:dragon c:r': page('Balefire Dragon'),
+      [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
       '(t:dragon c:r) -in:arena': null,
       [query]: {
         ...page(),
@@ -670,7 +890,7 @@ describe('pool snapshot', () => {
       return close(callback);
     });
     scryfall.search.mockImplementation(async (query) => {
-      if (query === 'c:r') {
+      if (query === creationMatchQuery('c:r')) {
         // Holds the request until shutdown is under way.
         await shutdownBegun;
         return page('Shock', 'Lava Spike');

@@ -7,6 +7,7 @@ import {
   UnreachableError,
   USER_AGENT,
 } from '../http/fetch-with-timeout.js';
+import { headerRetryAfterMs } from '../http/retry-after.js';
 
 const API = 'https://api.scryfall.com';
 /**
@@ -15,8 +16,11 @@ const API = 'https://api.scryfall.com';
  * safely inside it.
  */
 const REQUEST_INTERVAL_MS = 600;
-/** A 429 locks us out for 30 seconds, and ignoring it risks a ban. */
-const RATE_LIMITED_WAIT_MS = 30_000;
+/**
+ * How long a 429 locks us out when its `Retry-After` doesn't say. Sending
+ * inside the lockout risks a ban.
+ */
+const DEFAULT_RATE_LIMITED_WAIT_MS = 30_000;
 const MAX_RATE_LIMITED_RETRIES = 3;
 /**
  * How long to wait before each retry after a server error, a timeout or a
@@ -42,12 +46,14 @@ export interface ScryfallCard {
   lang: string;
   set: string;
   collector_number: string;
-  type_line: string;
+  /** Absent only on reversible cards, whose faces carry it. */
+  type_line?: string;
   /** How the card's faces are laid out, e.g. normal, split, transform, adventure: https://scryfall.com/docs/api/layouts */
   layout: string;
   /** Absent when the faces define the colors, e.g. modal double-faced cards. */
   colors?: string[];
-  cmc: number;
+  /** The mana value; absent only on reversible cards, whose faces carry it. */
+  cmc?: number;
   /** Absent when the faces carry it, as on double-faced cards. */
   mana_cost?: string;
   /** Absent when the faces carry it. */
@@ -68,6 +74,8 @@ export interface ScryfallCardFace {
   name: string;
   /** Only on reversible cards, where the card itself has none. */
   oracle_id?: string;
+  /** The mana value; only on reversible cards, where the card itself has none. */
+  cmc?: number;
   mana_cost?: string;
   type_line?: string;
   oracle_text?: string;
@@ -270,7 +278,7 @@ export class FetchScryfallClient extends ScryfallClient {
       if (res.status !== 429) return res;
       if (rateLimited === MAX_RATE_LIMITED_RETRIES) await failWith(res);
       // Lock out first: a search waiting for its slot mustn't slip through while the cancel settles.
-      this.backOff();
+      this.backOff(headerRetryAfterMs(res) ?? DEFAULT_RATE_LIMITED_WAIT_MS);
       await cancelBody(res);
     }
   }
@@ -305,12 +313,10 @@ export class FetchScryfallClient extends ScryfallClient {
   /**
    * Holds every request, not just this one, until the lockout is over:
    * those booking a slot from now on, and those already waiting for theirs.
+   * The lockout lasts `waitMs`.
    */
-  private backOff(): void {
-    this.lockedUntil = Math.max(
-      this.lockedUntil,
-      Date.now() + RATE_LIMITED_WAIT_MS,
-    );
+  private backOff(waitMs: number): void {
+    this.lockedUntil = Math.max(this.lockedUntil, Date.now() + waitMs);
     this.nextStart = Math.max(this.nextStart, this.lockedUntil);
   }
 }
