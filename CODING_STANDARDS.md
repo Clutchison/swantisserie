@@ -110,7 +110,7 @@ Origin: #654.
 
 ### Put a status message into a live region that is already on the page
 
-_Hard._ A `role="status"` element is rendered whenever the component or section that can show its message is, and is empty while there is nothing to say. The `@if` that decides whether there is a message goes inside the region, around its text and any content such as a notice's Dismiss button; never around the region itself. An empty region takes no space and shows no box, and is never hidden with `display: none` or `hidden`. The Turn banner (`draft-header.html`) and the export status (`export-buttons.html`) are the models. `role="alert"` is announced on insertion, so an alert may stay inside its `@if`.
+_Hard._ A `role="status"` element is rendered whenever the component or section that can show its message is, and is empty while there is nothing to say. The `@if` that decides whether there is a message goes inside the region, around its text and any content such as a notice's Dismiss button; never around the region itself. An empty region takes no space and shows no box, and is never hidden with `display: none` or `hidden`. The Turn banner (`draft-header.html`) and the export status (`export-buttons.html`) are the models. A message whose text is already there when the page lands waits with `liveRegionReady` (`web/src/app/live-region.ts`) before filling its region, as the Turn banner and the draft list notice do. `role="alert"` is announced on insertion, so an alert may stay inside its `@if`.
 
 Why: screen readers announce a change to a live region already on the page, but many, NVDA and JAWS among them, don't announce one that arrives holding its text.
 
