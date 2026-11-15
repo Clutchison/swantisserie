@@ -23,6 +23,7 @@ import {
 import {
   clickOn,
   emptyStatusIn,
+  expectBusy,
   expectFocusOn,
   focusAndClick,
   openDialog,
@@ -254,8 +255,7 @@ describe('pool tab', () => {
       const detail = await openDetail(fixture, page, 0);
       focusAndClick(button(detail, 'Add to Deck')!);
       const req = http.expectOne('/api/drafts/draft-1/plan');
-      expect(button(detail, 'Add to Deck')!.disabled).toBe(false);
-      expect(button(detail, 'Add to Deck')!.getAttribute('aria-disabled')).toBe('true');
+      expectBusy(button(detail, 'Add to Deck')!);
       expectFocusOn(detail, 'Add to Deck');
       clickOn(button(detail, 'Add to Deck')!);
       http.expectNone('/api/drafts/draft-1/plan');
@@ -350,8 +350,7 @@ describe('pool tab', () => {
       const detail = await openDetail(fixture, page, 0);
       focusAndClick(button(detail, 'Remove from Deck')!);
       const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
-      expect(button(detail, 'Remove from Deck')!.disabled).toBe(false);
-      expect(button(detail, 'Remove from Deck')!.getAttribute('aria-disabled')).toBe('true');
+      expectBusy(button(detail, 'Remove from Deck')!);
       expectFocusOn(detail, 'Remove from Deck');
       clickOn(button(detail, 'Remove from Deck')!);
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
@@ -370,8 +369,7 @@ describe('pool tab', () => {
       button(await openDetail(fixture, page, 1), 'Add to Deck')!.click();
       button(openDialog()!, 'Close')!.click();
       const detail = await openDetail(fixture, page, 0);
-      expect(button(detail, 'Remove from Deck')!.disabled).toBe(false);
-      expect(button(detail, 'Remove from Deck')!.getAttribute('aria-disabled')).toBe('true');
+      expectBusy(button(detail, 'Remove from Deck')!);
       focusAndClick(button(detail, 'Remove from Deck')!);
       http.expectNone('/api/drafts/draft-1/plan/shivan-card');
       expectFocusOn(detail, 'Remove from Deck');
@@ -450,6 +448,25 @@ describe('pool tab', () => {
       expect(statusTexts(detail).join(' ')).toContain(
         "Couldn't remove the card from your deck. Try again in a moment.",
       );
+    });
+
+    it('keeps focus on itself when a removal fails', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        plan: planned(shivan.id),
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      focusAndClick(button(detail, 'Remove from Deck')!);
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      await flushPlan(planned(shivan.id));
+      await fixture.whenStable();
+
+      expect(statusTexts(detail).join(' ')).toContain("Couldn't remove the card from your deck.");
+      expectFocusOn(detail, 'Remove from Deck');
+      expect(button(detail, 'Remove from Deck')!.getAttribute('aria-disabled')).toBeNull();
     });
 
     it('is never offered for a picked card in the plan', async () => {

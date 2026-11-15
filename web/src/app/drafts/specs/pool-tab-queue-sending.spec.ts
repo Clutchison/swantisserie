@@ -18,17 +18,11 @@ import {
   statusTexts,
   serverError,
 } from './harness';
-import { clickOn, expectFocusOn, focusAndClick, openDialog } from '../../specs-harness';
+import { clickOn, expectBusy, expectFocusOn, focusAndClick, openDialog } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
 useTallScreen();
-
-/** Expects `control` focusable but busy, as a change on its way leaves it. */
-function expectBusy(control: HTMLButtonElement) {
-  expect(control.disabled).toBe(false);
-  expect(control.getAttribute('aria-disabled')).toBe('true');
-}
 
 describe('pool tab', () => {
   describe('queue changes sent from a Card detail', () => {
@@ -91,6 +85,23 @@ describe('pool tab', () => {
       expect(statusTexts(detail)).toEqual([]);
       http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
       await vi.waitFor(() => expect(detail.textContent).toContain('Added to your queue.'));
+    });
+
+    it('says when a removal fails, keeping focus on Remove from queue', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+      const detail = await openDetail(fixture, page, 0);
+
+      focusAndClick(button(detail, 'Remove from queue')!);
+      http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(null, serverError);
+      await flushQueue(queueOf({ cards: [queued(shivan)] }));
+      await fixture.whenStable();
+
+      expect(statusTexts(detail).join(' ')).toContain("Couldn't remove the card from your queue.");
+      expectFocusOn(detail, 'Remove from queue');
+      expect(button(detail, 'Remove from queue')!.getAttribute('aria-disabled')).toBeNull();
     });
 
     it('marks a Card detail’s queue buttons busy while another’s queue change is on its way, and a press sends nothing', async () => {

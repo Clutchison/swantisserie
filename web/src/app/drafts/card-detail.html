@@ -49,7 +49,7 @@
           class="button secondary"
           type="button"
           (click)="removeFromPlan()"
-          appSendsChange="remove from deck"
+          [appSendsChange]="keys.removeFromDeck"
           [appSendsChangeBusy]="planning()"
         >
           Remove from Deck
@@ -61,7 +61,7 @@
         type="button"
         (click)="addToPlan()"
         [disabled]="picked().has(shown.id)"
-        appSendsChange="add to deck"
+        [appSendsChange]="keys.addToDeck"
         [appSendsChangeBusy]="planning()"
       >
         Add to Deck
@@ -74,7 +74,7 @@
           class="button secondary"
           type="button"
           (click)="removeFromQueue()"
-          appSendsChange="remove from queue"
+          [appSendsChange]="keys.removeFromQueue"
           [appSendsChangeBusy]="queueing()"
         >
           Remove from queue
@@ -85,7 +85,7 @@
           type="button"
           (click)="addToQueue()"
           [disabled]="picked().has(shown.id)"
-          appSendsChange="add to queue"
+          [appSendsChange]="keys.addToQueue"
           [appSendsChangeBusy]="queueing()"
         >
           Add to queue
@@ -98,7 +98,7 @@
           class="button secondary"
           type="button"
           (click)="sendMove(move, planBoard.other)"
-          [appSendsChange]="moveKey(planBoard.otherName)"
+          [appSendsChange]="keys.move(planBoard.otherName)"
           [appSendsChangeBusy]="planning() || moveWaits()"
         >
           Move to {{ planBoard.otherName }}
@@ -111,7 +111,7 @@
         type="button"
         (click)="pick()"
         [disabled]="!yourTurn() || picksFailed() || picked().has(shown.id)"
-        appSendsChange="pick"
+        [appSendsChange]="keys.pick"
         [appSendsChangeBusy]="picking()"
       >
         {{ picking() ? 'Picking…' : 'Pick' }}

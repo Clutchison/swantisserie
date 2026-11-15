@@ -14,6 +14,7 @@ import {
   outputBinding,
   signal,
   untracked,
+  type WritableSignal,
 } from '@angular/core';
 import type { PlanBoard, PlannedCardView, PlanView, PoolCardView, QueueView } from 'contract';
 import { forkJoin, type Observable, take } from 'rxjs';
@@ -288,9 +289,7 @@ export class CardDetail {
 
   /** Picks the card, unless a pick is on its way. */
   protected async pick() {
-    if (this.picking()) return;
-    await this.changes.send(async () => {
-      this.picking.set(true);
+    await this.sendAs(this.picking, async () => {
       this.pickError.set(null);
       try {
         await this.store.pick(this.card().id);
@@ -298,8 +297,6 @@ export class CardDetail {
       } catch (err) {
         // A refusal says why, e.g. another pick was made; the store catches up with it.
         this.pickError.set(changeFailure(err, PICK_FAILED));
-      } finally {
-        this.picking.set(false);
       }
     });
   }
@@ -312,7 +309,7 @@ export class CardDetail {
         () => this.queueApi.add(this.store.id(), poolCardId),
         ADDED_TO_QUEUE,
         "Couldn't add the card to your queue. Try again in a moment.",
-        REMOVE_FROM_QUEUE,
+        KEYS.removeFromQueue,
       )
     ) {
       this.store.addedToQueue(poolCardId);
@@ -324,7 +321,7 @@ export class CardDetail {
       () => this.queueApi.remove(this.store.id(), this.card().id),
       'Removed from your queue.',
       "Couldn't remove the card from your queue. Try again in a moment.",
-      ADD_TO_QUEUE,
+      KEYS.addToQueue,
     );
   }
 
@@ -336,16 +333,15 @@ export class CardDetail {
    * made; once it is, focus goes to `next`, the button that takes the
    * pressed one's place. Sends nothing while a queue change is on its way.
    */
-  private async changeQueue(
+  private changeQueue(
     request: () => Observable<QueueView>,
     done: string,
     failure: string,
     next: string,
   ): Promise<boolean> {
-    if (this.queueing()) return false;
-    return this.changes.send(
+    return this.sendAs(
+      this.queueing,
       async () => {
-        this.queueing.set(true);
         this.queueNote.set(null);
         const turnPick = this.turnPick();
         try {
@@ -356,11 +352,9 @@ export class CardDetail {
           this.queueNote.set(changeFailure(err, failure));
           if (isRefusal(err)) this.store.catchUp();
           return false;
-        } finally {
-          this.queueing.set(false);
         }
       },
-      { keep: [next] },
+      next,
     );
   }
 
@@ -369,7 +363,7 @@ export class CardDetail {
       () => this.planApi.add(this.store.id(), this.card().id),
       'Added to your deck.',
       "Couldn't add the card to your deck. Try again in a moment.",
-      REMOVE_FROM_PLAN,
+      KEYS.removeFromDeck,
     );
   }
 
@@ -379,7 +373,7 @@ export class CardDetail {
         () => this.planApi.remove(this.store.id(), this.card().id),
         'Removed from your deck.',
         "Couldn't remove the card from your deck. Try again in a moment.",
-        ADD_TO_PLAN,
+        KEYS.addToDeck,
       )) &&
       // It may have closed while the removal was on its way.
       !this.destroyRef.destroyed
@@ -394,18 +388,17 @@ export class CardDetail {
    * the store re-reads the plan, and the draft too if it was refused: a stale
    * page may not know the draft has moved on. Once it is made, focus goes to
    * `next`, the button that takes the pressed one's place. Sends nothing
-   * while a plan change is on its way.
+   * while a change to the deck is on its way.
    */
-  private async changePlan(
+  private changePlan(
     request: () => Observable<PlanView>,
     done: string,
     failure: string,
     next: string,
   ): Promise<boolean> {
-    if (this.planning()) return false;
-    return this.changes.send(
+    return this.sendAs(
+      this.planning,
       async () => {
-        this.planning.set(true);
         this.planNote.set(null);
         try {
           await this.store.changePlan(request());
@@ -415,32 +408,52 @@ export class CardDetail {
           this.planNote.set(changeFailure(err, failure));
           if (isRefusal(err)) this.store.catchUp();
           return false;
-        } finally {
-          this.planning.set(false);
         }
       },
-      { keep: [next] },
+      next,
     );
   }
 
   /**
    * Moves the card to `planBoard` through the host's `move`, which says how
    * that went. It stays open, offering to move the card back once the plan
-   * shows it moved, with focus on that Move. Sends nothing while a plan
-   * change, or another of the host's changes, is on its way.
+   * shows it moved, with focus on that Move. Sends nothing while a change to
+   * the deck, or another of the host's changes, is on its way.
    */
   protected async sendMove(move: MoveToPlanBoard, planBoard: PlanBoard) {
-    if (this.planning() || this.moveWaits()) return;
-    await this.changes.send(
+    if (this.moveWaits()) return;
+    await this.sendAs(
+      this.planning,
       async () => {
-        this.planning.set(true);
+        await move(planBoard);
+      },
+      KEYS.move(OTHER_PLAN_BOARD[planBoard].otherName),
+    );
+  }
+
+  /**
+   * Sends `work` through this Card detail's `Changes`, with `kind` set
+   * while it is on its way, so every Card detail's buttons of that kind are
+   * busy. Sends nothing while a change of that kind is on its way already,
+   * from this Card detail or another. Once made, focus goes to the button
+   * keyed `next`, if the pressed one has gone. Settles on whether it was made.
+   */
+  private async sendAs(
+    kind: WritableSignal<boolean>,
+    work: () => Promise<boolean | void>,
+    next?: string,
+  ): Promise<boolean> {
+    if (kind()) return false;
+    return this.changes.send(
+      async () => {
+        kind.set(true);
         try {
-          await move(planBoard);
+          return await work();
         } finally {
-          this.planning.set(false);
+          kind.set(false);
         }
       },
-      { keep: [moveKey(OTHER_PLAN_BOARD[planBoard].otherName)] },
+      { keep: next === undefined ? [] : [next] },
     );
   }
 
@@ -450,8 +463,8 @@ export class CardDetail {
     this.dialogRef.close(result);
   }
 
-  /** The focus key of the Move to the plan board Move names `name`. */
-  protected readonly moveKey = moveKey;
+  /** The focus keys of the buttons that send a change. */
+  protected readonly keys = KEYS;
 
   protected flip() {
     this.face.update((face) => (face + 1) % this.card().images.length);
@@ -459,11 +472,18 @@ export class CardDetail {
 }
 
 const PICK_FAILED = "Couldn't make the pick. Try again in a moment.";
-/** The focus keys of the buttons that take each other's place once their change is made. */
-const ADD_TO_PLAN = 'add to deck';
-const REMOVE_FROM_PLAN = 'remove from deck';
-const ADD_TO_QUEUE = 'add to queue';
-const REMOVE_FROM_QUEUE = 'remove from queue';
-/** The focus key of the Move to the plan board Move names `name`. */
-const moveKey = (name: string) => `move to ${name}`;
+/**
+ * The focus keys of a Card detail's buttons that send a change. Add and
+ * Remove take each other's place once their change is made, as do the two
+ * Moves.
+ */
+const KEYS = {
+  addToDeck: 'add to deck',
+  removeFromDeck: 'remove from deck',
+  addToQueue: 'add to queue',
+  removeFromQueue: 'remove from queue',
+  pick: 'pick',
+  /** The Move to the Deck board named `deckBoard`, as Move names it: "sideboard" or "mainboard". */
+  move: (deckBoard: string) => `move to ${deckBoard}`,
+} as const;
 const ADDED_TO_QUEUE = 'Added to your queue.';

@@ -179,7 +179,9 @@ export class FocusKey {
  * flight; it stays focusable, so focus isn't lost. Its value is its focus
  * key, as `appFocusKey`'s. `appSendsChangeBusy` marks it so as well while
  * a change it waits for is in flight elsewhere, such as another
- * component's of the same kind; its press handler then ignores presses.
+ * component's of the same kind. That only marks it: `Changes.send` knows
+ * nothing of that change, so the press handler must ignore a press while
+ * it is busy.
  */
 @Directive({
   selector: '[appSendsChange]',
