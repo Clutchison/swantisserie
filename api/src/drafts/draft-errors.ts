@@ -36,6 +36,16 @@ export function notOnPlatformSentence(
     : `${count} cards ${where} are not on ${platform}`;
 }
 
+/**
+ * Says how many of a cube's cards CubeCobra links to no Scryfall card. It
+ * doesn't call them custom cards: CubeCobra's answer doesn't say so.
+ */
+export function unidentifiedCardsMessage(count: number): string {
+  return count === 1
+    ? 'CubeCobra doesn’t link 1 card in this cube to a Scryfall card, so it can’t be in a pool.'
+    : `CubeCobra doesn’t link ${count} cards in this cube to a Scryfall card, so they can’t be in a pool.`;
+}
+
 /** Thrown when a draft is given a webhook that doesn't exist, e.g. one just removed. */
 export class UnknownWebhookError extends Error {
   constructor() {

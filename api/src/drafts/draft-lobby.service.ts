@@ -13,6 +13,7 @@ import {
   refuseUnchoosableWebhook,
   rethrowMissingWebhook,
   UnknownBotError,
+  unidentifiedCardsMessage,
 } from './draft-errors.js';
 import {
   type DraftEvent,
@@ -39,6 +40,7 @@ import {
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
 import {
+  type CubeCard,
   CubeCobraClient,
   CubeCobraUnavailableError,
 } from '../cubecobra/cubecobra-client.js';
@@ -361,23 +363,35 @@ export class DraftLobbyService {
       });
     }
     // The basic lands are left out: a player adds them to their plan one
-    // copy at a time.
-    const cube = {
-      ...found,
-      mainboard: found.mainboard.filter((card) => !isBasicLand(card.name)),
-    };
-    if (cube.mainboard.length === 0) {
+    // copy at a time. An unidentified card is never one, whatever its name:
+    // a custom card could be named "Island".
+    const identified: CubeCard[] = [];
+    const unidentified = new Set<string>();
+    for (const card of found.mainboard) {
+      if (card.oracleId === null) unidentified.add(card.name);
+      else if (!isBasicLand(card.name)) identified.push(card);
+    }
+    if (identified.length === 0 && unidentified.size === 0) {
       throw new CubeLinkError({
         error: 'no-cards',
         message: 'This cube has no mainboard cards.',
+      });
+    }
+    if (unidentified.size > 0) {
+      throw new CubeLinkError({
+        error: 'unidentified-cards',
+        message: unidentifiedCardsMessage(unidentified.size),
+        cards: [...unidentified],
+        totalCards: unidentified.size,
       });
     }
     // Searches still to come once the deadline passes would only hold up
     // other Scryfall requests, for a draft that won't be saved.
     const searches = new AbortController();
     const { printings, missing } = await deadline
-      .race(cubePrintings(this.scryfall, cube, platform, searches.signal), () =>
-        scryfallTooSlow(deadline),
+      .race(
+        cubePrintings(this.scryfall, identified, platform, searches.signal),
+        () => scryfallTooSlow(deadline),
       )
       .finally(() => searches.abort());
     if (missing.length > 0) {
@@ -388,7 +402,7 @@ export class DraftLobbyService {
         totalCards: missing.length,
       });
     }
-    return { cubeId, cubeName: cube.name, printings };
+    return { cubeId, cubeName: found.name, printings };
   }
 
   private async checkPoolQuery(

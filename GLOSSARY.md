@@ -66,6 +66,10 @@ _Avoid_: Cube list, CubeCobra import
 A card list kept on CubeCobra, which a cube link names. Only its mainboard goes in a pool.
 _Avoid_: Cube list, CubeCobra list, pool (that is what a draft picks from)
 
+**Unidentified card**:
+A card in a cube's mainboard that CubeCobra links to no Scryfall card, so it can't be found on any platform. A CubeCobra custom card is one, but not every unidentified card need be custom. A cube with any is refused as a pool source.
+_Avoid_: Custom card (for unidentified cards in general), unknown card, invalid card
+
 **Set list**:
 The Magic sets an organizer picks, or has the app pick at random, to define a draft's pool. The pool holds every card printed in those sets that is on the platform; cards that aren't are left out.
 _Avoid_: Set selection, set codes, random sets (as a pool source)

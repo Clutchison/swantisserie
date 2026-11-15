@@ -16,10 +16,24 @@ const HEADERS = {
   Accept: 'application/json',
 };
 
-/** One copy of a card in a cube's mainboard. */
+/** One copy of a card in a cube's mainboard that CubeCobra links to a Scryfall card. */
 export interface CubeCard {
   /** The card's identity across printings, as Scryfall gives it. */
   oracleId: string;
+  name: string;
+}
+
+/**
+ * One copy of a card in a cube's mainboard that CubeCobra links to no
+ * Scryfall card: its oracle id is missing or isn't a UUID. CubeCobra lists
+ * each custom card (and voucher) with `cardID` "custom-card" ("voucher"),
+ * its own name in `custom_name`, and shared placeholder details whose
+ * `oracle_id` is "custom-card" ("voucher") and whose `name` is "Custom
+ * Card" ("Voucher").
+ */
+export interface UnidentifiedCubeCard {
+  oracleId: null;
+  /** Its `custom_name` if it has one, else the name in its details. */
   name: string;
 }
 
@@ -27,7 +41,7 @@ export interface CubeCard {
 export interface Cube {
   name: string;
   /** Each copy listed separately, in CubeCobra's order. */
-  mainboard: CubeCard[];
+  mainboard: (CubeCard | UnidentifiedCubeCard)[];
 }
 
 /**
@@ -103,15 +117,23 @@ function toCube(body: unknown): Cube {
     name: body.name,
     mainboard: mainboard.map((card: unknown) => {
       const details = isRecord(card) ? card.details : undefined;
-      if (
-        !isRecord(details) ||
-        typeof details.oracle_id !== 'string' ||
-        !ORACLE_ID.test(details.oracle_id) ||
-        typeof details.name !== 'string'
-      ) {
-        throw malformed('a card with no oracle id or name');
+      if (!isRecord(details) || typeof details.name !== 'string') {
+        throw malformed('a card with no name');
       }
-      return { oracleId: details.oracle_id, name: details.name };
+      if (
+        typeof details.oracle_id === 'string' &&
+        ORACLE_ID.test(details.oracle_id)
+      ) {
+        return { oracleId: details.oracle_id, name: details.name };
+      }
+      const customName = isRecord(card) ? card.custom_name : undefined;
+      return {
+        oracleId: null,
+        name:
+          typeof customName === 'string' && customName !== ''
+            ? customName
+            : details.name,
+      };
     }),
   };
 }
