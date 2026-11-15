@@ -824,7 +824,7 @@ describe('another window of the same player, on the Deck tab', () => {
    * from. A deck change makes no new draft version unless it clears their
    * ready, so only coming back to this window shows it.
    */
-  const openDeck = async () => {
+  const openPlanElsewhere = async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf(),
@@ -845,7 +845,7 @@ describe('another window of the same player, on the Deck tab', () => {
   ];
 
   it('shows the deck as the player left it in another window once they come back to this one', async () => {
-    const { fixture, plan } = await openDeck();
+    const { fixture, plan } = await openPlanElsewhere();
 
     window.dispatchEvent(new Event('focus'));
     await flushQueueAndPlan(EMPTY_QUEUE, changedElsewhere);
@@ -855,7 +855,7 @@ describe('another window of the same player, on the Deck tab', () => {
   });
 
   it('shows it once the window is shown again, as on switching back to its tab', async () => {
-    const { fixture, plan } = await openDeck();
+    const { fixture, plan } = await openPlanElsewhere();
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
 
     document.dispatchEvent(new Event('visibilitychange'));
@@ -865,8 +865,29 @@ describe('another window of the same player, on the Deck tab', () => {
     expect(planBoards(plan)).toEqual(changedBoards);
   });
 
+  it('keeps the deck a change answers with over a re-read on return sent before it', async () => {
+    const { fixture, plan } = await openPlanElsewhere();
+
+    window.dispatchEvent(new Event('focus'));
+    await flushQueue(EMPTY_QUEUE);
+    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
+    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
+    (await vi.waitFor(() => http.expectOne(`/api/drafts/draft-1/plan/${shivan.id}`))).flush(
+      changedElsewhere,
+    );
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(planBoards(plan)).toEqual(changedBoards);
+    });
+    // The deck as it was before the change, should the re-read still be open.
+    if (!reread.cancelled) reread.flush(planOf());
+    await fixture.whenStable();
+
+    expect(planBoards(plan)).toEqual(changedBoards);
+  });
+
   it('doesn’t read the deck again as the window is hidden', async () => {
-    const { fixture } = await openDeck();
+    const { fixture } = await openPlanElsewhere();
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
 
     document.dispatchEvent(new Event('visibilitychange'));

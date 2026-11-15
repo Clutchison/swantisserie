@@ -734,6 +734,8 @@ export class DraftStore implements TournamentViewer {
    * that no one else sees, such as pausing the queue or moving a card to the
    * sideboard, makes no new draft version, so a second window of theirs
    * learns of it only this way. A viewer who isn't a player reads neither.
+   * A change answered while a re-read is in flight still wins: showing its
+   * answer sets the read, which aborts the re-read.
    */
   private rereadOwnOnReturn() {
     const document = inject(DOCUMENT);
