@@ -815,3 +815,75 @@ describe('the Deck tab’s name', () => {
     });
   });
 });
+
+describe('another window of the same player, on the Deck tab', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /**
+   * The Deck tab open in the window the player didn't change their deck
+   * from. A deck change makes no new draft version unless it clears their
+   * ready, so only coming back to this window shows it.
+   */
+  const openDeck = async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf(),
+    });
+    return { fixture, plan: await openPlan(fixture, page) };
+  };
+  /** The deck as the player left it in their other window: Shivan Dragon moved to the sideboard. */
+  const changedElsewhere = planOf({
+    mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+    sideboard: [planned(shivan)],
+  });
+  const changedBoards = [
+    {
+      heading: 'Mainboard 3 (3 picked)',
+      lines: ['1 Brightclimb Pathway // Grimclimb Pathway', '2 Lightning Bolt'],
+    },
+    { heading: 'Sideboard 1 (1 picked)', lines: ['1 Shivan Dragon'] },
+  ];
+
+  it('shows the deck as the player left it in another window once they come back to this one', async () => {
+    const { fixture, plan } = await openDeck();
+
+    window.dispatchEvent(new Event('focus'));
+    await flushQueueAndPlan(EMPTY_QUEUE, changedElsewhere);
+    await fixture.whenStable();
+
+    expect(planBoards(plan)).toEqual(changedBoards);
+  });
+
+  it('shows it once the window is shown again, as on switching back to its tab', async () => {
+    const { fixture, plan } = await openDeck();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+
+    document.dispatchEvent(new Event('visibilitychange'));
+    await flushQueueAndPlan(EMPTY_QUEUE, changedElsewhere);
+    await fixture.whenStable();
+
+    expect(planBoards(plan)).toEqual(changedBoards);
+  });
+
+  it('doesn’t read the deck again as the window is hidden', async () => {
+    const { fixture } = await openDeck();
+    vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+
+    document.dispatchEvent(new Event('visibilitychange'));
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/plan');
+  });
+
+  it('reads no deck for a viewer who isn’t a player as they come back to the window', async () => {
+    const { fixture } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsTurn, players: [bob] }),
+    );
+
+    window.dispatchEvent(new Event('focus'));
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/plan');
+  });
+});

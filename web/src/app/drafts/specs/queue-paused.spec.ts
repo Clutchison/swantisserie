@@ -686,8 +686,7 @@ describe('another window of the same player', () => {
     const { fixture, page } = await openPicking();
 
     window.dispatchEvent(new Event('focus'));
-    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
-    reread.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
+    await flushQueueAndPlan(queueOf({ cards: [queued(shivan)], queuePaused: true }), EMPTY_PLAN);
     await fixture.whenStable();
 
     expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');
@@ -698,8 +697,7 @@ describe('another window of the same player', () => {
     vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
 
     document.dispatchEvent(new Event('visibilitychange'));
-    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
-    reread.flush(queueOf({ cards: [queued(shivan)], queuePaused: true }));
+    await flushQueueAndPlan(queueOf({ cards: [queued(shivan)], queuePaused: true }), EMPTY_PLAN);
     await fixture.whenStable();
 
     expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');

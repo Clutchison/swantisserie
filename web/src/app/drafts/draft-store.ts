@@ -725,25 +725,29 @@ export class DraftStore implements TournamentViewer {
       const timer = setTimeout(() => this.rereadDraft(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
-    this.rereadQueueOnReturn();
+    this.rereadOwnOnReturn();
   }
 
   /**
-   * Re-reads the queue each time the viewer comes back to this window: it
-   * gains focus, or is shown again. A change to the player's queue that no
-   * one else sees, such as pausing it, makes no new draft version, so a
-   * second window of theirs learns of it only this way.
+   * Re-reads the player's own queue and plan each time the viewer comes back
+   * to this window: it gains focus, or is shown again. A change to either
+   * that no one else sees, such as pausing the queue or moving a card to the
+   * sideboard, makes no new draft version, so a second window of theirs
+   * learns of it only this way. A viewer who isn't a player reads neither.
    */
-  private rereadQueueOnReturn() {
+  private rereadOwnOnReturn() {
     const document = inject(DOCUMENT);
     const stopped = new AbortController();
     inject(DestroyRef).onDestroy(() => stopped.abort());
-    const reloadQueue = () => this.queueResource.reload();
-    document.defaultView?.addEventListener('focus', reloadQueue, { signal: stopped.signal });
+    const reloadOwn = () => {
+      this.queueResource.reload();
+      this.planResource.reload();
+    };
+    document.defaultView?.addEventListener('focus', reloadOwn, { signal: stopped.signal });
     document.addEventListener(
       'visibilitychange',
       () => {
-        if (document.visibilityState === 'visible') reloadQueue();
+        if (document.visibilityState === 'visible') reloadOwn();
       },
       { signal: stopped.signal },
     );
