@@ -5,6 +5,7 @@ import {
   FetchWebhookClient,
   WebhookGoneError,
   webhookPostError,
+  WebhookRateLimitedError,
   WebhookRefusedError,
 } from './webhook-client.js';
 
@@ -28,6 +29,12 @@ describe('webhookPostError', () => {
       expect(String(error)).toContain(String(status));
     },
   );
+
+  it('says how long to wait on a 429 that says so', () => {
+    const error = webhookPostError(429, 1_500);
+    expect(error).toBeInstanceOf(WebhookRateLimitedError);
+    expect(error).toMatchObject({ retryAfterMs: 1_500 });
+  });
 
   it.each([429, 500, 502, 503])(
     'is a failure worth retrying on a %i',
@@ -113,8 +120,37 @@ describe('FetchWebhookClient', () => {
     expect(await failure()).toBeInstanceOf(WebhookRefusedError);
   });
 
+  it('throws WebhookRateLimitedError with the wait the body’s retry_after gives on a 429', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          message: 'You are being rate limited.',
+          retry_after: 64.57,
+          global: false,
+        }),
+        { status: 429, headers: { 'Retry-After': '65' } },
+      ),
+    );
+
+    const error = await failure();
+
+    expect(error).toBeInstanceOf(WebhookRateLimitedError);
+    expect(error).toMatchObject({ retryAfterMs: 64_570 });
+  });
+
+  it('throws WebhookRateLimitedError with the Retry-After header’s wait on a 429 whose body has none', async () => {
+    fetch.mockResolvedValueOnce(
+      new Response('', { status: 429, headers: { 'Retry-After': '7' } }),
+    );
+
+    const error = await failure();
+
+    expect(error).toBeInstanceOf(WebhookRateLimitedError);
+    expect(error).toMatchObject({ retryAfterMs: 7_000 });
+  });
+
   it.each<[string, () => void]>([
-    ['a rate limit', () => respond(429)],
+    ['a rate limit that doesn’t say how long', () => respond(429)],
     ['a server error', () => respond(503)],
     [
       'a network error',

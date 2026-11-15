@@ -5,6 +5,8 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { landPrinting } from '../../testing/scryfall-printings.js';
 import { OTJ_SETS, scryfallSet } from '../../testing/scryfall-sets.js';
+import { holdScryfallSets } from '../../testing/held-scryfall-sets.js';
+import { readPastSetNamesDeadline } from '../../testing/set-names-deadline.js';
 import {
   alice,
   aliceCookie,
@@ -208,6 +210,64 @@ describe('the Trophy Hall', () => {
         },
       ],
     });
+  });
+
+  describe('when Scryfall doesn’t answer with its sets', () => {
+    const setList = [{ code: 'otj', sublists: ['big'] }];
+
+    it('answers within the set names deadline, naming a set by its code, and logs it', async () => {
+      await wonBy([A(), B()], { setList });
+      holdScryfallSets();
+      const warnings = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+
+      const [group] = (await readPastSetNamesDeadline(() => trophyHall()))
+        .groups;
+
+      expect(group.poolSource).toEqual({
+        kind: 'set-list',
+        setList: [
+          {
+            code: 'otj',
+            name: 'OTJ',
+            sublists: [{ code: 'big', name: 'BIG' }],
+          },
+        ],
+      });
+      expect(warnings).toHaveBeenCalledWith(
+        expect.stringContaining('set names deadline'),
+      );
+    });
+
+    it('names the sets once Scryfall answers', async () => {
+      await wonBy([A(), B()], { setList });
+      const answer = holdScryfallSets();
+      await readPastSetNamesDeadline(() => trophyHall());
+
+      answer();
+
+      expect((await trophyHall()).groups[0].poolSource).toEqual({
+        kind: 'set-list',
+        setList: [
+          {
+            code: 'otj',
+            name: 'Outlaws of Thunder Junction',
+            sublists: [{ code: 'big', name: 'The Big Score' }],
+          },
+        ],
+      });
+      expect(scryfall.sets).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('asks Scryfall nothing when no group is a set list', async () => {
+    await wonBy([A(), B()], { poolQuery: 'c:r' });
+    await wonBy([B(), A()], { cube: { id: 'vintage', name: 'V' } });
+
+    await trophyHall();
+
+    expect(scryfall.sets).not.toHaveBeenCalled();
   });
 
   it('gives every holder of a shared first place their own row', async () => {

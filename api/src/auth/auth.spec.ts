@@ -13,6 +13,8 @@ import {
 import { AppAdminConfig } from './app-admin-config.js';
 import { AppAdminGuard } from './app-admin.guard.js';
 import { AuthModule } from './auth.module.js';
+import { SIGN_IN_DEADLINE_MS } from './auth.service.js';
+import { useDeadlineTimers } from '../testing/deadlines.js';
 import { DraftPushes } from '../drafts/draft-pushes.js';
 import {
   aliceCookie,
@@ -55,6 +57,23 @@ class AppAdminOnlyController {
 @Module({ imports: [AuthModule], controllers: [AppAdminOnlyController] })
 class AppAdminOnlyModule {}
 
+/**
+ * Starts sign-in in a cookie-keeping agent, and gives the callback Discord
+ * would send back to it, not yet sent.
+ */
+async function startSignIn(returnTo?: string) {
+  const agent = request.agent(app.getHttpServer());
+  const start = await agent
+    .get('/api/auth/discord')
+    .query(returnTo === undefined ? {} : { returnTo });
+  const state = new URL(start.headers.location).searchParams.get('state');
+  const callback = () =>
+    agent
+      .get('/api/auth/discord/callback')
+      .query({ code: 'auth-code', state, iss: 'https://discord.com' });
+  return { agent, callback };
+}
+
 /** Runs the redirect → callback round trip in a cookie-keeping agent. */
 async function signInThroughDiscord(
   profile: DiscordProfile,
@@ -66,15 +85,8 @@ async function signInThroughDiscord(
   discord.exchangeCode.mockResolvedValue('access-token');
   discord.getCurrentUser.mockResolvedValue(profile);
   discord.isGuildMember.mockResolvedValue(isGuildMember);
-  const agent = request.agent(app.getHttpServer());
-  const start = await agent
-    .get('/api/auth/discord')
-    .query(returnTo === undefined ? {} : { returnTo });
-  const state = new URL(start.headers.location).searchParams.get('state');
-  const callback = await agent
-    .get('/api/auth/discord/callback')
-    .query({ code: 'auth-code', state, iss: 'https://discord.com' });
-  return { agent, callback };
+  const { agent, callback } = await startSignIn(returnTo);
+  return { agent, callback: await callback() };
 }
 
 /** `session=<token>`, ready for a Cookie header. */
@@ -340,6 +352,83 @@ describe('Discord sign-in', () => {
     expect(discord.exchangeCode).toHaveBeenCalledWith('auth-code');
     expect(callback.headers.location).toBe('/sign-in?error=failed');
     await agent.get('/api/auth/me').expect(401);
+  });
+
+  describe('when Discord is slow', () => {
+    /**
+     * Three of these run a second past the sign-in deadline, though each is
+     * within the Discord client's own 10 s timeout.
+     */
+    const SLOW_CALL_MS = SIGN_IN_DEADLINE_MS / 3 + 1_000;
+    /** Three of these end a call's time inside the sign-in deadline. */
+    const FAIRLY_SLOW_CALL_MS = SIGN_IN_DEADLINE_MS / 4;
+
+    beforeEach(useDeadlineTimers);
+    afterEach(() => vi.useRealTimers());
+
+    /** Signs in, letting each Discord call take `callMs` in turn. */
+    async function signInSlowly(
+      callMs: number,
+      returnTo: string,
+      { isGuildMember = true }: { isGuildMember?: boolean } = {},
+    ) {
+      const slowly =
+        <T>(answer: T) =>
+        () =>
+          new Promise<T>((resolve) =>
+            setTimeout(() => resolve(answer), callMs),
+          );
+      discord.exchangeCode.mockImplementation(slowly('access-token'));
+      discord.getCurrentUser.mockImplementation(slowly(aliceProfile));
+      discord.isGuildMember.mockImplementation(slowly(isGuildMember));
+      const { agent, callback: sendCallback } = await startSignIn(returnTo);
+      // then() sends the callback now, while the clock is moved on below.
+      const callback = sendCallback().then((res) => res);
+      for (const call of [
+        discord.exchangeCode,
+        discord.getCurrentUser,
+        discord.isGuildMember,
+      ]) {
+        await vi.waitFor(() => expect(call).toHaveBeenCalled());
+        await vi.advanceTimersByTimeAsync(callMs);
+      }
+      return { agent, callback: await callback };
+    }
+
+    it('fails sign-in once its three calls together run past the sign-in deadline, keeping the page to return to', async () => {
+      const { agent, callback } = await signInSlowly(
+        SLOW_CALL_MS,
+        '/drafts/42',
+      );
+
+      expect(callback.status).toBe(302);
+      expect(callback.headers.location).toBe(
+        '/sign-in?error=failed&returnTo=%2Fdrafts%2F42',
+      );
+      await agent.get('/api/auth/me').expect(401);
+    });
+
+    it('signs the user in when its three calls finish within the sign-in deadline', async () => {
+      const { agent, callback } = await signInSlowly(
+        FAIRLY_SLOW_CALL_MS,
+        '/drafts/42',
+      );
+
+      expect(callback.headers.location).toBe('/drafts/42');
+      await agent.get('/api/auth/me').expect(200);
+    });
+
+    it('still turns away a non-member when its three calls finish within the sign-in deadline', async () => {
+      const { callback } = await signInSlowly(
+        FAIRLY_SLOW_CALL_MS,
+        '/drafts/42',
+        { isGuildMember: false },
+      );
+
+      expect(callback.headers.location).toBe(
+        '/sign-in?error=not-allowed&returnTo=%2Fdrafts%2F42',
+      );
+    });
   });
 
   describe('app-admin-only routes', () => {

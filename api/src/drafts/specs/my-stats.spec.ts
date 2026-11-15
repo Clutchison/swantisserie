@@ -1,6 +1,9 @@
+import { Logger } from '@nestjs/common';
 import type { MyStatsView } from 'contract';
 import request from 'supertest';
 import { OTJ_SETS } from '../../testing/scryfall-sets.js';
+import { holdScryfallSets } from '../../testing/held-scryfall-sets.js';
+import { readPastSetNamesDeadline } from '../../testing/set-names-deadline.js';
 import {
   alice,
   aliceCookie,
@@ -165,6 +168,60 @@ describe('My stats', () => {
       kind: 'set-list',
       setList: [{ code: 'otj', name: 'OTJ', sublists: [] }],
     });
+  });
+
+  describe('when Scryfall doesn’t answer with its sets', () => {
+    /** A complete tournament of Alice and Bob drawn from Outlaws of Thunder Junction. */
+    async function fromASetList() {
+      const id = await playingTournament([aliceCookie, bobCookie]);
+      await drawnFrom(id, { setList: [{ code: 'otj', sublists: [] }] });
+      await completeTournament(id).expect(200);
+    }
+
+    it('answers within the set names deadline, naming a set by its code, and logs it', async () => {
+      await fromASetList();
+      holdScryfallSets();
+      const warnings = vi
+        .spyOn(Logger.prototype, 'warn')
+        .mockImplementation(() => {});
+
+      const [result] = (await readPastSetNamesDeadline(() => myStats()))
+        .results;
+
+      expect(result.poolSource).toEqual({
+        kind: 'set-list',
+        setList: [{ code: 'otj', name: 'OTJ', sublists: [] }],
+      });
+      expect(warnings).toHaveBeenCalledWith(
+        expect.stringContaining('set names deadline'),
+      );
+    });
+
+    it('names the sets once Scryfall answers', async () => {
+      await fromASetList();
+      const answer = holdScryfallSets();
+      await readPastSetNamesDeadline(() => myStats());
+
+      answer();
+
+      expect((await myStats()).results[0].poolSource).toEqual({
+        kind: 'set-list',
+        setList: [
+          { code: 'otj', name: 'Outlaws of Thunder Junction', sublists: [] },
+        ],
+      });
+      expect(scryfall.sets).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('asks Scryfall nothing when no result is from a set list', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+    await drawnFrom(id, { cube: { id: 'vintage', name: 'Vintage Cube' } });
+    await completeTournament(id).expect(200);
+
+    await myStats();
+
+    expect(scryfall.sets).not.toHaveBeenCalled();
   });
 
   it('gives only the signed-in player’s own stats', async () => {

@@ -1,5 +1,15 @@
 import { Logger } from '@nestjs/common';
-import { DraftNotifier } from '../../discord/draft-notifier.js';
+import {
+  DraftNotifier,
+  RATE_LIMIT_CAP_MS,
+  SHUTDOWN_DEADLINE_MS,
+} from '../../discord/draft-notifier.js';
+import { WebhookRateLimitedError } from '../../discord/webhook-client.js';
+import {
+  held,
+  pastDeadline,
+  useDeadlineTimers,
+} from '../../testing/deadlines.js';
 import {
   aliceCookie,
   app,
@@ -101,6 +111,132 @@ describe('shutting down', () => {
         expect.anything(),
       );
       expect(errors).not.toHaveBeenCalled();
+    });
+
+    describe('past the shutdown deadline', () => {
+      /** A post that fails only once the function this returns is called. */
+      function holdPost(): () => void {
+        const { promise, letGo } = held<void>();
+        webhookClient.post.mockImplementationOnce(async () => {
+          await promise;
+          throw new Error('Discord is down');
+        });
+        return letGo;
+      }
+
+      /** Closes the app, jumping past the deadline once a post is sending. */
+      async function closePastDeadline(): Promise<void> {
+        await pastDeadline(
+          () => app.close(),
+          webhookClient.post,
+          SHUTDOWN_DEADLINE_MS,
+        );
+      }
+
+      it('stops waiting for an announcement that never finishes and logs it dropped', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        holdPost();
+        await start(id).expect(200);
+
+        await closePastDeadline();
+
+        expect(errors).toHaveBeenCalledTimes(1);
+        expect(errors).toHaveBeenCalledWith(
+          expect.stringMatching(new RegExp(`dropped.*draft ${id}`)),
+        );
+      });
+
+      it('starts no new post after the deadline', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        const fail = holdPost();
+        await start(id).expect(200);
+        const freeze = app.get(DraftNotifier).notify(id, [{ type: 'frozen' }]);
+
+        await closePastDeadline();
+        // A retry, or the queued freeze, would be a new post.
+        fail();
+        await freeze;
+
+        expect(webhookClient.post).toHaveBeenCalledTimes(1);
+        // The start still sending and the freeze still queued.
+        expect(errors.mock.calls).toEqual([
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*started`))],
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*frozen`))],
+        ]);
+      });
+
+      it('counts the time the server takes to close against the deadline', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        holdPost();
+        await start(id).expect(200);
+        await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+        useDeadlineTimers();
+        try {
+          // A request in flight holds the server's close for the whole
+          // deadline.
+          slowDownDatabase(SHUTDOWN_DEADLINE_MS);
+          const reading = slowQueryUnderway();
+          const read = getDraft(id).then((res) => res);
+          await reading;
+          // Only that reply: the database disconnects at its usual speed.
+          slowDownDatabase(0);
+
+          let closed = false;
+          void app.close().then(() => {
+            closed = true;
+          });
+          await vi.advanceTimersByTimeAsync(SHUTDOWN_DEADLINE_MS);
+
+          // Not a second deadline's worth later.
+          await vi.waitFor(() => expect(closed).toBe(true), { timeout: 5_000 });
+
+          expect((await read).status).toBe(200);
+          expect(errors).toHaveBeenCalledWith(
+            expect.stringMatching(new RegExp(`dropped.*draft ${id}`)),
+          );
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it('ends a rate limit wait at the deadline, without posting again', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        // Past the deadline, but within the cap, so the post would wait it out.
+        const rateLimitMs = (SHUTDOWN_DEADLINE_MS + RATE_LIMIT_CAP_MS) / 2;
+        webhookClient.post.mockRejectedValueOnce(
+          new WebhookRateLimitedError(rateLimitMs),
+        );
+        await start(id).expect(200);
+        // Settles once the start's announcement does.
+        const settled = app.get(DraftNotifier).notify(id, []);
+
+        await closePastDeadline();
+
+        // A wait left running would hold the process until Heroku's SIGKILL.
+        await settled;
+        expect(webhookClient.post).toHaveBeenCalledTimes(1);
+        // The start still waiting, and the empty one queued behind it; no
+        // rate limit failure.
+        expect(errors.mock.calls).toEqual([
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*started`))],
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}`))],
+        ]);
+      });
+
+      it('drops and logs an announcement notified after the deadline', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        holdPost();
+        await start(id).expect(200);
+        await closePastDeadline();
+        errors.mockClear();
+
+        await app.get(DraftNotifier).notify(id, [{ type: 'frozen' }]);
+
+        expect(webhookClient.post).toHaveBeenCalledTimes(1);
+        expect(errors).toHaveBeenCalledWith(
+          expect.stringMatching(new RegExp(`dropped.*draft ${id}.*frozen`)),
+        );
+      });
     });
 
     it('posts an announcement queued while it waits for the others', async () => {

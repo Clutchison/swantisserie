@@ -1,6 +1,10 @@
 import type { Platform } from 'contract';
 import request from 'supertest';
+import { PrismaService } from '../../prisma/prisma.service.js';
 import { ScryfallUnavailableError } from '../../scryfall/scryfall-client.js';
+import { lateWorkDone } from '../../testing/deadlines.js';
+import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
+import { holdScryfallSets } from '../../testing/held-scryfall-sets.js';
 import {
   countAnswers,
   OTJ_SETS,
@@ -223,6 +227,37 @@ describe('creating a draft from a set list', () => {
     }).expect(502);
 
     expect(refused.body.error).toBe('scryfall-unavailable');
+  });
+
+  it('answers 502 within the draft creation deadline when Scryfall doesn’t list its sets, and saves no draft once it does', async () => {
+    // Counted already, so the sets, once listed, would make a pool.
+    await app.get(PrismaService).setCardCount.createMany({
+      data: Object.entries(COUNTS).map(([setCode, cards]) => ({
+        platform: 'Arena',
+        setCode,
+        cards,
+        countedAt: new Date(),
+      })),
+    });
+    const answer = holdScryfallSets();
+
+    const refused = await createPastDeadline(
+      () =>
+        createDraft({
+          name: 'Outlaws',
+          poolSource: {
+            kind: 'set-list',
+            setList: [{ code: 'otj', sublists: [] }],
+          },
+        }),
+      scryfall.sets,
+    );
+
+    expect(refused.status).toBe(502);
+    expect(refused.body.error).toBe('scryfall-unavailable');
+    answer();
+    await lateWorkDone();
+    await listDrafts().expect(200).expect([]);
   });
 });
 

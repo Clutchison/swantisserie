@@ -1,3 +1,4 @@
+import { held } from '../testing/deadlines.js';
 import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   FetchScryfallClient,
@@ -112,6 +113,46 @@ describe('FetchScryfallClient', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(fetch).toHaveBeenCalledTimes(2);
       expect(await search).toMatchObject({ cards: [balefire] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('holds a search already waiting for its slot when a 429 arrives until the lockout is over, then keeps them 600 ms apart', async () => {
+    vi.useFakeTimers();
+    try {
+      respond(429, { object: 'error', status: 429, details: 'Too many' });
+      for (let i = 0; i < 3; i++) {
+        respond(404, { object: 'error', status: 404, details: 'No cards' });
+      }
+      const sent = () =>
+        fetch.mock.calls.map(([url]) =>
+          new URL(url as string).searchParams.get('q'),
+        );
+
+      const searches = Promise.all([
+        scryfall.search('a'),
+        scryfall.search('b'),
+      ]);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(sent()).toEqual(['a']);
+
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(sent()).toEqual(['a']);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent()).toHaveLength(2);
+
+      await vi.advanceTimersByTimeAsync(599);
+      expect(sent()).toHaveLength(2);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent()).toEqual(['a', 'a', 'b']);
+
+      const later = scryfall.search('c');
+      await vi.advanceTimersByTimeAsync(599);
+      expect(sent()).toHaveLength(3);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(sent()).toHaveLength(4);
+      await Promise.all([searches, later]);
     } finally {
       vi.useRealTimers();
     }
@@ -311,6 +352,29 @@ describe('FetchScryfallClient', () => {
       respond(404, { object: 'error', status: 404, details: 'No cards' });
 
       expect(await scryfall.printingsOn('arena', ['bolt'])).toEqual([]);
+    });
+
+    it('sends no more searches after the one under way once its signal is aborted', async () => {
+      vi.useFakeTimers();
+      try {
+        const ids = Array.from({ length: 50 }, (_, n) => oracleId(n));
+        const underWay = held<Response>();
+        fetch.mockReturnValueOnce(underWay.promise);
+        fetch.mockImplementation(async () => Response.json(found([])));
+        const searches = new AbortController();
+
+        const cards = scryfall.printingsOn('arena', ids, searches.signal);
+        const failed = expect(cards).rejects.toThrow('stop');
+        await vi.advanceTimersByTimeAsync(0);
+        searches.abort(new Error('stop'));
+        underWay.letGo(Response.json(found([])));
+        await vi.advanceTimersByTimeAsync(10_000);
+
+        await failed;
+        expect(fetch).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('asks nothing for no cards', async () => {

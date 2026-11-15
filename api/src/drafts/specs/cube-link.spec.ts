@@ -2,6 +2,9 @@ import {
   CubeCobraUnavailableError,
   type Cube,
 } from '../../cubecobra/cubecobra-client.js';
+import type { ScryfallCard } from '../../scryfall/scryfall-client.js';
+import { held, lateWorkDone } from '../../testing/deadlines.js';
+import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
   aliceCookie,
   bob,
@@ -201,6 +204,52 @@ describe('creating a draft from a cube', () => {
     await listDrafts().expect(200).expect([]);
   });
 
+  it('answers 502 within the draft creation deadline when CubeCobra doesn’t answer, and saves no draft once it does', async () => {
+    const fetched = held<Cube | null>();
+    cubeCobra.cube.mockReturnValue(fetched.promise);
+    onPlatform('Lightning Bolt', 'Deftblade Elite');
+
+    const res = await createPastDeadline(
+      () =>
+        createDraft({
+          name: 'Pauper',
+          poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
+        }),
+      cubeCobra.cube,
+    );
+
+    expect(res.status).toBe(502);
+    expect(res.body).toMatchObject({ error: 'cubecobra-unavailable' });
+    fetched.letGo(pauper);
+    await lateWorkDone();
+    await listDrafts().expect(200).expect([]);
+    expect(scryfall.printingsOn).not.toHaveBeenCalled();
+  });
+
+  it('answers 502 within the draft creation deadline when Scryfall doesn’t answer the cube’s searches, saves no draft once it does, and stops searching', async () => {
+    cubesAre({ thepaupercube: pauper });
+    const found = held<ScryfallCard[]>();
+    scryfall.printingsOn.mockReturnValue(found.promise);
+
+    const res = await createPastDeadline(
+      () =>
+        createDraft({
+          name: 'Pauper',
+          poolSource: { kind: 'cube', cubeLink: 'thepaupercube' },
+        }),
+      scryfall.printingsOn,
+    );
+
+    expect(res.status).toBe(502);
+    expect(res.body).toMatchObject({ error: 'scryfall-unavailable' });
+    // Searches still to come for a draft that won't be saved aren't sent.
+    const [, , searches] = scryfall.printingsOn.mock.calls[0];
+    expect(searches?.aborted).toBe(true);
+    found.letGo([card('Lightning Bolt'), card('Deftblade Elite')]);
+    await lateWorkDone();
+    await listDrafts().expect(200).expect([]);
+  });
+
   it('refuses a cube with no mainboard cards', async () => {
     cubesAre({ emptycube: cube('Empty') });
 
@@ -243,6 +292,7 @@ describe('creating a draft from a cube', () => {
     expect(scryfall.printingsOn).toHaveBeenCalledWith(
       'mtgo',
       expect.arrayContaining(['ancient-hellkite-oracle']),
+      expect.any(AbortSignal),
     );
     await listDrafts().expect(200).expect([]);
   });
