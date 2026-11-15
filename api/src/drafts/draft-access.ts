@@ -55,6 +55,15 @@ export class DraftAccess {
     if (!powers.addBots) throw new NoDraftPowerError();
   }
 
+  /** Throws unless the viewer may switch the draft's announcements, as by changing its webhook. */
+  async canSwitchAnnouncements(
+    viewer: DraftViewer,
+    draftId: string,
+  ): Promise<void> {
+    const powers = powersOf(viewer, await this.find(viewer, draftId));
+    if (!powers.switchAnnouncements) throw new NoDraftPowerError();
+  }
+
   /** The viewer's draft powers, from the same rule as the checks. */
   async powers(viewer: DraftViewer, draftId: string): Promise<DraftPowersView> {
     return powersOf(viewer, await this.find(viewer, draftId));

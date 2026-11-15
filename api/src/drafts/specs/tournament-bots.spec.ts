@@ -126,10 +126,9 @@ describe('what a bot can’t do', () => {
     expect((await reinstate(id, botIds[0]).expect(409)).body).toEqual(
       BOT_ENTRY,
     );
-    expect((await tournamentView(id)).entries.map((e) => e.dropped)).toEqual([
-      false,
-      false,
-    ]);
+    const { entries } = await tournamentView(id);
+    expect(entries.map((e) => e.dropped)).toEqual([false, false]);
+    expect(entries.map((e) => e.reinstateRefusal)).toEqual([null, null]);
   });
 
   it('refuses a bot joining, as bots join at setup', async () => {
@@ -252,5 +251,38 @@ describe('a bot’s matches', () => {
     await setWin(id, [botIds[0], alice.id], [2, 0]);
     await completeTournament(id).expect(200);
     expect((await tournamentView(id)).trophyHolders).toEqual([botIds[0]]);
+  });
+
+  it('list only their human opponent as able to report or confirm them', async () => {
+    const { id, botIds } = await completeDraftWithBots([aliceCookie], 1);
+    await setUpTournament(id).expect(201);
+    await fullDeck(id, aliceCookie);
+    await startTournament(id).expect(200);
+    expect((await matchOf(id, alice.id, botIds[0])).reportableBy).toEqual([
+      alice.id,
+    ]);
+
+    await reportWin(id, [alice.id, botIds[0]], [2, 1], aliceCookie);
+
+    const reported = await matchOf(id, alice.id, botIds[0]);
+    expect(reported.reportableBy).toEqual([]);
+    expect(reported.confirmableBy).toEqual([]);
+  });
+
+  it('list only the human player as able to confirm a game score an organizer set', async () => {
+    const { id, botIds } = await completeDraftWithBots(
+      [aliceCookie, bobCookie],
+      1,
+    );
+    await setUpTournament(id).expect(201);
+    await fullDeck(id, aliceCookie);
+    await fullDeck(id, bobCookie);
+    await startTournament(id).expect(200);
+
+    await setWin(id, [botIds[0], bob.id], [2, 0]);
+
+    expect((await matchOf(id, bob.id, botIds[0])).confirmableBy).toEqual([
+      bob.id,
+    ]);
   });
 });

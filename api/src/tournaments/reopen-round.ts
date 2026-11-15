@@ -1,6 +1,6 @@
 import type { ReopenRoundView, TournamentRefusal } from 'contract';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { TournamentRefusedError } from './tournament-errors.js';
+import { NOT_PLAYING, TournamentRefusedError } from './tournament-errors.js';
 import { takeBackDrops } from './tournament-matches.js';
 import type { TournamentRow } from './tournament-view.js';
 
@@ -62,12 +62,7 @@ function refusalOf(row: ReopenRow): TournamentRefusal | null {
       message: 'This tournament is complete, so its results are final.',
     };
   }
-  if (row.state !== 'Playing') {
-    return {
-      error: 'not-playing',
-      message: 'This tournament isn’t being played.',
-    };
-  }
+  if (row.state !== 'Playing') return NOT_PLAYING;
   if (round === 0) {
     return {
       error: 'no-completed-round',

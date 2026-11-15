@@ -197,7 +197,7 @@ export class DraftsController {
 
   /**
    * Chooses where the draft's later announcements are posted, or none, at any
-   * time; announces nothing itself. For the organizer.
+   * time; announces nothing itself. For whoever may switch its announcements.
    */
   @Put(':id/webhook')
   async changeWebhook(
@@ -206,7 +206,7 @@ export class DraftsController {
     @Body() body: unknown,
   ): Promise<DraftView> {
     const webhookId = parseWebhookChoice(body);
-    await this.access.asOrganizer(user, id);
+    await this.access.canSwitchAnnouncements(user, id);
     return this.change(id, () => this.lifecycle.changeWebhook(id, webhookId));
   }
 

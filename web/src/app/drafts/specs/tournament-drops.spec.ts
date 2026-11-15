@@ -1,5 +1,14 @@
 import { answer, question } from '../../specs-harness';
-import { ORGANIZE_ONLY, alice, bob, button, http, panel, useDraftsApp } from './harness';
+import {
+  ORGANIZE_ONLY,
+  accessibleDescription,
+  alice,
+  bob,
+  button,
+  http,
+  panel,
+  useDraftsApp,
+} from './harness';
 import {
   answerChange,
   carol,
@@ -16,7 +25,10 @@ import {
   withDrops,
   yourMatches,
   completed,
+  entry,
+  pushTournament,
   signedIn,
+  swissPlaying,
 } from './play-tab-harness';
 
 useDraftsApp();
@@ -29,6 +41,41 @@ const carolDropped = withDrops(
     forfeited(unreportedMatch('m3', carol.id, alice.id), carol.id),
   ],
 );
+
+/** Why the api refuses reinstating Bob in `bobDroppedAndPassed`. */
+const pairedWithoutBob =
+  'That player can’t be reinstated: tournament round 2 was paired after they dropped.';
+
+/** The Swiss tournament's round 1, Bob having dropped from his match against Carol (m1) while Alice had a bye. */
+const bobDroppedSwiss = swissPlaying({
+  lastCompletedRound: 0,
+  entries: [alice.id, bob.id, carol.id].map((id) => entry(id, { dropped: id === bob.id })),
+  rounds: [
+    {
+      round: 1,
+      correctable: true,
+      matches: [forfeited(unreportedMatch('m1', carol.id, bob.id), bob.id)],
+      byes: [alice.id],
+    },
+  ],
+  reopenRound: null,
+});
+
+/** `bobDroppedSwiss` once round 1 is completed and round 2 paired without Bob, so the api refuses reinstating him. */
+const bobDroppedAndPassed = swissPlaying({
+  entries: [alice.id, bob.id, carol.id].map((id) =>
+    id === bob.id
+      ? entry(id, {
+          dropped: true,
+          reinstateRefusal: { error: 'paired-since-drop', message: pairedWithoutBob },
+        })
+      : entry(id),
+  ),
+  rounds: [
+    { ...bobDroppedSwiss.rounds[0], correctable: false },
+    { round: 2, correctable: true, matches: [unreportedMatch('m2', alice.id, carol.id)], byes: [] },
+  ],
+});
 
 describe('drops on the Play tab', () => {
   it('lets a player drop from the tournament once they go ahead', async () => {
@@ -130,6 +177,7 @@ describe('drops on the Play tab', () => {
   it('lets an organizer reinstate a dropped player', async () => {
     const { fixture, page, tab } = await openPlaying(carolDropped, { powers: ORGANIZE_ONLY });
     expect(button(tab, 'Drop Carol')).toBeUndefined();
+    expect(button(tab, 'Reinstate Carol')!.disabled).toBe(false);
 
     button(tab, 'Reinstate Carol')!.click();
     await answerChange(
@@ -144,6 +192,26 @@ describe('drops on the Play tab', () => {
     expect(playerLines(panel(page))).toEqual(['Alice', 'Bob', 'Carol']);
     expect(gridCellName(panel(page), 'Alice', 'Carol')).toBe('Alice against Carol: unreported');
     expect(yourMatches(panel(page))).toContain('vs Carol');
+  });
+
+  it('offers Reinstate disabled, saying why, when the api would refuse it', async () => {
+    const { tab } = await openPlaying(bobDroppedAndPassed, { powers: ORGANIZE_ONLY });
+
+    const reinstate = button(tab, 'Reinstate Bob')!;
+    expect(reinstate.disabled).toBe(true);
+    expect(accessibleDescription(reinstate)).toBe(pairedWithoutBob);
+    expect(playerLines(tab)).toContain(`Bob · Dropped ${pairedWithoutBob}`);
+  });
+
+  it('disables Reinstate as soon as the next tournament round is paired without the player', async () => {
+    const { fixture, tab } = await openPlaying(bobDroppedSwiss, { powers: ORGANIZE_ONLY });
+    expect(button(tab, 'Reinstate Bob')!.disabled).toBe(false);
+    expect(accessibleDescription(button(tab, 'Reinstate Bob')!)).toBe('');
+
+    await pushTournament(fixture, bobDroppedAndPassed, 1, { asPlayer: true });
+
+    await vi.waitFor(() => expect(button(tab, 'Reinstate Bob')!.disabled).toBe(true));
+    expect(accessibleDescription(button(tab, 'Reinstate Bob')!)).toBe(pairedWithoutBob);
   });
 
   it.each([

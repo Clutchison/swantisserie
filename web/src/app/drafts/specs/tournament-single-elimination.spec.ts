@@ -350,7 +350,9 @@ const semifinalBothDropped: ViewerTournamentView = {
   rounds: semifinalOfFour.rounds.map((round) => ({
     ...round,
     matches: round.matches.map((match) =>
-      match.id === 'm1' ? { ...match, outcome: { kind: 'Forfeit', forfeitedBy: alice.id } } : match,
+      match.id === 'm1'
+        ? { ...match, outcome: { kind: 'Forfeit', forfeitedBy: alice.id }, reportableBy: [] }
+        : match,
     ),
   })),
   bracket: [

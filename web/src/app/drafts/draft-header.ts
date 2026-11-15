@@ -11,7 +11,7 @@ import {
   signal,
 } from '@angular/core';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
-import { isTurnState, MAX_PLAYERS } from 'engine';
+import { isTurnState, MAX_PLAYERS, startProblem } from 'engine';
 import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
@@ -116,6 +116,14 @@ export class DraftHeader {
   protected readonly draftFull = computed(() => this.draft().players.length >= MAX_PLAYERS);
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
+  /**
+   * Why the api would refuse to start the draft, by the engine's start rule,
+   * or null if it wouldn't. Bots count as players, as the api counts them.
+   * Null while the snapshot runs: its partial count isn't the pool's size.
+   */
+  protected readonly startProblem = computed(() =>
+    this.poolReady() ? startProblem(this.store.draftSize(), this.draft().snapshot.cards) : null,
+  );
 
   /** The pick the organizer may undo: the latest, while the draft is drafting or frozen. */
   protected readonly undoable = computed(() => {

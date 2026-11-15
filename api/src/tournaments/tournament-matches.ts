@@ -24,6 +24,14 @@ export function droppable(entry: {
   return !entry.player.user.isBot;
 }
 
+/** Whether the entry `entryId` is one of `match`'s players, or has it as a bye. */
+export function hasEntry(
+  match: { firstEntryId: string; secondEntryId: string | null },
+  entryId: string,
+): boolean {
+  return match.firstEntryId === entryId || match.secondEntryId === entryId;
+}
+
 /**
  * The entry of `match`'s player `playerId`, for Complete round to drop.
  * Throws InvalidTournamentRequestError, saying `notInMatch`, if they aren't

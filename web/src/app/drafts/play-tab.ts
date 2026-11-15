@@ -204,12 +204,17 @@ export class PlayTab {
   protected readonly playsOn = computed(
     () => this.state() === 'Playing' && this.joined() && !this.ownDropped(),
   );
-  /** The joined players once the tournament is playing, in join order, with whether each dropped and can be. */
+  /**
+   * The joined players once the tournament is playing, in join order, with
+   * whether each dropped and can be, and why the api would refuse
+   * reinstating them, if it would.
+   */
   protected readonly players = computed(() =>
     this.tournament()!.entries.map((entry) => ({
       ...this.store.player(entry.playerId),
       dropped: entry.dropped,
       droppable: entry.droppable,
+      reinstateRefusal: entry.reinstateRefusal,
     })),
   );
   /** Whether the signed-in player joined and has dropped. */
@@ -226,18 +231,18 @@ export class PlayTab {
   });
   /**
    * The signed-in player's match "Your match" shows, in Swiss and single
-   * elimination: the one they chose, while it is unreported, else their
-   * first match by tournament round that needs something from them, Report
-   * if it is unreported or Confirm if someone else reported it.
+   * elimination: the one they chose, while they may report it, else their
+   * first match by tournament round that they may report or confirm, as
+   * the api says.
    */
   protected readonly ownMatch = computed((): OwnMatch | undefined => {
     const ownId = this.ownId();
     if (!ownId || !this.playsOn()) return undefined;
-    const unreported = (match: MatchView) => match.outcome.kind === 'Unreported';
+    const reportable = (match: MatchView) => match.reportableBy.includes(ownId);
     const mine = this.mine();
     return (
-      mine.find(({ match }) => match.id === this.chosen() && unreported(match)) ??
-      mine.find(({ match }) => unreported(match) || match.confirmableBy.includes(ownId))
+      mine.find(({ match }) => match.id === this.chosen() && reportable(match)) ??
+      mine.find(({ match }) => reportable(match) || match.confirmableBy.includes(ownId))
     );
   });
   /** Whether the tournament is round robin, which has no tournament rounds: Your matches and the results grid show its matches. */
