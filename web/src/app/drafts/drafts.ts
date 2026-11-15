@@ -11,6 +11,7 @@ import type {
   QueueView,
   SetListEntryView,
   TurnState,
+  TurnView,
 } from 'contract';
 import { draftSize, isTurnState, picksPerTurn } from 'engine';
 import type { Changes } from '../changes';
@@ -281,7 +282,7 @@ export function pickAndRound(draft: DraftView): string {
  * turn that isn't the draft's own, such as a pick import preview's next one.
  */
 export function turnWords(
-  turn: { pick: number; round: number; picksBeforeTurnPasses: 1 | 2 },
+  turn: Pick<TurnView, 'pick' | 'round' | 'picksBeforeTurnPasses'>,
   doubleTurn: boolean,
 ): string {
   const suffix = doubleTurn ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
