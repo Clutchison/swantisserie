@@ -38,7 +38,7 @@ import {
 import { disclosure } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
-import { clickOn } from '../../specs-harness';
+import { clickOn, emptyStatusIn } from '../../specs-harness';
 
 useDraftsApp();
 
@@ -312,13 +312,16 @@ describe('seats and start', () => {
       });
     });
 
-    it('previews a valid file: the pairings, pick count and next turn', async () => {
+    it('previews a valid file, in a status there before it: the pairings, pick count and next turn', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
       expect(page.textContent).toContain('Import picks');
+      // A live region announces changes to it, not the text it is inserted with.
+      const region = emptyStatusIn(page, 'Pick import preview');
 
       await chooseFile(fixture, page, preview);
 
-      const shown = (await shownPreview(page)).textContent;
+      expect(await shownPreview(page)).toBe(region);
+      const shown = region.textContent;
       expect(shown).toContain('Ann → Alice');
       expect(shown).toContain('Ben → Bob');
       expect(shown).toContain('70 picks');
