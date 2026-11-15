@@ -8,7 +8,7 @@ import {
 import { Location } from '@angular/common';
 import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
-import type { DraftListItemView, UserView } from 'contract';
+import type { DraftListItemView, DraftRefusal, UserView } from 'contract';
 import { App } from './app';
 import { provideAppRouter } from './app.router';
 import { signOutWhenSessionEnds } from './auth/sign-out-when-session-ends';
@@ -35,7 +35,7 @@ export const serverError = { status: 500, statusText: 'Server Error' };
 
 /** The api's refusal of a change to a closed draft: its body, then its status, to spread into `flush`. */
 export const draftClosed = [
-  { error: 'draft-closed', message: 'This draft is closed.' },
+  { error: 'draft-closed', message: 'This draft is closed.' } satisfies DraftRefusal,
   { status: 409, statusText: 'Conflict' },
 ] as const;
 
