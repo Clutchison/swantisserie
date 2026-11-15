@@ -237,14 +237,18 @@ button {
     font-weight: 600;
   }
 
-  /*
-   * A segment whose radio is disabled looks like a disabled button. Its
-   * radio takes no clicks, so neither does it, which keeps the hover off.
-   */
+  /* A segment whose radio is disabled looks like a disabled button. */
   label:has(:disabled) {
     opacity: 0.6;
     cursor: default;
-    pointer-events: none;
+  }
+
+  /*
+   * Nor does it raise on hover, unless it is the chosen one: specific enough
+   * to beat the quiet button's hover.
+   */
+  label.button:has(:disabled:not(:checked)):hover {
+    background: transparent;
   }
 }
 

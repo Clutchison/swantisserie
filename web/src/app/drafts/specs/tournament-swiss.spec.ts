@@ -285,9 +285,10 @@ describe('Swiss tournaments on the Play tab', () => {
   const completesEarly =
     'Fewer than 2 undropped players will remain, so completing the round will complete the tournament';
   const pairsRoundTwo = 'Completing the round will pair tournament round 2 and open its matches.';
-  /** Alice and Carol's choices of who to drop in the Complete round dialog `dialog`. */
-  const dropCarol = (dialog: HTMLElement) =>
-    button(group(dialog, 'Drop from Alice vs Carol')!, 'Drop Carol')!;
+  /** Alice and Carol's Drop choices in the Complete round dialog `dialog`. */
+  const aliceVsCarolDrops = (dialog: HTMLElement) => group(dialog, 'Drop from Alice vs Carol')!;
+  /** The Drop Carol toggle button in the Complete round dialog `dialog`. */
+  const dropCarol = (dialog: HTMLElement) => button(aliceVsCarolDrops(dialog), 'Drop Carol')!;
 
   it('says the tournament completes once fewer than 2 undropped players would remain, counting the drops chosen', async () => {
     const { dialog } = await openCompleteRound(bobDroppedAfterBye);
@@ -300,12 +301,12 @@ describe('Swiss tournaments on the Play tab', () => {
     expect(text(dialog)).not.toContain('will pair tournament round 2');
   });
 
-  it('still offers the drops once those chosen would complete the tournament, and takes back a drop pressed again', async () => {
+  it('still offers the drops once those chosen would complete the tournament, and no longer drops a player whose Drop is pressed again', async () => {
     const { fixture, dialog } = await openCompleteRound(bobDroppedAfterBye);
 
     dropCarol(dialog).click();
     await vi.waitFor(() => expect(text(dialog)).toContain(completesEarly));
-    expect(dropCarol(dialog).getAttribute('aria-pressed')).toBe('true');
+    expect(pressed(aliceVsCarolDrops(dialog), 'Drop Carol')).toBe('true');
 
     dropCarol(dialog).click();
     await vi.waitFor(() => expect(text(dialog)).toContain(pairsRoundTwo));

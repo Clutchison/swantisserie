@@ -49,22 +49,7 @@
               }
             </div>
             @if (match.droppable.length > 0) {
-              <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-                @for (player of match.droppable; track player.id) {
-                  <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
-                  <button
-                    type="button"
-                    class="toggle-button labelled"
-                    [attr.aria-pressed]="isDropping(match.id, player.id)"
-                    (click)="setDropping(match.id, player.id, !isDropping(match.id, player.id))"
-                  >
-                    @if (isDropping(match.id, player.id)) {
-                      <svg lucideCheck size="16" aria-hidden="true"></svg>
-                    }
-                    Drop {{ player.name }}
-                  </button>
-                }
-              </div>
+              <ng-container *ngTemplateOutlet="dropChoices; context: { $implicit: match }" />
             }
           </li>
         }
@@ -81,22 +66,7 @@
           <li>
             <span>{{ match.label }}</span>
             @if (!finalRound() && match.droppable.length > 0) {
-              <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
-                @for (player of match.droppable; track player.id) {
-                  <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
-                  <button
-                    type="button"
-                    class="toggle-button labelled"
-                    [attr.aria-pressed]="isDropping(match.id, player.id)"
-                    (click)="setDropping(match.id, player.id, !isDropping(match.id, player.id))"
-                  >
-                    @if (isDropping(match.id, player.id)) {
-                      <svg lucideCheck size="16" aria-hidden="true"></svg>
-                    }
-                    Drop {{ player.name }}
-                  </button>
-                }
-              </div>
+              <ng-container *ngTemplateOutlet="dropChoices; context: { $implicit: match }" />
             }
           </li>
         }
@@ -110,3 +80,23 @@
     </button>
   </div>
 </div>
+
+<!-- A match's Drop choices, offered in either layout. -->
+<ng-template #dropChoices let-match>
+  <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
+    @for (player of match.droppable; track player.id) {
+      <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
+      <button
+        type="button"
+        class="toggle-button labelled"
+        [attr.aria-pressed]="isDropping(match.id, player.id)"
+        (click)="setDropping(match.id, player.id, !isDropping(match.id, player.id))"
+      >
+        @if (isDropping(match.id, player.id)) {
+          <svg lucideCheck size="16" aria-hidden="true"></svg>
+        }
+        Drop {{ player.name }}
+      </button>
+    }
+  </div>
+</ng-template>

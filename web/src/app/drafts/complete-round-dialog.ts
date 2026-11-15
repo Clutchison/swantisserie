@@ -1,4 +1,5 @@
 import { DialogRef } from '@angular/cdk/dialog';
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import { LucideCheck } from '@lucide/angular';
 import type { CompleteRoundRequest } from 'contract';
@@ -31,7 +32,7 @@ const SINGLE_ELIMINATION = 'SingleElimination';
 @Component({
   selector: 'app-complete-round-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [LucideCheck],
+  imports: [LucideCheck, NgTemplateOutlet],
   templateUrl: './complete-round-dialog.html',
   styleUrls: ['../dialog.scss', './complete-round-dialog.scss'],
 })
