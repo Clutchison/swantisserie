@@ -1,5 +1,6 @@
 @use 'sass:math';
 @use './card-shape';
+@use '../../live-region';
 
 .card-detail {
   display: flex;
@@ -78,18 +79,12 @@
   gap: var(--space-sm);
 }
 
-/*
- * A note's live region stays on the page, as one that arrives holding its text
- * may go unspoken. While empty it is taken out of the flow, so it takes no room
- * and no gap, whatever the gap; it stays in the accessibility tree, as a hidden one wouldn't.
- */
+/* A note's live region stays on the page; empty, it takes no room in the column. */
 .note {
+  @include live-region.no-space-while-empty;
+
   margin: 0;
   color: var(--color-text);
-
-  &:empty {
-    position: absolute;
-  }
 
   &.error {
     color: var(--color-error);

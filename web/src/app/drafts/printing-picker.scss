@@ -1,5 +1,6 @@
 @use 'sass:math';
 @use './card-shape';
+@use '../../live-region';
 
 /* The dialog's box, from dialog.scss: its heading, the printing on show, how to browse, then its actions. */
 :host {
@@ -10,12 +11,9 @@ p {
   margin: 0;
 }
 
-/*
- * Its live region stays on the page. While empty it is taken out of the flow, so it takes no room
- * and no gap, whatever the gap; it stays in the accessibility tree, as a hidden one wouldn't.
- */
-.loading:empty {
-  position: absolute;
+/* Its live region stays on the page; empty, it takes no room in the column. */
+.loading {
+  @include live-region.no-space-while-empty;
 }
 
 figure {
