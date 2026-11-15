@@ -2,7 +2,7 @@ import type { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
 import type { Signal } from '@angular/core';
 import type { PlanBoard, PlanView } from 'contract';
 import { DRAG_START_DELAY } from './drafts';
-import { heldOn, type MovedCard } from './plan-board-cards';
+import { heldOn, type MovedCard } from './plan-lines';
 import type { StackMove } from './plan-stacks';
 
 /** Where a dragged card is dropped: a plan board, and on a mainboard stack or in a gap between, the stack move into it. */

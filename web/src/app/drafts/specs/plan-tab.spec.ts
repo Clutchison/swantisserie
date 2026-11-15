@@ -730,7 +730,7 @@ describe('the Deck tab’s name', () => {
       expect(deckEdits(tab).length).toBeGreaterThan(0);
     });
 
-    it('tells a joined player during registration under public decklists that their decklist is shown from its start', async () => {
+    it('names, to a joined player during registration under public decklists, the decklist shown from the tournament’s start', async () => {
       const { tab } = await openPlanIn({
         ...registration(bob.id, alice.id),
         publicDecklists: true,

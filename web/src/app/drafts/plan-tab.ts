@@ -58,8 +58,8 @@ import {
   type MovedCard,
   type PlanBoardCard,
   type PlanLine,
-} from './plan-board-cards';
-import { GROUPINGS, type PlanMode, readChoice, saveChoice } from './plan-choice';
+} from './plan-lines';
+import { GROUPINGS, type PlanChoice, type PlanMode, readChoice, saveChoice } from './plan-choice';
 import { type DropTarget, planDrag } from './plan-drag';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { besideIn } from './focus-beside';
@@ -228,6 +228,11 @@ export class PlanTab {
   private modeSettled = this.remembered.mode !== undefined;
   protected readonly grouping = signal(this.remembered.grouping);
   protected readonly groupings = GROUPINGS;
+  /** The mode and grouping shown, as kept for next time. */
+  private readonly choice = computed((): PlanChoice => ({
+    mode: this.mode(),
+    grouping: this.grouping(),
+  }));
   /** Whether the plan boards show as stacks: the chosen mode. */
   protected readonly showingStacks = computed(() => this.mode() === 'stacks');
   /** The mainboard's cards, a basic land's copies included. */
@@ -297,12 +302,13 @@ export class PlanTab {
   protected readonly planBoards = computed(() => {
     const wide = this.wideStacks();
     const plan = this.plan();
-    const hasPicks = PLAN_BOARDS.some((planBoard) =>
-      heldOn(plan, planBoard).some((card) => card.picked),
-    );
-    return PLAN_BOARDS.map((planBoard) => {
+    const held = PLAN_BOARDS.map((planBoard) => {
+      const cards = heldOn(plan, planBoard);
+      return { planBoard, cards, picked: cards.filter((card) => card.picked).length };
+    });
+    const hasPicks = held.some(({ picked }) => picked > 0);
+    return held.map(({ planBoard, cards, picked }) => {
       const { empty, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
-      const held = heldOn(plan, planBoard);
       const dropTarget = (into?: StackMove): DropTarget => ({ planBoard, into });
       const shown =
         planBoard === 'Mainboard' ? this.mainboardStacks().stacks : this.sideboardStacks();
@@ -312,9 +318,9 @@ export class PlanTab {
         empty: empty(hasPicks),
         /** Whether each stack has a heading naming it: not a plan board's one stack, which its heading names. */
         namesStacks: !rest.oneStack,
-        count: held.length,
-        picked: held.filter((card) => card.picked).length,
-        lines: lines(held),
+        count: cards.length,
+        picked,
+        lines: lines(cards),
         dropTarget: dropTarget(),
         stacks: shown.map((each) => ({ ...each, dropTarget: dropTarget(each.move) })),
         /** In the wide layout, the mainboard's gaps around and between its stacks, where a drop makes a new stack. */
@@ -449,7 +455,7 @@ export class PlanTab {
     this.modeSettled = true;
     this.mode.set(mode);
     this.scrollToFirstStack();
-    saveChoice({ mode: this.mode(), grouping: this.grouping() });
+    saveChoice(this.choice());
   }
 
   /**
@@ -459,7 +465,7 @@ export class PlanTab {
   protected setGrouping(grouping: Grouping) {
     this.grouping.set(grouping);
     this.scrollToFirstStack();
-    saveChoice({ mode: this.mode(), grouping: this.grouping() });
+    saveChoice(this.choice());
   }
 
   /** Scrolls the strip, and each plan board's stacks, back to their start. */

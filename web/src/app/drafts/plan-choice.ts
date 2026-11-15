@@ -9,7 +9,7 @@ export interface PlanChoice {
   grouping: Grouping;
 }
 const CHOICE_KEY = 'plan-view';
-/** The grouping when none is kept. A new viewer's mode follows the stacks area's width: see `PlanTab`'s `measured`. */
+/** The grouping when none is kept. There is no default mode: `readChoice` gives none, for the Deck tab to choose. */
 const DEFAULT_GROUPING: Grouping = 'manaValue';
 const MODES: PlanMode[] = ['stacks', 'list'];
 
