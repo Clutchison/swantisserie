@@ -6,11 +6,13 @@ import {
   button,
   carol,
   clickOn,
+  comesBefore,
   expectFocusOn,
   focusAndClick,
   followBack,
   http,
   openApp,
+  onlyAlert,
   openDialog,
   panel,
   pressKey,
@@ -40,6 +42,11 @@ const fromBob: FeedbackView = {
 const reviewedByCarol: ReviewedFeedbackView = {
   ...fromAlice,
   reviewedAt: '2026-10-31T15:00:00.000Z',
+  reviewedBy: { name: 'Carol' },
+};
+const reviewedBob: ReviewedFeedbackView = {
+  ...fromBob,
+  reviewedAt: '2026-10-31T16:00:00.000Z',
   reviewedBy: { name: 'Carol' },
 };
 
@@ -83,6 +90,25 @@ describe('reviewing feedback', () => {
       .expectOne(name === 'Reviewed' ? '/api/admin/feedback/reviewed' : '/api/admin/feedback')
       .flush(feedback);
     await fixture.whenStable();
+  }
+
+  /** Presses `mark` on the item `id` and fails it, as the api does when it can't be reached. */
+  async function failMark(
+    fixture: Awaited<ReturnType<typeof openApp>>['fixture'],
+    mark: HTMLElement,
+    id: string,
+  ) {
+    mark.click();
+    http.expectOne(`/api/admin/feedback/${id}/reviewed`).flush(null, serverError);
+    await fixture.whenStable();
+  }
+
+  /** Expects `page`'s one alert inside `item`, after its `control`, saying to try again. */
+  function expectFailureIn(page: HTMLElement, item: HTMLElement, control: HTMLElement) {
+    const alert = onlyAlert(page);
+    expect(item.contains(alert)).toBe(true);
+    expect(comesBefore(control, alert)).toBe(true);
+    expect(alert.textContent).toContain('try again');
   }
 
   /** Opens the page, then its Reviewed tab with `reviewed` waiting. */
@@ -176,12 +202,18 @@ describe('reviewing feedback', () => {
   it('keeps the item and says so when marking fails', async () => {
     const { fixture, page } = await openPage([fromAlice]);
 
-    markReviewed(items(page)[0]).click();
-    http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
-    await fixture.whenStable();
+    await failMark(fixture, markReviewed(items(page)[0]), 'feedback-1');
 
     expect(alertIn(page)?.textContent).toContain('try again');
     expect(items(page)).toHaveLength(1);
+  });
+
+  it('says a failed mark in its item, after its button, not above the tabs', async () => {
+    const { fixture, page } = await openPage([fromAlice, fromBob]);
+
+    await failMark(fixture, markReviewed(items(page)[1]), 'feedback-2');
+
+    expectFailureIn(page, items(page)[1], markReviewed(items(page)[1]));
   });
 
   it('holds marking while one item is being marked, then takes the next', async () => {
@@ -280,9 +312,7 @@ describe('reviewing feedback', () => {
 
   it('clears the failure once marking works', async () => {
     const { fixture, page } = await openPage([fromAlice]);
-    markReviewed(items(page)[0]).click();
-    http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
-    await fixture.whenStable();
+    await failMark(fixture, markReviewed(items(page)[0]), 'feedback-1');
 
     markReviewed(items(page)[0]).click();
     http
@@ -294,11 +324,24 @@ describe('reviewing feedback', () => {
     expect(alertIn(page)).toBeNull();
   });
 
+  it("clears an item's failure once marking another item works", async () => {
+    const { fixture, page } = await openPage([fromAlice, fromBob]);
+    await failMark(fixture, markReviewed(items(page)[1]), 'feedback-2');
+    expectFailureIn(page, items(page)[1], markReviewed(items(page)[1]));
+
+    markReviewed(items(page)[0]).click();
+    http
+      .expectOne('/api/admin/feedback/feedback-1/reviewed')
+      .flush(null, { status: 204, statusText: 'No Content' });
+    (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([fromBob]);
+    await fixture.whenStable();
+
+    expect(alertIn(page)).toBeNull();
+  });
+
   it('clears the failure on changing tab', async () => {
     const opened = await openPage([fromAlice]);
-    markReviewed(items(opened.page)[0]).click();
-    http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
-    await opened.fixture.whenStable();
+    await failMark(opened.fixture, markReviewed(items(opened.page)[0]), 'feedback-1');
 
     await clickTab(opened, 'Reviewed');
 
@@ -309,9 +352,7 @@ describe('reviewing feedback', () => {
     'keeps the failure on %s on the selected tab, which selects nothing new',
     async (key) => {
       const { fixture, page } = await openPage([fromAlice]);
-      markReviewed(items(page)[0]).click();
-      http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
-      await fixture.whenStable();
+      await failMark(fixture, markReviewed(items(page)[0]), 'feedback-1');
 
       tabButton(page, 'Unreviewed').focus();
       pressKey(tabButton(page, 'Unreviewed'), key);
@@ -364,7 +405,6 @@ describe('reviewing feedback', () => {
     });
 
     it("moves focus to the next item's Mark unreviewed once marking settles", async () => {
-      const reviewedBob: ReviewedFeedbackView = { ...fromBob, ...reviewedByCarol, id: fromBob.id };
       const { fixture, page } = await openReviewed([reviewedByCarol, reviewedBob]);
 
       focusAndClick(markUnreviewed(items(page)[0]));
@@ -380,12 +420,18 @@ describe('reviewing feedback', () => {
     it('keeps the item and says so when marking unreviewed fails', async () => {
       const { fixture, page } = await openReviewed([reviewedByCarol]);
 
-      markUnreviewed(items(page)[0]).click();
-      http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
-      await fixture.whenStable();
+      await failMark(fixture, markUnreviewed(items(page)[0]), 'feedback-1');
 
       expect(alertIn(page)?.textContent).toContain('try again');
       expect(items(page)).toHaveLength(1);
+    });
+
+    it('says a failed mark unreviewed in its item, after its button, not above the tabs', async () => {
+      const { fixture, page } = await openReviewed([reviewedByCarol, reviewedBob]);
+
+      await failMark(fixture, markUnreviewed(items(page)[1]), 'feedback-2');
+
+      expectFailureIn(page, items(page)[1], markUnreviewed(items(page)[1]));
     });
 
     it('fetches the unreviewed list afresh on returning to it', async () => {
