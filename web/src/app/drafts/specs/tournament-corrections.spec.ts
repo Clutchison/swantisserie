@@ -15,11 +15,10 @@ import {
 } from './harness';
 import {
   answerChange,
+  bobBeatAlice,
   carol,
   completed,
   dave,
-  expectByResults,
-  expectByYourMatches,
   failChange,
   forfeited,
   gridCell,
@@ -30,7 +29,6 @@ import {
   pushTournament,
   reported,
   resultsGrid,
-  singleEliminationFinal,
   swissPlaying,
   swissRoundsWith,
   threePlayers,
@@ -38,6 +36,8 @@ import {
   confirmedMatch,
   againstDropped,
 } from './play-tab-harness';
+import { singleEliminationFinal } from './play-tab-single-elimination-harness';
+import { expectByResults, expectByYourMatches } from './play-tab-placement-harness';
 
 useDraftsApp();
 
@@ -106,7 +106,6 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('keeps the dialog open when another match changes, and closes it once its match does', async () => {
-    const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
     const { fixture, tab } = await openPlaying(playing(), { user: dave, powers: ORGANIZE_ONLY });
     await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
 
@@ -205,7 +204,6 @@ describe('organizer reports, corrections and clears', () => {
   });
 
   it('shows only the latest failure, by the control that made it', async () => {
-    const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
     const { fixture, page, tab } = await openPlaying(playing([bobBeatAlice]), {
       powers: ORGANIZE_ONLY,
     });
@@ -242,7 +240,6 @@ describe('organizer reports, corrections and clears', () => {
       },
     ],
   ])('clears a failure %s once a change from Your matches saves', async (_, fail) => {
-    const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
     const { fixture, page, tab } = await openPlaying(playing([bobBeatAlice]), {
       powers: ORGANIZE_ONLY,
     });
