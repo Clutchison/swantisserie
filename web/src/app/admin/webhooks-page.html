@@ -1,5 +1,6 @@
 <main>
   <h1>Webhooks</h1>
+  <app-change-status />
   <p class="hint">
     Organizers choose one of these by name for each draft's announcements. Only app admins see the
     URLs.
@@ -33,7 +34,7 @@
       </span>
     </label>
     <div>
-      <button class="button" type="submit" [disabled]="saving()">Add</button>
+      <button class="button" type="submit" appSendsChange="add">Add</button>
     </div>
   </form>
 
@@ -51,7 +52,7 @@
             <button
               class="button secondary"
               type="button"
-              [disabled]="saving()"
+              [appSendsChange]="'remove ' + webhook.id"
               (click)="remove(webhook)"
             >
               Remove
@@ -59,7 +60,7 @@
             <button
               class="button secondary"
               type="button"
-              [disabled]="saving()"
+              [appSendsChange]="'rename ' + webhook.id"
               (click)="rename(webhook, name.value)"
             >
               Rename
@@ -82,7 +83,7 @@
             <button
               class="button secondary"
               type="button"
-              [disabled]="saving()"
+              [appSendsChange]="'replace url ' + webhook.id"
               (click)="replaceUrl(webhook, url.value)"
             >
               Replace URL
