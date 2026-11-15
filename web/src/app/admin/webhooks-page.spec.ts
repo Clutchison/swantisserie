@@ -357,7 +357,7 @@ describe('webhooks page', () => {
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Rename'));
   });
 
-  it('says why a rename was refused, in its webhook’s row', async () => {
+  it('says why a rename was refused, in its webhook’s row, showing the stored name again', async () => {
     const { fixture, page } = await openPage([main, side]);
     const li = sideRow(page);
     fill(nameField(li)!, '#roto-main');
@@ -371,6 +371,22 @@ describe('webhooks page', () => {
     );
 
     expectAlertIn(page, li, 'Another webhook is called #roto-main.');
+    expect(nameField(li)!.value).toBe('#roto-side');
+  });
+
+  it('keeps a name typed while another change saves', async () => {
+    const { fixture, page } = await openPage([main, side]);
+    button(mainRow(page), 'Rename').click();
+    const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`));
+    const li = sideRow(page);
+    fill(nameField(li)!, '#roto-league');
+    button(li, 'Rename').click();
+    await fixture.whenStable();
+
+    req.flush(main);
+    await answerReread(fixture, [main, side]);
+
+    expect(nameField(li)!.value).toBe('#roto-league');
   });
 
   it('marks gone webhooks', async () => {
@@ -380,7 +396,7 @@ describe('webhooks page', () => {
     expect(row(page, '#roto-side').textContent).not.toContain('Gone');
   });
 
-  it('replaces a gone webhook’s URL', async () => {
+  it('replaces a gone webhook’s URL, emptying New URL', async () => {
     const newUrl = 'https://discord.com/api/webhooks/1234567890/new-token';
     const { fixture, page } = await openPage([{ ...main, gone: true }]);
     const li = mainRow(page);
@@ -396,6 +412,7 @@ describe('webhooks page', () => {
 
     expect(rows(page)).toEqual([['#roto-main', newUrl]]);
     expect(mainRow(page).textContent).not.toContain('Gone');
+    expect(newUrlField(mainRow(page)).value).toBe('');
   });
 
   it('keeps focus on Replace URL once a URL is replaced', async () => {
@@ -412,7 +429,7 @@ describe('webhooks page', () => {
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Replace URL'));
   });
 
-  it('says why a replacement URL was refused, in its webhook’s row', async () => {
+  it('says why a replacement URL was refused, in its webhook’s row, keeping what was typed', async () => {
     const { fixture, page } = await openPage([main, side]);
     const li = sideRow(page);
     fill(newUrlField(li), 'https://example.com/x');
@@ -424,6 +441,7 @@ describe('webhooks page', () => {
     });
 
     expectAlertIn(page, sideRow(page), 'Paste the webhook’s URL from Discord.');
+    expect(newUrlField(sideRow(page)).value).toBe('https://example.com/x');
   });
 
   it('removes a webhook once the app admin goes ahead', async () => {
