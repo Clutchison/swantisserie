@@ -7,6 +7,7 @@ import {
   viewOn,
   drafting,
   button,
+  toggleButton,
   heading,
   draggable,
   tabButton,
@@ -153,9 +154,9 @@ describe('Deck tab stack moves', () => {
     plan = await openPlan(fixture, page);
     expect(stacksOf(plan)[0]).toEqual(moved);
 
-    button(plan, 'List')!.click();
+    toggleButton(plan, 'List')!.click();
     await fixture.whenStable();
-    button(plan, 'Stacks')!.click();
+    toggleButton(plan, 'Stacks')!.click();
     await fixture.whenStable();
     expect(stacksOf(plan)[0]).toEqual(moved);
 
@@ -182,9 +183,9 @@ describe('Deck tab stack moves', () => {
     const plan = await openPlan(fixture, page);
     await stackMoved(fixture, 'Shivan Dragon', '6', '1');
 
-    button(plan, 'Color')!.click();
+    toggleButton(plan, 'Color')!.click();
     await fixture.whenStable();
-    button(plan, 'Mana value')!.click();
+    toggleButton(plan, 'Mana value')!.click();
     await fixture.whenStable();
 
     expect(stack(plan, '6')).toEqual(['Shivan Dragon']);
