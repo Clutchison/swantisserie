@@ -1,29 +1,8 @@
 import type { TournamentRefusal } from 'contract';
-import type {
-  MatchOutcomeKind,
-  MatchSide,
-  Prisma,
-  TournamentFormat,
-} from '../generated/prisma/client.js';
-import { SINGLE_ELIMINATION_CHANGES } from './bracket-changes.js';
+import type { Prisma, TournamentFormat } from '../generated/prisma/client.js';
+import { SINGLE_ELIMINATION_REINSTATE } from './bracket-reinstate.js';
 import { NOT_PLAYING } from './tournament-errors.js';
 import { droppable, hasEntry } from './tournament-matches.js';
-
-/**
- * What a player's report, or an organizer's correction or clear, writes to
- * a match: its new outcome, every field only another outcome uses back to
- * its default.
- */
-export interface MatchChange {
-  outcome: MatchOutcomeKind;
-  firstGames: number;
-  secondGames: number;
-  drawnGames: number;
-  forfeitedBy: MatchSide | null;
-  grantedTo: null;
-  reportedById: string | null;
-  confirmed: false;
-}
 
 /**
  * What Reinstate's rule reads of a tournament, a part of what its read
@@ -61,10 +40,10 @@ export type ReinstateRow = Prisma.TournamentGetPayload<{
 export type ReinstateMatch = ReinstateRow['matches'][number];
 
 /**
- * What reinstating a player does that depends on the format.
- * DEFAULT_CHANGE_STEPS are round robin's and Swiss's.
+ * What Reinstate does that depends on the format: when it's refused.
+ * DEFAULT_REINSTATE_STEPS are round robin's and Swiss's.
  */
-export interface ChangeSteps {
+export interface ReinstateSteps {
   /**
    * Why the dropped entry `entryId` of the tournament `row` can't be
    * reinstated, as their drop has fed a later pairing; null if it hasn't.
@@ -76,11 +55,11 @@ export interface ChangeSteps {
 }
 
 /**
- * The change steps of the formats whose matches don't feed one another:
+ * The Reinstate steps of the formats whose matches don't feed one another:
  * a player can't be reinstated once a tournament round has been paired
  * without them.
  */
-export const DEFAULT_CHANGE_STEPS: ChangeSteps = {
+export const DEFAULT_REINSTATE_STEPS: ReinstateSteps = {
   reinstateRefusal(row, entryId) {
     const pairedWithout = currentRoundWithout(row.matches, entryId);
     if (pairedWithout === null) return null;
@@ -92,21 +71,21 @@ export const DEFAULT_CHANGE_STEPS: ChangeSteps = {
 };
 
 /**
- * Each format's change steps: single elimination's own, the default's
+ * Each format's Reinstate steps: single elimination's own, the default's
  * otherwise. They live here, not beside ROUND_STEPS in format-steps.ts,
  * because the tournament read asks them, and format-steps.ts imports
  * single-elimination.ts, which imports the read: a cycle.
  */
-export const CHANGE_STEPS: Record<TournamentFormat, ChangeSteps> = {
-  RoundRobin: DEFAULT_CHANGE_STEPS,
-  Swiss: DEFAULT_CHANGE_STEPS,
-  SingleElimination: SINGLE_ELIMINATION_CHANGES,
+export const REINSTATE_STEPS: Record<TournamentFormat, ReinstateSteps> = {
+  RoundRobin: DEFAULT_REINSTATE_STEPS,
+  Swiss: DEFAULT_REINSTATE_STEPS,
+  SingleElimination: SINGLE_ELIMINATION_REINSTATE,
 };
 
 /**
  * Why Reinstate of the entry `entryId` of the tournament `row` would be
  * refused now, as both the Reinstate write and the tournament read ask:
- * outside play, or as the format's change steps refuse it. Null for an
+ * outside play, or as the format's Reinstate steps refuse it. Null for an
  * entry that hasn't dropped or can't be (a bot), which the write refuses
  * before asking, worded for who asks, and for one Reinstate would accept.
  */
@@ -117,7 +96,7 @@ export function reinstateRefusalOf(
   const entry = row.entries.find((entered) => entered.id === entryId);
   if (!entry?.dropped || !droppable(entry)) return null;
   if (row.state !== 'Playing') return NOT_PLAYING;
-  return CHANGE_STEPS[row.format].reinstateRefusal(row, entryId);
+  return REINSTATE_STEPS[row.format].reinstateRefusal(row, entryId);
 }
 
 /**

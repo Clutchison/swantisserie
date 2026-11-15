@@ -29,8 +29,8 @@ import { toOutcome } from './tournament-view.js';
  * gives each listed unreported match a granted win for the winner the
  * organizer picked, or drops the players they picked from it, and pairs
  * the players who advance into the next round by bracket place.
- * SINGLE_ELIMINATION_CHANGES, in bracket-changes.ts, says when Reinstate
- * is refused.
+ * Its Reinstate steps, SINGLE_ELIMINATION_REINSTATE in bracket-reinstate.ts,
+ * say when Reinstate is refused.
  * Throws InvalidTournamentRequestError for granted draws, as single
  * elimination never has a draw.
  */
