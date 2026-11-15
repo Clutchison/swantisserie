@@ -5,6 +5,7 @@ import type {
   DecklistView,
   DraftPowersView,
   MatchView,
+  PickView,
   PlanView,
   PlayerView,
   PoolCardView,
@@ -24,6 +25,7 @@ import {
   alicePlayer,
   bob,
   button,
+  controlByLabel,
   completeSnapshot,
   draft,
   drafting,
@@ -31,6 +33,7 @@ import {
   flushPicks,
   findNamedList,
   flushQueueAndPlan,
+  group,
   http,
   namedList,
   openDraft,
@@ -45,6 +48,7 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
+import { toggleButton } from './toggle-harness';
 import {
   comesBefore,
   onlyAlert,
@@ -603,6 +607,14 @@ export async function openCompleteRound(
   return { ...opened, dialog: openDialog()! };
 }
 
+/** The Complete round dialog `dialog`'s toggle button to drop `player` from the match `matchLabel`. */
+export const dropFrom = (dialog: HTMLElement, matchLabel: string, player: string) =>
+  toggleButton(group(dialog, `Drop from ${matchLabel}`)!, `Drop ${player}`)!;
+
+/** The Complete round dialog `dialog`'s radio to choose `player` as the winner of the match `matchLabel`. */
+export const winnerOf = (dialog: HTMLElement, matchLabel: string, player: string) =>
+  controlByLabel(group(dialog, `Winner of ${matchLabel}`)!, 'radio', player)!;
+
 /** The standings table inside `root`, in its region; null if there is none. */
 export const standingsTable = (root: HTMLElement) => regionTable(root, 'Standings');
 
@@ -796,8 +808,9 @@ export const announcements = (root: HTMLElement) => statusTexts(root).filter(Boo
  * `version` with `tournament`, or with none once it is cancelled, as another
  * viewer's change does, and answers the reads it makes for Dave, who isn't
  * one of its players, or, `asPlayer`, for one who is, their queue and
- * `plan` included, and its decklists once `tournament` shows them, unless
- * they were shown before (`decklistsShownBefore`).
+ * `plan` included, its pick log with `picks`, and its decklists once
+ * `tournament` shows them, unless they were shown before
+ * (`decklistsShownBefore`).
  */
 export async function pushTournament(
   fixture: AppFixture,
@@ -806,11 +819,13 @@ export async function pushTournament(
   {
     asPlayer = false,
     plan = EMPTY_PLAN,
+    picks = [],
     fields = threePlayers,
     decklistsShownBefore = false,
   }: {
     asPlayer?: boolean;
     plan?: PlanView;
+    picks?: PickView[];
     fields?: DraftFixture;
     decklistsShownBefore?: boolean;
   } = {},
@@ -819,7 +834,7 @@ export async function pushTournament(
     type: 'changed',
     draft: draft({ ...withTournament(tournament, fields), version }),
   });
-  await flushPicks([]);
+  await flushPicks(picks);
   if (asPlayer) await flushQueueAndPlan(undefined, plan);
   if (tournament) {
     await flushTournament(tournament);

@@ -115,7 +115,7 @@ export class App {
       injector: this.injector,
       returnFocus: (opener) => {
         if (opener?.isConnected) return opener;
-        // Stryker disable next-line OptionalChaining: the narrow menu exists whenever the header does, so it is only missing if the session ends while the feedback dialog is open.
+        // Stryker disable next-line OptionalChaining: the narrow menu exists whenever the header does, and signing out closes the dialog before the header goes, so it is never missing here.
         return this.narrowMenu()?.button();
       },
     });

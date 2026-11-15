@@ -130,4 +130,12 @@ export class DialogShell {
     });
     return ref;
   }
+
+  /**
+   * Closes every open dialog with no result, as Cancel does, so none goes
+   * ahead with what it asked about.
+   */
+  closeAll() {
+    this.dialog.closeAll();
+  }
 }
