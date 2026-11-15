@@ -1,13 +1,13 @@
 import {
   aliceThenBob,
   answered,
-  bobCookie,
   describeRaces,
   queueOf,
   race,
 } from './race-harness.js';
 import {
   aliceCookie,
+  bobCookie,
   enqueue,
   fourCards,
   pick,

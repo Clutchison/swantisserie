@@ -2,7 +2,6 @@ import { Controller, Get, Logger, Module, UseGuards } from '@nestjs/common';
 import type { DraftView } from 'contract';
 import request from 'supertest';
 import { DiscordProfile } from '../discord/discord-client.js';
-import { DiscordConfig } from '../discord/discord-config.js';
 import {
   alice,
   app,
@@ -10,6 +9,11 @@ import {
   startTestApp,
   useTestApp,
 } from '../testing/app.js';
+import {
+  signInConfigOverride,
+  signInThroughDiscord,
+  startSignIn,
+} from '../testing/discord-sign-in.js';
 import { AppAdminConfig } from './app-admin-config.js';
 import { AppAdminGuard } from './app-admin.guard.js';
 import { AuthModule } from './auth.module.js';
@@ -36,12 +40,6 @@ import {
   versionsOf,
 } from '../drafts/specs/socket-harness.js';
 
-const config = new DiscordConfig({
-  DISCORD_CLIENT_ID: 'client-123',
-  DISCORD_CLIENT_SECRET: 'shh',
-  DISCORD_REDIRECT_URI: 'http://localhost:4200/api/auth/discord/callback',
-  DISCORD_GUILD_ID: 'guild-1',
-});
 const admins = new AppAdminConfig('111, 222');
 
 /** Stands in for the app-admin-only routes later tickets add. */
@@ -56,38 +54,6 @@ class AppAdminOnlyController {
 
 @Module({ imports: [AuthModule], controllers: [AppAdminOnlyController] })
 class AppAdminOnlyModule {}
-
-/**
- * Starts sign-in in a cookie-keeping agent, and gives the callback Discord
- * would send back to it, not yet sent.
- */
-async function startSignIn(returnTo?: string) {
-  const agent = request.agent(app.getHttpServer());
-  const start = await agent
-    .get('/api/auth/discord')
-    .query(returnTo === undefined ? {} : { returnTo });
-  const state = new URL(start.headers.location).searchParams.get('state');
-  const callback = () =>
-    agent
-      .get('/api/auth/discord/callback')
-      .query({ code: 'auth-code', state, iss: 'https://discord.com' });
-  return { agent, callback };
-}
-
-/** Runs the redirect → callback round trip in a cookie-keeping agent. */
-async function signInThroughDiscord(
-  profile: DiscordProfile,
-  {
-    isGuildMember = true,
-    returnTo,
-  }: { isGuildMember?: boolean; returnTo?: string } = {},
-) {
-  discord.exchangeCode.mockResolvedValue('access-token');
-  discord.getCurrentUser.mockResolvedValue(profile);
-  discord.isGuildMember.mockResolvedValue(isGuildMember);
-  const { agent, callback } = await startSignIn(returnTo);
-  return { agent, callback: await callback() };
-}
 
 /** `session=<token>`, ready for a Cookie header. */
 function sessionCookieFrom(res: request.Response): string {
@@ -106,7 +72,7 @@ describe('Discord sign-in', () => {
   useTestApp(() =>
     startTestApp({
       overrides: [
-        { provide: DiscordConfig, useValue: config },
+        signInConfigOverride,
         { provide: AppAdminConfig, useValue: admins },
       ],
       imports: [AppAdminOnlyModule],
@@ -456,7 +422,7 @@ describe('Discord sign-in', () => {
 describe('signing in again, to the drafts the user is in', () => {
   useTestApp(async () => {
     await startTestApp({
-      overrides: [{ provide: DiscordConfig, useValue: config }],
+      overrides: [signInConfigOverride],
     });
     await signInAlice();
   });

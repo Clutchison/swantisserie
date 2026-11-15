@@ -21,10 +21,13 @@ import {
   app,
   bob,
   carol,
+  registerWebhook,
   scryfall,
   signIn,
   startTestApp,
+  type TestAppOptions,
   useTestApp,
+  webhookClient,
 } from '../../testing/app.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { printingsAnswers } from '../../testing/scryfall-printings.js';
@@ -58,11 +61,18 @@ export let aliceCookie: string;
 /**
  * Registers the hooks that give each test a fresh database and running app,
  * with Alice signed in. The database is PGlite, unless `startDatabase`
- * starts another.
+ * starts another. `overrides` are values provided in place of the app's own
+ * providers, or of the fakes and settings the harness provides.
  */
-export function useDraftsApp(startDatabase?: () => Promise<TestDatabase>) {
+export function useDraftsApp({
+  startDatabase,
+  overrides,
+}: {
+  startDatabase?: () => Promise<TestDatabase>;
+  overrides?: TestAppOptions['overrides'];
+} = {}) {
   useTestApp(async () => {
-    await startApp();
+    await startApp({ overrides });
     await signInAlice();
   }, startDatabase);
 }
@@ -123,17 +133,56 @@ export function announcementsSettled(draftId: string): Promise<void> {
 }
 
 /**
+ * Each post's content, once the draft's announcements have settled,
+ * expecting exactly `count` posts.
+ */
+export async function posted(draftId: string, count: number) {
+  await announcementsSettled(draftId);
+  expect(webhookClient.post).toHaveBeenCalledTimes(count);
+  return webhookClient.post.mock.calls.map(([, message]) => message.content);
+}
+
+/** `session=<token>` for Bob, once `useBob` has signed him in. */
+export let bobCookie: string;
+
+/** Signs Bob in as `bobCookie` before each spec. */
+export function useBob(): void {
+  beforeEach(async () => {
+    bobCookie = await signIn(bob);
+  });
+}
+
+/** The webhook `useAnnouncements` registers. */
+export let webhookId: string;
+
+/** Signs Bob in, as `useBob` does, and registers a webhook before each spec. */
+export function useAnnouncements(): void {
+  useBob();
+  beforeEach(async () => {
+    webhookId = await registerWebhook();
+  });
+}
+
+/** A draft of Alice and Bob, ready to start, announcing on `webhookId`. */
+export function readyDraftOnWebhook(): Promise<string> {
+  return readyDraft([aliceCookie, bobCookie], 1, undefined, webhookId);
+}
+
+/**
  * Starts the app as `app`. `botDelayMs` is how long bots wait before picking:
  * at once, unless told otherwise. `botRetryDelaysMs` are the waits before
  * each retry of a bot's failed pick: two retries at once, unless told
- * otherwise.
+ * otherwise. `overrides` are values provided in place of the app's own
+ * providers, or of the fakes and settings the harness provides.
  */
 export async function startApp({
   botDelayMs = 0,
   botRetryDelaysMs = [0, 0],
+  overrides = [],
 }: {
   botDelayMs?: number;
   botRetryDelaysMs?: readonly number[];
+  overrides?: TestAppOptions['overrides'];
 } = {}) {
   await startTestApp({
     overrides: [
@@ -142,6 +191,7 @@ export async function startApp({
         provide: BotPickRetries,
         useValue: new BotPickRetries(botRetryDelaysMs),
       },
+      ...overrides,
     ],
   });
 }
