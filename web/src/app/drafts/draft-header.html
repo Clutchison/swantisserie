@@ -99,7 +99,8 @@
         class="button"
         type="button"
         (click)="start()"
-        [disabled]="!poolReady()"
+        [disabled]="!poolReady() || startProblem() !== null"
+        [attr.aria-describedby]="startProblem() ? 'start-problem' : null"
         appSendsChange="start"
       >
         Start draft
@@ -121,6 +122,9 @@
 </div>
 @if (inLobby() && canOrganize() && !poolReady()) {
   <p class="detail">You can start the draft once the pool snapshot is complete.</p>
+}
+@if (inLobby() && canOrganize() && startProblem(); as problem) {
+  <p id="start-problem" class="detail">{{ problem.message }}</p>
 }
 @if (error(); as message) {
   <p class="error" role="alert">{{ message }}</p>
