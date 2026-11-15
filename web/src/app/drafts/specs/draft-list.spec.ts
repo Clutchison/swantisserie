@@ -598,6 +598,17 @@ describe('draft list', () => {
       expect(listItem(page, 'Arena cube').textContent).not.toContain('Tournament');
     });
 
+    it('drops a draft pushed but not read once a read begun after the push lists it no more', async () => {
+      const page = await openList([]);
+      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn) });
+
+      connect();
+      http.expectOne('/api/drafts').flush([]);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(page.textContent).not.toContain('Arena cube');
+    });
+
     it('drops a cancelled draft', async () => {
       const page = await openList([
         arenaCube(alicesTurn),

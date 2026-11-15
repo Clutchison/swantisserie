@@ -13,10 +13,8 @@ import {
   viewOn,
   type AppFixture,
   drafting,
-  router,
   serverError,
   image,
-  answerDraftListOpening,
 } from './harness';
 import {
   clickBackdrop,
@@ -48,6 +46,7 @@ import {
 } from './plan-tab-harness';
 import { measuredAs } from './measure-harness';
 import { playing, withTournament } from './play-tab-harness';
+import { goToDraftList } from './draft-list-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -695,9 +694,7 @@ describe('basic lands on the plan tab', () => {
     });
     await openBasics(fixture, await openPlan(fixture, page));
 
-    await router.navigateByUrl('/');
-    await answerDraftListOpening();
-    await fixture.whenStable();
+    await goToDraftList();
 
     expect(openDialog()).toBeNull();
   });

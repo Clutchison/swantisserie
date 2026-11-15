@@ -260,14 +260,6 @@ export async function openUrl(
   return { fixture, page: fixture.nativeElement as HTMLElement };
 }
 
-/**
- * Answers with `drafts`, none unless given, the read of the viewer's drafts
- * that the draft list makes each time it opens after another page, once made.
- */
-export async function answerDraftListOpening(drafts: DraftListItemView[] = []) {
-  (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush(drafts);
-}
-
 /** The loading animation inside `root`, its status named "Loading", while something loads; null once nothing does. */
 export const loadingAnimation = (root: HTMLElement) =>
   byAriaLabel(root, '[role="status"]', 'Loading');

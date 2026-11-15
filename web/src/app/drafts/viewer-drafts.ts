@@ -31,20 +31,26 @@ import { isTurnOf } from './drafts';
  * holders. Read again, too, each time the draft list opens, unless a read
  * is on its way, as drafts the viewer doesn't play in aren't pushed; and a
  * draft the viewer creates is kept from the create answer as a push is.
+ * A draft pushed or created but not read is dropped once a read begun after
+ * it lands without it: it is gone, though its cancel may never reach here.
  */
 @Injectable({ providedIn: 'root' })
 export class ViewerDrafts {
   private readonly auth = inject(Auth);
   private readonly user = this.auth.user;
-  private readonly read = httpResource<DraftListItemView[]>(() =>
-    this.user() ? '/api/drafts' : undefined,
-  );
+  /** How many times a draft has been kept as pushed, or as created. */
+  private kept = 0;
+  /** When each draft in `pushed` was last kept, as the count of `kept` then. */
+  private readonly keptAt = new Map<string, number>();
+  /** The count of `kept` as the read on its way, or last made, began. */
+  private readBegan = 0;
+  /** The drafts as read, with the count of `kept` as that read began, taken as it lands. */
+  private readonly read = httpResource<Read>(() => (this.user() ? '/api/drafts' : undefined), {
+    parse: (drafts) => ({ drafts: drafts as DraftListItemView[], began: this.readBegan }),
+  });
 
   /** The drafts as last read: kept through a failed read again. */
-  private readonly lastRead = linkedSignal<
-    { read?: DraftListItemView[]; failed: boolean },
-    DraftListItemView[] | undefined
-  >({
+  private readonly lastRead = linkedSignal<{ read?: Read; failed: boolean }, Read | undefined>({
     source: () => ({
       read: this.read.hasValue() ? this.read.value() : undefined,
       failed: !!this.read.error(),
@@ -73,7 +79,11 @@ export class ViewerDrafts {
    */
   readonly drafts = computed(() => {
     const read = this.lastRead();
-    return read && withPushes(read, this.pushed());
+    if (!read) return undefined;
+    const keptSince = new Set(
+      [...this.keptAt].filter(([, at]) => at >= read.began).map(([id]) => id),
+    );
+    return withPushes(read.drafts, this.pushed(), keptSince);
   });
   /** Whether the drafts are being read with none to show meanwhile. */
   readonly loading = computed(() => this.read.isLoading() && !this.drafts());
@@ -92,6 +102,8 @@ export class ViewerDrafts {
     effect((onCleanup) => {
       // Another viewer's pushes aren't this one's.
       this.pushed.set(new Map());
+      this.keptAt.clear();
+      this.readBegan = this.kept;
       this.readAgainFor.clear();
       const user = this.user();
       // Signed out, the tab mustn't stay in the viewer's own room.
@@ -118,7 +130,7 @@ export class ViewerDrafts {
     });
     effect(() => {
       const pushed = this.pushed();
-      for (const draft of this.lastRead() ?? []) {
+      for (const draft of this.lastRead()?.drafts ?? []) {
         const push = pushOver(draft, pushed);
         if (!push || badgeStands(push, draft.tournamentBadge)) continue;
         const key = `${push.id}@${push.version}`;
@@ -128,9 +140,7 @@ export class ViewerDrafts {
       }
     });
     effect(() => {
-      if (!this.readAgain() || this.read.status() === 'loading') return;
-      this.readAgain.set(false);
-      untracked(() => this.read.reload());
+      if (this.readAgain() && this.readNow()) this.readAgain.set(false);
     });
   }
 
@@ -140,9 +150,19 @@ export class ViewerDrafts {
    * The drafts already known are shown meanwhile, and kept if it fails.
    */
   refresh() {
-    untracked(() => {
-      if (!this.read.isLoading()) this.read.reload();
-    });
+    untracked(() => this.readNow());
+  }
+
+  /**
+   * Reads the drafts again, unless a read is on its way, its first or a read
+   * again: returns whether it did. Waiting, rather than reloading over the
+   * read on its way, keeps that read from being dropped half way.
+   */
+  private readNow(): boolean {
+    if (this.read.isLoading()) return false;
+    this.readBegan = this.kept;
+    untracked(() => this.read.reload());
+    return true;
   }
 
   /**
@@ -159,19 +179,29 @@ export class ViewerDrafts {
     this.pushed.update((pushed) => {
       const before = pushed.get(draftId);
       if (before === null || (before && draft && draft.version < before.version)) return pushed;
+      this.keptAt.set(draftId, this.kept++);
       return new Map(pushed).set(draftId, draft);
     });
   }
 }
 
+/** The drafts as read, with the count of drafts kept as pushed when that read began. */
+interface Read {
+  drafts: DraftListItemView[];
+  began: number;
+}
+
 /**
  * The drafts `read`, each replaced by its push in `pushed` when that is no
  * older, its tournament badge as `badgeOf` makes it; the cancelled dropped,
- * and the drafts pushed but not read added.
+ * and the drafts pushed but not read added, if in `keptSince`, those kept
+ * since the read began. A read begun after a draft was kept that doesn't
+ * list it says the draft is gone, as when its cancel was never pushed here.
  */
 function withPushes(
   read: DraftListItemView[],
   pushed: Map<string, DraftView | null>,
+  keptSince: Set<string>,
 ): DraftListItemView[] {
   const listed = read.flatMap((draft): DraftListItemView[] => {
     const push = pushOver(draft, pushed);
@@ -181,7 +211,7 @@ function withPushes(
   });
   const readIds = new Set(read.map((draft) => draft.id));
   const added = [...pushed.values()].filter(
-    (push): push is DraftView => !!push && !readIds.has(push.id),
+    (push): push is DraftView => !!push && !readIds.has(push.id) && keptSince.has(push.id),
   );
   return [...listed, ...added.map((push) => ({ ...push, tournamentBadge: badgeOf(push, null) }))];
 }

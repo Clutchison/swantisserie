@@ -12,8 +12,6 @@ import {
   wait,
   pickOf,
   button,
-  router,
-  answerDraftListOpening,
 } from './harness';
 import {
   brightclimb,
@@ -27,6 +25,7 @@ import {
   useTallScreen,
   hidePicked,
 } from './pool-tab-harness';
+import { goToDraftList } from './draft-list-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -329,13 +328,11 @@ describe('preloading the first results', () => {
   });
 
   it('drops the images not yet requested on leaving the draft page', async () => {
-    const { fixture } = await openPool(numbered(6));
+    await openPool(numbered(6));
     wait(500);
     const running = requests.map((request) => request.image);
 
-    await router.navigateByUrl('/');
-    await answerDraftListOpening();
-    await fixture.whenStable();
+    await goToDraftList();
     running.forEach((image) => image.onload?.());
 
     expect(requested()).toEqual(large(...dragons(1, 4)));
