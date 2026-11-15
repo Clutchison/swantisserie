@@ -1,8 +1,15 @@
-import { expectFocusOn } from '../../specs-harness';
+import { emptyStatusIn, expectFocusOn, statusIn, watchChanges } from '../../specs-harness';
 import { alice, bob, button, http, text, useDraftsApp } from './harness';
 import { flushTournament, openComplete, registration } from './play-tab-harness';
-import { cards, pressDismiss, openPlan, planOf, readyNotice } from './plan-tab-harness';
-import { brightclimb } from './pool-tab-harness';
+import {
+  cards,
+  pressDismiss,
+  openPlan,
+  planOf,
+  readyNotice,
+  READY_NOTICE,
+} from './plan-tab-harness';
+import { brightclimb, shivan } from './pool-tab-harness';
 
 useDraftsApp();
 
@@ -29,7 +36,7 @@ describe('the Ready notice on the Deck tab', () => {
   it('shows nothing while the plan carries no Ready notice', async () => {
     const { deck } = await openPlanOf();
 
-    expect(readyNotice(deck)).toBeUndefined();
+    expect(readyNotice(deck)).toBeNull();
   });
 
   it('appears when a deck change’s answer carries it', async () => {
@@ -40,7 +47,30 @@ describe('the Ready notice on the Deck tab', () => {
     await flushTournament(aliceJoined);
     await fixture.whenStable();
 
-    expect(readyNotice(deck)).toBeDefined();
+    expect(readyNotice(deck)).not.toBeNull();
+  });
+
+  it('puts the notice into its region, there and empty while the player is ready, and says it once', async () => {
+    const { fixture, deck } = await openPlanOf();
+    const region = emptyStatusIn(deck, READY_NOTICE);
+
+    button(deck, 'Move Lightning Bolt to the sideboard')!.click();
+    http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(planOf({ readyNotice: true }));
+    await flushTournament(aliceJoined);
+    await fixture.whenStable();
+
+    expect(statusIn(deck, { name: READY_NOTICE })).toBe(region);
+    expect(text(region)).toBe(
+      'You’re no longer ready: your mainboard dropped below 40 cards. Fill your deck, then mark yourself ready again on the Play tab. Dismiss',
+    );
+
+    // Another deck change answered with the notice still there: the region is left alone.
+    const changes = watchChanges(region);
+    button(deck, 'Move Shivan Dragon to the sideboard')!.click();
+    http.expectOne(`/api/drafts/draft-1/plan/${shivan.id}`).flush(planOf({ readyNotice: true }));
+    await flushTournament(aliceJoined);
+    await fixture.whenStable();
+    expect(changes()).toEqual([]);
   });
 
   it('sends the dismiss and goes once it is answered', async () => {
@@ -53,7 +83,7 @@ describe('the Ready notice on the Deck tab', () => {
     await flushTournament(aliceJoined);
     await fixture.whenStable();
 
-    expect(readyNotice(deck)).toBeUndefined();
+    expect(readyNotice(deck)).toBeNull();
   });
 
   it('moves focus to the nearest control after its Dismiss once the dismiss settles', async () => {

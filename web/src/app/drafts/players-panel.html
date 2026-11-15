@@ -27,7 +27,7 @@
           Add bot
         </button>
       }
-      @if (canOrganize()) {
+      @if (canImportPicks()) {
         <input
           #pickImportFile
           type="file"
@@ -48,31 +48,34 @@
       }
     </div>
   }
-  @if (pickImportPreview(); as preview) {
-    <div class="pick-import-preview" role="status">
-      <h3>Import picks</h3>
-      <ul>
-        @for (seat of preview.seats; track $index) {
-          <li>{{ seat.column }} → {{ seat.player }}</li>
-        }
-      </ul>
-      <p>
-        {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
-        {{ preview.next.pick }}, {{ preview.next.player }}{{ previewNextSuffix() }}.
-      </p>
-      <p class="detail">This is only a preview: nothing has been imported.</p>
-      <p class="pick-import-warning">
-        Importing is final and clears all queues. The draft starts frozen until you unfreeze it. It
-        can't be reversed: a wrong file means closing this draft and creating a new one.
-      </p>
-      <button
-        class="button"
-        type="button"
-        (click)="confirmPickImport(preview)"
-        appSendsChange="confirm pick import"
-      >
-        Import and start frozen
-      </button>
+  <!-- The preview's live region is there before a file is chosen, so the preview is announced. -->
+  @if (canImportPicks()) {
+    <div class="pick-import-preview" role="status" aria-label="Pick import preview">
+      @if (pickImportPreview(); as preview) {
+        <h3>Import picks</h3>
+        <ul>
+          @for (seat of preview.seats; track $index) {
+            <li>{{ seat.column }} → {{ seat.player }}</li>
+          }
+        </ul>
+        <p>
+          {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
+          {{ preview.next.pick }}, {{ preview.next.player }}{{ previewNextSuffix() }}.
+        </p>
+        <p class="detail">This is only a preview: nothing has been imported.</p>
+        <p class="pick-import-warning">
+          Importing is final and clears all queues. The draft starts frozen until you unfreeze it.
+          It can't be reversed: a wrong file means closing this draft and creating a new one.
+        </p>
+        <button
+          class="button"
+          type="button"
+          (click)="confirmPickImport(preview)"
+          appSendsChange="confirm pick import"
+        >
+          Import and start frozen
+        </button>
+      }
     </div>
   }
   <!-- After the seating tools: a full draft's seats run long. -->

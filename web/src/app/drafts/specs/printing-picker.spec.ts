@@ -14,7 +14,7 @@ import {
   button,
   buttonOrder,
   comboboxOptions,
-  comboboxStatus,
+  comboboxNote,
   editableCombobox,
   heading,
   highlightedOption,
@@ -31,11 +31,13 @@ import {
 } from './harness';
 import {
   clickBackdrop,
+  emptyStatusIn,
   openDialog,
   pressEscape,
   pressKey,
   pressPrevented,
   question,
+  statusIn,
   stubScrollIntoView,
   text,
 } from '../../specs-harness';
@@ -472,7 +474,11 @@ describe('the Printing picker', () => {
     const dialog = await openPicker(fixture, plan);
     button(dialog, 'Next printing')!.click();
     await fixture.whenStable();
+    // There, empty, even with the list closed, as typing can open it already saying so.
+    const region = emptyStatusIn(dialog, 'Set matches');
     openSets();
+    expect(statusIn(dialog, { name: 'Set matches' })).toBe(region);
+    expect(text(region)).toBe('');
 
     typeInto(setField()!, 'zzz');
     expect(highlightedOption(setField()!)).toBeNull();
@@ -480,7 +486,9 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
 
     expect(setOptions()).toEqual([]);
-    expect(comboboxStatus(setField()!)).toBe('No set matches');
+    expect(comboboxNote(setField()!)).toBe('No set matches');
+    expect(statusIn(dialog, { name: 'Set matches' })).toBe(region);
+    expect(text(region)).toBe('No set matches');
     expect(shownPrinting()).toBe('Island, ONS #336');
     expect(text(dialog)).toContain('2 of 2');
     button(dialog, 'Next printing')!.click();
@@ -575,13 +583,14 @@ describe('the Printing picker', () => {
     });
     await fixture.whenStable();
     expect(text(alertIn(dialog))).toBe('Couldn’t load the printings.');
-    expect(statusTexts(dialog)).not.toContain('Loading printings…');
+    const region = emptyStatusIn(dialog, 'Printings');
     expect(shownPrinting()).toBe('Island, ONS #335');
     expect(setField()).toBeUndefined();
 
     button(dialog, 'Try again')!.click();
     TestBed.tick();
-    expect(statusTexts(dialog)).toContain('Loading printings…');
+    expect(statusIn(dialog, { name: 'Printings' })).toBe(region);
+    expect(text(region)).toBe('Loading printings…');
     expect(alertIn(dialog)).toBeNull();
     (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);
     await fixture.whenStable();

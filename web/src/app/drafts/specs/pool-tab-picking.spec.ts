@@ -24,8 +24,11 @@ import {
   text,
   alertIn,
   serverError,
+  queueOf,
+  queued,
+  statusTexts,
 } from './harness';
-import { openDialog } from '../../specs-harness';
+import { emptyStatusIn, openDialog, statusIn, watchChanges } from '../../specs-harness';
 import {
   useTallScreen,
   hidePicked,
@@ -35,6 +38,7 @@ import {
   tiles,
   openDetail,
   searchBox,
+  PICKS_NOTE,
 } from './pool-tab-harness';
 import { exportButton, openPlan } from './plan-tab-harness';
 
@@ -118,6 +122,8 @@ describe('pool tab', () => {
 
       expect(button(detail, 'Pick')!.disabled).toBe(true);
       expect(detail.textContent).toContain('You can pick on your turn.');
+      // A plain note, not a status message.
+      expect(statusTexts(detail)).toEqual([]);
     });
 
     it('disables Pick for a card that has been picked', async () => {
@@ -131,6 +137,8 @@ describe('pool tab', () => {
       const detail = await openDetail(fixture, page, 1);
       expect(button(detail, 'Pick')!.disabled).toBe(true);
       expect(detail.textContent).toContain('Picked by Bob');
+      // A plain note, not a status message.
+      expect(statusTexts(detail)).toEqual([]);
     });
 
     describe('when the pick log fails to load', () => {
@@ -171,6 +179,54 @@ describe('pool tab', () => {
         const detail = await openDetail(fixture, page, 0);
         expect(button(detail, 'Pick')!.disabled).toBe(true);
         expect(statusMessage(detail, picksDidntLoad)).toBeDefined();
+      });
+
+      it('says so into its region in the Card detail open, there and empty before the re-read fails', async () => {
+        const { fixture, page } = await openDraft(completeSnapshot, alicesTurnAgain, {
+          cards: [brightclimb, shivan],
+          picks: [{ ...shivanPick, playerId: bob.id }],
+        });
+        const detail = await openDetail(fixture, page, 0);
+        const region = emptyStatusIn(detail, PICKS_NOTE);
+
+        updates.events.next({ type: 'changed', draft: draft({ ...alicesTurnAgain, version: 1 }) });
+        await failPicks();
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+
+        expect(statusIn(detail, { name: PICKS_NOTE })).toBe(region);
+        expect(text(region)).toBe(picksDidntLoad);
+      });
+
+      it('says so into the same region when it is not your turn, in place of the note that you can pick on your turn', async () => {
+        const bobsTurn = drafting({ turn: { pick: 2, round: 1, playerId: bob.id } });
+        const { fixture, page } = await openDraft(completeSnapshot, bobsTurn, {
+          cards: [brightclimb, shivan],
+          picks: [{ ...shivanPick, playerId: alice.id }],
+        });
+        const detail = await openDetail(fixture, page, 0);
+        expect(detail.textContent).toContain('You can pick on your turn.');
+        const region = emptyStatusIn(detail, PICKS_NOTE);
+
+        updates.events.next({ type: 'changed', draft: draft({ ...bobsTurn, version: 1 }) });
+        await failPicks();
+        await flushQueueAndPlan();
+        await fixture.whenStable();
+
+        expect(statusIn(detail, { name: PICKS_NOTE })).toBe(region);
+        expect(text(region)).toBe(picksDidntLoad);
+        expect(detail.textContent).not.toContain('You can pick on your turn.');
+
+        // Card detail re-rendering for a queue add says nothing new in it.
+        const changes = watchChanges(region);
+        button(detail, 'Add to queue')!.click();
+        http
+          .expectOne('/api/drafts/draft-1/queue')
+          .flush(queueOf({ cards: [queued(brightclimb)] }));
+        await fixture.whenStable();
+        expect(detail.textContent).toContain('Added to your queue.');
+        expect(text(region)).toBe(picksDidntLoad);
+        expect(changes()).toEqual([]);
       });
 
       it('offers Pick again once a later re-read loads the pick log', async () => {

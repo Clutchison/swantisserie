@@ -1,13 +1,11 @@
 import { HttpClient } from '@angular/common/http';
 import {
-  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   inject,
   Injector,
   output,
-  PendingTasks,
   signal,
 } from '@angular/core';
 import { CdkMenu, CdkMenuItem, CdkMenuTrigger } from '@angular/cdk/menu';
@@ -18,6 +16,7 @@ import { LucideChevronDown } from '@lucide/angular';
 import { hasTurn, isRefusal, pickAndRound, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
 import { Changes, FocusKey, SendsChange } from '../changes';
 import { DraftStore } from './draft-store';
+import { liveRegionReady } from '../live-region';
 import { Questions } from '../question-dialog';
 import { DialogShell } from '../dialog-shell';
 import { ANNOUNCEMENTS_HEADING, AnnouncementsDialog } from './announcements-dialog';
@@ -95,20 +94,7 @@ export class DraftHeader {
    * before its text: a screen reader announces text put into a live region,
    * not text it was inserted with.
    */
-  protected readonly bannerReady = signal(false);
-
-  constructor() {
-    const pendingTasks = inject(PendingTasks);
-    afterNextRender(() => {
-      if (this.turnBanner()) {
-        // A frame on, once the browser has the empty region in its accessibility tree.
-        pendingTasks.run(() => afterTwoFrames().then(() => this.bannerReady.set(true)));
-      } else {
-        // Nothing to say yet: whatever it says later changes a region already there.
-        this.bannerReady.set(true);
-      }
-    });
-  }
+  protected readonly bannerReady = liveRegionReady(() => this.turnBanner() !== null);
 
   /** Joining and leaving, starting and cancelling are only possible in Lobby. */
   protected readonly inLobby = computed(() => this.draft().state === 'Lobby');
@@ -342,11 +328,4 @@ export class DraftHeader {
     this.error.set(null);
     this.changeStarted.emit();
   }
-}
-
-/** Resolves once two frames have gone by, so the browser has painted the first. */
-function afterTwoFrames() {
-  return new Promise<void>((resolve) =>
-    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
-  );
 }
