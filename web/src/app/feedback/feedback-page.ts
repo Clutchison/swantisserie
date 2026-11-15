@@ -51,7 +51,7 @@ export class FeedbackPage {
   private readonly problem = signal<Problem | null>(null);
 
   /** The failure's message if its mark came from `item`, else null. */
-  protected problemIn(item: FeedbackView) {
+  protected problemAt(item: FeedbackView) {
     const problem = this.problem();
     return problem?.item === item.id ? problem.message : null;
   }

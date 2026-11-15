@@ -58,7 +58,7 @@
                 Mark reviewed
               </button>
             }
-            @if (problemIn(item); as problem) {
+            @if (problemAt(item); as problem) {
               <p class="error" role="alert">{{ problem }}</p>
             }
           </li>
