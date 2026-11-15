@@ -118,8 +118,10 @@ export interface MatchView {
   /**
    * The Discord user ids of its players who may confirm it now: while it
    * is unconfirmed, those confirming would accept, who didn't report its
-   * game score. None without a game score, and none once it is confirmed,
-   * though confirming accepts a confirmed match again, changing nothing.
+   * game score. None without a game score, none once it is confirmed,
+   * though confirming accepts a confirmed match again, changing nothing,
+   * and none once its results are final: its tournament round is
+   * completed, or the tournament is complete (ADR 0009).
    */
   confirmableBy: string[];
   /**

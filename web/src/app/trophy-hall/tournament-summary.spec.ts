@@ -20,7 +20,6 @@ import {
   entry,
   gridRows,
   roundLabels,
-  singleEliminationFinal,
   standing,
   standingsRows,
   standingsTable,
@@ -28,6 +27,7 @@ import {
   threePlayers,
   withDrops,
 } from '../drafts/specs/play-tab-harness';
+import { singleEliminationFinal } from '../drafts/specs/play-tab-single-elimination-harness';
 
 /** Alice's trophy from draft-1, Friday cube, drafted from the Vintage Cube. */
 const ROW: TrophyHallRowView = {

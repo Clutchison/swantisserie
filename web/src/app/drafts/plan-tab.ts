@@ -1,5 +1,5 @@
 import type { DialogRef } from '@angular/cdk/dialog';
-import { type CdkDragDrop, CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDropList, CdkDropListGroup } from '@angular/cdk/drag-drop';
 import {
   ChangeDetectionStrategy,
   ChangeDetectorRef,
@@ -22,8 +22,6 @@ import {
   PLAN_BOARDS,
   type BasicLand,
   type PlanBoard,
-  type PlannedBasicView,
-  type PlannedCardView,
   type PlanView,
   type PoolCardView,
 } from 'contract';
@@ -41,7 +39,6 @@ import {
   cardsNoun,
   changeFailure,
   DESKTOP_QUERY,
-  DRAG_START_DELAY,
   matching,
   PLAN_CHANGE_FAILED,
   WIDE_STACKS_WIDTH,
@@ -52,8 +49,21 @@ import { DraftStore } from './draft-store';
 import { ExportButtons } from './export-buttons';
 import { PlanApi } from './plan-api';
 import { onResize } from './resizes';
-import { basicsOn, cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
+import { OTHER_PLAN_BOARD } from './plan-boards';
+import {
+  basicCopies,
+  basicCopyId,
+  heldOn,
+  lines,
+  type MovedCard,
+  type PlanBoardCard,
+  type PlanLine,
+} from './plan-lines';
+import { GROUPINGS, type PlanChoice, type PlanMode, readChoice, saveChoice } from './plan-choice';
+import { type DropTarget, planDrag } from './plan-drag';
 import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
+import { besideIn } from './focus-beside';
+import { printingPickerReturnFocus } from './printing-picker-focus';
 import { TypeLetter } from './type-letter';
 import {
   QUEUE_UNPICKED_HEADING,
@@ -84,56 +94,11 @@ const TO_STACK: ScrollIntoContainerOptions = {
   container: 'nearest',
 };
 
-/** How a plan board shows: as stacks of card images, or as a list of names. */
-export type PlanMode = 'stacks' | 'list';
-
-/** The mode and grouping a viewer chose, kept in their browser. */
-interface PlanChoice {
-  mode: PlanMode;
-  grouping: Grouping;
-}
-const CHOICE_KEY = 'plan-view';
-/** The grouping when none is kept. A new viewer's mode follows the stacks area's width: see `measured`. */
-const DEFAULT_GROUPING: Grouping = 'manaValue';
-const MODES: PlanMode[] = ['stacks', 'list'];
-
-/**
- * A card on a plan board as the tab shows it: a planned pool card, or a
- * copy of a basic land, which counts as picked. A basic's `poolCardId` is
- * no pool card's, but keys its card data in the tab's `cardsById`.
- */
-interface PlanBoardCard extends PlannedCardView {
-  basic?: BasicLand;
-}
-
-/** Where a dragged card is dropped: a plan board, and on a mainboard stack or in a gap between, the stack move into it. */
-interface DropTarget {
-  planBoard: PlanBoard;
-  into?: StackMove;
-}
-
-/** What a move acts on: a line's first copy, a stacked card, or a card from its Card detail. */
-type MovedCard = Pick<PlanBoardCard, 'poolCardId' | 'name' | 'basic'> | PlanLine;
-
-/** One line of a plan board: a card's picked copies, its unpicked ones, or a basic land's, with how many the plan board holds. */
-interface PlanLine extends PlanBoardCard {
-  /** How many copies the plan board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
-  count: number;
-  /** Each copy's pool card id, in the order the plan board holds them. */
-  poolCardIds: string[];
-  /**
-   * What the line is tracked by: whether its copies are picked, unpicked or
-   * a basic land's, and their name. Unlike `poolCardId`, it stays the same
-   * as the first copy moves away, so the line isn't rebuilt under focus.
-   */
-  key: string;
-}
-
 /**
  * How each plan board shows: whether stacks mode names each stack, the plan
  * board its cards move to, as the button names it, and what an empty one
- * says. Stacks mode stacks the mainboard by the grouping, the sideboard as
- * one stack.
+ * says, by whether the player has picks. Stacks mode stacks the mainboard by
+ * the grouping, the sideboard as one stack.
  */
 const PLAN_BOARD_DISPLAY: Record<
   PlanBoard,
@@ -142,26 +107,20 @@ const PLAN_BOARD_DISPLAY: Record<
     oneStack?: boolean;
     other: PlanBoard;
     otherName: string;
-    empty: string;
+    empty: (hasPicks: boolean) => string;
   }
 > = {
   Mainboard: {
     ...OTHER_PLAN_BOARD.Mainboard,
-    empty: 'No picks yet.',
+    // A player may move every pick to the sideboard, so an empty mainboard isn't one without picks.
+    empty: (hasPicks) => (hasPicks ? 'Nothing on your mainboard.' : 'No picks yet.'),
   },
   Sideboard: {
     oneStack: true,
     ...OTHER_PLAN_BOARD.Sideboard,
-    empty: 'Nothing on your sideboard.',
+    empty: () => 'Nothing on your sideboard.',
   },
 };
-
-/** The groupings, in the order the control offers them, as it names them. */
-const GROUPINGS: { grouping: Grouping; name: string }[] = [
-  { grouping: 'manaValue', name: 'Mana value' },
-  { grouping: 'color', name: 'Color' },
-  { grouping: 'type', name: 'Type' },
-];
 
 /**
  * The draft view's Deck tab: the signed-in player's plan, as its mainboard
@@ -262,21 +221,32 @@ export class PlanTab {
    * scrolls sideways, which offers no drag. Until measured, the strip.
    */
   protected readonly wideStacks = signal(false);
-  private readonly remembered = rememberedChoice();
+  private readonly remembered = readChoice();
   /** The mode: for a new viewer, stacks mode where the wide layout fits, once measured, else list mode. */
   protected readonly mode = signal(this.remembered.mode ?? 'list');
   /** Whether the mode is settled: kept from last time, chosen, or set by the stacks area's first measure. */
   private modeSettled = this.remembered.mode !== undefined;
   protected readonly grouping = signal(this.remembered.grouping);
   protected readonly groupings = GROUPINGS;
-  /** How long a stacked card is held before a drag starts. */
-  protected readonly dragStartDelay = DRAG_START_DELAY;
+  /** The mode and grouping shown, as kept for next time. */
+  private readonly choice = computed((): PlanChoice => ({
+    mode: this.mode(),
+    grouping: this.grouping(),
+  }));
   /** Whether the plan boards show as stacks: the chosen mode. */
   protected readonly showingStacks = computed(() => this.mode() === 'stacks');
   /** The mainboard's cards, a basic land's copies included. */
   private readonly mainboardCards = computed(() => heldOn(this.plan(), 'Mainboard'));
   /** The player's stack moves: shown only in the wide stacks layout, kept while the window is narrow. */
   private readonly stackMoves = stackMovesOf(this.grouping, this.plan, this.mainboardCards);
+  /** The drag and drop onto the other plan board, and into a mainboard stack or gap as a stack move. */
+  protected readonly drag = planDrag({
+    plan: this.plan,
+    deckLocked: this.deckLocked,
+    move: (card, planBoard) => this.move(card, planBoard),
+    stackMove: (poolCardId, into) => this.stackMoves.move(poolCardId, into),
+    started: () => this.previews.dragStarted(),
+  });
 
   /** The card data of every card on the plan boards, the basics' included, by `poolCardId`. */
   protected readonly cardsById = computed(() => {
@@ -331,20 +301,26 @@ export class PlanTab {
    */
   protected readonly planBoards = computed(() => {
     const wide = this.wideStacks();
-    return PLAN_BOARDS.map((planBoard) => {
-      const rest = PLAN_BOARD_DISPLAY[planBoard];
-      const held = heldOn(this.plan(), planBoard);
+    const plan = this.plan();
+    const held = PLAN_BOARDS.map((planBoard) => {
+      const cards = heldOn(plan, planBoard);
+      return { planBoard, cards, picked: cards.filter((card) => card.picked).length };
+    });
+    const hasPicks = held.some(({ picked }) => picked > 0);
+    return held.map(({ planBoard, cards, picked }) => {
+      const { empty, ...rest } = PLAN_BOARD_DISPLAY[planBoard];
       const dropTarget = (into?: StackMove): DropTarget => ({ planBoard, into });
       const shown =
         planBoard === 'Mainboard' ? this.mainboardStacks().stacks : this.sideboardStacks();
       return {
         name: planBoard,
         ...rest,
+        empty: empty(hasPicks),
         /** Whether each stack has a heading naming it: not a plan board's one stack, which its heading names. */
         namesStacks: !rest.oneStack,
-        count: held.length,
-        picked: held.filter((card) => card.picked).length,
-        lines: lines(held),
+        count: cards.length,
+        picked,
+        lines: lines(cards),
         dropTarget: dropTarget(),
         stacks: shown.map((each) => ({ ...each, dropTarget: dropTarget(each.move) })),
         /** In the wide layout, the mainboard's gaps around and between its stacks, where a drop makes a new stack. */
@@ -422,10 +398,6 @@ export class PlanTab {
     Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
   );
 
-  /** Whether a drag has started since the last press on a card, so that releasing it opens nothing. */
-  // Stryker disable next-line BooleanLiteral: a real click on a card always follows a press, which resets it.
-  private dragged = false;
-
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
   /** How many cards the exported sideboard holds, and Arena keeps, when Arena's import may cut it short. */
@@ -483,7 +455,7 @@ export class PlanTab {
     this.modeSettled = true;
     this.mode.set(mode);
     this.scrollToFirstStack();
-    this.rememberChoice();
+    saveChoice(this.choice());
   }
 
   /**
@@ -493,7 +465,7 @@ export class PlanTab {
   protected setGrouping(grouping: Grouping) {
     this.grouping.set(grouping);
     this.scrollToFirstStack();
-    this.rememberChoice();
+    saveChoice(this.choice());
   }
 
   /** Scrolls the strip, and each plan board's stacks, back to their start. */
@@ -513,54 +485,6 @@ export class PlanTab {
   protected scrollToStack(name: string) {
     this.stripLocation.goTo(name);
     stackElement(this.strip(), name)?.scrollIntoView(TO_STACK);
-  }
-
-  /** Keeps the chosen mode and grouping for next time, if the browser allows. */
-  private rememberChoice() {
-    const choice: PlanChoice = { mode: this.mode(), grouping: this.grouping() };
-    try {
-      localStorage.setItem(CHOICE_KEY, JSON.stringify(choice));
-    } catch {
-      // Storage may be full or refused, as in a private window: the choice holds for this page.
-    }
-  }
-
-  /**
-   * Whether a drop list refuses a dragged card, and offers none to drag: on
-   * a locked deck, any but a mainboard stack or gap, as only a stack move is
-   * no deck change.
-   */
-  protected refusesDrop({ planBoard, into }: DropTarget) {
-    return this.deckLocked() && (planBoard === 'Sideboard' || !into);
-  }
-
-  /** Whether a drag may enter a drop list: not one that refuses it. */
-  protected readonly enters = (_: CdkDrag, list: CdkDropList<DropTarget>) =>
-    !this.refusesDrop(list.data);
-
-  /**
-   * A card dropped on a plan board: it moves there, unless that's the plan
-   * board it came from or either refuses it. Dropped on a mainboard stack, it
-   * is then a stack move into that stack, or in a gap, into a new stack
-   * there, on a locked deck too. It's found by id, as the plan may have been
-   * re-read since the drag began; if it has left the plan, the drop does
-   * nothing.
-   */
-  protected async dropped({
-    item,
-    previousContainer,
-    container,
-  }: CdkDragDrop<DropTarget, DropTarget, string>) {
-    const from = previousContainer.data.planBoard;
-    const { planBoard, into } = container.data;
-    const card = heldOn(this.plan(), from).find((held) => held.poolCardId === item.data);
-    if (!card) return;
-    let moved: MovedCard | null = card;
-    if (from !== planBoard) {
-      const refused = this.refusesDrop(previousContainer.data) || this.refusesDrop(container.data);
-      moved = refused ? null : await this.move(card, planBoard);
-    }
-    if (moved && into) this.stackMoves.move(moved.poolCardId, into);
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */
@@ -633,29 +557,13 @@ export class PlanTab {
     return { poolCardId: basicCopyId(planBoard, land, held?.count ?? 0), name: land, picked: true };
   }
 
-  /** A card on a plan board has been pressed, which may start a drag. */
-  protected pressed() {
-    this.dragged = false;
-  }
-
-  /** A drag of a card has started: no Card preview gets in its way, and its release opens no Card detail. */
-  protected dragStarted() {
-    this.dragged = true;
-    this.previews.dragStarted();
-  }
-
-  /** Whether a click on a card ends a drag of it. A keyboard's click (`detail` 0) ends none. */
-  private endsDrag(event: MouseEvent) {
-    return this.dragged && event.detail > 0;
-  }
-
   /**
    * A stacked card clicked: opens its Card detail, showing its image while
    * the large one loads, or a basic land's Printing picker, unless the
    * click ends a drag.
    */
   protected openStacked(card: PlanBoardCard, event: MouseEvent, planBoard: PlanBoard) {
-    if (this.endsDrag(event)) return;
+    if (this.drag.endsDrag(event)) return;
     if (card.basic) return this.openPicker(card, card.basic, planBoard);
     const poolCard = this.poolCardsById().get(card.poolCardId);
     this.openDetail(
@@ -673,7 +581,7 @@ export class PlanTab {
    * picker, unless the click ends a drag.
    */
   protected openLine(line: PlanLine, event: MouseEvent, planBoard: PlanBoard) {
-    if (this.endsDrag(event)) return;
+    if (this.drag.endsDrag(event)) return;
     if (line.basic) return this.openPicker(line, line.basic, planBoard);
     const queued = this.queued();
     this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
@@ -726,7 +634,6 @@ export class PlanTab {
    * opens a dialog, or else the one before.
    */
   private openPicker(card: MovedCard, land: BasicLand, planBoard: PlanBoard) {
-    const openers = [...this.host.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')];
     const removing = () => this.leaving(card, planBoard);
     this.dialogs.open(PrintingPicker, {
       labelledBy: PRINTING_PICKER_HEADING,
@@ -736,10 +643,7 @@ export class PlanTab {
         inputBinding('planBoard', () => planBoard),
         inputBinding('removing', () => removing),
       ],
-      returnFocus: (opener) => {
-        if (!opener || opener.isConnected) return opener;
-        return besideIn(openers, opener, (element) => element.isConnected);
-      },
+      returnFocus: printingPickerReturnFocus(this.host),
     });
   }
 
@@ -839,82 +743,3 @@ export class PlanTab {
     }, kept);
   }
 }
-
-/**
- * The mode and grouping the viewer last chose, one choice for every screen;
- * if none is kept or storage is refused, no mode, grouped by mana value.
- */
-function rememberedChoice(): Partial<PlanChoice> & Pick<PlanChoice, 'grouping'> {
-  const defaults = { mode: undefined, grouping: DEFAULT_GROUPING };
-  try {
-    // Stryker disable next-line StringLiteral: JSON.parse("") throws into the catch, which returns the same defaults.
-    const kept: unknown = JSON.parse(localStorage.getItem(CHOICE_KEY) ?? 'null');
-    const { mode, grouping } = (kept ?? {}) as Record<string, unknown>;
-    return {
-      mode: isMode(mode) ? mode : defaults.mode,
-      grouping: isGrouping(grouping) ? grouping : defaults.grouping,
-    };
-  } catch {
-    // Storage may be refused, as in a private window, or hold something that isn't a choice.
-    return defaults;
-  }
-}
-
-const isMode = (value: unknown): value is PlanMode => MODES.includes(value as PlanMode);
-const isGrouping = (value: unknown): value is Grouping =>
-  GROUPINGS.some((option) => option.grouping === value);
-
-/**
- * One line per distinct name, picked, unpicked and basic copies apart, in
- * the order each first appears, counting its copies.
- */
-function lines(cards: PlanBoardCard[]): PlanLine[] {
-  const byName = new Map<string, PlanLine>();
-  for (const card of cards) {
-    // Stryker disable next-line StringLiteral: with any one kind emptied the three stay distinct, so lines and focus keys come out the same.
-    const kind = card.basic ? 'basic' : card.picked ? 'picked' : 'unpicked';
-    const key = `${kind} ${card.name}`;
-    const line = byName.get(key);
-    if (line) {
-      line.count++;
-      line.poolCardIds.push(card.poolCardId);
-    } else {
-      byName.set(key, { ...card, count: 1, poolCardIds: [card.poolCardId], key });
-    }
-  }
-  return [...byName.values()];
-}
-
-/** The cards `planBoard` holds: its planned pool cards, then a card per copy of each of its basic lands. */
-function heldOn(plan: PlanView, planBoard: PlanBoard): PlanBoardCard[] {
-  return [...cardsOn(plan, planBoard), ...basicsOn(plan.basics, planBoard).flatMap(basicCopies)];
-}
-
-/**
- * The first of `elements` after `element` that `fits`, or else the last
- * before it that does: where focus goes once `element` has gone.
- */
-function besideIn(
-  elements: HTMLElement[],
-  element: HTMLElement | null,
-  fits: (element: HTMLElement) => boolean,
-) {
-  const at = element ? elements.indexOf(element) : -1;
-  return (
-    elements.slice(at + 1).find(fits) ?? elements.slice(0, Math.max(at, 0)).reverse().find(fits)
-  );
-}
-
-/** One card per copy of a basic land on its plan board, each with an id of its own to track and drag it by. */
-function basicCopies({ land, board, count }: PlannedBasicView): PlanBoardCard[] {
-  return Array.from({ length: count }, (_, copy) => ({
-    poolCardId: basicCopyId(board, land, copy),
-    name: land,
-    picked: true,
-    basic: land,
-  }));
-}
-
-/** The id of a basic land's copy: which plan board holds it, and which copy there it is. */
-const basicCopyId = (planBoard: PlanBoard, land: BasicLand, copy: number) =>
-  `basic-${planBoard}-${land}-${copy}`;

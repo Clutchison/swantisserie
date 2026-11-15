@@ -227,6 +227,49 @@ describe('undo', () => {
     });
   });
 
+  describe('of a by-hand pick of a copy of a card its picker had queued', () => {
+    /**
+     * Alice's turn comes back by an undo with Shock, one copy of Lightning
+     * Bolt and Lava Spike queued, which wait for her, and she picks the
+     * other copy by hand.
+     */
+    async function pickedCopyOfQueued() {
+      const { id, ids, first, second } = await readyDraftWithCopies(
+        [aliceCookie, bobCookie],
+        2,
+        ['Skewer the Critics'],
+      );
+      await start(id).expect(200);
+      await pick(id, ids['Skewer the Critics']).expect(200);
+      await enqueue(id, ids.Shock).expect(200);
+      await enqueue(id, second).expect(200);
+      await enqueue(id, ids['Lava Spike']).expect(200);
+      await undo(id, 1).expect(200);
+      await pick(id, first).expect(200);
+      return { id, second };
+    }
+
+    it('takes the queued copy out of that queue, never putting it on the picker’s Queue notice', async () => {
+      const { id } = await pickedCopyOfQueued();
+
+      expect((await queue(id).expect(200)).body).toMatchObject({
+        cards: [shock, spike],
+        lost: [],
+      });
+    });
+
+    it('puts the queued copy back in the same place in that queue', async () => {
+      const { id, second } = await pickedCopyOfQueued();
+
+      await undo(id, 1).expect(200);
+
+      expect((await queue(id).expect(200)).body).toMatchObject({
+        cards: [shock, { poolCardId: second, name: 'Lightning Bolt' }, spike],
+        lost: [],
+      });
+    });
+  });
+
   it('returns the card to the queues it was lost from, to be picked on the next real pick', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 2, fourCards);
     const ids = await poolCardIds(id);

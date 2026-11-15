@@ -81,11 +81,14 @@
     <summary>How this works</summary>
     <p class="detail">
       @if (draftComplete()) {
-        Your deck holds your picks and basic lands. Only you can see your deck.
+        Your deck holds your picks and basic lands.
       } @else {
         Every pick lands on your mainboard. An unpicked card you add is lost if another player picks
-        it and no other copy is available. Only you can see your deck.
+        it and no other copy is available.
       }
+      Only you can see your deck. If it locks for a tournament, everyone who sees the draft can see
+      its decklist, the deck as it was locked, once the tournament is complete, or from its start
+      under public decklists.
     </p>
   </details>
 }
@@ -213,9 +216,9 @@
               cdkDropList
               [cdkDropListData]="gap.dropTarget"
               [cdkDropListDisabled]="changing()"
-              [cdkDropListEnterPredicate]="enters"
+              [cdkDropListEnterPredicate]="drag.enters"
               cdkDropListSortingDisabled
-              (cdkDropListDropped)="dropped($event)"
+              (cdkDropListDropped)="drag.dropped($event)"
             ></div>
           </ng-template>
           <!-- Named as a group for screen readers. The strip offers no drag, so a swipe always scrolls: the CDK can't turn drag off for touch alone, so a mouse can't drag there either, as a window that narrow offered no stacks, nor drag, before. -->
@@ -244,11 +247,11 @@
                   cdkDropList
                   [cdkDropListData]="stack.dropTarget"
                   [cdkDropListDisabled]="
-                    changing() || !wideStacks() || refusesDrop(stack.dropTarget)
+                    changing() || !wideStacks() || drag.refusesDrop(stack.dropTarget)
                   "
-                  [cdkDropListEnterPredicate]="enters"
+                  [cdkDropListEnterPredicate]="drag.enters"
                   cdkDropListSortingDisabled
-                  (cdkDropListDropped)="dropped($event)"
+                  (cdkDropListDropped)="drag.dropped($event)"
                 >
                   @for (card of stack.cards; track card.poolCardId) {
                     @let poolCard = cardsById().get(card.poolCardId);
@@ -258,10 +261,10 @@
                       [class.unpicked]="!card.picked"
                       cdkDrag
                       [cdkDragData]="card.poolCardId"
-                      [cdkDragStartDelay]="dragStartDelay"
+                      [cdkDragStartDelay]="drag.startDelay"
                       cdkDragPreviewContainer="parent"
-                      (pointerdown)="pressed()"
-                      (cdkDragStarted)="dragStarted()"
+                      (pointerdown)="drag.pressed()"
+                      (cdkDragStarted)="drag.dragStarted()"
                     >
                       <!-- The card and its mark show a Card preview, not its buttons, and open its Card detail, or a basic land's Printing picker. A card whose pool card hasn't loaded opens none: it shows its card already, so it is no Tab stop. -->
                       @if (poolCard) {
@@ -326,9 +329,11 @@
             [class.capped]="!showingStacks()"
             cdkDropList
             [cdkDropListData]="planBoard.dropTarget"
-            [cdkDropListDisabled]="changing() || !onDesktop() || refusesDrop(planBoard.dropTarget)"
+            [cdkDropListDisabled]="
+              changing() || !onDesktop() || drag.refusesDrop(planBoard.dropTarget)
+            "
             cdkDropListSortingDisabled
-            (cdkDropListDropped)="dropped($event)"
+            (cdkDropListDropped)="drag.dropped($event)"
           >
             @for (line of planBoard.lines; track line.key) {
               <li
@@ -336,8 +341,8 @@
                 cdkDrag
                 [cdkDragData]="line.poolCardId"
                 cdkDragPreviewContainer="parent"
-                (pointerdown)="pressed()"
-                (cdkDragStarted)="dragStarted()"
+                (pointerdown)="drag.pressed()"
+                (cdkDragStarted)="drag.dragStarted()"
               >
                 <span class="count">{{ line.count }}</span>
                 <!-- A basic land opens its Printing picker in place of a Card detail. -->

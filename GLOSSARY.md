@@ -211,7 +211,7 @@ The part of a draft's page that shows a draft's picks as a grid: a column for ea
 _Avoid_: Picks page, draft board, pick grid
 
 **Queue**:
-A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold; otherwise the card is lost, and the player's steal behavior decides what happens to the rest of the queue.
+A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold; otherwise the card is lost, and the player's steal behavior decides what happens to the rest of the queue. When the player picks a card themselves, the card leaves their queue; if the queue holds only other copies of it, the first available one leaves instead, so the queue doesn't pick a second copy.
 _Avoid_: Wishlist, preload list, autopick list
 
 **Queue paused**:
@@ -231,11 +231,11 @@ Describes a queued card, or an unpicked card in a deck, that another player pick
 _Avoid_: Sniped, taken, removed (that is the player taking a card out by hand)
 
 **Copy rule**:
-What happens when another player picks a queued card, or an unpicked card in a deck: the queue or deck holds, in its place, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none.
+What happens when another player picks a queued card, or an unpicked card in a deck: the queue or deck holds, in its place, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none. The player's own pick of a copy takes a queued copy out of their queue instead (see Queue).
 _Avoid_: Swap rule, substitution
 
 **Taken out**:
-Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or, after another player's pick, the lost card. An undo of that pick puts every taken-out card back.
+Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or the queued copy of it that left instead, or, after another player's pick, the lost card. An undo of that pick puts every taken-out card back.
 _Avoid_: Unqueued, removed (that is the player taking a card out by hand), taken (that is a lost card alone)
 
 **Departure**:
@@ -601,7 +601,7 @@ An organizer taking a match's game score, granted draw, granted win or forfeit a
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:
-A match's other player agreeing with the game score it was reported with. A reported match counts whether or not it is confirmed.
+A match's other player agreeing with the game score it was reported with, while its results aren't final (as under Correct). A reported match counts whether or not it is confirmed, and one never confirmed before its results are final stays unconfirmed.
 _Avoid_: Approve, verify, accept
 
 **Draw**:
@@ -677,7 +677,7 @@ A guild's trophies and the decks that won them, grouped by pool source, beside i
 _Avoid_: Leaderboard, hall of fame, standings (that is one tournament's)
 
 **Trophy ranking**:
-On the Trophy Hall, every player who holds a trophy, under their current name, by how many trophies they hold. Players with as many trophies share their place.
+On the Trophy Hall, every player who holds a trophy, under their current name, by how many trophies they hold. Players with as many trophies share their place. It counts only the trophies the Trophy Hall shows, so a player can hold fewer here than on My stats.
 _Avoid_: Leaderboard, rankings, standings (that is one tournament's)
 
 **Tournament summary**:

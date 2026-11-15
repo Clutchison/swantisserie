@@ -35,6 +35,14 @@ export function seedsOf(entries: readonly TournamentEntryView[]): ReadonlyMap<st
   );
 }
 
+/** Whether the player `playerId` joined and their entry is dropped; never for a viewer who didn't join. */
+export function hasDropped(
+  entries: readonly TournamentEntryView[],
+  playerId: string | undefined,
+): boolean {
+  return !!entries.find((entry) => entry.playerId === playerId)?.dropped;
+}
+
 /** How a match reads by its players' names: "Bob vs Carol". */
 export function versus(names: readonly [string, string]): string {
   return names.join(' vs ');

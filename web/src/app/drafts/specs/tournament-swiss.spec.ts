@@ -30,6 +30,7 @@ import {
   failChange,
   forfeited,
   grantedDraw,
+  unconfirmable,
   openComplete,
   openCompleteRound,
   dropFrom,
@@ -52,6 +53,8 @@ import {
   threePlayers,
   withTournament,
   completed,
+  carolBeatAlice,
+  completedSwiss,
   confirmedMatch,
   COMPLETE_ROUND_URL,
   erin,
@@ -202,11 +205,13 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('offers Report in the list only on a match the api lists you as able to report', async () => {
-    const bobBeatAlice = reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id);
+    const bobBeatAliceInRound1 = unconfirmable(
+      reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id),
+    );
     const { tab } = await openPlaying(
       swissPlaying({
         rounds: [
-          { round: 1, correctable: false, matches: [bobBeatAlice], byes: [carol.id] },
+          { round: 1, correctable: false, matches: [bobBeatAliceInRound1], byes: [carol.id] },
           {
             round: 2,
             correctable: true,
@@ -614,8 +619,6 @@ describe('Swiss tournaments on the Play tab', () => {
 
   describe('your match', () => {
     const yourMatch = (tab: HTMLElement) => region(tab, 'Your match')!;
-    /** Carol reporting that she beat Alice 2–1 in round 2's match. */
-    const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
 
     it('offers the four game scores straight away, with a link to your Deck tab, and reports the one you choose', async () => {
       const { fixture, tab } = await openPlaying(swissPlaying());
@@ -674,15 +677,13 @@ describe('Swiss tournaments on the Play tab', () => {
       expect(text(yourMatch(tab))).toContain('All your matches are reported.');
     });
 
-    it('offers Confirm in the list of matches once the tournament is complete, as Your match is gone', async () => {
-      const { tab } = await openPlaying(
-        completed(swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) })),
-      );
+    it('offers no Confirm once the tournament is complete, as its results are final', async () => {
+      const { tab } = await openPlaying(completedSwiss);
 
       expect(region(tab, 'Your match')).toBeNull();
       expect(
         button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol'),
-      ).toBeDefined();
+      ).toBeUndefined();
     });
 
     it('shows the match the api lists you as able to report, passing over one it doesn’t', async () => {
@@ -716,12 +717,14 @@ describe('Swiss tournaments on the Play tab', () => {
       expect(button(yourMatch(tab), 'Confirm your match against Carol')).toBeUndefined();
     });
 
-    it('shows the earlier tournament round’s match to confirm before a later one to report, unless you choose that one', async () => {
-      const bobBeatAlice = reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id);
-      const { fixture, tab } = await openPlaying(
+    it('shows the current tournament round’s match once an earlier one an organizer reported is final, offering no Confirm on it', async () => {
+      const organizerReported = unconfirmable(
+        reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], dave.id),
+      );
+      const { tab } = await openPlaying(
         swissPlaying({
           rounds: [
-            { round: 1, correctable: false, matches: [bobBeatAlice], byes: [carol.id] },
+            { round: 1, correctable: false, matches: [organizerReported], byes: [carol.id] },
             {
               round: 2,
               correctable: true,
@@ -732,17 +735,62 @@ describe('Swiss tournaments on the Play tab', () => {
         }),
       );
 
+      expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
+      expect(
+        ['Won 2–0', 'Won 2–1', 'Lost 1–2', 'Lost 0–2'].map(
+          (score) => !!button(yourMatch(tab), score),
+        ),
+      ).toEqual([true, true, true, true]);
+      expect(
+        button(namedList(tab, 'Tournament round 1'), 'Confirm your match against Bob'),
+      ).toBeUndefined();
+    });
+
+    it('shows a later match you choose to report from the list over an earlier one the api lists you as able to confirm', async () => {
+      const bobBeatAliceInRound1 = reported(
+        unreportedMatch('m1', alice.id, bob.id),
+        [1, 2],
+        bob.id,
+      );
+      const { fixture, tab } = await openPlaying(
+        swissPlaying({
+          rounds: swissRoundsWith(unreportedMatch('m2', alice.id, carol.id), bobBeatAliceInRound1),
+        }),
+      );
       expect(text(yourMatch(tab))).toContain('Tournament round 1: Bob reported you lost 1–2');
-      expect(button(yourMatch(tab), 'Confirm your match against Bob')).toBeDefined();
 
       button(namedList(tab, 'Tournament round 2'), 'Report your match against Carol')!.click();
       await fixture.whenStable();
 
       expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
-      expect(button(yourMatch(tab), 'Won 2–0')).toBeDefined();
-      expect(
-        button(namedList(tab, 'Tournament round 1'), 'Confirm your match against Bob'),
-      ).toBeDefined();
+    });
+
+    it('says why a Confirm was refused once the tournament round is completed', async () => {
+      const refusal = 'Tournament round 2 is completed, so its results are final.';
+      const { fixture, page, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+
+      button(yourMatch(tab), 'Confirm your match against Carol')!.click();
+      (
+        await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/matches/m2/confirm'))
+      ).flush(
+        { error: 'round-completed', message: refusal },
+        { status: 409, statusText: 'Conflict' },
+      );
+      // A refusal catches up with the draft.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(
+          withTournament(
+            swissPlaying({ rounds: swissRoundsWith(unconfirmable(carolBeatAlice)) }),
+            threePlayers,
+          ),
+        ),
+      );
+      await flushPicks([]);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(alertIn(panel(page))?.textContent).toContain(refusal));
     });
   });
 });
