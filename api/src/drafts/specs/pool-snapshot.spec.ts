@@ -555,6 +555,65 @@ describe('pool snapshot', () => {
     });
   });
 
+  it('still starts when a snapshot it resumes can’t be reset, and resumes the others', async () => {
+    const errors = vi.spyOn(Logger.prototype, 'error').mockReturnValue();
+    scryfallAnswers({
+      [snapshotQuery('c:r')]: page('Shock'),
+      [snapshotQuery('c:g')]: page('Giant Growth'),
+    });
+    // Written directly: no route leaves a snapshot running across a restart.
+    const prisma = app.get(PrismaService);
+    const leftRunning = (name: string, poolQuery: string) =>
+      prisma.draft.create({
+        data: {
+          name,
+          poolSourceKind: 'PoolQuery',
+          poolQuery,
+          picksPerPlayer: 40,
+          organizerId: alice.id,
+          snapshotState: 'Running',
+        },
+      });
+    const drafts = [
+      await leftRunning('Red', 'c:r'),
+      await leftRunning('Green', 'c:g'),
+    ];
+    await app.close();
+    // The first transaction after the restart is the first resumed reset;
+    // nothing else at boot writes.
+    vi.spyOn(PrismaService.prototype, '$transaction').mockRejectedValueOnce(
+      new Error('Connection terminated unexpectedly'),
+    );
+
+    await startApp();
+
+    // One snapshot completes; the other stays Running for the next boot.
+    const [resumed, refused] = await vi.waitFor(async () => {
+      const finished = await Promise.all(
+        drafts.map(async ({ id }) => {
+          const res = await getDraft(id).expect(200);
+          return res.body.snapshot.state !== 'Running';
+        }),
+      );
+      expect(finished.filter(Boolean)).toHaveLength(1);
+      return finished[0] ? drafts : [drafts[1], drafts[0]];
+    });
+    expect((await snapshotted(resumed.id)).snapshot).toEqual({
+      state: 'Complete',
+      cards: 1,
+      total: 1,
+    });
+    expect((await getDraft(refused.id).expect(200)).body.snapshot.state).toBe(
+      'Running',
+    );
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining(refused.id),
+      expect.objectContaining({
+        message: 'Connection terminated unexpectedly',
+      }),
+    );
+  });
+
   it('fails a cube draft’s snapshot that a previous process left running, as a cube’s pool is taken only at creation', async () => {
     // Written directly: a cube link's snapshot is complete from creation, so
     // only a draft left running by an older version reaches the snapshot.
