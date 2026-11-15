@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import {
   fetchWithTimeout,
   UnreachableError,
+  USER_AGENT,
 } from '../http/fetch-with-timeout.js';
 
 const SITE = 'https://cubecobra.com';
@@ -11,8 +12,7 @@ const ORACLE_ID =
 /** How long fetching a cube, its body included, may take: a cube's JSON can be large. */
 const REQUEST_TIMEOUT_MS = 20_000;
 const HEADERS = {
-  'User-Agent':
-    'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)',
+  'User-Agent': USER_AGENT,
   Accept: 'application/json',
 };
 

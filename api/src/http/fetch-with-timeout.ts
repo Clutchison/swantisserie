@@ -1,4 +1,11 @@
 /**
+ * The User-Agent every outside client sends. Scryfall requires an accurate
+ * one; bump its version here, once, for all of them.
+ */
+export const USER_AGENT =
+  'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)';
+
+/**
  * The upstream couldn't be reached: the request failed on the network, or it
  * (including reading its body) took longer than its timeout. The message never
  * names the URL, which may be a secret; `cause` is the original error.

@@ -29,6 +29,22 @@ describe('FetchScryfallClient', () => {
     );
   }
 
+  /** Answers `status` with a body that records whether it was cancelled. */
+  function respondUnread(status: number) {
+    const body = { cancelled: false };
+    fetch.mockResolvedValueOnce(
+      new Response(
+        new ReadableStream({
+          cancel() {
+            body.cancelled = true;
+          },
+        }),
+        { status },
+      ),
+    );
+    return body;
+  }
+
   const balefire = { object: 'card', name: 'Balefire Dragon' };
 
   it('searches with a real User-Agent and an Accept header', async () => {
@@ -118,6 +134,28 @@ describe('FetchScryfallClient', () => {
     }
   });
 
+  it('cancels the body of a 429 it backs off from', async () => {
+    vi.useFakeTimers();
+    try {
+      const body = respondUnread(429);
+      respond(200, {
+        object: 'list',
+        total_cards: 1,
+        has_more: false,
+        data: [balefire],
+      });
+
+      const search = scryfall.search('c:r');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(body.cancelled).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(await search).toMatchObject({ cards: [balefire] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('holds a search already waiting for its slot when a 429 arrives until the lockout is over, then keeps them 600 ms apart', async () => {
     vi.useFakeTimers();
     try {
@@ -177,6 +215,13 @@ describe('FetchScryfallClient', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('cancels the body of a 404, which it doesn’t read', async () => {
+    const body = respondUnread(404);
+
+    expect(await scryfall.search('c:r')).toBeNull();
+    expect(body.cancelled).toBe(true);
   });
 
   it('returns null when nothing matches', async () => {
@@ -564,6 +609,37 @@ describe('FetchScryfallClient', () => {
 
       expect(await search).toMatchObject({ cards: [balefire] });
     });
+
+    it('cancels a server error’s body before trying again', async () => {
+      const body = respondUnread(503);
+      someCards();
+
+      const search = scryfall.search('c:r');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(body.cancelled).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(await search).toMatchObject({ cards: [balefire] });
+    });
+
+    it.each([
+      ['search', 403, (client: FetchScryfallClient) => client.search('c:r')],
+      ['set list', 403, (client: FetchScryfallClient) => client.sets()],
+      ['search', 429, (client: FetchScryfallClient) => client.search('c:r')],
+    ])(
+      'cancels the body of a failing %s answer (%i) it gives up on',
+      async (_request, status, request) => {
+        const bodies = Array.from({ length: 4 }, () => respondUnread(status));
+
+        const error = await failure(request(scryfall));
+
+        expect(error).toBeInstanceOf(ScryfallUnavailableError);
+        expect(error).toMatchObject({ status });
+        const sent = fetch.mock.calls.length;
+        expect(bodies.slice(0, sent).every((b) => b.cancelled)).toBe(true);
+      },
+    );
 
     it('waits 1, 2 and then 4 seconds between its 4 tries', async () => {
       for (let i = 0; i < 4; i++) down();

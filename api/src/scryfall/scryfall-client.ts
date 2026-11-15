@@ -3,6 +3,7 @@ import type { CardImages, Rarity } from 'contract';
 import {
   fetchWithTimeout,
   UnreachableError,
+  USER_AGENT,
 } from '../http/fetch-with-timeout.js';
 
 const API = 'https://api.scryfall.com';
@@ -24,8 +25,7 @@ const RETRY_DELAYS_MS = [1000, 2000, 4000];
 const REQUEST_TIMEOUT_MS = 10_000;
 /** Scryfall requires an accurate User-Agent and an Accept header on every request. */
 const HEADERS = {
-  'User-Agent':
-    'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)',
+  'User-Agent': USER_AGENT,
   Accept: 'application/json;q=0.9,*/*;q=0.8',
 };
 
@@ -201,7 +201,7 @@ export class FetchScryfallClient extends ScryfallClient {
 
   async sets(): Promise<ScryfallSet[]> {
     return this.withRetries(`${API}/sets`, async (res) => {
-      if (!res.ok) throw new ScryfallUnavailableError(res.status);
+      if (!res.ok) await failWith(res);
       return readBody(res, toSets);
     });
   }
@@ -266,20 +266,22 @@ export class FetchScryfallClient extends ScryfallClient {
         REQUEST_TIMEOUT_MS,
       );
       if (res.status !== 429) return res;
-      if (rateLimited === MAX_RATE_LIMITED_RETRIES) {
-        throw new ScryfallUnavailableError(res.status);
-      }
+      if (rateLimited === MAX_RATE_LIMITED_RETRIES) await failWith(res);
+      await cancelBody(res);
       this.backOff();
     }
   }
 
   private async parse(res: Response): Promise<ScryfallSearchPage | null> {
-    if (res.status === 404) return null;
+    if (res.status === 404) {
+      await cancelBody(res);
+      return null;
+    }
     if (res.status === 400) {
       const error = await readBody(res, toErrorBody);
       throw new ScryfallRejectedSearchError(error.details, error.warnings);
     }
-    if (!res.ok) throw new ScryfallUnavailableError(res.status);
+    if (!res.ok) await failWith(res);
     return readBody(res, toSearchPage);
   }
 
@@ -319,6 +321,21 @@ async function sleepUntil(time: number): Promise<void> {
   while (Date.now() < time) {
     await new Promise((resolve) => setTimeout(resolve, time - Date.now()));
   }
+}
+
+/** Throws ScryfallUnavailableError for `res`'s failing status, cancelling its unread body first. */
+async function failWith(res: Response): Promise<never> {
+  await cancelBody(res);
+  throw new ScryfallUnavailableError(res.status);
+}
+
+/**
+ * Cancels a body the client won't read, so its connection is let go at once,
+ * not held until the timeout aborts it.
+ */
+async function cancelBody(res: Response): Promise<void> {
+  // Nothing more to do if it fails: the timeout aborts it anyway.
+  await res.body?.cancel().catch(() => undefined);
 }
 
 /**
