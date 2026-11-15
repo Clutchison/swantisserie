@@ -8,6 +8,7 @@ import {
   WebSocketGateway,
   WebSocketServer,
 } from '@nestjs/websockets';
+import type { OnModuleDestroy } from '@nestjs/common';
 import type {
   DraftSocketEvents,
   DraftSocketRequests,
@@ -16,6 +17,7 @@ import type {
 } from 'contract';
 import cookieParser from 'cookie-parser';
 import type { Request, Response } from 'express';
+import type { Subscription } from 'rxjs';
 import type { Server, Socket } from 'socket.io';
 import { API_PREFIX } from '../app.setup.js';
 import { sessionToken, toSessionUser } from '../auth/session.guard.js';
@@ -31,6 +33,10 @@ const parseCookies = cookieParser();
 interface SocketData {
   /** The socket's signed-in user, found when it was admitted. */
   user: User;
+  /** The id of the session that admitted the socket. */
+  sessionId: string;
+  /** When that session expires, as it stood when the socket was admitted. */
+  sessionExpiresAt: Date;
   /**
    * Each draft the socket asked to watch and hasn't yet joined, by a token
    * of that request. A stop removes it and a newer watch replaces it, so
@@ -52,18 +58,27 @@ const room = (draftId: string) => `draft:${draftId}`;
 /** The room of every socket of one signed-in user, their own room. */
 const ownRoom = (userId: string) => `user:${userId}`;
 
+/** The room of every socket one session admitted, closed when it ends. */
+const sessionRoom = (sessionId: string) => `session:${sessionId}`;
+
 /**
  * Pushes each draft's changes to everyone watching it, over Socket.IO. A
  * signed-in client connects once, then asks to watch each draft it shows
  * (`DraftSocketRequests`). Watches don't outlast the connection, so on
  * every reconnect it watches them again; it should then re-read them, as it
  * may have missed changes meanwhile. Each socket is also in its viewer's own
- * room, which is pushed every draft they play in without asking.
+ * room, which is pushed every draft they play in without asking. A socket
+ * lives no longer than the session that admitted it: when the session ends,
+ * the gateway closes it.
  */
 @WebSocketGateway({ path: `/${API_PREFIX}/socket.io` })
-export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
+export class DraftsGateway
+  implements OnGatewayInit, OnGatewayConnection, OnModuleDestroy
+{
   @WebSocketServer()
   private readonly server!: Server<DraftSocketRequests, DraftSocketEvents>;
+
+  private endedSessions?: Subscription;
 
   constructor(
     private readonly sessions: SessionService,
@@ -71,8 +86,15 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     private readonly access: DraftAccess,
   ) {}
 
-  /** Refuses sockets without a live session, as SessionGuard does requests. */
+  /**
+   * Refuses sockets without a live session, as SessionGuard does requests,
+   * and closes each socket of a session once it ends.
+   */
   afterInit(server: Server): void {
+    this.endedSessions = this.sessions.ended.subscribe((sessionId) =>
+      // Closed by the server, so the web connects again and is refused.
+      server.in(sessionRoom(sessionId)).disconnectSockets(true),
+    );
     server.use((socket, next) => {
       const req = socket.request as Request;
       parseCookies(req, {} as Response, () => {
@@ -84,39 +106,62 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
     });
   }
 
-  /** The socket's signed-in user, noted on the socket, if it has one. */
+  onModuleDestroy(): void {
+    this.endedSessions?.unsubscribe();
+  }
+
+  /**
+   * The socket's signed-in user, if it has one, noted on the socket with the
+   * session that admitted it.
+   */
   private async admit(
     socket: DraftServerSocket,
     token: string | undefined,
   ): Promise<User | null> {
-    const user = token ? await this.sessions.findUser(token) : null;
-    if (user) socket.data = { user, pendingWatches: new Map() };
-    return user;
+    const session = token ? await this.sessions.find(token) : null;
+    if (!session) return null;
+    socket.data = {
+      user: session.user,
+      sessionId: session.id,
+      sessionExpiresAt: session.expiresAt,
+      pendingWatches: new Map(),
+    };
+    return session.user;
   }
 
   /**
-   * Joins the socket to its viewer's own room. Nothing is awaited between
-   * admitting it and joining, so it can miss no push meanwhile.
+   * Joins the socket to its viewer's own room and its session's room.
+   * Nothing is awaited between admitting it and joining, so it can miss no
+   * push meanwhile.
    */
   handleConnection(socket: DraftServerSocket): void {
-    void socket.join(ownRoom(socket.data.user.id));
+    void socket.join([
+      ownRoom(socket.data.user.id),
+      sessionRoom(socket.data.sessionId),
+    ]);
   }
 
   /**
    * Joins the socket to the room of the draft it names, if its viewer may
    * see it. A refused watch joins nothing: the client's reads of the draft
    * already 404. Nor does one the client stopped, or dropped the connection,
-   * while it was being checked.
+   * while it was being checked. A socket whose session has ended is closed
+   * instead, and gets no answer.
    */
   @SubscribeMessage('watch')
   async watch(
     @ConnectedSocket() socket: DraftServerSocket,
     @MessageBody() draftId: unknown,
-  ): Promise<DraftWatchResult> {
-    if (typeof draftId !== 'string') return 'refused';
+  ): Promise<DraftWatchResult | undefined> {
     const { pendingWatches } = socket.data;
-    const request = Symbol(draftId);
-    pendingWatches.set(draftId, request);
+    const request = Symbol();
+    // Noted before anything is awaited, so a stop sent after it cancels it.
+    if (typeof draftId === 'string') pendingWatches.set(draftId, request);
+    if (!(await this.sessions.isLive(socket.data.sessionId))) {
+      socket.disconnect(true);
+      return undefined;
+    }
+    if (typeof draftId !== 'string') return 'refused';
     const seesDraft = await this.canSee(socket.data.user, draftId);
     const stillWanted = pendingWatches.get(draftId) === request;
     if (stillWanted) pendingWatches.delete(draftId);
