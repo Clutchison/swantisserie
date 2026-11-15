@@ -122,8 +122,8 @@ export class TurnsService {
         // Stryker disable next-line OptionalChaining: dead code that DraftLock.runSeenIf's callback type (`LockedDraft | undefined`) forces: no real path schedules a bot turn for a draft with no row.
         if (draft?.state !== 'Drafting') return [];
         const { tx } = draft;
-        const turn = await readTurn(tx, draftId);
-        if (turn.picked.length !== pick - 1) return [];
+        const turnRead = await readTurn(tx, draftId);
+        if (turnRead.picked.length !== pick - 1) return [];
         // Read again, rather than taken from the turn read's pool, to keep the
         // database's name order (its collation), which the random pick and
         // its specs rely on. The pool is a fixed size, so the read is too.
@@ -133,7 +133,7 @@ export class TurnsService {
           select: { id: true },
         });
         const card = available[Math.floor(Math.random() * available.length)];
-        return this.takeTurn(draft, turn, userId, card.id);
+        return this.takeTurn(draft, turnRead, userId, card.id);
       },
       (events) => events.length > 0,
     );
@@ -204,16 +204,16 @@ export class TurnsService {
           data: { queuePaused: false },
         });
         if (draft.state !== 'Drafting') return [];
-        const turn = await readTurn(draft.tx, draftId);
-        const seat = turn.players.findIndex(
+        const turnRead = await readTurn(draft.tx, draftId);
+        const seat = turnRead.players.findIndex(
           (player) => player.userId === userId,
         );
-        const size = draftSize(draft, turn.players.length);
+        const size = draftSize(draft, turnRead.players.length);
         // Another seat's turn picks nothing, whatever `poolCardIds` says:
         // the turn the player confirmed has passed.
         // Stryker disable next-line OptionalChaining: a Drafting draft always has a current turn, because the pick that takes its last turn moves it to Complete.
-        if (currentTurn(size, turn.picked.length)?.seat !== seat) return [];
-        const { queues, context } = engineView(turn);
+        if (currentTurn(size, turnRead.picked.length)?.seat !== seat) return [];
+        const { queues, context } = engineView(turnRead);
         const picks = queuePicksBeforeAnotherPlayerPicks(
           { ...size, picked: context.picked },
           seat,
@@ -231,7 +231,7 @@ export class TurnsService {
               'Your queue would now pick different cards. Check them and try again.',
           });
         }
-        return this.cascadeFrom(draft, turn);
+        return this.cascadeFrom(draft, turnRead);
       },
       (events) => events.length > 0,
     );
@@ -251,21 +251,21 @@ export class TurnsService {
 
   /**
    * The cascade from the draft's current turn, as `cascade`, made from
-   * `turn`, the draft as the turn has read and changed it.
+   * `turnRead`, the draft as the turn has read and changed it.
    */
   private async cascadeFrom(
     draft: LockedDraft,
-    turn: TurnRead,
+    turnRead: TurnRead,
   ): Promise<DraftEvent[]> {
-    const { players } = turn;
-    const { queues, context } = engineView(turn);
+    const { players } = turnRead;
+    const { queues, context } = engineView(turnRead);
     const picks = cascade(
       { ...draftSize(draft, players.length), picked: context.picked },
       queues.map((queue, seat) => ({
         ...queue,
         // A bot picks on its own timer, so the cascade sees its queue as empty.
         ...(players[seat].user.isBot && { queue: [] }),
-        plan: turn.plans[seat],
+        plan: turnRead.plans[seat],
       })),
       context.pool,
     );
@@ -273,7 +273,7 @@ export class TurnsService {
     for (const { pick, queues, plans } of picks) {
       const { userId } = players[pick.seat];
       events.push(
-        ...(await this.pickCard(draft, turn, userId, pick.card, {
+        ...(await this.pickCard(draft, turnRead, userId, pick.card, {
           queued: true,
           effects: { queues, plans },
         })),
@@ -285,36 +285,36 @@ export class TurnsService {
   /**
    * The user picks the pool card `poolCardId` on their turn, in a draft
    * that is Drafting, and then the cascade after it is picked, all from
-   * `turn`, read once for the turn. Throws PickRefusedError if they can't.
+   * `turnRead`, read once for the turn. Throws PickRefusedError if they can't.
    */
   private async takeTurn(
     draft: LockedDraft,
-    turn: TurnRead,
+    turnRead: TurnRead,
     userId: string,
     poolCardId: string,
   ): Promise<DraftEvent[]> {
     return [
       // Stryker disable next-line ObjectLiteral: a pick's events go only to the webhook notifier, and draft-messages.ts reads queued only as truthy, so undefined reads as false.
-      ...(await this.pickCard(draft, turn, userId, poolCardId, {
+      ...(await this.pickCard(draft, turnRead, userId, poolCardId, {
         queued: false,
       })),
-      ...(await this.cascadeFrom(draft, turn)),
+      ...(await this.cascadeFrom(draft, turnRead)),
     ];
   }
 
   /**
    * The user picks the pool card `poolCardId` on their turn, in a draft
    * that is Drafting; `queued` if it was picked from their queue. It is
-   * checked against `turn`, the draft as the turn holds it, which it then
+   * checked against `turnRead`, the draft as the turn holds it, which it then
    * changes as it changes the database. Its `effects` on queues and plans
-   * are worked out here, by the engine from `turn`, unless a cascade has
+   * are worked out here, by the engine from `turnRead`, unless a cascade has
    * worked them out already; either way they are persisted the same way.
    * Throws PickRefusedError if they can't, and NotAPlayerError, before the
    * engine's pick check, if the user has no seat.
    */
   private async pickCard(
     draft: LockedDraft,
-    turn: TurnRead,
+    turnRead: TurnRead,
     userId: string,
     poolCardId: string,
     {
@@ -326,8 +326,8 @@ export class TurnsService {
     },
   ): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
-    const { players, picked } = turn;
-    const name = turn.names.get(poolCardId);
+    const { players, picked } = turnRead;
+    const name = turnRead.names.get(poolCardId);
     if (name === undefined) {
       throw new PickRefusedError({
         error: 'not-in-pool',
@@ -349,14 +349,14 @@ export class TurnsService {
       select: MADE_PICK,
     });
     // Worked out once, by the cascade or here, and persisted the same way.
-    const { queues, plans } = effects ?? effectsOf(turn, seat, poolCardId);
+    const { queues, plans } = effects ?? effectsOf(turnRead, seat, poolCardId);
     const playerIds = players.map((player) => player.id);
-    turn.plans = await recordPlanEffects(tx, made, playerIds, plans);
-    turn.queues = await recordQueueEffects(
+    turnRead.plans = await recordPlanEffects(tx, made, playerIds, plans);
+    turnRead.queues = await recordQueueEffects(
       tx,
       made,
       playerIds,
-      turn.queues,
+      turnRead.queues,
       queues,
     );
     picked.push(poolCardId);
@@ -433,17 +433,17 @@ export class TurnsService {
 
 /**
  * What the engine says `seat`'s pick of `poolCardId` does to each queue and
- * plan, from `turn`, the draft as the turn holds it before the pick.
+ * plan, from `turnRead`, the draft as the turn holds it before the pick.
  */
 function effectsOf(
-  turn: TurnRead,
+  turnRead: TurnRead,
   seat: number,
   poolCardId: string,
 ): PickEffects {
-  const { queues, context } = engineView(turn);
+  const { queues, context } = engineView(turnRead);
   const pick = { seat, card: poolCardId };
   return {
     queues: queuesAfterPick(pick, queues, context),
-    plans: plansAfterPick(pick, turn.plans, context),
+    plans: plansAfterPick(pick, turnRead.plans, context),
   };
 }
