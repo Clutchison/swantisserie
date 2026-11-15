@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import type { PlanBoards, TrophyHallView } from 'contract';
 import {
   trophyHall,
@@ -11,6 +11,7 @@ import {
   type PoolSourceWithCubeId,
 } from '../drafts/pool-source.js';
 import { readPreferredPrintings } from '../drafts/preferred-printings.js';
+import type { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { SetCatalog } from '../sets/set-catalog.js';
 import { setNamesFor } from '../sets/set-names.js';
@@ -18,7 +19,10 @@ import {
   readTournamentsThatCount,
   type CompleteTournament,
 } from '../tournaments/complete-tournaments.js';
-import { decodeDecklist } from '../tournaments/decklist-json.js';
+import {
+  decodeDecklist,
+  MalformedDecklistError,
+} from '../tournaments/decklist-json.js';
 
 /** A complete tournament as the Trophy Hall reads it, with its trophy holders' kept decklists. */
 type TournamentWithDecklists = TrophyHallTournament & {
@@ -30,6 +34,8 @@ type TournamentWithDecklists = TrophyHallTournament & {
 /** The Trophy Hall. Until drafts belong to guilds (#208), it covers every draft's tournament. */
 @Injectable()
 export class TrophyHallService {
+  private readonly logger = new Logger(TrophyHallService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly sets: SetCatalog,
@@ -39,7 +45,8 @@ export class TrophyHallService {
    * The Trophy Hall of the complete tournaments that count, worked out on
    * each read from their standings. A tournament with no trophy holder
    * doesn't appear, nor does one with a trophy holder whose decklist wasn't
-   * kept at Start (ADR 0017), as the engine's `onTrophyHall` decides.
+   * kept at Start (ADR 0017), as the engine's `onTrophyHall` decides. A
+   * kept decklist that can't be decoded counts as not kept.
    */
   async read(): Promise<TrophyHallView> {
     const complete = await readTournamentsThatCount(this.prisma);
@@ -117,7 +124,8 @@ export class TrophyHallService {
 
   /**
    * Each trophy holder's decklist kept at Start, by their id, by their
-   * tournament's draft id. A holder whose decklist wasn't kept has none.
+   * tournament's draft id. A holder whose decklist wasn't kept, or can't be
+   * decoded, has none.
    */
   private async keptDecklists(
     complete: CompleteTournament[],
@@ -149,9 +157,35 @@ export class TrophyHallService {
         byPlayer = new Map();
         decklists.set(tournament.draftId, byPlayer);
       }
-      byPlayer.set(player.userId, decodeDecklist(decklist));
+      const boards = this.decodeOrSkip(
+        decklist,
+        tournament.draftId,
+        player.userId,
+      );
+      if (boards) byPlayer.set(player.userId, boards);
     }
     return decklists;
+  }
+
+  /**
+   * `decklist` decoded, or none if it can't be, which is logged: one bad
+   * decklist leaves its tournament off the Trophy Hall, not the whole of it.
+   * The decklists read for one draft refuses it instead, deliberately.
+   */
+  private decodeOrSkip(
+    decklist: Prisma.JsonValue,
+    draftId: string,
+    playerId: string,
+  ): PlanBoards | undefined {
+    try {
+      return decodeDecklist(decklist);
+    } catch (error) {
+      if (!(error instanceof MalformedDecklistError)) throw error;
+      this.logger.warn(
+        `Leaving draft ${draftId}'s tournament off the Trophy Hall: trophy holder ${playerId}'s kept decklist can't be decoded.`,
+      );
+      return undefined;
+    }
   }
 
   /** Each player's current name, by their id. */
