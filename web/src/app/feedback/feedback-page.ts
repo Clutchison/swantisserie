@@ -15,6 +15,12 @@ type FeedbackTab = (typeof TABS)[number];
 
 const API = '/api/admin/feedback';
 
+/** A failed mark's message, with the item it was pressed on, so it shows in that item. */
+interface Problem {
+  item: FeedbackView['id'];
+  message: string;
+}
+
 /** Where app admins see feedback and mark it reviewed or unreviewed. */
 @Component({
   selector: 'app-feedback-page',
@@ -37,7 +43,18 @@ export class FeedbackPage {
   protected readonly feedback = httpResource<(FeedbackView | ReviewedFeedbackView)[]>(() =>
     this.selectedTab() === 'Reviewed' ? `${API}/reviewed` : API,
   );
-  protected readonly problem = signal<string | null>(null);
+  /**
+   * The one failure showing, with the item its mark came from. A failed mark
+   * reads nothing afresh and a change of tab clears it, so that item is still
+   * listed while it shows.
+   */
+  private readonly problem = signal<Problem | null>(null);
+
+  /** The failure's message if its mark came from `item`, else null. */
+  protected problemIn(item: FeedbackView) {
+    const problem = this.problem();
+    return problem?.item === item.id ? problem.message : null;
+  }
 
   protected show(tab: FeedbackTab) {
     this.problem.set(null);
@@ -51,6 +68,7 @@ export class FeedbackPage {
 
   protected markReviewed(item: FeedbackView) {
     return this.save(
+      item,
       this.http.put(`${API}/${item.id}/reviewed`, null),
       'Marking that reviewed failed. Check your connection and try again.',
     );
@@ -58,6 +76,7 @@ export class FeedbackPage {
 
   protected markUnreviewed(item: FeedbackView) {
     return this.save(
+      item,
       this.http.delete(`${API}/${item.id}/reviewed`),
       'Marking that unreviewed failed. Check your connection and try again.',
     );
@@ -66,15 +85,15 @@ export class FeedbackPage {
   /**
    * Sends a review change, then waits for the list's re-read, so focus is
    * put back once the item has left it: on the next item's button, or the
-   * nearest control before it.
+   * nearest control before it. A failure shows in `item`.
    */
-  private save(request: Observable<unknown>, failure: string) {
+  private save(item: FeedbackView, request: Observable<unknown>, failure: string) {
     return this.changes.send(() =>
       saveThenReread(request, {
         resource: this.feedback,
         injector: this.injector,
         problem: this.problem,
-        failure: () => failure,
+        failure: () => ({ item: item.id, message: failure }),
       }),
     );
   }

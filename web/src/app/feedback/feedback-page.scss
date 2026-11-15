@@ -56,3 +56,9 @@ time.detail {
   margin: 0;
   font-size: var(--font-size-sm);
 }
+
+/* A failed mark, on its own line after the item's button. */
+li .error {
+  flex-basis: 100%;
+  margin: 0;
+}
