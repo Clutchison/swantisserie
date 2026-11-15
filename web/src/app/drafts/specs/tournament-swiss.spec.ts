@@ -53,7 +53,6 @@ import {
   completed,
   confirmedMatch,
   COMPLETE_ROUND_URL,
-  entry,
   erin,
   fourPlayers,
   listControls,
