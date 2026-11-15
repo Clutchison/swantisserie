@@ -14,3 +14,4 @@ For each draft, the api takes a **pool snapshot** of its **pool source** once, w
 - The pool search supports only the keywords whose data the snapshot holds. Others, such as prices, tags, artist and flavor text, show a "not supported here" note.
 - The printing keywords (`s:`, `set:`, `e:`, `edition:`, `r:`, `rarity:`) match the pool card's own printing, the one the card shows. On scryfall.com a card matches if any of its printings does. The difference is deliberate (#784).
 - A change to a card on Scryfall never reaches an existing draft.
+- A cube link's snapshot is taken while the draft is created, and creation must answer before Heroku's 30 s router limit. Its Scryfall searches are paced, so a cube of more than about 750 cards is refused every time, as Scryfall unavailable. Allowing larger cubes would mean taking their snapshot after the draft is saved, which this decision rules out (#778).
