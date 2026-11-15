@@ -8,7 +8,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { DraftListItemView, DraftView } from 'contract';
+import type { DraftListItemView, DraftView, TournamentBadgeView } from 'contract';
 import { Auth } from '../auth/auth';
 import { DraftUpdates } from './draft-updates';
 import { isTurnOf } from './drafts';
@@ -24,7 +24,10 @@ import { isTurnOf } from './drafts';
  * but before the socket joined the viewer's own room is pushed to no one,
  * and pushes may be missed while the socket is down. A connect while the
  * first read is on its way reads again once it lands, as a resource can't
- * be reloaded before its first load.
+ * be reloaded before its first load. Read again, the same way, on a push
+ * that moves a listed draft's tournament to a state other than its read
+ * badge's, as only a read says whether the viewer can join and who holds
+ * the trophy (ADR 0003).
  */
 @Injectable({ providedIn: 'root' })
 export class ViewerDrafts {
@@ -89,9 +92,14 @@ export class ViewerDrafts {
           case 'connected':
             this.readAgain.set(true);
             break;
-          case 'changed':
-            this.keepNewest(update.draft.id, update.draft);
+          case 'changed': {
+            const { draft } = update;
+            this.keepNewest(draft.id, draft);
+            // Join and the trophy holders for the new state come only from a read.
+            const read = untracked(this.lastRead)?.find((each) => each.id === draft.id);
+            if (tournamentMoved(draft, read)) this.readAgain.set(true);
             break;
+          }
           case 'cancelled':
             this.keepNewest(update.draftId, null);
             break;
@@ -122,8 +130,8 @@ export class ViewerDrafts {
 
 /**
  * The drafts `read`, each replaced by its push in `pushed` when that is no
- * older, keeping the tournament badge read, as pushes don't carry it; the
- * cancelled dropped, and the drafts pushed but not read added, without a badge.
+ * older, its tournament badge as `badgeOf` makes it; the cancelled dropped,
+ * and the drafts pushed but not read added.
  */
 function withPushes(
   read: DraftListItemView[],
@@ -135,11 +143,32 @@ function withPushes(
     if (!push) return [];
     return push.version < draft.version
       ? [draft]
-      : [{ ...push, tournamentBadge: draft.tournamentBadge }];
+      : [{ ...push, tournamentBadge: badgeOf(push, draft.tournamentBadge) }];
   });
   const readIds = new Set(read.map((draft) => draft.id));
   const added = [...pushed.values()].filter(
     (push): push is DraftView => !!push && !readIds.has(push.id),
   );
-  return [...listed, ...added.map((push) => ({ ...push, tournamentBadge: null }))];
+  return [...listed, ...added.map((push) => ({ ...push, tournamentBadge: badgeOf(push, null) }))];
+}
+
+/**
+ * Draft `push`'s tournament badge, its state from the push: the badge `read`
+ * while its state is the pushed one, as only a read says whether the viewer
+ * can join and who holds the trophy (ADR 0003); otherwise neither, until
+ * a read says. None for a draft pushed without a tournament.
+ */
+function badgeOf(push: DraftView, read: TournamentBadgeView | null): TournamentBadgeView | null {
+  if (!push.tournament) return null;
+  if (read?.state === push.tournament.state) return read;
+  return { state: push.tournament.state, canJoin: false, trophyHolders: [] };
+}
+
+/**
+ * Whether draft `push`, as read `read`, is pushed no older than read with a
+ * tournament state other than its read badge's. False for a draft not read.
+ */
+function tournamentMoved(push: DraftView, read: DraftListItemView | undefined): boolean {
+  if (!read || push.version < read.version) return false;
+  return (push.tournament?.state ?? null) !== (read.tournamentBadge?.state ?? null);
 }

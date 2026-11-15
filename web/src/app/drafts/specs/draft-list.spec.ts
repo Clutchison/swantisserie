@@ -1,6 +1,6 @@
 import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-import type { DraftListItemView, TournamentBadgeView } from 'contract';
+import type { DraftListItemView, TournamentBadgeView, TournamentState } from 'contract';
 import { App } from '../../app';
 import { alice } from '../../specs-harness';
 import {
@@ -435,17 +435,126 @@ describe('draft list', () => {
       expect(listedDrafts(page, heading)).toEqual(['Arena cube']);
     });
 
-    it('keeps the tournament badge it read', async () => {
-      const page = await openList([
-        {
-          ...arenaCube(alicesTurn),
-          tournamentBadge: { state: 'Registration', canJoin: true, trophyHolders: [] },
-        },
-      ]);
+    describe('a pushed tournament', () => {
+      /** Last month, a complete draft of Alice and Bob, with a tournament in `state`, or none for null. */
+      const lastMonth = (state: TournamentState | null, fields: DraftFixture = {}) =>
+        draft({
+          id: 'm',
+          name: 'Last month',
+          state: 'Complete',
+          players: [alicePlayer, bob],
+          tournament: state && { state },
+          ...fields,
+        });
+      /** Last month as the draft list lists it, with the tournament badge `badge`. */
+      const listed = (badge: TournamentBadgeView | null): DraftListItemView => ({
+        ...lastMonth(badge && badge.state),
+        tournamentBadge: badge,
+      });
+      const join = 'Join the tournament of Last month';
 
-      pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(bobsTurn) });
+      /** Answers the list's read again with Last month, its tournament badge `badge`. */
+      async function readAgain(badge: TournamentBadgeView | null) {
+        http.expectOne('/api/drafts').flush([listed(badge)]);
+        await TestBed.inject(ApplicationRef).whenStable();
+      }
 
-      expect(listItem(page, 'Arena cube').textContent).toContain('Registration');
+      it('moves a draft into Active drafts on its tournament’s setup, reading again for Join', async () => {
+        const page = await openList([listed(null)]);
+
+        pushToOwnRoom(updates, { type: 'changed', draft: lastMonth('Registration') });
+
+        expect(listedDrafts(page, 'Complete drafts')).toEqual([]);
+        expect(listedDrafts(page, 'Active drafts')).toEqual(['Last month']);
+        expect(listItem(page, 'Last month').textContent).toContain('Tournament: Registration');
+        await readAgain({ state: 'Registration', canJoin: true, trophyHolders: [] });
+        expect(link(listItem(page, 'Last month'), join)?.getAttribute('href')).toBe(
+          '/drafts/m?tab=play',
+        );
+      });
+
+      it('shows a tournament that starts playing, dropping Join, and reads again', async () => {
+        const page = await openList([
+          listed({ state: 'Registration', canJoin: true, trophyHolders: [] }),
+        ]);
+
+        pushToOwnRoom(updates, { type: 'changed', draft: lastMonth('Playing') });
+
+        const item = listItem(page, 'Last month');
+        expect(item.textContent).toContain('Tournament: Playing');
+        expect(link(item, join)).toBeUndefined();
+        await readAgain({ state: 'Playing', canJoin: false, trophyHolders: [] });
+      });
+
+      it('moves a draft into Complete drafts as its tournament completes, reading again for the trophy', async () => {
+        const page = await openList([
+          listed({ state: 'Playing', canJoin: false, trophyHolders: [] }),
+        ]);
+
+        pushToOwnRoom(updates, { type: 'changed', draft: lastMonth('Complete') });
+
+        expect(listedDrafts(page, 'Active drafts')).toEqual([]);
+        expect(listedDrafts(page, 'Complete drafts')).toEqual(['Last month']);
+        expect(listItem(page, 'Last month').textContent).toContain('Tournament complete');
+        await readAgain({ state: 'Complete', canJoin: false, trophyHolders: [bob.id] });
+        expect(listItem(page, 'Last month').textContent).toContain('Trophy: Bob');
+      });
+
+      it('shows no badge once the tournament is cancelled', async () => {
+        const page = await openList([
+          listed({ state: 'Registration', canJoin: true, trophyHolders: [] }),
+        ]);
+
+        pushToOwnRoom(updates, { type: 'changed', draft: lastMonth(null) });
+
+        expect(listedDrafts(page, 'Complete drafts')).toEqual(['Last month']);
+        expect(listItem(page, 'Last month').textContent).not.toContain('Tournament');
+        await readAgain(null);
+      });
+
+      it('keeps the Join and trophy holders read while the tournament’s state stays, without reading again', async () => {
+        const page = await openList([
+          listed({ state: 'Registration', canJoin: true, trophyHolders: [] }),
+          {
+            ...lastMonth('Complete', { id: 'w', name: 'Bob won' }),
+            tournamentBadge: { state: 'Complete', canJoin: false, trophyHolders: [bob.id] },
+          },
+        ]);
+
+        pushToOwnRoom(updates, {
+          type: 'changed',
+          draft: lastMonth('Registration', { version: 1 }),
+        });
+        pushToOwnRoom(updates, {
+          type: 'changed',
+          draft: lastMonth('Complete', { id: 'w', name: 'Bob won', version: 1 }),
+        });
+
+        expect(link(listItem(page, 'Last month'), join)).toBeDefined();
+        expect(listItem(page, 'Bob won').textContent).toContain('Trophy: Bob');
+        http.expectNone('/api/drafts');
+      });
+
+      it('gives a draft it hadn’t read a badge from its tournament, without Join', async () => {
+        const page = await openList([]);
+
+        pushToOwnRoom(updates, { type: 'changed', draft: lastMonth('Registration') });
+
+        expect(listedDrafts(page, 'Active drafts')).toEqual(['Last month']);
+        const item = listItem(page, 'Last month');
+        expect(item.textContent).toContain('Tournament: Registration');
+        expect(link(item, join)).toBeUndefined();
+      });
+
+      it('gives a draft it hadn’t read no trophy holders', async () => {
+        const page = await openList([]);
+
+        pushToOwnRoom(updates, { type: 'changed', draft: lastMonth('Complete') });
+
+        const item = listItem(page, 'Last month');
+        expect(item.textContent).toContain('Tournament complete');
+        expect(item.textContent).not.toContain('Trophy');
+      });
     });
 
     it('lists a draft it hadn’t, without a tournament badge', async () => {
