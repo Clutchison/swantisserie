@@ -1,4 +1,4 @@
-import { comesBefore, onlyAlert } from '../../specs-harness';
+import { comesBefore, expectAlertBetween, expectAlertInItem, onlyAlert } from '../../specs-harness';
 import { accessibleName, button, namedList, panel, region } from './harness';
 import { bracket, IM_READY, roundLists } from './play-tab-harness';
 
@@ -41,12 +41,8 @@ export function expectBeforeLists(tab: HTMLElement, node: Node) {
  * Expects `node` to come directly after the action rows in `tab`, after
  * their every button, and before Your matches and every list that follows.
  */
-export function expectByActionRows(tab: HTMLElement, node: Node) {
-  const actions = actionButtons(tab);
-  expect(actions).not.toHaveLength(0);
-  for (const action of actions) expect(comesBefore(action, node)).toBe(true);
-  expectBeforeLists(tab, node);
-}
+export const expectByActionRows = (tab: HTMLElement, node: Node) =>
+  expectAlertBetween(node, actionButtons(tab), listsAfterActions(tab));
 
 /** The accessible names of the buttons in the Play tab's registration row: Join, Leave, I'm ready and the organizer's. */
 const REGISTRATION_BUTTONS = [
@@ -57,34 +53,28 @@ const REGISTRATION_BUTTONS = [
   /^Start tournament$/,
 ];
 
+/** The buttons of the registration row inside `tab`, those it shows, in page order. */
+const registrationButtons = (tab: HTMLElement) =>
+  [...tab.querySelectorAll('button')].filter((shown) =>
+    REGISTRATION_BUTTONS.some((name) => name.test(accessibleName(shown))),
+  );
+
 /**
  * Expects the open tab of `page` to show its one alert directly after the
  * registration row in `tab`, after its every button, and before the
  * Joined players list.
  */
-export function expectByRegistration(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(panel(page));
-  const row = [...tab.querySelectorAll('button')].filter((shown) =>
-    REGISTRATION_BUTTONS.some((name) => name.test(accessibleName(shown))),
-  );
-  expect(row).not.toHaveLength(0);
-  for (const control of row) expect(comesBefore(control, alert)).toBe(true);
-  expect(comesBefore(alert, namedList(tab, 'Joined players'))).toBe(true);
-}
+export const expectByRegistration = (page: HTMLElement, tab: HTMLElement) =>
+  expectAlertBetween(onlyAlert(panel(page)), registrationButtons(tab), [
+    namedList(tab, 'Joined players'),
+  ]);
 
 /**
  * Expects the open tab of `page` to show its one alert inside the item of
  * the list named `list` in `tab` that holds the button `label`, after it.
  */
-export function expectInRow(page: HTMLElement, tab: HTMLElement, list: string, label: string) {
-  const alert = onlyAlert(panel(page));
-  const control = button(tab, label)!;
-  const row = [...namedList(tab, list).querySelectorAll(':scope > li')].find((item) =>
-    item.contains(control),
-  );
-  expect(row?.contains(alert)).toBe(true);
-  expect(comesBefore(control, alert)).toBe(true);
-}
+export const expectInRow = (page: HTMLElement, tab: HTMLElement, list: string, label: string) =>
+  expectAlertInItem(panel(page), button(namedList(tab, list), label)!);
 
 /** Expects the open tab of `page` to show its one alert directly after the action rows in `tab`. */
 export const expectByActions = (page: HTMLElement, tab: HTMLElement) =>

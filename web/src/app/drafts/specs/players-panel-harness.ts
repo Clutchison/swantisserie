@@ -1,6 +1,12 @@
-import { button, comesBefore, onlyAlert } from '../../specs-harness';
+import {
+  button,
+  comesBefore,
+  expectAlertBetween,
+  expectAlertInItem,
+  onlyAlert,
+} from '../../specs-harness';
 import { disclosure } from './disclosure-harness';
-import { findNamedList, namedList, panelSeats, pickImportPreview, playersPanel } from './harness';
+import { findNamedList, namedList, pickImportPreview, playersPanel } from './harness';
 
 /** What a failed change to the players or seats says when the api gives no reason. */
 export const PLAYERS_FAILED = "Couldn't update the players.";
@@ -17,28 +23,28 @@ const seatingTools = (page: HTMLElement) =>
  * directly after the seating tools inside `page`: after their every button,
  * and before the pick import preview, if one shows, and the seat order.
  */
-export function expectBySeatingTools(
+export const expectBySeatingTools = (
   page: HTMLElement,
   node: Node = onlyAlert(playersPanel(page)),
-) {
-  const tools = seatingTools(page);
-  expect(tools).not.toHaveLength(0);
-  for (const tool of tools) expect(comesBefore(tool, node)).toBe(true);
-  const preview = pickImportPreview(page);
-  if (preview) expect(comesBefore(node, preview)).toBe(true);
-  expect(comesBefore(node, namedList(playersPanel(page), 'Seat order'))).toBe(true);
-}
+) =>
+  expectAlertBetween(node, seatingTools(page), [
+    ...[pickImportPreview(page)].filter((preview) => !!preview),
+    namedList(playersPanel(page), 'Seat order'),
+  ]);
 
 /** Expects the problems listed with a pick import's file to show directly after the seating tools inside `page`. */
 export const expectProblemsBySeatingTools = (page: HTMLElement) =>
   expectBySeatingTools(page, findNamedList(playersPanel(page), 'Problems with the file')!);
 
-/** Expects the Players panel inside `page` to show its one alert inside the seat of the player named `name`. */
-export function expectInSeat(page: HTMLElement, name: string) {
-  const alert = onlyAlert(playersPanel(page));
-  const seat = panelSeats(page).find((shown) => shown.querySelector('.name')?.textContent === name);
-  expect(seat?.contains(alert)).toBe(true);
-}
+/**
+ * Expects the Players panel inside `page` to show its one alert inside the
+ * seat that holds the button `label`, the one that failed, after it.
+ */
+export const expectInSeat = (page: HTMLElement, label: string) =>
+  expectAlertInItem(
+    playersPanel(page),
+    button(namedList(playersPanel(page), 'Seat order'), label)!,
+  );
 
 /**
  * Expects the Players panel inside `page` to show its one alert after the

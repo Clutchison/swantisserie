@@ -12,7 +12,7 @@ import {
   toggleButton,
   type AppFixture,
 } from './harness';
-import { alertIn, comesBefore, onlyAlert, statusIn } from '../../specs-harness';
+import { alertIn, comesBefore, onlyAlert, serverError, statusIn } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -22,7 +22,7 @@ import {
   deckNotice,
   DECK_NOTICE,
   expectByTools,
-  itemOf,
+  expectInItemOf,
   planned,
   unpicked,
   planOf,
@@ -39,7 +39,6 @@ useTallScreen();
 const SHIVAN_URL = '/api/drafts/draft-1/plan/shivan-card';
 const NOTICE_URL = '/api/drafts/draft-1/plan/notice';
 const MOVE_SHIVAN = 'Move Shivan Dragon to the sideboard';
-const serverError = { status: 500, statusText: 'Server Error' };
 /** A plan whose Deck notice names Shivan Dragon, lost to Bob. */
 const withLost = planOf({
   mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
@@ -103,7 +102,7 @@ describe('the Deck tab’s failed changes', () => {
     await failed(fixture, SHIVAN_URL);
 
     expect(text(onlyAlert(plan))).toBe('That card isn’t in your deck.');
-    expect(alertIn(itemOf(plan, MOVE_SHIVAN))).toBe(onlyAlert(plan));
+    expectInItemOf(plan, MOVE_SHIVAN);
   });
 
   it('shows a refused move from a stacked card inside that card’s list item', async () => {
@@ -114,7 +113,7 @@ describe('the Deck tab’s failed changes', () => {
     button(plan, MOVE_SHIVAN)!.click();
     await failed(fixture, SHIVAN_URL);
 
-    expect(alertIn(itemOf(plan, MOVE_SHIVAN))).toBe(onlyAlert(plan));
+    expectInItemOf(plan, MOVE_SHIVAN);
   });
 
   it('shows a failed Remove inside that line’s list item', async () => {
@@ -126,7 +125,7 @@ describe('the Deck tab’s failed changes', () => {
     await failed(fixture, SHIVAN_URL, { reread: withUnpicked, answer: null, init: serverError });
 
     expect(text(onlyAlert(plan))).toBe("Couldn't change your deck. Try again in a moment.");
-    expect(alertIn(itemOf(plan, remove))).toBe(onlyAlert(plan));
+    expectInItemOf(plan, remove);
   });
 
   it('shows a failed Dismiss of the Deck notice after that notice, before the Ready notice', async () => {

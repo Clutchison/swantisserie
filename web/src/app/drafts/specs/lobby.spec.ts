@@ -364,24 +364,24 @@ describe('lobby', () => {
       expect(statusMessage(players, 'Bob moved to seat 3')).toBeUndefined();
     });
 
-    it.each([
-      ['Move Bob later', 'Bob'],
-      ['Move Alice earlier', 'Alice'],
-    ])('says a failed %s in that seat', async (move, name) => {
-      const { fixture, page } = await openDraft(completeSnapshot, {
-        players: [bob, alicePlayer, carol],
-      });
+    it.each(['Move Bob later', 'Move Alice earlier'])(
+      'says a failed %s in that seat',
+      async (move) => {
+        const { fixture, page } = await openDraft(completeSnapshot, {
+          players: [bob, alicePlayer, carol],
+        });
 
-      button(playersPanel(page), move)!.click();
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'))).flush(
-        null,
-        serverError,
-      );
-      await fixture.whenStable();
+        button(playersPanel(page), move)!.click();
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats'))).flush(
+          null,
+          serverError,
+        );
+        await fixture.whenStable();
 
-      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
-      expectInSeat(page, name);
-    });
+        await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+        expectInSeat(page, move);
+      },
+    );
 
     it('forgets a failed seat move once another change is sent, wherever it showed', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, {

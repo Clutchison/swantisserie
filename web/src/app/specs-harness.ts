@@ -65,9 +65,14 @@ export function onlyAlert(root: HTMLElement) {
 const LIST_ITEM =
   ':is(ul:not([role]), ol:not([role]), menu:not([role]), [role="list"]) > li:not([role]), [role="listitem"]';
 
+/** The list items inside `root`, by role, in reading order. */
+export const listItemsIn = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>(LIST_ITEM),
+];
+
 /** The text of each list item inside `root`, by role, trimmed and in reading order. */
 export const listItemTextsIn = (root: HTMLElement) =>
-  [...root.querySelectorAll(LIST_ITEM)].map((item) => item.textContent?.trim());
+  listItemsIn(root).map((item) => item.textContent?.trim());
 
 /**
  * How `statusIn` finds a status region: by its accessible name (its
@@ -582,3 +587,34 @@ export const tableColumns = (table: HTMLElement) =>
  */
 export const comesBefore = (first: Node, second: Node) =>
   Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
+
+/**
+ * Expects `alert` to show by the controls `after`, after their every one and
+ * outside them, and before each of `before`: a failure's message by the
+ * controls that made it, before the content that follows them.
+ */
+export function expectAlertBetween(
+  alert: Node,
+  after: readonly Element[],
+  before: readonly Node[],
+) {
+  expect(after).not.toHaveLength(0);
+  for (const control of after) {
+    expect(comesBefore(control, alert) && !control.contains(alert)).toBe(true);
+  }
+  for (const next of before) expect(comesBefore(alert, next)).toBe(true);
+}
+
+/**
+ * Expects the one alert inside `root` to show inside the list item, by role,
+ * that holds `control`, after it: a failure from a list row shows in that
+ * row. Answers the alert.
+ */
+export function expectAlertInItem(root: HTMLElement, control: Element) {
+  const alert = onlyAlert(root);
+  const item = control.closest(LIST_ITEM);
+  expect(item, 'the list item holding the control').not.toBeNull();
+  expect(item!.contains(alert)).toBe(true);
+  expect(comesBefore(control, alert)).toBe(true);
+  return alert;
+}

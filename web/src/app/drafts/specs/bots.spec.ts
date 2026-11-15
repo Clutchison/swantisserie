@@ -152,7 +152,7 @@ describe('bots', () => {
       await fixture.whenStable();
 
       await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
-      expectInSeat(page, 'Bot 2');
+      expectInSeat(page, 'Remove Bot 2');
     });
 
     it('says a failed Remove just after the seating tools once that bot has left the seats', async () => {

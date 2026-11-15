@@ -6,7 +6,8 @@ import type { BasicLandPrintingsView, BasicLandPrintingView, PlanBoard, PlanView
 import {
   byAriaLabel,
   collapseWhitespace,
-  comesBefore,
+  expectAlertBetween,
+  expectAlertInItem,
   filledStatusIn,
   focusAndClick,
   openDialog,
@@ -110,11 +111,12 @@ export const exportButton = (page: HTMLElement) =>
  * Expects `alert` directly after the Deck tab's tools row, outside it, and
  * before the plan boards, which the mainboard's heading starts.
  */
-export function expectByTools(plan: HTMLElement, alert: HTMLElement) {
-  const tools = byAriaLabel(plan, '[role="group"]', 'Deck tools')!;
-  expect(comesBefore(tools, alert) && !tools.contains(alert)).toBe(true);
-  expect(comesBefore(alert, planBoardHeading(plan, 'Mainboard')!)).toBe(true);
-}
+export const expectByTools = (plan: HTMLElement, alert: HTMLElement) =>
+  expectAlertBetween(
+    alert,
+    [byAriaLabel(plan, '[role="group"]', 'Deck tools')!],
+    [planBoardHeading(plan, 'Mainboard')!],
+  );
 
 /** The heading of `planBoard` inside `plan`, named by the plan board then its counts, as `Mainboard 4 (4 picked)`. */
 export const planBoardHeading = (plan: HTMLElement, planBoard: PlanBoard) =>
@@ -124,9 +126,12 @@ export const planBoardHeading = (plan: HTMLElement, planBoard: PlanBoard) =>
 export const notInPlan = { error: 'not-in-plan', message: 'That card isn’t in your deck.' };
 export const conflict = { status: 409, statusText: 'Conflict' };
 
-/** The list item of the line or stacked card inside `plan` whose button is named `name`. */
-export const itemOf = (plan: HTMLElement, name: string) =>
-  button(plan, name)!.closest<HTMLElement>('li')!;
+/**
+ * Expects the one alert inside `plan` to show inside the list item of the
+ * line or stacked card whose button `name` failed, after that button.
+ */
+export const expectInItemOf = (plan: HTMLElement, name: string) =>
+  expectAlertInItem(plan, button(plan, name)!);
 
 /** Opens the Deck tab and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');

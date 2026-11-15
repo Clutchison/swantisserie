@@ -6,13 +6,13 @@ import {
   button,
   carol,
   clickOn,
-  comesBefore,
+  expectAlertInItem,
   expectFocusOn,
   focusAndClick,
   followBack,
   http,
+  listItemsIn,
   openApp,
-  onlyAlert,
   openDialog,
   panel,
   pressKey,
@@ -83,7 +83,7 @@ describe('reviewing feedback', () => {
   }
 
   /** The items in the open tab's panel; just the empty message when it has none. */
-  const items = (page: HTMLElement) => [...panel(page).querySelectorAll<HTMLElement>('li')];
+  const items = (page: HTMLElement) => listItemsIn(panel(page));
 
   /** Clicks the `name` tab of the open page and answers its fetch with `feedback`. */
   async function clickTab(
@@ -110,13 +110,9 @@ describe('reviewing feedback', () => {
     await fixture.whenStable();
   }
 
-  /** Expects `page`'s one alert inside `item`, after its `control`, saying to try again. */
-  function expectFailureIn(page: HTMLElement, item: HTMLElement, control: HTMLElement) {
-    const alert = onlyAlert(page);
-    expect(item.contains(alert)).toBe(true);
-    expect(comesBefore(control, alert)).toBe(true);
-    expect(alert.textContent).toContain('try again');
-  }
+  /** Expects `page`'s one alert inside the item of `control`, after it, saying to try again. */
+  const expectFailureIn = (page: HTMLElement, control: HTMLElement) =>
+    expect(expectAlertInItem(page, control).textContent).toContain('try again');
 
   /** Opens the page, then its Reviewed tab with `reviewed` waiting. */
   async function openReviewed(reviewed: ReviewedFeedbackView[]) {
@@ -220,7 +216,7 @@ describe('reviewing feedback', () => {
 
     await failMark(fixture, markReviewed(items(page)[1]), 'feedback-2');
 
-    expectFailureIn(page, items(page)[1], markReviewed(items(page)[1]));
+    expectFailureIn(page, markReviewed(items(page)[1]));
   });
 
   it('holds marking while one item is being marked, then takes the next', async () => {
@@ -334,7 +330,7 @@ describe('reviewing feedback', () => {
   it("clears an item's failure once marking another item works", async () => {
     const { fixture, page } = await openPage([fromAlice, fromBob]);
     await failMark(fixture, markReviewed(items(page)[1]), 'feedback-2');
-    expectFailureIn(page, items(page)[1], markReviewed(items(page)[1]));
+    expectFailureIn(page, markReviewed(items(page)[1]));
 
     markReviewed(items(page)[0]).click();
     http
@@ -438,7 +434,7 @@ describe('reviewing feedback', () => {
 
       await failMark(fixture, markUnreviewed(items(page)[1]), 'feedback-2');
 
-      expectFailureIn(page, items(page)[1], markUnreviewed(items(page)[1]));
+      expectFailureIn(page, markUnreviewed(items(page)[1]));
     });
 
     it('fetches the unreviewed list afresh on returning to it', async () => {
