@@ -117,20 +117,21 @@ export class DraftNotifier implements OnApplicationShutdown {
     { id, url }: { id: string; url: string },
     err: WebhookGoneError,
   ): Promise<void> {
-    const bumped = await this.prisma.$transaction(async (tx) => {
+    const marked = await this.prisma.$transaction(async (tx) => {
       // The webhook's row first, then the drafts using it, as every write
       // to the webhook registry locks them.
       const { count } = await tx.webhook.updateMany({
         where: { id, url, goneAt: null },
         data: { goneAt: new Date() },
       });
-      return count ? this.pushes.bump(tx, { webhookId: id }) : null;
+      if (!count) return null;
+      return { bumped: await this.pushes.bump(tx, { webhookId: id }) };
     });
-    if (!bumped) return;
+    if (!marked) return;
     this.logger.error(
       `Webhook ${id} is gone, so announcements on it are dropped until its URL is replaced: ${String(err)}`,
     );
-    await this.pushes.pushAll(bumped);
+    await this.pushes.pushAll(marked.bumped);
   }
 
   /**

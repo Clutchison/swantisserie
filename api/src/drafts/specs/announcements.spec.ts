@@ -612,12 +612,17 @@ describe('announcements', () => {
         expect(webhookClient.post).toHaveBeenCalledOnce();
       });
 
+      /** Whether draft `id` shows its webhook gone. */
+      async function webhookGone(id: string): Promise<boolean> {
+        return (await getDraft(id).expect(200)).body.webhook.gone;
+      }
+
       /**
        * Renames the webhook, which pushes every draft, and expects `pushed`,
-       * once it hears of each, to have heard nothing before that but
-       * `earlier`.
+       * once it hears of each, to have heard nothing before that but its
+       * first `earlier` drafts.
        */
-      async function expectNothingPushedSince(
+      async function renameExpectingNothingPushedSince(
         pushed: DraftView[],
         earlier: number,
       ) {
@@ -650,7 +655,7 @@ describe('announcements', () => {
         await Promise.all(draftIds.map(announcementsSettled));
         expect(await versions()).toEqual(before);
         expect(logged).toHaveBeenCalledOnce();
-        await expectNothingPushedSince(alicesRoom, 3);
+        await renameExpectingNothingPushedSince(alicesRoom, 3);
       });
 
       it('bumps and pushes nothing for a post finding gone a URL since replaced', async () => {
@@ -666,10 +671,8 @@ describe('announcements', () => {
 
         await announcementsSettled(drafting);
         expect(await versions()).toEqual(before);
-        expect((await getDraft(drafting).expect(200)).body.webhook.gone).toBe(
-          false,
-        );
-        await expectNothingPushedSince(alicesRoom, 0);
+        expect(await webhookGone(drafting)).toBe(false);
+        await renameExpectingNothingPushedSince(alicesRoom, 0);
       });
 
       it('leaves the webhook not gone if bumping its drafts fails', async () => {
@@ -682,9 +685,7 @@ describe('announcements', () => {
         await start(drafting).expect(200);
 
         await announcementsSettled(drafting);
-        expect((await getDraft(drafting).expect(200)).body.webhook.gone).toBe(
-          false,
-        );
+        expect(await webhookGone(drafting)).toBe(false);
       });
 
       it('logs a push that fails, still pushing the rest and announcing on other webhooks', async () => {
@@ -707,17 +708,25 @@ describe('announcements', () => {
         fail(new WebhookGoneError(404));
 
         await announcementsSettled(drafting);
+        const failed = draftIds.find((id) =>
+          logged.mock.calls.some(
+            ([message, err]) =>
+              message === `Couldn’t publish a change to draft ${id}` &&
+              err instanceof Error,
+          ),
+        )!;
+        expect(failed).toBeDefined();
+        // The rest are still pushed, and the failed one isn't.
         await vi.waitFor(() => expect(alicesRoom).toHaveLength(2));
-        const pushed = alicesRoom.map((draft) => draft.id);
-        const [failed] = draftIds.filter((id) => !pushed.includes(id));
-        expect(logged).toHaveBeenCalledWith(
-          expect.stringContaining(failed),
-          expect.any(Error),
+        expect(alicesRoom.map((draft) => draft.id).sort()).toEqual(
+          draftIds.filter((id) => id !== failed).sort(),
         );
-        expect(await versions()).not.toEqual(before);
-        expect((await getDraft(failed).expect(200)).body.webhook.gone).toBe(
-          true,
+        await renameExpectingNothingPushedSince(alicesRoom, 2);
+        // Its change still committed.
+        expect((await versions()).get(failed)).toBeGreaterThan(
+          before.get(failed)!,
         );
+        expect(await webhookGone(failed)).toBe(true);
         await start(elsewhere).expect(200);
         await announcementsSettled(elsewhere);
         expect(webhookClient.post).toHaveBeenLastCalledWith(
