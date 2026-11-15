@@ -6,7 +6,7 @@ A web spec asserts what a viewer sees or can do, so it fails when behaviour chan
 
 Find elements the way a viewer or a screen reader does:
 
-- **By role and accessible name**: `[role="dialog"]`, `[role="alert"]`, `[role="tab"]`, a button by its text or `aria-label`. The helpers in `web/src/app/drafts/specs/harness.ts` (a button by label, the tabs, the open tab panel) are the models; add to them rather than writing selectors inline.
+- **By role and accessible name**: `[role="dialog"]`, `[role="alert"]`, `[role="tab"]`, a button by its text or `aria-label`. The helpers in `web/src/app/drafts/specs/harness.ts` (a button by label, the tabs, the open tab panel) are the models; add to them rather than writing selectors inline. Toggle buttons, read by `aria-pressed`, have theirs in `web/src/app/drafts/specs/toggle-harness.ts`, re-exported from `harness.ts`: `toggleButton` to find one toggle by its accessible name (click toggles through it), `pressed` for whether it is pressed, `toggleButtons` to list a group's with which are pressed.
 - **By visible text**, for content a viewer reads.
 
 When the element has no role or name to find it by, give it one in the template: an `aria-label` on a list or region (each plan board's list, the pick log, each player's picks), or an accessible attribute for a state (`aria-disabled`, `aria-pressed`, `aria-current`, or text such as "Unpicked") in place of a class the spec would otherwise check. A state a viewer sees but no accessible attribute fits, such as the Seat strip's pulse, goes in a `data-` attribute named for the state, never read from a styling class. The markup change and the spec change land together.

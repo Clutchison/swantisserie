@@ -7,7 +7,6 @@ import {
   bob,
   button,
   controlByLabel,
-  controlsByLabel,
   draft,
   flushPicks,
   group,
@@ -16,8 +15,10 @@ import {
   link,
   namedList,
   panel,
+  pressed,
   region,
   text,
+  toggleButton,
   useDraftsApp,
 } from './harness';
 import {
@@ -227,8 +228,8 @@ describe('Swiss tournaments on the Play tab', () => {
     );
     expect(text(dialog)).toContain('Its unreported matches will become granted draws.');
     const choices = group(dialog, 'Drop from Carol vs Bob')!;
-    expect(controlByLabel(choices, 'checkbox', 'Drop Carol')!.checked).toBe(false);
-    controlByLabel(choices, 'checkbox', 'Drop Bob')!.click();
+    expect(pressed(choices, 'Drop Carol')).toBe('false');
+    toggleButton(choices, 'Drop Bob')!.click();
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
@@ -254,7 +255,7 @@ describe('Swiss tournaments on the Play tab', () => {
     );
     expect(text(dialog)).toContain('Alice vs Carol');
     expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull();
-    expect(controlsByLabel(dialog, 'checkbox', 'Drop Alice')).toEqual([]);
+    expect(toggleButton(dialog, 'Drop Alice')).toBeUndefined();
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,
@@ -298,7 +299,7 @@ describe('Swiss tournaments on the Play tab', () => {
   const completesEarly =
     'Fewer than 2 undropped players will remain, so completing the round will complete the tournament';
   const pairsRoundTwo = 'Completing the round will pair tournament round 2 and open its matches.';
-  /** Carol's checkbox to drop from Alice vs Carol in the Complete round dialog `dialog`. */
+  /** The Drop Carol toggle button in the Complete round dialog `dialog`. */
   const dropCarol = (dialog: HTMLElement) => dropFrom(dialog, 'Alice vs Carol', 'Carol');
 
   it('says the tournament completes once fewer than 2 undropped players would remain, counting the drops chosen', async () => {
@@ -312,12 +313,12 @@ describe('Swiss tournaments on the Play tab', () => {
     expect(text(dialog)).not.toContain('will pair tournament round 2');
   });
 
-  it('still offers the drops once those chosen would complete the tournament, and takes back a drop unticked', async () => {
+  it('still offers the drops once those chosen would complete the tournament, and no longer drops a player whose Drop is pressed again', async () => {
     const { fixture, dialog } = await openCompleteRound(bobDroppedAfterBye);
 
     dropCarol(dialog).click();
     await vi.waitFor(() => expect(text(dialog)).toContain(completesEarly));
-    expect(dropCarol(dialog).checked).toBe(true);
+    expect(dropCarol(dialog).getAttribute('aria-pressed')).toBe('true');
 
     dropCarol(dialog).click();
     await vi.waitFor(() => expect(text(dialog)).toContain(pairsRoundTwo));
@@ -367,7 +368,7 @@ describe('Swiss tournaments on the Play tab', () => {
     await pushTournament(fixture, bobDroppedAfterBye, 2, { asPlayer: true });
 
     await vi.waitFor(() => expect(group(dialog, 'Drop from Alice vs Carol')).not.toBeNull());
-    expect(dropCarol(dialog).checked).toBe(false);
+    expect(dropCarol(dialog).getAttribute('aria-pressed')).toBe('false');
     expect(text(dialog)).toContain(pairsRoundTwo);
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
@@ -396,7 +397,9 @@ describe('Swiss tournaments on the Play tab', () => {
       fields: fourPlayers,
     });
     dropFrom(dialog, 'Alice vs Bob', 'Bob').click();
-    await vi.waitFor(() => expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').checked).toBe(true));
+    await vi.waitFor(() =>
+      expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').getAttribute('aria-pressed')).toBe('true'),
+    );
 
     await pushTournament(fixture, roundOneOfFour(reported(carolVsErin, [2, 0])), 1, {
       asPlayer: true,
@@ -404,7 +407,7 @@ describe('Swiss tournaments on the Play tab', () => {
     });
 
     await vi.waitFor(() => expect(group(dialog, 'Drop from Carol vs Erin')).toBeNull());
-    expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').checked).toBe(true);
+    expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').getAttribute('aria-pressed')).toBe('true');
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
       fixture,

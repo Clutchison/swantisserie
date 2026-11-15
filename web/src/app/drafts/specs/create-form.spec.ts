@@ -15,11 +15,14 @@ import {
   buttonOrder,
   controlByLabel,
   draft,
+  group,
   http,
   link,
   router,
   openUrl,
+  radios,
   serverError,
+  toggleButton,
   webhooksAnswer,
 } from './harness';
 import { landOnDraftList, listedDrafts, listItem, listItemOf, settle } from './draft-list-harness';
@@ -43,7 +46,7 @@ describe('create form', () => {
   const textBox = (page: HTMLElement, label: string) => controlByLabel(page, 'textbox', label);
   const picksPerPlayer = (page: HTMLElement) =>
     controlByLabel(page, 'spinbutton', 'Picks per player')!;
-  const doublePicksToggle = (page: HTMLElement) => button(page, 'Double picks')!;
+  const doublePicksToggle = (page: HTMLElement) => toggleButton(page, 'Double picks')!;
   /** The number of double picks, if it's showing. */
   const doublePicks = (page: HTMLElement) =>
     controlByLabel(page, 'spinbutton', 'for each player’s last picks');
@@ -366,6 +369,13 @@ describe('create form', () => {
     expect(textBox(form.page, 'Pool query')!.value).toBe('');
     await choosePoolSource(form, 'Cube link');
     expect(textBox(form.page, 'Cube link')!.value).toBe('');
+  });
+
+  it('offers the pool sources as three radios in the Pool from group', async () => {
+    const { page } = await openForm();
+    const poolFrom = group(page, 'Pool from')!;
+
+    expect(radios(poolFrom)).toEqual(['Pool query', 'Cube link', 'Sets']);
   });
 
   it('starts on a pool query, with no cube link field', async () => {

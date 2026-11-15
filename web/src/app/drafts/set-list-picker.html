@@ -15,16 +15,16 @@
   <ul class="sets" aria-label="Sets">
     @for (set of shown(); track set.code) {
       <li>
-        <label class="choice">
-          <input
-            type="checkbox"
-            [checked]="isChosen(set.code)"
-            [disabled]="full() && !isChosen(set.code)"
-            (change)="toggleSet(set)"
-          />
+        <button
+          appToggleButton
+          class="wraps"
+          [pressed]="isChosen(set.code)"
+          [disabled]="full() && !isChosen(set.code)"
+          (click)="toggleSet(set)"
+        >
           {{ set.code.toUpperCase() }} {{ set.name }}
           <span class="hint">{{ set.cards }} cards</span>
-        </label>
+        </button>
       </li>
     } @empty {
       <li class="hint">No set on {{ platform() }} matches.</li>
@@ -48,15 +48,16 @@
   <fieldset class="sublists">
     <legend>{{ chosen.set.code.toUpperCase() }} sublists</legend>
     @for (sublist of chosen.set.sublists; track sublist.code) {
-      <label class="choice">
-        <input
-          type="checkbox"
-          [checked]="chosen.entry.sublists.includes(sublist.code)"
-          (change)="toggleSublist(chosen.set, sublist.code)"
-        />
+      @let included = chosen.entry.sublists.includes(sublist.code);
+      <button
+        appToggleButton
+        class="wraps"
+        [pressed]="included"
+        (click)="toggleSublist(chosen.set, sublist.code)"
+      >
         {{ sublist.code.toUpperCase() }} {{ sublist.name }}
         <span class="hint">{{ sublist.cards }} cards</span>
-      </label>
+      </button>
     }
   </fieldset>
 }
