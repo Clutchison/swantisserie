@@ -20,7 +20,7 @@ import {
   toEventPlayer,
 } from './draft-events.js';
 import { isBasicLand } from './basic-lands.js';
-import { DraftLock, type LockedDraft } from './draft-lock.js';
+import { DraftLock, type LockedDraft, shareLockUser } from './draft-lock.js';
 import {
   type DraftWithOrganizer,
   WITH_ORGANIZER,
@@ -163,12 +163,16 @@ export class DraftLobbyService {
     }
   }
 
+  /** Saves the draft, showing its organizer as a sign-in in progress leaves them. */
   private saveDraft(
     data: Prisma.DraftUncheckedCreateInput,
   ): Promise<DraftWithOrganizer> {
     return (
-      this.prisma.draft
-        .create({ data, ...WITH_ORGANIZER })
+      this.prisma
+        .$transaction(async (tx) => {
+          await shareLockUser(tx, data.organizerId);
+          return tx.draft.create({ data, ...WITH_ORGANIZER });
+        })
         // The webhook may have been removed while the pool source was being checked.
         .catch(rethrowMissingWebhook)
     );
@@ -180,7 +184,7 @@ export class DraftLobbyService {
    * as it can, and DraftStartedError once it has left Lobby.
    */
   async join(draftId: string, userId: string): Promise<void> {
-    await this.lock.inLobby(draftId, async ({ tx }) => {
+    await this.lock.inLobbyShowing(draftId, userId, async ({ tx }) => {
       if (await tx.player.findFirst({ where: { draftId, userId } })) return;
       if ((await tx.player.count({ where: { draftId } })) >= MAX_PLAYERS) {
         throw new DraftFullError();

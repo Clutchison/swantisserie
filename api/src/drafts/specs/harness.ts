@@ -25,6 +25,7 @@ import {
   scryfall,
   signIn,
   startTestApp,
+  type TestAppOptions,
   useTestApp,
   webhookClient,
 } from '../../testing/app.js';
@@ -60,11 +61,14 @@ export let aliceCookie: string;
 /**
  * Registers the hooks that give each test a fresh database and running app,
  * with Alice signed in. The database is PGlite, unless `startDatabase`
- * starts another.
+ * starts another. `overrides` are provided as `startApp` says.
  */
-export function useDraftsApp(startDatabase?: () => Promise<TestDatabase>) {
+export function useDraftsApp(
+  startDatabase?: () => Promise<TestDatabase>,
+  overrides?: TestAppOptions['overrides'],
+) {
   useTestApp(async () => {
-    await startApp();
+    await startApp({ overrides });
     await signInAlice();
   }, startDatabase);
 }
@@ -156,14 +160,16 @@ export function readyDraftOnWebhook(): Promise<string> {
  * Starts the app as `app`. `botDelayMs` is how long bots wait before picking:
  * at once, unless told otherwise. `botRetryDelaysMs` are the waits before
  * each retry of a bot's failed pick: two retries at once, unless told
- * otherwise.
+ * otherwise. `overrides` are provided in place of the app's own providers.
  */
 export async function startApp({
   botDelayMs = 0,
   botRetryDelaysMs = [0, 0],
+  overrides = [],
 }: {
   botDelayMs?: number;
   botRetryDelaysMs?: readonly number[];
+  overrides?: TestAppOptions['overrides'];
 } = {}) {
   await startTestApp({
     overrides: [
@@ -172,6 +178,7 @@ export async function startApp({
         provide: BotPickRetries,
         useValue: new BotPickRetries(botRetryDelaysMs),
       },
+      ...overrides,
     ],
   });
 }
