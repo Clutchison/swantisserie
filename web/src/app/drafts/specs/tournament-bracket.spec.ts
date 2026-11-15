@@ -7,6 +7,7 @@ import {
   button,
   buttonOrder,
   group,
+  region,
   text,
   useDraftsApp,
 } from './harness';
@@ -85,6 +86,14 @@ describe('the bracket of a single elimination tournament', () => {
       'Bob (seed 2) 1–2 Carol (seed 3) · Carol won',
     ]);
     expect(bracketMatches(tab, 2)).toEqual(['Alice (seed 1) vs Carol (seed 3) · Unreported']);
+  });
+
+  it('scrolls the tournament rounds sideways in their own region inside the bracket, which a keyboard can reach', async () => {
+    const { tab } = await openPlaying(final, { user: dave });
+
+    const scroller = region(bracket(tab)!, 'Tournament rounds')!;
+    expect(roundLabels(scroller)).toEqual(['Semifinal', 'Final']);
+    expect(scroller.tabIndex).toBe(0);
   });
 
   it('draws each side’s seed, name and games won, and the note under each match', async () => {
