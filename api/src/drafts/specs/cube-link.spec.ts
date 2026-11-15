@@ -333,6 +333,28 @@ describe('creating a draft from a cube', () => {
     await listDrafts().expect(200).expect([]);
   });
 
+  it.each([
+    [{ cmc: undefined }, 'Shock has no mana value.'],
+    [{ type_line: undefined }, 'Shock has no type line.'],
+  ])(
+    'refuses a cube with a card whose printing is missing %o on the card and its front face, naming it and creating no draft',
+    async (missing, message) => {
+      cubesAre({ redcube: cube('Red Cube', 'Lightning Bolt', 'Shock') });
+      onPlatform(
+        'Lightning Bolt',
+        card('Shock', { ...missing, card_faces: [{ name: 'Shock' }] }),
+      );
+
+      const res = await createDraft({
+        name: 'Red',
+        poolSource: { kind: 'cube', cubeLink: 'redcube' },
+      }).expect(422);
+
+      expect(res.body).toEqual({ error: 'invalid', message });
+      await listDrafts().expect(200).expect([]);
+    },
+  );
+
   it('refuses a cube with cards CubeCobra links to no Scryfall card, listing each once and searching Scryfall for none', async () => {
     const homebrew = { oracleId: null, name: 'Goblin Homebrew' };
     const { mainboard } = cube('Custom Cube', 'Lightning Bolt');

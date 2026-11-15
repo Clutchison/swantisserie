@@ -1,6 +1,8 @@
 /**
  * The 400 any malformed request to the api gets: a field is missing
- * or isn't one the route accepts. `message` says what to fix.
+ * or isn't one the route accepts. `message` says what to fix. Also the 422
+ * a cube link draft gets when one of its cube's printings can't be a pool
+ * card, its message naming the card and the field it lacks.
  */
 export interface RequestProblem {
   error: 'invalid';

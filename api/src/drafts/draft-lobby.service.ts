@@ -98,7 +98,8 @@ export class DraftLobbyService {
    * Failed, for the organizer to retry. Throws UnknownWebhookError if its webhook
    * doesn't exist, GoneWebhookChosenError if it is gone, PoolQueryError,
    * CubeLinkError or SetNotOfferedError if its pool source can't make a pool,
-   * and ScryfallUnavailableError or CubeCobraUnavailableError if that can't
+   * MissingCardFieldError if a cube's printing can't be a pool card, and
+   * ScryfallUnavailableError or CubeCobraUnavailableError if that can't
    * be checked. Its outside checks share one deadline,
    * DRAFT_CREATION_DEADLINE_MS: a check still waiting on Scryfall or
    * CubeCobra when it passes fails with that service's unavailable error,
