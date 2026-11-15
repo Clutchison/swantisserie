@@ -1,4 +1,7 @@
 import { Logger } from '@nestjs/common';
+import type { DraftView } from 'contract';
+import type { MockInstance } from 'vitest';
+import { DraftPushes } from '../draft-pushes.js';
 import {
   WebhookGoneError,
   webhookPostError,
@@ -27,7 +30,12 @@ import {
   fourCards,
   announcementsSettled,
   queueInLobby,
+  renameWebhook,
+  replaceWebhookUrl,
 } from './harness.js';
+import { useSockets } from './socket-harness.js';
+
+const sideUrl = 'https://discord.com/api/webhooks/1234567891/side-token';
 
 useDraftsApp();
 
@@ -497,6 +505,226 @@ describe('announcements', () => {
       await start(id).expect(200);
 
       await posted(id, 1);
+    });
+
+    describe('the drafts using it', () => {
+      const { watch, listeningToOwnRoom } = useSockets();
+
+      /** Two Drafting drafts, then a Lobby one, all using the webhook. */
+      let draftIds: string[];
+      let logged: MockInstance<Logger['error']>;
+
+      beforeEach(async () => {
+        const drafting = await readyDraft(
+          [aliceCookie, bobCookie],
+          1,
+          undefined,
+          webhookId,
+        );
+        const other = await readyDraft(
+          [aliceCookie, bobCookie],
+          1,
+          undefined,
+          webhookId,
+        );
+        const lobby = await readyDraft([aliceCookie], 1, undefined, webhookId);
+        draftIds = [drafting, other, lobby];
+        logged = vi
+          .spyOn(Logger.prototype, 'error')
+          .mockImplementation(() => {});
+      });
+
+      /**
+       * Makes the next post wait until the returned function is called,
+       * then fail with `err`.
+       */
+      function holdNextPost() {
+        let fail!: (err: Error) => void;
+        const held = new Promise<void>((_, reject) => (fail = reject));
+        webhookClient.post.mockImplementationOnce(() => held);
+        return fail;
+      }
+
+      /** Each draft's version now, by id. */
+      async function versions() {
+        return new Map(
+          await Promise.all(
+            draftIds.map(
+              async (id) =>
+                [id, (await getDraft(id).expect(200)).body.version] as const,
+            ),
+          ),
+        );
+      }
+
+      /**
+       * What is pushed from now on to a socket watching each draft, and to
+       * Alice's and Bob's own rooms: Alice plays in every draft, Bob in the
+       * Drafting ones.
+       */
+      async function listening() {
+        const carolCookie = await signIn(carol);
+        return {
+          watched: await Promise.all(
+            draftIds.map((id) => watch(id, carolCookie)),
+          ),
+          alicesRoom: (await listeningToOwnRoom(aliceCookie)).changes,
+          bobsRoom: (await listeningToOwnRoom(bobCookie)).changes,
+        };
+      }
+
+      /**
+       * Waits until `pushed` holds each of `ids` once, then expects each to
+       * be newer than in `before` and to show the webhook gone.
+       */
+      async function expectPushedGone(
+        pushed: DraftView[],
+        ids: string[],
+        before: Map<string, number>,
+      ) {
+        await vi.waitFor(() => expect(pushed).toHaveLength(ids.length));
+        expect(pushed.map((draft) => draft.id).sort()).toEqual([...ids].sort());
+        for (const draft of pushed) {
+          expect(draft.webhook).toEqual({
+            id: webhookId,
+            name: '#roto-main',
+            gone: true,
+          });
+          expect(draft.version).toBeGreaterThan(before.get(draft.id)!);
+        }
+      }
+
+      it('pushes each of them, newer and gone, to its watchers and each of its players, announcing nothing', async () => {
+        const [drafting] = draftIds;
+        const fail = holdNextPost();
+        await start(drafting).expect(200);
+        const before = await versions();
+        const { watched, alicesRoom, bobsRoom } = await listening();
+
+        fail(new WebhookGoneError(404));
+
+        await announcementsSettled(drafting);
+        await expectPushedGone(alicesRoom, draftIds, before);
+        await expectPushedGone(bobsRoom, draftIds.slice(0, 2), before);
+        for (const [i, changes] of watched.entries()) {
+          await expectPushedGone(changes, [draftIds[i]], before);
+        }
+        expect(webhookClient.post).toHaveBeenCalledOnce();
+      });
+
+      /**
+       * Renames the webhook, which pushes every draft, and expects `pushed`,
+       * once it hears of each, to have heard nothing before that but
+       * `earlier`.
+       */
+      async function expectNothingPushedSince(
+        pushed: DraftView[],
+        earlier: number,
+      ) {
+        await renameWebhook(webhookId, '#roto-league');
+        await vi.waitFor(() =>
+          expect(pushed).toHaveLength(earlier + draftIds.length),
+        );
+        expect(
+          pushed.slice(earlier).map((draft) => draft.webhook?.name),
+        ).toEqual(draftIds.map(() => '#roto-league'));
+      }
+
+      it('bumps and pushes nothing for a second post finding it gone', async () => {
+        const [drafting, other] = draftIds;
+        const failFirst = holdNextPost();
+        const failSecond = holdNextPost();
+        await start(drafting).expect(200);
+        await start(other).expect(200);
+        // Both read the webhook before either post failed.
+        await vi.waitFor(() =>
+          expect(webhookClient.post).toHaveBeenCalledTimes(2),
+        );
+        const alicesRoom = (await listeningToOwnRoom(aliceCookie)).changes;
+        failFirst(new WebhookGoneError(404));
+        await vi.waitFor(() => expect(alicesRoom).toHaveLength(3));
+        const before = await versions();
+
+        failSecond(new WebhookGoneError(404));
+
+        await Promise.all(draftIds.map(announcementsSettled));
+        expect(await versions()).toEqual(before);
+        expect(logged).toHaveBeenCalledOnce();
+        await expectNothingPushedSince(alicesRoom, 3);
+      });
+
+      it('bumps and pushes nothing for a post finding gone a URL since replaced', async () => {
+        const [drafting] = draftIds;
+        const fail = holdNextPost();
+        await start(drafting).expect(200);
+        await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+        await replaceWebhookUrl(webhookId, sideUrl);
+        const before = await versions();
+        const alicesRoom = (await listeningToOwnRoom(aliceCookie)).changes;
+
+        fail(new WebhookGoneError(404));
+
+        await announcementsSettled(drafting);
+        expect(await versions()).toEqual(before);
+        expect((await getDraft(drafting).expect(200)).body.webhook.gone).toBe(
+          false,
+        );
+        await expectNothingPushedSince(alicesRoom, 0);
+      });
+
+      it('leaves the webhook not gone if bumping its drafts fails', async () => {
+        const [drafting] = draftIds;
+        webhookClient.post.mockRejectedValueOnce(new WebhookGoneError(404));
+        vi.spyOn(DraftPushes.prototype, 'bump').mockRejectedValueOnce(
+          new Error('Connection dropped'),
+        );
+
+        await start(drafting).expect(200);
+
+        await announcementsSettled(drafting);
+        expect((await getDraft(drafting).expect(200)).body.webhook.gone).toBe(
+          false,
+        );
+      });
+
+      it('logs a push that fails, still pushing the rest and announcing on other webhooks', async () => {
+        const sideId = await registerWebhook('#roto-side', sideUrl);
+        const elsewhere = await readyDraft(
+          [aliceCookie, bobCookie],
+          1,
+          undefined,
+          sideId,
+        );
+        const [drafting] = draftIds;
+        const fail = holdNextPost();
+        await start(drafting).expect(200);
+        const before = await versions();
+        const alicesRoom = (await listeningToOwnRoom(aliceCookie)).changes;
+        vi.spyOn(DraftPushes.prototype, 'push').mockRejectedValueOnce(
+          new Error('Connection dropped'),
+        );
+
+        fail(new WebhookGoneError(404));
+
+        await announcementsSettled(drafting);
+        await vi.waitFor(() => expect(alicesRoom).toHaveLength(2));
+        const pushed = alicesRoom.map((draft) => draft.id);
+        const [failed] = draftIds.filter((id) => !pushed.includes(id));
+        expect(logged).toHaveBeenCalledWith(
+          expect.stringContaining(failed),
+          expect.any(Error),
+        );
+        expect(await versions()).not.toEqual(before);
+        expect((await getDraft(failed).expect(200)).body.webhook.gone).toBe(
+          true,
+        );
+        await start(elsewhere).expect(200);
+        await announcementsSettled(elsewhere);
+        expect(webhookClient.post).toHaveBeenLastCalledWith(
+          sideUrl,
+          expect.anything(),
+        );
+      });
     });
   });
 

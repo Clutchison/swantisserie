@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { setTimeout } from 'node:timers/promises';
 import type { DraftEvent } from '../drafts/draft-events.js';
+import { DraftPushes } from '../drafts/draft-pushes.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { DiscordConfig } from './discord-config.js';
 import {
@@ -23,7 +24,8 @@ export class DraftNotifierRetries {
  * Announces draft events on each draft's webhook. Each draft's posts go one
  * at a time, in the order notified, and a failed post is retried if a retry
  * may help, then logged. A post that finds the webhook gone marks it so, and
- * nothing more is posted on it until its URL is replaced.
+ * nothing more is posted on it until its URL is replaced, and every draft
+ * using it is pushed showing it gone.
  */
 @Injectable()
 export class DraftNotifier implements OnApplicationShutdown {
@@ -36,6 +38,7 @@ export class DraftNotifier implements OnApplicationShutdown {
     private readonly webhooks: WebhookClient,
     private readonly config: DiscordConfig,
     private readonly retries: DraftNotifierRetries,
+    private readonly pushes: DraftPushes,
   ) {}
 
   /**
@@ -106,20 +109,28 @@ export class DraftNotifier implements OnApplicationShutdown {
   /**
    * Records that the webhook is gone, unless its URL has been replaced since
    * `url` failed or it is already marked, logging it only when marked here.
+   * Marking it bumps every draft using it, in the same transaction, and then
+   * pushes them, announcing nothing. The bump makes these copies newer than
+   * the push of the change whose post failed, whichever arrives first.
    */
   private async markGone(
     { id, url }: { id: string; url: string },
     err: WebhookGoneError,
   ): Promise<void> {
-    const { count } = await this.prisma.webhook.updateMany({
-      where: { id, url, goneAt: null },
-      data: { goneAt: new Date() },
+    const bumped = await this.prisma.$transaction(async (tx) => {
+      // The webhook's row first, then the drafts using it, as every write
+      // to the webhook registry locks them.
+      const { count } = await tx.webhook.updateMany({
+        where: { id, url, goneAt: null },
+        data: { goneAt: new Date() },
+      });
+      return count ? this.pushes.bump(tx, { webhookId: id }) : null;
     });
-    if (count) {
-      this.logger.error(
-        `Webhook ${id} is gone, so announcements on it are dropped until its URL is replaced: ${String(err)}`,
-      );
-    }
+    if (!bumped) return;
+    this.logger.error(
+      `Webhook ${id} is gone, so announcements on it are dropped until its URL is replaced: ${String(err)}`,
+    );
+    await this.pushes.pushAll(bumped);
   }
 
   /**
