@@ -13,7 +13,8 @@ export class DeadlinePassedError extends Error {
  * pieces of work raced against one deadline share its time.
  */
 export class Deadline {
-  private readonly endsAt: number;
+  /** When the deadline passes (ms since epoch). */
+  readonly endsAt: number;
   private readonly holdsProcess: boolean;
 
   /**

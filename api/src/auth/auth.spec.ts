@@ -1,7 +1,11 @@
 import { Controller, Get, Logger, Module, UseGuards } from '@nestjs/common';
 import type { DraftView } from 'contract';
 import request from 'supertest';
-import { DiscordProfile } from '../discord/discord-client.js';
+import {
+  DiscordProfile,
+  FetchDiscordClient,
+} from '../discord/discord-client.js';
+import { DiscordConfig } from '../discord/discord-config.js';
 import {
   alice,
   app,
@@ -108,8 +112,14 @@ describe('Discord sign-in', () => {
 
     expect(callback.status).toBe(302);
     expect(callback.headers.location).toBe('/');
-    expect(discord.exchangeCode).toHaveBeenCalledWith('auth-code');
-    expect(discord.getCurrentUser).toHaveBeenCalledWith('access-token');
+    expect(discord.exchangeCode).toHaveBeenCalledWith(
+      'auth-code',
+      expect.anything(),
+    );
+    expect(discord.getCurrentUser).toHaveBeenCalledWith(
+      'access-token',
+      expect.anything(),
+    );
     await agent.get('/api/auth/me').expect(200).expect({
       id: '80351110224678912',
       name: 'Alice',
@@ -191,6 +201,7 @@ describe('Discord sign-in', () => {
     expect(discord.isGuildMember).toHaveBeenCalledWith(
       'access-token',
       'guild-1',
+      expect.anything(),
     );
     await agent.get('/api/auth/me').expect(401);
   });
@@ -315,7 +326,10 @@ describe('Discord sign-in', () => {
       .query({ code: 'auth-code', state })
       .expect(302);
 
-    expect(discord.exchangeCode).toHaveBeenCalledWith('auth-code');
+    expect(discord.exchangeCode).toHaveBeenCalledWith(
+      'auth-code',
+      expect.anything(),
+    );
     expect(callback.headers.location).toBe('/sign-in?error=failed');
     await agent.get('/api/auth/me').expect(401);
   });
@@ -372,6 +386,35 @@ describe('Discord sign-in', () => {
         '/sign-in?error=failed&returnTo=%2Fdrafts%2F42',
       );
       await agent.get('/api/auth/me').expect(401);
+    });
+
+    it('fails sign-in at once when Discord rate-limits it for longer than the sign-in deadline leaves, keeping the page to return to', async () => {
+      const fetch = vi.fn<typeof globalThis.fetch>();
+      vi.stubGlobal('fetch', fetch);
+      try {
+        fetch.mockResolvedValueOnce(
+          Response.json(
+            { message: 'You are being rate limited.', retry_after: 30 },
+            { status: 429, headers: { 'Retry-After': '30' } },
+          ),
+        );
+        const fetchClient = new FetchDiscordClient(app.get(DiscordConfig));
+        discord.exchangeCode.mockImplementation((code, deadline) =>
+          fetchClient.exchangeCode(code, deadline),
+        );
+        const { agent, callback } = await startSignIn('/drafts/42');
+
+        // No fake time passes: the sign-in fails without waiting.
+        const res = await callback();
+
+        expect(res.headers.location).toBe(
+          '/sign-in?error=failed&returnTo=%2Fdrafts%2F42',
+        );
+        expect(fetch).toHaveBeenCalledTimes(1);
+        await agent.get('/api/auth/me').expect(401);
+      } finally {
+        vi.unstubAllGlobals();
+      }
     });
 
     it('signs the user in when its three calls finish within the sign-in deadline', async () => {
