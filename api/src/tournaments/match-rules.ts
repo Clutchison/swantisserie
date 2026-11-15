@@ -4,10 +4,7 @@ import type {
   TournamentState,
 } from '../generated/prisma/client.js';
 import type { MatchChange } from './change-steps.js';
-import {
-  type CorrectionRow,
-  finalResultsRefusal,
-} from './correction-refusal.js';
+import { type RoundStateRow, finalResultsRefusal } from './final-results.js';
 import { NOT_PLAYING } from './tournament-errors.js';
 
 /**
@@ -70,7 +67,7 @@ export function reportRefusal(
  * decides (ADR 0009).
  */
 export function confirmRefusal(
-  row: CorrectionRow,
+  row: RoundStateRow,
   match: MatchOfRules & { round: number; reportedById: string | null },
   userId: string,
 ): TournamentRefusal | null {

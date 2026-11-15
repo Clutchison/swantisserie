@@ -165,19 +165,28 @@ describe('who the tournament read says may confirm a match', () => {
     ]);
   });
 
-  it('names both players of a match an organizer reported while its tournament round is open, and nobody once it is completed', async () => {
+  /** A Swiss tournament of Bob, Carol and Dave, whose round 1 match an organizer who isn't playing reported. */
+  async function organizerReportedSwiss() {
     const id = await playingTournament(
       [bobCookie, carolCookie, await signIn(dave)],
       swiss(),
     );
-    const [open] = (await tournamentView(id)).rounds[0].matches;
-    await setWin(id, open.players, [2, 1]);
-    expect((await matchOf(id, ...open.players)).confirmableBy).toEqual(
-      open.players,
-    );
+    const [match] = (await tournamentView(id)).rounds[0].matches;
+    await setWin(id, match.players, [2, 1]);
+    return { id, players: match.players };
+  }
+
+  it('names both players of a match an organizer reported while its tournament round is open', async () => {
+    const { id, players } = await organizerReportedSwiss();
+
+    expect((await matchOf(id, ...players)).confirmableBy).toEqual(players);
+  });
+
+  it('names nobody once the tournament round of a match an organizer reported is completed', async () => {
+    const { id, players } = await organizerReportedSwiss();
 
     await completeRound(id).expect(200);
 
-    expect((await matchOf(id, ...open.players)).confirmableBy).toEqual([]);
+    expect((await matchOf(id, ...players)).confirmableBy).toEqual([]);
   });
 });

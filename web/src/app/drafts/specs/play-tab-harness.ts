@@ -175,8 +175,8 @@ export const grantedDraw = (match: MatchView): MatchView => ({
   clearLeaves: { kind: 'Unreported' },
 });
 
-/** `match` as the api reads it once its tournament round is completed: nobody may confirm it. */
-export const inCompletedRound = (match: MatchView): MatchView => ({ ...match, confirmableBy: [] });
+/** `match` as the api reads it once nobody may confirm it, as once its results are final. */
+export const unconfirmable = (match: MatchView): MatchView => ({ ...match, confirmableBy: [] });
 
 /** `match`, reported, as the api reads it once it is confirmed: nobody may confirm it again. */
 export const confirmedMatch = (match: MatchView): MatchView => ({
@@ -277,7 +277,7 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
         round: 1,
         correctable: false,
         matches: [
-          inCompletedRound(reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)),
+          unconfirmable(reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)),
         ],
         byes: [alice.id],
       },
@@ -326,7 +326,7 @@ export function completed(view: ViewerTournamentView): ViewerTournamentView {
     rounds: view.rounds.map((round) => ({
       ...round,
       correctable: false,
-      matches: round.matches.map((match) => ({ ...match, reportableBy: [], confirmableBy: [] })),
+      matches: round.matches.map((match) => ({ ...unconfirmable(match), reportableBy: [] })),
     })),
   };
 }
@@ -433,14 +433,14 @@ export const carolBeatBob = ({
   confirmed = false,
   completed = false,
 }: { confirmed?: boolean; completed?: boolean } = {}): TournamentRoundView => {
-  const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id);
+  const reportedM1 = reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id);
+  const m1 = completed ? unconfirmable(reportedM1) : reportedM1;
   return {
     round: 1,
     correctable: !completed,
     matches: [
       {
-        ...(completed ? inCompletedRound(m1) : m1),
-        ...(confirmed && confirmedMatch(m1)),
+        ...(confirmed ? confirmedMatch(m1) : m1),
         bracketPlace: 1,
       },
     ],

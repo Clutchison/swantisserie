@@ -30,7 +30,7 @@ import {
   failChange,
   forfeited,
   grantedDraw,
-  inCompletedRound,
+  unconfirmable,
   openComplete,
   openCompleteRound,
   dropFrom,
@@ -204,7 +204,7 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('offers Report in the list only on a match the api lists you as able to report', async () => {
-    const bobBeatAlice = inCompletedRound(
+    const bobBeatAlice = unconfirmable(
       reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id),
     );
     const { tab } = await openPlaying(
@@ -719,7 +719,7 @@ describe('Swiss tournaments on the Play tab', () => {
     });
 
     it('shows the current tournament round’s match once an earlier one an organizer reported is final, offering no Confirm on it', async () => {
-      const organizerReported = inCompletedRound(
+      const organizerReported = unconfirmable(
         reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], dave.id),
       );
       const { tab } = await openPlaying(
@@ -737,10 +737,57 @@ describe('Swiss tournaments on the Play tab', () => {
       );
 
       expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
-      expect(button(yourMatch(tab), 'Won 2–0')).toBeDefined();
+      expect(
+        ['Won 2–0', 'Won 2–1', 'Lost 1–2', 'Lost 0–2'].map(
+          (score) => !!button(yourMatch(tab), score),
+        ),
+      ).toEqual([true, true, true, true]);
       expect(
         button(namedList(tab, 'Tournament round 1'), 'Confirm your match against Bob'),
       ).toBeUndefined();
+    });
+
+    it('shows a later match you choose to report from the list over an earlier one the api lists you as able to confirm', async () => {
+      const bobBeatAlice = reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id);
+      const { fixture, tab } = await openPlaying(
+        swissPlaying({
+          rounds: swissRoundsWith(unreportedMatch('m2', alice.id, carol.id), bobBeatAlice),
+        }),
+      );
+      expect(text(yourMatch(tab))).toContain('Tournament round 1: Bob reported you lost 1–2');
+
+      button(namedList(tab, 'Tournament round 2'), 'Report your match against Carol')!.click();
+      await fixture.whenStable();
+
+      expect(text(yourMatch(tab))).toContain('Tournament round 2: against Carol');
+    });
+
+    it('says why a Confirm was refused once the tournament round is completed', async () => {
+      const refusal = 'Tournament round 2 is completed, so its results are final.';
+      const { fixture, page, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+
+      button(yourMatch(tab), 'Confirm your match against Carol')!.click();
+      (
+        await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/tournament/matches/m2/confirm'))
+      ).flush(
+        { error: 'round-completed', message: refusal },
+        { status: 409, statusText: 'Conflict' },
+      );
+      // A refusal catches up with the draft.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft(
+          withTournament(
+            swissPlaying({ rounds: swissRoundsWith(unconfirmable(carolBeatAlice)) }),
+            threePlayers,
+          ),
+        ),
+      );
+      await flushPicks([]);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(alertIn(panel(page))?.textContent).toContain(refusal));
     });
   });
 });

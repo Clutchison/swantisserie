@@ -27,7 +27,7 @@ import {
 } from 'engine';
 import { Prisma } from '../generated/prisma/client.js';
 import { reinstateRefusalOf } from './change-steps.js';
-import { type CorrectionRow, correctionRefusal } from './correction-refusal.js';
+import { type RoundStateRow, correctionRefusal } from './final-results.js';
 import {
   clearing,
   confirmRefusal,
@@ -411,7 +411,7 @@ export function roundCount(
 function toMatchView(
   match: MatchRow,
   entryOf: (entryId: string) => TournamentRow['entries'][number],
-  row: CorrectionRow,
+  row: RoundStateRow,
 ): MatchView {
   const matchPlayers = [match.firstEntryId, match.secondEntryId!]
     .map(entryOf)
