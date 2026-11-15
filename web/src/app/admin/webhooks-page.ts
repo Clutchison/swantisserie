@@ -10,7 +10,7 @@ import {
 } from 'contract';
 import type { Observable } from 'rxjs';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
-import { LoadingAnimation } from '../loading/loading-animation';
+import { Loaded, LoadBlock } from '../loading/load-block';
 import { Questions } from '../question-dialog';
 import { saveThenReread } from '../reread';
 
@@ -36,7 +36,7 @@ interface Problem {
  */
 @Component({
   selector: 'app-webhooks-page',
-  imports: [ChangeStatus, LoadingAnimation, ReactiveFormsModule, SendsChange],
+  imports: [ChangeStatus, LoadBlock, Loaded, ReactiveFormsModule, SendsChange],
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './webhooks-page.html',

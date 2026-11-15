@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import type { PickView, PoolCardView } from 'contract';
-import { carol, openDialog, table } from '../../specs-harness';
+import { carol, openDialog, stubScrollIntoView, table } from '../../specs-harness';
 import {
   useDraftsApp,
   alice,
@@ -30,6 +30,7 @@ import {
   boardCell,
   boardColumns,
   boardRows,
+  boardSeat,
   findBoard,
   latestPicks,
   stubBoardScrolling,
@@ -282,6 +283,28 @@ describe('board tab', () => {
     tap(shock);
     expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'shock-id'));
     expect(openDialog()).toBeNull();
+  });
+
+  it('brings a card name that takes focus fully into view, clear of the pinned seats and round labels', async () => {
+    const { page } = await openBoard(picks);
+    const scrolls = stubScrollIntoView();
+
+    const shock = cardName(boardCell(page, `Round 1, ${FORWARD}`, 'Bob'), 'Shock');
+    shock.focus();
+
+    expect(document.activeElement).toBe(shock);
+    expect(scrolls).toEqual([{ element: shock, options: { block: 'nearest', inline: 'nearest' } }]);
+  });
+
+  it('leaves a seat heading a column where it is when it takes focus', async () => {
+    const { page } = await openBoard(picks);
+    const scrolls = stubScrollIntoView();
+
+    const seat = boardSeat(page, boardColumns(page)[0]!);
+    seat.focus();
+
+    expect(document.activeElement).toBe(seat);
+    expect(scrolls).toEqual([]);
   });
 
   it('shows each picked copy of a card as its own pick', async () => {

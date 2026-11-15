@@ -29,6 +29,22 @@ export function availableCopies(
     .map(([copy]) => copy);
 }
 
+/**
+ * The card in a seat's own list, its queue or its plan, that its pick of
+ * `card` accounts for: `card` itself if the list holds it, otherwise the
+ * first of the list's cards that is one of `copies`, otherwise none.
+ * `copies` is the card's available copies, as `availableCopies` offers them.
+ */
+export function ownPickCopy(
+  list: readonly string[],
+  card: string,
+  copies: readonly string[],
+): string | undefined {
+  return list.includes(card)
+    ? card
+    : list.find((listed) => copies.includes(listed));
+}
+
 /** A list of cards, queued or planned, after another player picks one it holds. */
 export interface SwappedOrLost {
   /** The list's cards, in order. */

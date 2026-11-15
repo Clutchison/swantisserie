@@ -160,7 +160,7 @@ Origin: #779.
 
 ### A sideways scroller that focus can't move is a named region
 
-_Judgement._ Content that can be wider than a phone, such as a table or a grid, scrolls sideways inside its own scroller, never the page. If not everything in that scroller can take focus, the scroller is a `role="region"` with an `aria-label` and `tabindex="0"`, so a keyboard can scroll it and a screen reader can name it. A scroller of focusable items, such as the Seat strip, scrolls as focus moves and needs neither.
+_Judgement._ Content that can be wider than a phone, such as a table or a grid, scrolls sideways inside its own scroller, never the page. If not everything in that scroller can take focus, the scroller is a `role="region"` with an `aria-label` and `tabindex="0"`, so a keyboard can scroll it and a screen reader can name it. Its focus ring comes from the global rule in `web/src/styles.scss`, so the component writes none of its own. A scroller of focusable items, such as the Seat strip, scrolls as focus moves and needs neither.
 
 Why: WCAG 2.1.1 Keyboard and 1.4.10 Reflow; a keyboard user can't otherwise reach what is off to the side.
 

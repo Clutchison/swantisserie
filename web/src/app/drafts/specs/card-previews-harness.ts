@@ -14,6 +14,7 @@ import {
   openQueueSheet,
   tabButton,
 } from './harness';
+import { stubScrollIntoView } from '../../specs-harness';
 
 export const bolt = poolCardOf('bolt', 'Lightning Bolt');
 export const shock = poolCardOf('shock', 'Shock');
@@ -46,8 +47,13 @@ export async function openPicked(
   );
 }
 
-/** Opens the Board tab of a draft with picks, then takes over the clock. */
+/**
+ * Opens the Board tab of a draft with picks, then takes over the clock. The
+ * Board tab scrolls on opening and as a card name takes focus, so
+ * `scrollIntoView`, which jsdom lacks, is stood in for until the test finishes.
+ */
 export async function openBoard(options: Parameters<typeof openPicked>[0] = {}) {
+  stubScrollIntoView();
   const opened = await openPicked(options);
   tabButton(opened.page, 'Board').click();
   await opened.fixture.whenStable();

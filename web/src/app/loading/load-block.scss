@@ -1,0 +1,8 @@
+/* The block adds no box of its own: what it shows sits in the page's flow as if written there. */
+:host {
+  display: contents;
+}
+
+.error {
+  color: var(--color-error);
+}

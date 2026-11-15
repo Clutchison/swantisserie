@@ -1,4 +1,10 @@
-import { availableCopies, type Pool, type Swap, swapOrLose } from './copies.js';
+import {
+  availableCopies,
+  ownPickCopy,
+  type Pool,
+  type Swap,
+  swapOrLose,
+} from './copies.js';
 import type { SeatPick } from './queue.js';
 
 /** One seat's plan after a pick. */
@@ -17,11 +23,12 @@ export interface PlanAfterPick {
 
 /**
  * What a pick does to plans, which are each seat's planned cards, picked or
- * not, indexed by seat. The picker's plan keeps the card, if it holds it:
- * it is now their pick; if it instead holds an unpicked copy of it, that
- * copy becomes the pick. In each other plan holding the card, it is
- * swapped for a copy or lost, as `swapOrLose` says, with the copies in
- * `pool` that are not `picked`.
+ * not, indexed by seat. In the picker's plan, the planned card the pick
+ * accounts for, as `ownPickCopy` says, is now their pick: kept if it is
+ * the picked card, otherwise swapped, in the same place, for the picked
+ * card. In each other plan holding the card, it is swapped for a copy or
+ * lost, as `swapOrLose` says, with the copies in `pool` that are not
+ * `picked`.
  * Nothing else in a plan changes: a plan never picks, so there is nothing
  * to clear. `picked` is the cards picked before this one, with or without
  * it. Cards are pool card ids.
@@ -33,15 +40,13 @@ export function plansAfterPick(
 ): PlanAfterPick[] {
   const copies = availableCopies(pick.card, pool, picked);
   return plans.map((plan, seat) => {
-    const at = plan.indexOf(pick.card);
     if (seat === pick.seat) {
-      if (at !== -1) return { plan: [...plan] };
-      const unpicked = plan.findIndex((card) => copies.includes(card));
-      return unpicked === -1
+      const planned = ownPickCopy(plan, pick.card, copies);
+      return planned === undefined || planned === pick.card
         ? { plan: [...plan] }
         : {
-            plan: plan.with(unpicked, pick.card),
-            swapped: { out: plan[unpicked], in: pick.card },
+            plan: plan.with(plan.indexOf(planned), pick.card),
+            swapped: { out: planned, in: pick.card },
           };
     }
     const { cards, ...swappedOrLost } = swapOrLose(plan, pick.card, copies);
