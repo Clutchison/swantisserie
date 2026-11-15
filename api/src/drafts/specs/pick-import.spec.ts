@@ -298,6 +298,21 @@ describe('pick import', () => {
     await importPicks(id, undefined, previewed).expect(400);
   });
 
+  it('refuses a request with neither file text nor seat order for its file text first', async () => {
+    const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
+
+    const refused = await draftsRequest(
+      'post',
+      `/${id}/pick-import`,
+      aliceCookie,
+      {},
+    ).expect(400);
+    expect(refused.body).toEqual({
+      error: 'invalid',
+      message: 'Choose a file to import.',
+    });
+  });
+
   it('refuses a seat order sent as userIds rather than playerIds', async () => {
     const id = await readyDraft([aliceCookie, await signIn(bob)], 2, cards);
 
