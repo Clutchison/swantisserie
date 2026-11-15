@@ -186,15 +186,21 @@ export interface DraftSocketEvents {
 export interface DraftSocketRequests {
   /**
    * Have the draft of id `draftId`'s changes pushed to this socket: refused,
-   * pushing nothing, unless the viewer may see the draft.
+   * pushing nothing, unless the viewer may see the draft. Unchecked, pushing
+   * nothing, when the api couldn't tell whether they may: ask again later.
    */
   watch: (draftId: string, ack: (result: DraftWatchResult) => void) => void;
   /** Stop pushing the draft of id `draftId`'s changes to this socket. */
   stopWatching: (draftId: string, ack: () => void) => void;
 }
 
-/** The api's answer to a request to watch a draft. */
-export type DraftWatchResult = 'watching' | 'refused';
+/**
+ * The api's answer to a request to watch a draft: `watching` it; `refused`,
+ * as the viewer may not see it or it doesn't exist; or `unchecked`, as the
+ * api couldn't tell, e.g. while its database is down, so the client should
+ * ask again.
+ */
+export type DraftWatchResult = 'watching' | 'refused' | 'unchecked';
 
 /**
  * What the signed-in viewer may do to one draft, from
