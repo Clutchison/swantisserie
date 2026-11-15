@@ -1,4 +1,11 @@
 /**
+ * The User-Agent the Scryfall and CubeCobra clients send. Scryfall requires
+ * an accurate one; bump its version here, once, for both.
+ */
+export const USER_AGENT =
+  'Swantisserie/1.0 (+https://github.com/Clutchison/swantisserie)';
+
+/**
  * The upstream couldn't be reached: the request failed on the network, or it
  * (including reading its body) took longer than its timeout. The message never
  * names the URL, which may be a secret; `cause` is the original error.
@@ -49,6 +56,15 @@ export async function fetchWithTimeout(
       headers: res.headers,
     },
   );
+}
+
+/**
+ * Cancels a body its caller won't read, so its connection is let go at once,
+ * not held until the timeout aborts it. Never throws: if the cancel fails,
+ * the timeout aborts the body anyway.
+ */
+export async function cancelBody(res: Response): Promise<void> {
+  await res.body?.cancel().catch(() => undefined);
 }
 
 /** `body`, failing with UnreachableError if reading it fails; `settled` is called once it ends either way. */

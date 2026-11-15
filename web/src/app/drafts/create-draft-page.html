@@ -165,7 +165,7 @@
     @if (problem(); as problem) {
       <div class="error" role="alert">
         <p>{{ problem.message }}</p>
-        @if (problem.error === 'not-on-platform') {
+        @if (problem.error === 'not-on-platform' || problem.error === 'unidentified-cards') {
           <ul>
             @for (card of problem.cards; track card) {
               <li>{{ card }}</li>

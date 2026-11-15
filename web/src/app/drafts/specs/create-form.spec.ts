@@ -26,6 +26,7 @@ import {
   toggleButton,
   webhooksAnswer,
 } from './harness';
+import { listItemTextsIn } from '../../specs-harness';
 import { landOnDraftList, listedDrafts, listItem, listItemOf, settle } from './draft-list-harness';
 
 useDraftsApp();
@@ -597,10 +598,33 @@ describe('create form', () => {
 
     const error = alertIn(page)!;
     expect(error.textContent).toContain('2 cards in this pool query are not on Arena.');
-    expect([...error.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
-      'Ancient Hellkite',
-      'Dream Pillager',
-    ]);
+    expect(listItemTextsIn(error)).toEqual(['Ancient Hellkite', 'Dream Pillager']);
+    expect(router.url).toBe('/drafts/new');
+  });
+
+  it('lists the cube’s cards that CubeCobra links to no Scryfall card', async () => {
+    const form = await openForm();
+    const { fixture, page } = form;
+    await choosePoolSource(form, 'Cube link');
+    fill(page, 'Name', 'Custom');
+    fill(page, 'Cube link', 'customcube');
+    await fixture.whenStable();
+    submit(page);
+
+    fail(await vi.waitFor(() => http.expectOne('/api/drafts')), 422, {
+      error: 'unidentified-cards',
+      message:
+        'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
+      cards: ['Goblin Homebrew', 'Wandering Prototype'],
+      totalCards: 2,
+    } satisfies DraftCreationProblem);
+    await fixture.whenStable();
+
+    const error = alertIn(page)!;
+    expect(error.textContent).toContain(
+      'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
+    );
+    expect(listItemTextsIn(error)).toEqual(['Goblin Homebrew', 'Wandering Prototype']);
     expect(router.url).toBe('/drafts/new');
   });
 

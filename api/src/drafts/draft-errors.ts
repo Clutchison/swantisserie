@@ -24,16 +24,26 @@ export class CubeLinkError extends Error {
 
 /**
  * Says how many of a pool source's cards (`where`, e.g. "in this cube")
- * aren't on the platform, without a closing full stop.
+ * aren't on the platform.
  */
-export function notOnPlatformSentence(
+export function notOnPlatformMessage(
   count: number,
   where: string,
   platform: string,
 ): string {
   return count === 1
-    ? `1 card ${where} is not on ${platform}`
-    : `${count} cards ${where} are not on ${platform}`;
+    ? `1 card ${where} is not on ${platform}.`
+    : `${count} cards ${where} are not on ${platform}.`;
+}
+
+/**
+ * Says how many of a cube's cards CubeCobra links to no Scryfall card. It
+ * doesn't call them custom cards: CubeCobra's answer doesn't say so.
+ */
+export function unidentifiedCardsMessage(count: number): string {
+  return count === 1
+    ? 'CubeCobra doesn’t link 1 card in this cube to a Scryfall card, so it can’t be in a pool.'
+    : `CubeCobra doesn’t link ${count} cards in this cube to a Scryfall card, so they can’t be in a pool.`;
 }
 
 /** Thrown when a draft is given a webhook that doesn't exist, e.g. one just removed. */
