@@ -5,7 +5,7 @@ import { isRecord } from './json-guards.js';
  * Undefined if it is missing or unreadable.
  */
 export function headerRetryAfterMs(res: Response): number | undefined {
-  return msIn(secondsIn(res.headers.get('Retry-After')));
+  return secondsToMs(secondsIn(res.headers.get('Retry-After')));
 }
 
 /**
@@ -16,7 +16,9 @@ export function headerRetryAfterMs(res: Response): number | undefined {
 export async function bodyOrHeaderRetryAfterMs(
   res: Response,
 ): Promise<number | undefined> {
-  return msIn(secondsIn(await bodyRetryAfter(res))) ?? headerRetryAfterMs(res);
+  return (
+    secondsToMs(secondsIn(await bodyRetryAfter(res))) ?? headerRetryAfterMs(res)
+  );
 }
 
 /** The `retry_after` of a 429's JSON body, if it can be read. */
@@ -41,6 +43,7 @@ function secondsIn(value: unknown): number | undefined {
   return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
 }
 
-function msIn(seconds: number | undefined): number | undefined {
+/** `seconds` converted to ms, rounded up; undefined stays undefined. */
+function secondsToMs(seconds: number | undefined): number | undefined {
   return seconds === undefined ? undefined : Math.ceil(seconds * 1000);
 }

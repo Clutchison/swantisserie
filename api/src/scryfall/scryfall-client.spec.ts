@@ -112,35 +112,6 @@ describe('FetchScryfallClient', () => {
     expect(page).toMatchObject({ hasMore: false });
   });
 
-  it('backs off for 30 seconds after a 429, then tries again', async () => {
-    vi.useFakeTimers();
-    try {
-      respond(429, {
-        object: 'error',
-        status: 429,
-        details: 'Too many requests',
-      });
-      respond(200, {
-        object: 'list',
-        total_cards: 1,
-        has_more: false,
-        data: [balefire],
-      });
-
-      const search = scryfall.search('c:r');
-      await vi.advanceTimersByTimeAsync(0);
-      expect(fetch).toHaveBeenCalledTimes(1);
-
-      await vi.advanceTimersByTimeAsync(29_999);
-      expect(fetch).toHaveBeenCalledTimes(1);
-      await vi.advanceTimersByTimeAsync(1);
-      expect(fetch).toHaveBeenCalledTimes(2);
-      expect(await search).toMatchObject({ cards: [balefire] });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
   /** Answers a 429 whose `Retry-After` header is `retryAfter`, if given. */
   function respondRateLimited(retryAfter?: string) {
     fetch.mockResolvedValueOnce(
@@ -152,34 +123,47 @@ describe('FetchScryfallClient', () => {
   }
 
   it.each([
-    ['45', 45_000],
-    ['5', 5_000],
-    [undefined, 30_000],
-    ['soon', 30_000],
-  ])(
-    'after a 429 with Retry-After %s, sends nothing more for %i ms, then tries again',
-    async (retryAfter, waitMs) => {
-      vi.useFakeTimers();
-      try {
-        respondRateLimited(retryAfter);
-        respond(200, {
-          object: 'list',
-          total_cards: 1,
-          has_more: false,
-          data: [balefire],
-        });
+    [
+      'backs off for 45 seconds after a 429 with Retry-After: 45, then tries again',
+      '45',
+      45_000,
+    ],
+    [
+      'backs off for 5 seconds after a 429 with Retry-After: 5, then tries again',
+      '5',
+      5_000,
+    ],
+    [
+      'backs off for 30 seconds after a 429 with no Retry-After, then tries again',
+      undefined,
+      30_000,
+    ],
+    [
+      'backs off for 30 seconds after a 429 whose Retry-After is unreadable, then tries again',
+      'soon',
+      30_000,
+    ],
+  ])('%s', async (_name, retryAfter, waitMs) => {
+    vi.useFakeTimers();
+    try {
+      respondRateLimited(retryAfter);
+      respond(200, {
+        object: 'list',
+        total_cards: 1,
+        has_more: false,
+        data: [balefire],
+      });
 
-        const search = scryfall.search('c:r');
-        await vi.advanceTimersByTimeAsync(waitMs - 1);
-        expect(fetch).toHaveBeenCalledTimes(1);
-        await vi.advanceTimersByTimeAsync(1);
-        expect(fetch).toHaveBeenCalledTimes(2);
-        expect(await search).toMatchObject({ cards: [balefire] });
-      } finally {
-        vi.useRealTimers();
-      }
-    },
-  );
+      const search = scryfall.search('c:r');
+      await vi.advanceTimersByTimeAsync(waitMs - 1);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(await search).toMatchObject({ cards: [balefire] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('cancels the body of a 429 it backs off from', async () => {
     vi.useFakeTimers();
