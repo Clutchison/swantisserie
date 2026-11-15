@@ -1,6 +1,10 @@
+import { Logger } from '@nestjs/common';
 import type { Platform, SetCatalogView } from 'contract';
 import request from 'supertest';
-import { ScryfallUnavailableError } from '../scryfall/scryfall-client.js';
+import {
+  ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
+} from '../scryfall/scryfall-client.js';
 import {
   aliceCookie,
   app,
@@ -157,6 +161,60 @@ it('says it is still counting until every set is counted, offering those counted
   countDmu();
   const { sets } = await counted();
   expect(sets.map((set) => set.code)).toEqual(['otj', 'dmu']);
+});
+
+describe.each([
+  ['Scryfall can’t be reached', new ScryfallUnavailableError(503)],
+  ['Scryfall rejects the search', new ScryfallRejectedSearchError('No.', [])],
+])('when one set’s count fails because %s', (_, failure) => {
+  const THREE_SETS = [
+    scryfallSet('otj', { releasedAt: '2024-04-19' }),
+    scryfallSet('dmu', { releasedAt: '2022-09-09' }),
+    scryfallSet('mir', { releasedAt: '1996-10-08' }),
+  ];
+  const COUNTS = { otj: 276, dmu: 281, mir: 335 };
+
+  it('counts the sets older than it, logs it, and says it is still counting', async () => {
+    const errors = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    scryfall.sets.mockResolvedValue(THREE_SETS);
+    scryfallAnswers({ ...countAnswers(COUNTS), [countQuery('dmu')]: failure });
+
+    const res = await vi.waitFor(async () => {
+      const res = await setsRequest('Arena').expect(200);
+      expect(res.body.sets.map((set: { code: string }) => set.code)).toEqual([
+        'otj',
+        'mir',
+      ]);
+      return res;
+    });
+
+    expect(res.body.counting).toBe(true);
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining('DMU'),
+      failure,
+    );
+  });
+
+  it('counts only that set when asked again, then says it is done', async () => {
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    scryfall.sets.mockResolvedValue(THREE_SETS);
+    scryfallAnswers({ ...countAnswers(COUNTS), [countQuery('dmu')]: failure });
+    await vi.waitFor(async () => {
+      const res = await setsRequest('Arena').expect(200);
+      expect(res.body.sets).toHaveLength(2);
+    });
+
+    scryfall.search.mockClear();
+    scryfallAnswers(countAnswers(COUNTS));
+    const { sets } = await counted();
+
+    expect(sets.map((set) => set.code)).toEqual(['otj', 'dmu', 'mir']);
+    expect(new Set(scryfall.search.mock.calls.map(([query]) => query))).toEqual(
+      new Set([countQuery('dmu')]),
+    );
+  });
 });
 
 it('remembers the counts, so asking again searches no more', async () => {
