@@ -132,8 +132,8 @@ export class DialogShell {
   }
 
   /**
-   * Closes every open dialog with no result, as though each were cancelled,
-   * so none goes ahead with what it asked about.
+   * Closes every open dialog with no result, as Cancel does, so none goes
+   * ahead with what it asked about.
    */
   closeAll() {
     this.dialog.closeAll();

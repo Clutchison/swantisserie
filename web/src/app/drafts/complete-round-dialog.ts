@@ -6,6 +6,7 @@ import {
   inject,
   input,
   linkedSignal,
+  type Signal,
 } from '@angular/core';
 import type { CompleteRoundRequest } from 'contract';
 import { MIN_PLAYERS_LEFT, roundCompletion, type BracketResult } from 'engine';
@@ -48,8 +49,8 @@ export class CompleteRoundDialog {
   protected readonly minPlayersLeft = MIN_PLAYERS_LEFT;
   /**
    * The tournament read: the dialog opens only on one that has its
-   * tournament round, and the Play tab closes it once that tournament round
-   * stops being current or the tournament is gone.
+   * tournament round, and the Play tab closes it, as Cancel does, once that
+   * tournament round stops being current or the tournament is gone.
    */
   private readonly tournament = this.store.tournament.value;
 
@@ -96,15 +97,9 @@ export class CompleteRoundDialog {
    */
   private readonly unreportedIds = computed(() => this.unreported().map((match) => match.id));
   /** The players chosen to drop, by the id of the unreported match they drop from. */
-  private readonly dropping = linkedSignal<readonly string[], Record<string, string[]>>({
-    source: this.unreportedIds,
-    computation: (ids, previous) => choicesFor(ids, previous?.value ?? {}),
-  });
+  private readonly dropping = choicesKeptFor<string[]>(this.unreportedIds);
   /** In single elimination, the winner picked for each unreported match, by its id. */
-  private readonly winners = linkedSignal<readonly string[], Record<string, string>>({
-    source: this.unreportedIds,
-    computation: (ids, previous) => choicesFor(ids, previous?.value ?? {}),
-  });
+  private readonly winners = choicesKeptFor<string>(this.unreportedIds);
   /**
    * The players chosen to drop from each unreported match, none if nobody
    * is: those the forecast counts as dropped and the dialog's request drops.
@@ -240,6 +235,17 @@ export class CompleteRoundDialog {
       grantedDraws: this.chosenDrops(),
     });
   }
+}
+
+/**
+ * The organizer's choices, by match id, none at first: each is kept only
+ * while `ids` still holds its match.
+ */
+function choicesKeptFor<T>(ids: Signal<readonly string[]>) {
+  return linkedSignal<readonly string[], Record<string, T>>({
+    source: ids,
+    computation: (now, previous) => choicesFor(now, previous?.value ?? {}),
+  });
 }
 
 /** The organizer's `choices`, by match id, kept only for the matches `ids`. */

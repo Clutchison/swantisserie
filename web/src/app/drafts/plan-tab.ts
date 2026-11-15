@@ -447,12 +447,13 @@ export class PlanTab {
       ({ width }) => this.measured(width),
     );
     // Queue unpicked stops being offered as the player's turn comes: close its
-    // dialog then, so it can't come back by itself once the turn passes.
+    // dialog then, as Cancel does, so it can't come back by itself once the
+    // turn passes.
     effect(() => {
       if (!this.offerQueueUnpicked()) untracked(() => this.queueing?.close());
     });
     // A locked deck takes no basics: close the Basic lands dialog as it locks,
-    // so it can't come back by itself once the deck unlocks.
+    // as Cancel does, so it can't come back by itself once the deck unlocks.
     effect(() => {
       if (this.deckLocked()) untracked(() => this.addingBasics?.close());
     });
