@@ -12,7 +12,7 @@ import { hasEntry } from './tournament-matches.js';
  * forfeit or bye of theirs has fed a later match.
  */
 export const SINGLE_ELIMINATION_CHANGES: ChangeSteps = {
-  reinstateRefusal: bracketReinstateRefusal,
+  formatReinstateRefusal: bracketReinstateRefusal,
 };
 
 /**

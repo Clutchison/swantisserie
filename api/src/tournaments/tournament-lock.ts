@@ -9,7 +9,7 @@ import { DraftGoneError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import type { TournamentProgress } from './round-steps.js';
-import type { MatchPlayer } from './match-rules.js';
+import { matchPlayer } from './match-rules.js';
 import { droppable, ENTRY_OF_MATCH } from './tournament-matches.js';
 import {
   BOT_ENTRY,
@@ -135,13 +135,7 @@ export async function findMatch(
     round: match.round,
     outcome: match.outcome,
     reportedById: match.reportedById,
-    players: [match.firstEntry, match.secondEntry!].map(
-      (entry): MatchPlayer => ({
-        userId: entry.player.userId,
-        bot: entry.player.user.isBot,
-        dropped: entry.dropped,
-      }),
-    ),
+    players: [match.firstEntry, match.secondEntry!].map(matchPlayer),
   };
 }
 

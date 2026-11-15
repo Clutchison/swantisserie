@@ -3,7 +3,7 @@ import type { CompleteRoundRequest } from 'contract';
 import { roundCompletion } from 'engine';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
-import { REINSTATE_VIEW, reinstateRefusalOf } from './change-steps.js';
+import { REINSTATING_TOURNAMENT, reinstateRefusal } from './change-steps.js';
 import { ROUND_STEPS } from './format-steps.js';
 import { reopenRound } from './reopen-round.js';
 import type { RoundSteps } from './round-steps.js';
@@ -155,7 +155,7 @@ export class TournamentProgressionService {
    * become unreported matches again, except against an opponent who has
    * dropped too, whose forfeit they become. Throws TournamentRefusedError if
    * they haven't joined, are a bot or haven't dropped, the tournament isn't
-   * playing, or their drop has fed a later pairing, as reinstateRefusalOf
+   * playing, or their drop has fed a later pairing, as reinstateRefusal
    * decides, which the tournament read also asks: by default once a
    * tournament round was paired without them. The joined and dropped
    * refusals are worded for `actor` (see notJoined).
@@ -170,9 +170,9 @@ export class TournamentProgressionService {
       if (!entry.dropped) throw new TournamentRefusedError(notDropped(actor));
       const row = await tx.tournament.findUniqueOrThrow({
         where: { id: tournament.id },
-        select: REINSTATE_VIEW,
+        select: REINSTATING_TOURNAMENT,
       });
-      const refusal = reinstateRefusalOf(row, entry.id);
+      const refusal = reinstateRefusal(row, entry.id);
       if (refusal) throw new TournamentRefusedError(refusal);
       await takeBackDrops(tx, tournament.id, [entry.id]);
     });

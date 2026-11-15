@@ -30,7 +30,7 @@ export interface MatchChange {
  * selects: its format, state and last completed tournament round, its
  * entries and its matches, byes included.
  */
-export const REINSTATE_VIEW = {
+export const REINSTATING_TOURNAMENT = {
   format: true,
   state: true,
   lastCompletedRound: true,
@@ -54,7 +54,7 @@ export const REINSTATE_VIEW = {
 
 /** A tournament as Reinstate's rule reads it; the tournament read's row is one. */
 export type ReinstateRow = Prisma.TournamentGetPayload<{
-  select: typeof REINSTATE_VIEW;
+  select: typeof REINSTATING_TOURNAMENT;
 }>;
 
 /** A match or bye of a tournament as Reinstate's rule reads it. */
@@ -69,7 +69,7 @@ export interface ChangeSteps {
    * Why the dropped entry `entryId` of the tournament `row` can't be
    * reinstated, as their drop has fed a later pairing; null if it hasn't.
    */
-  reinstateRefusal(
+  formatReinstateRefusal(
     row: ReinstateRow,
     entryId: string,
   ): TournamentRefusal | null;
@@ -81,7 +81,7 @@ export interface ChangeSteps {
  * without them.
  */
 export const DEFAULT_CHANGE_STEPS: ChangeSteps = {
-  reinstateRefusal(row, entryId) {
+  formatReinstateRefusal(row, entryId) {
     const pairedWithout = currentRoundWithout(row.matches, entryId);
     if (pairedWithout === null) return null;
     return {
@@ -105,19 +105,20 @@ export const CHANGE_STEPS: Record<TournamentFormat, ChangeSteps> = {
 
 /**
  * Why Reinstate of the entry `entryId` of the tournament `row` would be
- * refused now, as both the Reinstate write and the tournament read ask:
- * outside play, or as the format's change steps refuse it. Null for an
- * entry that hasn't dropped or can't be (a bot), which the write refuses
- * before asking, worded for who asks, and for one Reinstate would accept.
+ * refused now: not-playing outside play, otherwise whatever the format's
+ * change steps refuse. Both the Reinstate write and the tournament read
+ * ask it. Null for an entry Reinstate would accept, and for one that
+ * hasn't dropped or can't be dropped (a bot); the write refuses those two
+ * itself before asking, worded for whoever asks.
  */
-export function reinstateRefusalOf(
+export function reinstateRefusal(
   row: ReinstateRow,
   entryId: string,
 ): TournamentRefusal | null {
   const entry = row.entries.find((entered) => entered.id === entryId);
   if (!entry?.dropped || !droppable(entry)) return null;
   if (row.state !== 'Playing') return NOT_PLAYING;
-  return CHANGE_STEPS[row.format].reinstateRefusal(row, entryId);
+  return CHANGE_STEPS[row.format].formatReinstateRefusal(row, entryId);
 }
 
 /**

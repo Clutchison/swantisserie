@@ -215,23 +215,20 @@
             · Dropped
           }
           @if (organizePlay() && player.droppable && player.dropped) {
+            @let refusal = player.reinstateRefusal;
             <button
               class="button compact secondary"
               type="button"
               [attr.aria-label]="'Reinstate ' + player.name"
               (click)="reinstate(player.id)"
-              [disabled]="!!player.reinstateRefusal"
-              [attr.aria-describedby]="
-                player.reinstateRefusal ? 'reinstate-refusal-' + player.id : null
-              "
+              [disabled]="refusal !== null"
+              [attr.aria-describedby]="refusal !== null ? 'reinstate-refusal-' + player.id : null"
               [appSendsChange]="'reinstate ' + player.id"
             >
               Reinstate
             </button>
-            @if (player.reinstateRefusal; as refusal) {
-              <span [id]="'reinstate-refusal-' + player.id" class="detail">{{
-                refusal.message
-              }}</span>
+            @if (refusal !== null) {
+              <p [id]="'reinstate-refusal-' + player.id" class="detail">{{ refusal.message }}</p>
             }
           } @else if (organizePlay() && player.droppable && player.id !== ownId()) {
             <button
@@ -262,7 +259,7 @@
             type="button"
             (click)="reopenRound(offered)"
             [disabled]="offered.refusal !== null"
-            [attr.aria-describedby]="offered.refusal ? 'reopen-round-refusal' : null"
+            [attr.aria-describedby]="offered.refusal !== null ? 'reopen-round-refusal' : null"
             appSendsChange="reopen-round"
           >
             Reopen round {{ offered.round }}
@@ -286,8 +283,9 @@
           </button>
         }
       </div>
-      @if (offeredReopenRound()?.refusal; as refusal) {
-        <p id="reopen-round-refusal" class="detail">{{ refusal.message }}</p>
+      @let reopenRefusal = offeredReopenRound()?.refusal ?? null;
+      @if (reopenRefusal !== null) {
+        <p id="reopen-round-refusal" class="detail">{{ reopenRefusal.message }}</p>
       }
     }
   }

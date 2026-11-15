@@ -127,12 +127,12 @@
             [max]="picksPerPlayer()"
             [step]="minDoublePicks"
             required
-            [attr.aria-invalid]="problem ? 'true' : null"
-            [attr.aria-describedby]="problem ? 'double-picks-problem' : null"
+            [attr.aria-invalid]="problem !== null ? 'true' : null"
+            [attr.aria-describedby]="problem !== null ? 'double-picks-problem' : null"
           />
           picks
         </label>
-        @if (problem) {
+        @if (problem !== null) {
           <span id="double-picks-problem" class="hint error">{{ problem }}</span>
         }
       }

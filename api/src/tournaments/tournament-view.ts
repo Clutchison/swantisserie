@@ -26,12 +26,12 @@ import {
   type TournamentMatch,
 } from 'engine';
 import { Prisma, type TournamentState } from '../generated/prisma/client.js';
-import { reinstateRefusalOf } from './change-steps.js';
+import { reinstateRefusal } from './change-steps.js';
 import { correctionRefusal } from './correction-refusal.js';
 import {
   clearing,
   confirmRefusal,
-  type MatchPlayer,
+  matchPlayer,
   reportRefusal,
 } from './match-rules.js';
 import { droppable } from './tournament-matches.js';
@@ -170,7 +170,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     droppable: droppable(entry),
     ready: entry.ready,
     seed: entry.seed,
-    reinstateRefusal: reinstateRefusalOf(row, entry.id),
+    reinstateRefusal: reinstateRefusal(row, entry.id),
   }));
   const humans = row.entries.filter((entry) => !entry.player.user.isBot);
   const dropped = droppedPlayers(entries);
@@ -415,16 +415,12 @@ function toMatchView(
 ): MatchView {
   const matchPlayers = [match.firstEntryId, match.secondEntryId!]
     .map(entryOf)
-    .map((entry): MatchPlayer => ({
-      userId: entry.player.userId,
-      bot: entry.player.user.isBot,
-      dropped: entry.dropped,
-    }));
+    .map(matchPlayer);
   const players = matchPlayers.map((player) => player.userId) as [
     string,
     string,
   ];
-  const ofRules = { ...match, players: matchPlayers };
+  const withPlayers = { ...match, players: matchPlayers };
   const outcome = toOutcome(match, players);
   const cleared = toOutcome(clearing(matchPlayers), players);
   return {
@@ -435,11 +431,13 @@ function toMatchView(
     reportedBy: match.reportedById,
     confirmed: match.confirmed,
     reportableBy: players.filter(
-      (player) => reportRefusal(state, ofRules, player) === null,
+      (player) => reportRefusal(state, withPlayers, player) === null,
     ),
     confirmableBy: match.confirmed
       ? []
-      : players.filter((player) => confirmRefusal(ofRules, player) === null),
+      : players.filter(
+          (player) => confirmRefusal(withPlayers, player) === null,
+        ),
     clearLeaves: sameOutcome(cleared, outcome) ? null : cleared,
   };
 }

@@ -123,8 +123,11 @@
 @if (inLobby() && canOrganize() && !poolReady()) {
   <p class="detail">You can start the draft once the pool snapshot is complete.</p>
 }
-@if (inLobby() && canOrganize() && startProblem(); as problem) {
-  <p id="start-problem" class="detail">{{ problem.message }}</p>
+@if (inLobby() && canOrganize()) {
+  @let problem = startProblem();
+  @if (problem !== null) {
+    <p id="start-problem" class="detail">{{ problem.message }}</p>
+  }
 }
 @if (error(); as message) {
   <p class="error" role="alert">{{ message }}</p>

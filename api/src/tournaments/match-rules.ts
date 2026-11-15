@@ -20,14 +20,29 @@ export interface MatchPlayer {
   dropped: boolean;
 }
 
+/**
+ * The match player a tournament entry is, as a match's entries are
+ * selected (ENTRY_OF_MATCH, or the tournament read's entries).
+ */
+export function matchPlayer(entry: {
+  dropped: boolean;
+  player: { userId: string; user: { isBot: boolean } };
+}): MatchPlayer {
+  return {
+    userId: entry.player.userId,
+    bot: entry.player.user.isBot,
+    dropped: entry.dropped,
+  };
+}
+
 /** A match as its rules read it: its outcome and its players, in its order. */
-interface MatchOfRules {
+interface MatchWithPlayers {
   players: readonly MatchPlayer[];
   outcome: MatchOutcomeKind;
 }
 
 /** Whether the draft's user `userId` is one of `match`'s players who isn't a bot. */
-function isHumanPlayer(match: MatchOfRules, userId: string): boolean {
+function isHumanPlayer(match: MatchWithPlayers, userId: string): boolean {
   return match.players.some(
     (player) => player.userId === userId && !player.bot,
   );
@@ -36,11 +51,14 @@ function isHumanPlayer(match: MatchOfRules, userId: string): boolean {
 /**
  * Why the draft's user `userId` may not report `match`, of a tournament in
  * `state`; null when they may: one of its players, while the tournament
- * is playing and the match is unreported.
+ * is playing and the match is unreported. It takes the state, and
+ * confirmRefusal doesn't, because Report is limited to play and Confirm
+ * isn't: a match can be confirmed once the tournament is complete. When
+ * Confirm stops, as for a completed tournament round, is #764 H2's.
  */
 export function reportRefusal(
   state: TournamentState,
-  match: MatchOfRules,
+  match: MatchWithPlayers,
   userId: string,
 ): TournamentRefusal | null {
   if (state !== 'Playing') return NOT_PLAYING;
@@ -64,7 +82,7 @@ export function reportRefusal(
  * may: one of its players, with a game score someone else reported.
  */
 export function confirmRefusal(
-  match: MatchOfRules & { reportedById: string | null },
+  match: MatchWithPlayers & { reportedById: string | null },
   userId: string,
 ): TournamentRefusal | null {
   if (!isHumanPlayer(match, userId)) {
