@@ -16,6 +16,18 @@ export interface NotOnPlatformProblem {
   totalCards: number;
 }
 
+/**
+ * Some of a cube's cards are ones CubeCobra links to no Scryfall card, such
+ * as its custom cards, so they can't be looked up on any platform.
+ */
+export interface UnidentifiedCardsProblem {
+  error: 'unidentified-cards';
+  message: string;
+  /** The names of all such cards, each once. */
+  cards: string[];
+  totalCards: number;
+}
+
 /** Why a pool query can't make a pool; sent to the organizer as is. */
 export type PoolQueryProblem =
   | NotOnPlatformProblem
@@ -30,6 +42,7 @@ export type PoolQueryProblem =
 /** Why a cube link can't make a pool; sent to the organizer as is. */
 export type CubeLinkProblem =
   | NotOnPlatformProblem
+  | UnidentifiedCardsProblem
   | {
       /**
        * The link isn't to a CubeCobra cube, CubeCobra has no public cube

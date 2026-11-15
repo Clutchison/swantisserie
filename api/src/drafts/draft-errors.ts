@@ -24,16 +24,26 @@ export class CubeLinkError extends Error {
 
 /**
  * Says how many of a pool source's cards (`where`, e.g. "in this cube")
- * aren't on the platform, without a closing full stop.
+ * aren't on the platform.
  */
-export function notOnPlatformSentence(
+export function notOnPlatformMessage(
   count: number,
   where: string,
   platform: string,
 ): string {
   return count === 1
-    ? `1 card ${where} is not on ${platform}`
-    : `${count} cards ${where} are not on ${platform}`;
+    ? `1 card ${where} is not on ${platform}.`
+    : `${count} cards ${where} are not on ${platform}.`;
+}
+
+/**
+ * Says how many of a cube's cards CubeCobra links to no Scryfall card. It
+ * doesn't call them custom cards: CubeCobra's answer doesn't say so.
+ */
+export function unidentifiedCardsMessage(count: number): string {
+  return count === 1
+    ? 'CubeCobra doesn’t link 1 card in this cube to a Scryfall card, so it can’t be in a pool.'
+    : `CubeCobra doesn’t link ${count} cards in this cube to a Scryfall card, so they can’t be in a pool.`;
 }
 
 /** Thrown when a draft is given a webhook that doesn't exist, e.g. one just removed. */
@@ -86,7 +96,11 @@ export class DraftStartedError extends Error {
   }
 }
 
-/** Thrown when a change only allowed in Lobby finds the draft was just cancelled. */
+/**
+ * Thrown when a change only allowed in Lobby finds the draft was just
+ * cancelled. Its message is for logs only: DraftErrorsFilter answers the
+ * client with a bare 404.
+ */
 export class DraftGoneError extends Error {
   constructor() {
     super('This draft was cancelled.');
@@ -95,7 +109,8 @@ export class DraftGoneError extends Error {
 
 /**
  * Thrown when a viewer asks for a draft they may not see: for now, one that
- * doesn't exist.
+ * doesn't exist. Its message is for logs only: DraftErrorsFilter answers the
+ * client with a bare 404.
  */
 export class CannotSeeDraftError extends Error {
   constructor() {
@@ -103,7 +118,11 @@ export class CannotSeeDraftError extends Error {
   }
 }
 
-/** Thrown when a viewer asks to do something their draft powers don't allow. */
+/**
+ * Thrown when a viewer asks to do something their draft powers don't allow.
+ * Its message is for logs only: DraftErrorsFilter answers the client with a
+ * bare 403.
+ */
 export class NoDraftPowerError extends Error {
   constructor() {
     super('You can’t do that in this draft.');

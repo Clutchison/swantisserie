@@ -80,6 +80,35 @@ describe('FetchCubeCobraClient', () => {
     });
   });
 
+  it('returns a card with a name but no oracle id as unidentified, named by its custom name if it has one', async () => {
+    respond(200, {
+      name: 'The Pauper Cube',
+      cards: {
+        mainboard: [
+          listed('Lightning Bolt', BOLT),
+          // A custom card as CubeCobra lists it: one placeholder for every custom card.
+          {
+            cardID: 'custom-card',
+            custom_name: 'Goblin Homebrew',
+            details: { oracle_id: 'custom-card', name: 'Custom Card' },
+          },
+          { details: { name: 'Shock' } },
+          { details: { oracle_id: 'x) or (c:r', name: 'Dream Pillager' } },
+        ],
+      },
+    });
+
+    expect(await cubeCobra.cube('thepaupercube')).toEqual({
+      name: 'The Pauper Cube',
+      mainboard: [
+        { oracleId: BOLT, name: 'Lightning Bolt' },
+        { oracleId: null, name: 'Goblin Homebrew' },
+        { oracleId: null, name: 'Shock' },
+        { oracleId: null, name: 'Dream Pillager' },
+      ],
+    });
+  });
+
   it('returns null for a cube CubeCobra doesn’t have', async () => {
     respond(404, { message: 'Cube not found' });
 
@@ -126,19 +155,10 @@ describe('FetchCubeCobraClient', () => {
     ['has no name', { cards: { mainboard: [] } }],
     ['has no mainboard', { name: 'The Pauper Cube', cards: {} }],
     [
-      'has a card with no oracle id',
+      'has a card with no name',
       {
         name: 'The Pauper Cube',
-        cards: { mainboard: [{ details: { name: 'Shock' } }] },
-      },
-    ],
-    [
-      'has a card whose oracle id isn’t one, which Scryfall would refuse',
-      {
-        name: 'The Pauper Cube',
-        cards: {
-          mainboard: [{ details: { oracle_id: 'x) or (c:r', name: 'Shock' } }],
-        },
+        cards: { mainboard: [{ details: { oracle_id: BOLT } }] },
       },
     ],
     [
