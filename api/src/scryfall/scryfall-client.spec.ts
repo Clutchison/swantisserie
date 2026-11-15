@@ -443,6 +443,78 @@ describe('FetchScryfallClient', () => {
         vi.useRealTimers();
       }
     });
+
+    it('takes a null parent or release date as none', async () => {
+      respond(200, {
+        object: 'list',
+        has_more: false,
+        data: [{ ...otj, parent_set_code: null, released_at: null }],
+      });
+
+      expect(await scryfall.sets()).toEqual([
+        expect.objectContaining({
+          parentSetCode: null,
+          releasedAt: '9999-12-31',
+        }),
+      ]);
+    });
+
+    it('fails plainly, after one request, when Scryfall’s set list has no data', async () => {
+      respond(200, { object: 'list', has_more: false });
+
+      const error = await scryfall.sets().catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(ScryfallUnavailableError);
+      expect(error).toMatchObject({ status: 200, cause: expect.anything() });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('when Scryfall answers with something it can’t read', () => {
+    /** A proxy's or CDN's error page in place of Scryfall's JSON. */
+    const errorPage = (status: number) =>
+      fetch.mockResolvedValueOnce(
+        new Response('<html><body>Bad gateway</body></html>', {
+          status,
+          headers: { 'Content-Type': 'text/html' },
+        }),
+      );
+
+    it.each([200, 400])(
+      'fails plainly, after one request, when a %i answer is an HTML page',
+      async (status) => {
+        errorPage(status);
+
+        const error = await scryfall.search('c:r').catch((err: unknown) => err);
+
+        expect(error).toBeInstanceOf(ScryfallUnavailableError);
+        expect(error).toMatchObject({ status, cause: expect.anything() });
+        expect(fetch).toHaveBeenCalledTimes(1);
+      },
+    );
+
+    it.each([
+      ['data', { object: 'list', total_cards: 1, has_more: false }],
+      ['total_cards', { object: 'list', has_more: false, data: [balefire] }],
+      ['has_more', { object: 'list', total_cards: 1, data: [balefire] }],
+    ])('fails plainly when a search page has no %s', async (_missing, body) => {
+      respond(200, body);
+
+      await expect(scryfall.search('c:r')).rejects.toBeInstanceOf(
+        ScryfallUnavailableError,
+      );
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails plainly when a rejection has no explanation', async () => {
+      respond(400, { object: 'error', status: 400 });
+
+      const error = await scryfall.search('c:r').catch((err: unknown) => err);
+
+      expect(error).toBeInstanceOf(ScryfallUnavailableError);
+      expect(error).toMatchObject({ status: 400 });
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('when Scryfall itself is in trouble', () => {
