@@ -464,6 +464,55 @@ describe('live updates', () => {
         returnTo: '/drafts/draft-1',
       });
     });
+
+    describe('after the API closes the socket', () => {
+      /**
+       * Opens the draft, connected and caught up, then the API closes the
+       * socket: the updates say it is disconnected while they connect again.
+       */
+      async function closedByTheApi() {
+        const opened = await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })), {
+          cards: [shivan],
+        });
+        updates.events.next({ type: 'connected' });
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft(drafting({ turn: alicesTurn })),
+        );
+        await flushPicks([]);
+        await opened.fixture.whenStable();
+        updates.events.next({ type: 'disconnected' });
+        await opened.fixture.whenStable();
+        return opened;
+      }
+
+      it('clears the notice and catches up once it reconnects', async () => {
+        const { fixture, page } = await closedByTheApi();
+        expect(notice(page)).toBeDefined();
+
+        updates.events.next({ type: 'connected' });
+        (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+          draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id } })),
+        );
+        await flushPicks([shivanPick]);
+        await fixture.whenStable();
+
+        expect(notice(page)).toBeUndefined();
+        expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
+      });
+
+      it('signs the player out when the reconnect is refused for a session that has ended', async () => {
+        const { fixture } = await closedByTheApi();
+
+        updates.events.next({ type: 'unauthorized' });
+
+        await expectSignedOut(fixture, {
+          router,
+          http,
+          user: alice,
+          returnTo: '/drafts/draft-1',
+        });
+      });
+    });
   });
 
   it('signs the player out when the socket is refused for a session that has ended', async () => {
