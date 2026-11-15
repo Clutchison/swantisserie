@@ -119,7 +119,7 @@ describe('queuesAfterPick', () => {
       ]);
     });
 
-    it('keeps a queue paused queue queue paused, and its steal behavior', () => {
+    it('leaves a queue that is queue paused as it was, keeping its steal behavior', () => {
       expect(
         queuesAfterPick(
           { seat: 0, card: 'bolt-1' },

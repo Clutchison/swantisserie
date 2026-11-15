@@ -57,10 +57,11 @@ export interface QueueAfterPick extends SeatQueue {
  * The picked card leaves the picker's queue, if it holds it; if it instead
  * holds an available copy of it, the first such copy leaves, as
  * `plansAfterPick` makes the picker's planned copy the pick, so the queue
- * doesn't pick a second copy. In each other queue holding it, it is swapped
- * for a copy or lost, as `swapOrLose` says. The copies are those in `pool`
- * that are not `picked`. Either way the rest of the queue stays in order. A loss sets a queue picking queue paused, unless its
- * steal behavior is pick next. Nothing else changes a queue's state.
+ * doesn't pick a second copy. The copies are those in `pool` that are not
+ * `picked`. In each other queue holding it, it is swapped for a copy or
+ * lost, as `swapOrLose` says; swapped or lost, the rest of the queue stays
+ * in order. A loss sets a queue picking queue paused, unless its steal
+ * behavior is pick next. Nothing else changes a queue's state.
  * `picked` is the cards picked already, with or without this one. Cards
  * are pool card ids.
  */

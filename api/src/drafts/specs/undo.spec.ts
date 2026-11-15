@@ -246,7 +246,7 @@ describe('undo', () => {
       await enqueue(id, ids['Lava Spike']).expect(200);
       await undo(id, 1).expect(200);
       await pick(id, first).expect(200);
-      return { id, ids, second };
+      return { id, second };
     }
 
     it('takes the queued copy out of that queue, never putting it on the picker’s Queue notice', async () => {
@@ -259,16 +259,12 @@ describe('undo', () => {
     });
 
     it('puts the queued copy back in the same place in that queue', async () => {
-      const { id, ids, second } = await pickedCopyOfQueued();
+      const { id, second } = await pickedCopyOfQueued();
 
       await undo(id, 1).expect(200);
 
       expect((await queue(id).expect(200)).body).toMatchObject({
-        cards: [
-          { poolCardId: ids.Shock, name: 'Shock' },
-          { poolCardId: second, name: 'Lightning Bolt' },
-          { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
-        ],
+        cards: [shock, { poolCardId: second, name: 'Lightning Bolt' }, spike],
         lost: [],
       });
     });
