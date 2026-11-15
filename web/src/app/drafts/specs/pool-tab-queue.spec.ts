@@ -38,7 +38,16 @@ import {
   type FixtureTurn,
 } from './harness';
 import { viewOn } from './screen-harness';
-import { carol, openDialog, openDialogs, text, visibleText } from '../../specs-harness';
+import {
+  carol,
+  emptyStatusIn,
+  openDialog,
+  openDialogs,
+  statusIn,
+  text,
+  visibleText,
+  watchChanges,
+} from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail, tiles, card } from './pool-tab-harness';
 
 useDraftsApp();
@@ -67,6 +76,21 @@ describe('pool tab', () => {
       expect([...queue.querySelectorAll('li .name')].map((li) => li.textContent?.trim())).toEqual([
         'Shivan Dragon',
       ]);
+    });
+
+    it('says "Added to your queue." into the queue note’s region, there and empty before the press', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+        cards: [shivan],
+      });
+      const detail = await openDetail(fixture, page, 0);
+      const region = emptyStatusIn(detail, 'Queue');
+
+      button(detail, 'Add to queue')!.click();
+      http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
+      await fixture.whenStable();
+
+      expect(statusIn(detail, { name: 'Queue' })).toBe(region);
+      expect(text(region)).toBe('Added to your queue.');
     });
 
     it('offers to remove a queued card from its detail', async () => {
@@ -630,6 +654,7 @@ describe('pool tab', () => {
           cards: [shivan],
         });
         const detail = await openDetail(fixture, page, 0);
+        const region = emptyStatusIn(detail, 'Queue');
 
         button(detail, 'Add to queue')!.click();
         http.expectOne('/api/drafts/draft-1/queue').flush(
@@ -639,6 +664,10 @@ describe('pool tab', () => {
           } satisfies QueueRefusal,
           { status: 409, statusText: 'Conflict' },
         );
+        await vi.waitFor(() =>
+          expect(text(region)).toBe('You can’t add to your queue on your turn.'),
+        );
+        const changes = watchChanges(region);
         // The queue is re-read, and again once the draft turns out to have changed.
         await flushQueue(EMPTY_QUEUE);
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
@@ -648,10 +677,10 @@ describe('pool tab', () => {
         await flushQueueAndPlan();
         await fixture.whenStable();
 
-        // The note outlives the turn change the re-read reveals.
-        expect(statusTexts(detail).join(' ')).toContain(
-          'You can’t add to your queue on your turn.',
-        );
+        // The note outlives the turn change the re-read reveals, and isn't said again.
+        expect(statusIn(detail, { name: 'Queue' })).toBe(region);
+        expect(text(region)).toBe('You can’t add to your queue on your turn.');
+        expect(changes()).toEqual([]);
         expect(button(detail, 'Add to queue')).toBeUndefined();
         expect(button(detail, 'Pick')!.disabled).toBe(false);
       });

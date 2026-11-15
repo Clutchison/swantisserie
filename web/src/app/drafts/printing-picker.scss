@@ -10,6 +10,14 @@ p {
   margin: 0;
 }
 
+/*
+ * Its live region stays on the page. While empty it is taken out of the flow, so it takes no room
+ * and no gap, whatever the gap; it stays in the accessibility tree, as a hidden one wouldn't.
+ */
+.loading:empty {
+  position: absolute;
+}
+
 figure {
   display: flex;
   flex-direction: column;
