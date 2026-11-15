@@ -32,7 +32,7 @@ type TournamentWithDecklists = TrophyHallTournament & {
   decklists: Map<string, PlanBoards>;
 };
 
-/** The Trophy Hall, of the tournaments of the drafts its viewer sees, as draft access decides. */
+/** The Trophy Hall, of the tournaments of the drafts its viewer sees. */
 @Injectable()
 export class TrophyHallService {
   private readonly logger = new Logger(TrophyHallService.name);
@@ -45,11 +45,11 @@ export class TrophyHallService {
 
   /**
    * The Trophy Hall of the complete tournaments that count of the drafts
-   * `viewer` sees, worked out on
-   * each read from their standings. A tournament with no trophy holder
-   * doesn't appear, nor does one with a trophy holder whose decklist wasn't
-   * kept at Start (ADR 0017), as the engine's `onTrophyHall` decides. A
-   * kept decklist that can't be decoded counts as not kept.
+   * `viewer` sees, worked out on each read from their standings. A
+   * tournament with no trophy holder doesn't appear, nor does one with a
+   * trophy holder whose decklist wasn't kept at Start (ADR 0017), as the
+   * engine's `onTrophyHall` decides. A kept decklist that can't be decoded
+   * counts as not kept.
    */
   async read(viewer: DraftViewer): Promise<TrophyHallView> {
     const complete = await readTournamentsThatCount(

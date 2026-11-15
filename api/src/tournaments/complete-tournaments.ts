@@ -1,10 +1,10 @@
 import type { TournamentView } from 'contract';
+import type { DraftsSeen } from '../drafts/draft-access.js';
 import {
   POOL_SOURCE,
   toPoolSourceWithCubeId,
   type PoolSourceWithCubeId,
 } from '../drafts/pool-source.js';
-import type { Prisma } from '../generated/prisma/client.js';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
@@ -22,16 +22,16 @@ export interface CompleteTournament {
 }
 
 /**
- * The complete tournament of every draft `seen` lets through, as
- * DraftAccess.seenBy gives it, in the order they started, as the tournament
- * read sees it, with its draft's name and pool source. Its trophy holders
+ * The complete tournament of every draft in `seen`, in the order they
+ * started, as the tournament read sees it, with its draft's name and pool
+ * source. Its trophy holders
  * are computed on each read from its standings, the one place the trophy is
  * decided, so the Play tab, the Trophy Hall, My stats, the draft list and the ended
  * announcement can't disagree.
  */
 export async function readCompleteTournaments(
   prisma: PrismaService,
-  seen: Prisma.DraftWhereInput,
+  seen: DraftsSeen,
 ): Promise<CompleteTournament[]> {
   const rows = await prisma.tournament.findMany({
     where: { state: 'Complete', draft: seen },
@@ -54,14 +54,14 @@ export async function readCompleteTournaments(
 }
 
 /**
- * The complete tournaments of the drafts `seen` lets through that the
- * Trophy Hall and My stats count, newest first: every one but those a bot played in, which count nowhere, as bots
- * exist for testing (ADR 0008). Cancelled tournaments are gone, so are
- * never read.
+ * The complete tournaments of the drafts in `seen` that the Trophy Hall and
+ * My stats count, newest first: every one but those a bot played in, which
+ * count nowhere, as bots exist for testing (ADR 0008). Cancelled
+ * tournaments are gone, so are never read.
  */
 export async function readTournamentsThatCount(
   prisma: PrismaService,
-  seen: Prisma.DraftWhereInput,
+  seen: DraftsSeen,
 ): Promise<CompleteTournament[]> {
   const complete = await readCompleteTournaments(prisma, seen);
   return newestFirst(complete.filter(({ botsPlayed }) => !botsPlayed));

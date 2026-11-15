@@ -13,14 +13,16 @@ const ACCESS_FIELDS = { id: true, organizerId: true } as const;
 
 type DraftForAccess = { id: string; organizerId: string | null };
 
+/** The drafts a viewer sees, as DraftAccess.seenBy gives them: a filter for reads of many drafts. */
+export type DraftsSeen = Prisma.DraftWhereInput;
+
 /**
  * Answers every question about who may see or change a draft, so a rule
  * changes here only. Every route of an existing draft, its queues, plans and
- * tournament, and the socket gateway ask it of one draft; the draft list,
- * the Trophy Hall and My stats read many drafts through `seenBy`, the same
- * rule for which drafts a viewer sees. Each check throws CannotSeeDraftError
- * for a draft the viewer may not see, before NoDraftPowerError for a power
- * they lack.
+ * tournament, and the socket gateway ask it of one draft; every read of many
+ * drafts goes through `seenBy`, the same rule for which drafts a viewer
+ * sees. Each check throws CannotSeeDraftError for a draft the viewer may not
+ * see, before NoDraftPowerError for a power they lack.
  */
 @Injectable()
 export class DraftAccess {
@@ -29,10 +31,10 @@ export class DraftAccess {
   /**
    * The drafts the viewer sees, as a filter for reads of many drafts: the
    * one rule for which drafts a viewer sees, which `canSee` and every other
-   * check of one draft apply too. For now every draft passes it; a draft's
+   * check of one draft apply to. For now every draft passes it; a draft's
    * guild decides once drafts belong to guilds (#208).
    */
-  seenBy(_viewer: DraftViewer): Prisma.DraftWhereInput {
+  seenBy(_viewer: DraftViewer): DraftsSeen {
     return {};
   }
 
