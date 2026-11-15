@@ -177,15 +177,18 @@ export class FocusKey {
 /**
  * A control that sends a change, marked `aria-disabled` while one is in
  * flight; it stays focusable, so focus isn't lost. Its value is its focus
- * key, as `appFocusKey`'s.
+ * key, as `appFocusKey`'s. `appSendsChangeBusy` marks it so as well while
+ * a change it waits for is in flight elsewhere, such as another
+ * component's of the same kind; its press handler then ignores presses.
  */
 @Directive({
   selector: '[appSendsChange]',
   hostDirectives: [{ directive: FocusKey, inputs: ['appFocusKey: appSendsChange'] }],
-  host: { '[attr.aria-disabled]': 'changes.changing() || null' },
+  host: { '[attr.aria-disabled]': 'changes.changing() || busy() || null' },
 })
 export class SendsChange {
   protected readonly changes = inject(Changes);
+  readonly busy = input(false, { alias: 'appSendsChangeBusy' });
 }
 
 /** Says what the component's latest change made did, for screen readers only. */
