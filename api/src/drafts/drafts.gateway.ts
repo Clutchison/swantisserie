@@ -158,7 +158,7 @@ export class DraftsGateway implements OnGatewayInit, OnGatewayConnection {
    * each of `alsoTellUserIds`, how it now is: once each, even a player also
    * watching it.
    */
-  changed(draft: DraftView, alsoTellUserIds: string[] = []): void {
+  changed(draft: DraftView, alsoTellUserIds: string[]): void {
     const players = draft.players.filter((player) => !player.isBot);
     const userIds = [...players.map((player) => player.id), ...alsoTellUserIds];
     this.server

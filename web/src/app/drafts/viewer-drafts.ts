@@ -40,8 +40,6 @@ export class ViewerDrafts {
   private readonly user = this.auth.user;
   /** How many times a draft has been kept as pushed, or as created. */
   private kept = 0;
-  /** When each draft in `pushed` was last kept, as the count of `kept` then. */
-  private readonly keptAt = new Map<string, number>();
   /** The count of `kept` as the read on its way, or last made, began. */
   private readBegan = 0;
   /** The drafts as read, with the count of `kept` as that read began, taken as it lands. */
@@ -58,11 +56,12 @@ export class ViewerDrafts {
     computation: ({ read, failed }, previous) => read ?? (failed ? previous?.value : undefined),
   });
   /**
-   * The newest push of each draft the viewer plays in, by id: the draft as
-   * pushed, or null once cancelled. Kept through every read, so a push that
-   * lands while a read is on its way isn't lost to it.
+   * The newest version of each draft pushed or created, by id: the draft as
+   * pushed or created, or null once cancelled, with the count of `kept` when
+   * it was kept. Kept through every read, so a push that lands while a read
+   * is on its way isn't lost to it.
    */
-  private readonly pushed = signal(new Map<string, DraftView | null>());
+  private readonly pushed = signal(new Map<string, Kept>());
   /** Whether the drafts are to be read again once the read on its way lands. */
   private readonly readAgain = signal(false);
   /**
@@ -79,11 +78,7 @@ export class ViewerDrafts {
    */
   readonly drafts = computed(() => {
     const read = this.lastRead();
-    if (!read) return undefined;
-    const keptSince = new Set(
-      [...this.keptAt].filter(([, at]) => at >= read.began).map(([id]) => id),
-    );
-    return withPushes(read.drafts, this.pushed(), keptSince);
+    return read && withPushes(read, this.pushed());
   });
   /** Whether the drafts are being read with none to show meanwhile. */
   readonly loading = computed(() => this.read.isLoading() && !this.drafts());
@@ -102,7 +97,6 @@ export class ViewerDrafts {
     effect((onCleanup) => {
       // Another viewer's pushes aren't this one's.
       this.pushed.set(new Map());
-      this.keptAt.clear();
       this.readBegan = this.kept;
       this.readAgainFor.clear();
       const user = this.user();
@@ -140,25 +134,18 @@ export class ViewerDrafts {
       }
     });
     effect(() => {
-      if (this.readAgain() && this.readNow()) this.readAgain.set(false);
+      if (this.readAgain() && this.readAgainUnlessReading()) this.readAgain.set(false);
     });
   }
 
   /**
-   * Reads the drafts again, unless a read is on its way: the draft list does
-   * each time it opens, as drafts the viewer doesn't play in aren't pushed.
-   * The drafts already known are shown meanwhile, and kept if it fails.
-   */
-  refresh() {
-    untracked(() => this.readNow());
-  }
-
-  /**
    * Reads the drafts again, unless a read is on its way, its first or a read
-   * again: returns whether it did. Waiting, rather than reloading over the
-   * read on its way, keeps that read from being dropped half way.
+   * again: returns whether it did. The draft list does each time it opens, as
+   * drafts the viewer doesn't play in aren't pushed. The drafts already known
+   * are shown meanwhile, and kept if it fails. Waiting, rather than reloading
+   * over the read on its way, keeps that read from being dropped half way.
    */
-  private readNow(): boolean {
+  readAgainUnlessReading(): boolean {
     if (this.read.isLoading()) return false;
     this.readBegan = this.kept;
     untracked(() => this.read.reload());
@@ -174,44 +161,48 @@ export class ViewerDrafts {
     this.keepNewest(draft.id, draft);
   }
 
-  /** Notes draft `draftId` as pushed (null once cancelled), unless an older version than one pushed before. */
+  /**
+   * Notes draft `draftId` as pushed or created (null once cancelled), unless
+   * an older version than one pushed or created before.
+   */
   private keepNewest(draftId: string, draft: DraftView | null) {
     this.pushed.update((pushed) => {
-      const before = pushed.get(draftId);
+      const before = pushed.get(draftId)?.draft;
       if (before === null || (before && draft && draft.version < before.version)) return pushed;
-      this.keptAt.set(draftId, this.kept++);
-      return new Map(pushed).set(draftId, draft);
+      return new Map(pushed).set(draftId, { draft, at: this.kept++ });
     });
   }
 }
 
-/** The drafts as read, with the count of drafts kept as pushed when that read began. */
+/** The drafts as read, with the count of drafts kept as pushed or created when that read began. */
 interface Read {
   drafts: DraftListItemView[];
   began: number;
 }
 
+/** A draft as last pushed or created (null once cancelled), with the count of `kept` when it was kept. */
+interface Kept {
+  draft: DraftView | null;
+  at: number;
+}
+
 /**
  * The drafts `read`, each replaced by its push in `pushed` when that is no
  * older, its tournament badge as `badgeOf` makes it; the cancelled dropped,
- * and the drafts pushed but not read added, if in `keptSince`, those kept
- * since the read began. A read begun after a draft was kept that doesn't
- * list it says the draft is gone, as when its cancel was never pushed here.
+ * and the drafts pushed or created but not read added, if kept since the
+ * read began. A read begun after a draft was kept that doesn't list it says
+ * the draft is gone, as when its cancel was never pushed here.
  */
-function withPushes(
-  read: DraftListItemView[],
-  pushed: Map<string, DraftView | null>,
-  keptSince: Set<string>,
-): DraftListItemView[] {
-  const listed = read.flatMap((draft): DraftListItemView[] => {
+function withPushes(read: Read, pushed: Map<string, Kept>): DraftListItemView[] {
+  const listed = read.drafts.flatMap((draft): DraftListItemView[] => {
     const push = pushOver(draft, pushed);
     if (push === undefined) return [draft];
     if (push === null) return [];
     return [{ ...push, tournamentBadge: badgeOf(push, draft.tournamentBadge) }];
   });
-  const readIds = new Set(read.map((draft) => draft.id));
-  const added = [...pushed.values()].filter(
-    (push): push is DraftView => !!push && !readIds.has(push.id) && keptSince.has(push.id),
+  const readIds = new Set(read.drafts.map((draft) => draft.id));
+  const added = [...pushed.values()].flatMap(({ draft, at }) =>
+    draft && !readIds.has(draft.id) && at >= read.began ? [draft] : [],
   );
   return [...listed, ...added.map((push) => ({ ...push, tournamentBadge: badgeOf(push, null) }))];
 }
@@ -222,9 +213,9 @@ function withPushes(
  */
 function pushOver(
   read: DraftListItemView,
-  pushed: Map<string, DraftView | null>,
+  pushed: Map<string, Kept>,
 ): DraftView | null | undefined {
-  const push = pushed.get(read.id);
+  const push = pushed.get(read.id)?.draft;
   return push && push.version < read.version ? undefined : push;
 }
 

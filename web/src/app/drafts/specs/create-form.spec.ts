@@ -1,5 +1,4 @@
 import { HttpTestingController } from '@angular/common/http/testing';
-import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
   MAX_PICKS_PER_PLAYER,
@@ -23,7 +22,7 @@ import {
   serverError,
   webhooksAnswer,
 } from './harness';
-import { landOnDraftList, listedDrafts, listItem, listItemOf } from './draft-list-harness';
+import { landOnDraftList, listedDrafts, listItem, listItemOf, settle } from './draft-list-harness';
 
 useDraftsApp();
 beforeEach(() => webhooksAnswer(null));
@@ -319,7 +318,7 @@ describe('create form', () => {
       const { page } = await createAndGoBack();
 
       http.expectOne('/api/drafts').flush(null, serverError);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
     });
@@ -335,7 +334,7 @@ describe('create form', () => {
           ...drafting({ turn: { pick: 1, round: 1, playerId: alice.id } }),
         }),
       ]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
       expect(listedDrafts(page, 'Active drafts')).toEqual([]);
@@ -345,7 +344,7 @@ describe('create form', () => {
       const { page } = await createAndGoBack();
 
       http.expectOne('/api/drafts').flush([]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(page.textContent).not.toContain('Red dragons');
     });

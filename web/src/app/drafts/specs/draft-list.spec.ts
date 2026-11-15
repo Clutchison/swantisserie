@@ -1,4 +1,3 @@
-import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import type { DraftListItemView, TournamentBadgeView, TournamentState } from 'contract';
 import { App } from '../../app';
@@ -22,6 +21,7 @@ import {
 } from './harness';
 import {
   alicesTurnItem,
+  answerListReadAgain,
   draftLink,
   findSection,
   listedDrafts,
@@ -29,6 +29,7 @@ import {
   listItemOf,
   openList,
   section,
+  settle,
 } from './draft-list-harness';
 import { pushToOwnRoom } from './updates-harness';
 
@@ -463,12 +464,6 @@ describe('draft list', () => {
       const playing: TournamentBadgeView = { state: 'Playing', canJoin: false, trophyHolders: [] };
       const join = 'Join the tournament of Last month';
 
-      /** Answers the list's read again with Last month, its tournament badge `badge` and `fields` changed. */
-      async function readAgain(badge: TournamentBadgeView | null, fields: DraftFixture = {}) {
-        (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush([readDraft(badge, fields)]);
-        await TestBed.inject(ApplicationRef).whenStable();
-      }
-
       it('moves a draft into Active drafts on its tournament’s setup, reading again for Join', async () => {
         const page = await openList([readDraft(null)]);
 
@@ -477,7 +472,7 @@ describe('draft list', () => {
         expect(listedDrafts(page, 'Complete drafts')).toEqual([]);
         expect(listedDrafts(page, 'Active drafts')).toEqual(['Last month']);
         expect(listItem(page, 'Last month').textContent).toContain('Tournament: Registration');
-        await readAgain(joinable);
+        await answerListReadAgain([readDraft(joinable)]);
         expect(link(listItem(page, 'Last month'), join)?.getAttribute('href')).toBe(
           '/drafts/m?tab=play',
         );
@@ -491,7 +486,7 @@ describe('draft list', () => {
         const item = listItem(page, 'Last month');
         expect(item.textContent).toContain('Tournament: Playing');
         expect(link(item, join)).toBeUndefined();
-        await readAgain(playing);
+        await answerListReadAgain([readDraft(playing)]);
       });
 
       it('moves a draft into Complete drafts as its tournament completes, reading again for the trophy', async () => {
@@ -502,7 +497,9 @@ describe('draft list', () => {
         expect(listedDrafts(page, 'Active drafts')).toEqual([]);
         expect(listedDrafts(page, 'Complete drafts')).toEqual(['Last month']);
         expect(listItem(page, 'Last month').textContent).toContain('Tournament complete');
-        await readAgain({ state: 'Complete', canJoin: false, trophyHolders: [bob.id] });
+        await answerListReadAgain([
+          readDraft({ state: 'Complete', canJoin: false, trophyHolders: [bob.id] }),
+        ]);
         expect(listItem(page, 'Last month').textContent).toContain('Trophy: Bob');
       });
 
@@ -513,7 +510,7 @@ describe('draft list', () => {
 
         expect(listedDrafts(page, 'Complete drafts')).toEqual(['Last month']);
         expect(listItem(page, 'Last month').textContent).not.toContain('Tournament');
-        await readAgain(null);
+        await answerListReadAgain([readDraft(null)]);
       });
 
       it('keeps the Join and trophy holders read while the tournament’s state stays, without reading again', async () => {
@@ -569,7 +566,7 @@ describe('draft list', () => {
           draft: pushedDraft('Registration', { version: 1 }),
         });
         firstRead.flush([readDraft(null)]);
-        await readAgain(joinable, { version: 1 });
+        await answerListReadAgain([readDraft(joinable, { version: 1 })]);
 
         expect(listItem(page, 'Last month').textContent).toContain('Tournament: Registration');
         expect(link(listItem(page, 'Last month'), join)).toBeDefined();
@@ -582,7 +579,7 @@ describe('draft list', () => {
           type: 'changed',
           draft: pushedDraft('Registration', { version: 1 }),
         });
-        await readAgain(null);
+        await answerListReadAgain([readDraft(null)]);
 
         expect(listItem(page, 'Last month').textContent).toContain('Tournament: Registration');
         http.expectNone('/api/drafts');
@@ -604,7 +601,7 @@ describe('draft list', () => {
 
       connect();
       http.expectOne('/api/drafts').flush([]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(page.textContent).not.toContain('Arena cube');
     });
@@ -644,7 +641,7 @@ describe('draft list', () => {
       connect();
       pushToOwnRoom(updates, { type: 'changed', draft: arenaCube(alicesTurn, { version: 3 }) });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 2 }))]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
     });
@@ -658,7 +655,7 @@ describe('draft list', () => {
 
       connect();
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn, { version: 4 }))]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
       expect(findSection(page, 'Your turn')).toBeNull();
     });
 
@@ -667,7 +664,7 @@ describe('draft list', () => {
 
       pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
     });
@@ -691,12 +688,12 @@ describe('draft list', () => {
       const page = await openList([arenaCube(bobsTurn)]);
       pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(bobsTurn))]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       pushToOwnRoom(updates, { type: 'disconnected' });
       pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush([listItemOf(arenaCube(alicesTurn))]);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Arena cube']);
     });
@@ -723,12 +720,16 @@ describe('draft list', () => {
     });
 
     describe('opening on another page', () => {
-      /** Opens the app on the Trophy Hall, the drafts read as Red dragons on Alice's turn, then goes to the list. */
-      async function openListAfterTrophyHall() {
+      /**
+       * Opens the app on the Trophy Hall, the drafts read as Red dragons on
+       * Alice's turn, does `meanwhile` there, then goes to the list.
+       */
+      async function openListAfterTrophyHall(meanwhile = () => {}) {
         const { fixture, page } = await openUrl('/trophy-hall', alice, {
           viewerDrafts: [alicesTurnItem('a', 'Red dragons')],
         });
         answerTrophyHall();
+        meanwhile();
         await router.navigateByUrl('/');
         TestBed.tick();
         return { fixture, page };
@@ -746,7 +747,7 @@ describe('draft list', () => {
           alicesTurnItem('a', 'Red dragons'),
           listItemOf({ id: 'n', name: 'Fresh lobby', state: 'Lobby' }),
         ]);
-        await TestBed.inject(ApplicationRef).whenStable();
+        await settle();
         expect(listedDrafts(page, 'Active drafts')).toEqual(['Fresh lobby']);
       });
 
@@ -766,7 +767,7 @@ describe('draft list', () => {
         reread.flush([
           listItemOf({ id: 'a', name: 'Red dragons', version: 2, ...drafting(yourTurn) }),
         ]);
-        await TestBed.inject(ApplicationRef).whenStable();
+        await settle();
 
         expect(findSection(page, 'Your turn')).toBeNull();
         expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
@@ -776,24 +777,17 @@ describe('draft list', () => {
         const { page } = await openListAfterTrophyHall();
 
         http.expectOne('/api/drafts').flush(null, serverError);
-        await TestBed.inject(ApplicationRef).whenStable();
+        await settle();
 
         expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
         expect(page.textContent).not.toContain("Couldn't load the drafts.");
       });
 
       it('aren’t read a second time while a read is on its way', async () => {
-        const { fixture, page } = await openUrl('/trophy-hall', alice, {
-          viewerDrafts: [alicesTurnItem('a', 'Red dragons')],
-        });
-        answerTrophyHall();
-        connect();
-        const reread = http.expectOne('/api/drafts');
+        const { fixture, page } = await openListAfterTrophyHall(connect);
 
-        await router.navigateByUrl('/');
-        TestBed.tick();
-        http.expectNone('/api/drafts');
-        reread.flush([alicesTurnItem('a', 'Red dragons')]);
+        // One read only: the connect's, which the list waits for.
+        http.expectOne('/api/drafts').flush([alicesTurnItem('a', 'Red dragons')]);
         await fixture.whenStable();
 
         http.expectNone('/api/drafts');
@@ -806,7 +800,7 @@ describe('draft list', () => {
 
       connect();
       http.expectOne('/api/drafts').flush(null, serverError);
-      await TestBed.inject(ApplicationRef).whenStable();
+      await settle();
 
       expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
       expect(page.textContent).not.toContain("Couldn't load the drafts.");
