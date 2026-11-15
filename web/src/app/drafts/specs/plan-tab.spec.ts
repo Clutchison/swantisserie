@@ -26,6 +26,7 @@ import {
   drafting,
   statusMessage,
   alertIn,
+  items,
 } from './harness';
 import {
   disclosure,
@@ -126,11 +127,18 @@ describe('plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    const [mainboard, sideboard] = plan.querySelectorAll('section');
-    expect(mainboard.querySelector('.empty')?.textContent?.trim()).toBe('No picks yet.');
-    expect(sideboard.querySelector('.empty')?.textContent?.trim()).toBe(
-      'Nothing on your sideboard.',
-    );
+    expect(items(plan, 'Mainboard')).toEqual(['No picks yet.']);
+    expect(items(plan, 'Sideboard')).toEqual(['Nothing on your sideboard.']);
+  });
+
+  it('says the mainboard is empty, not that there are no picks, once every pick is on the sideboard', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({ mainboard: [], sideboard: [planned(bolt)] }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    expect(items(plan, 'Mainboard')).toEqual(['Nothing on your mainboard.']);
   });
 
   it('moves one copy of a card to the other plan board, showing the plan the API answers with', async () => {
@@ -646,6 +654,10 @@ describe('plan tab', () => {
 });
 
 describe('the Deck tab’s name', () => {
+  /** What "How this works" says of who sees the deck and its decklist. */
+  const PRIVACY =
+    'Only you can see your deck. If it locks for a tournament, everyone who sees the draft can see its decklist, the deck as it was locked, once the tournament is complete, or from its start under public decklists.';
+
   it.each([
     ['drafting', drafting({ turn: { pick: 3, round: 2, playerId: bob.id } })],
     ['frozen', drafting({ state: 'Frozen', turn: { pick: 3, round: 2, playerId: bob.id } })],
@@ -659,7 +671,7 @@ describe('the Deck tab’s name', () => {
     expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     const deck = await openPlan(fixture, page);
     expect(heading(deck, 'Deck')).toBeDefined();
-    expect(deck.textContent).toContain('Only you can see your deck.');
+    expect(text(deck)).toContain(PRIVACY);
     expect(text(deck)).not.toMatch(/\bplan\b/i);
   });
 
@@ -672,7 +684,7 @@ describe('the Deck tab’s name', () => {
     expect(tabLabels(page)).toEqual(['Pool', 'Deck', 'Board']);
     const deck = await openPlan(fixture, page);
     expect(heading(deck, 'Deck')).toBeDefined();
-    expect(deck.textContent).toContain('Only you can see your deck.');
+    expect(text(deck)).toContain(PRIVACY);
     expect(text(deck)).not.toMatch(/\bplan\b/i);
     expect(planBoards(deck)[0].heading).toBe('Mainboard 6 (6 picked)');
   });
@@ -695,6 +707,7 @@ describe('the Deck tab’s name', () => {
     const REMINDER =
       'Your deck locks when the tournament starts, until it is complete or cancelled.';
     const SHORT = 'A tournament deck needs at least 40';
+    const LOCKED = 'Your deck is locked until the tournament is complete or cancelled.';
 
     /** Opens the Deck tab of the complete draft with `tournament` set up, Alice's deck `plan`. */
     async function openPlanIn(tournament: ViewerTournamentView, plan = deck) {
@@ -713,8 +726,17 @@ describe('the Deck tab’s name', () => {
       expect(text(tab)).toContain(
         'Your mainboard holds 6 cards. A tournament deck needs at least 40: fill your deck before marking yourself ready, or leave the tournament if you won’t play.',
       );
-      expect(text(tab)).not.toContain('locked');
+      expect(text(tab)).not.toContain(LOCKED);
       expect(deckEdits(tab).length).toBeGreaterThan(0);
+    });
+
+    it('names, to a joined player during registration under public decklists, the decklist shown from the tournament’s start', async () => {
+      const { tab } = await openPlanIn({
+        ...registration(bob.id, alice.id),
+        publicDecklists: true,
+      });
+
+      expect(text(tab)).toContain(PRIVACY);
     });
 
     it('leaves out the warning once the mainboard holds 40 cards', async () => {
@@ -749,9 +771,7 @@ describe('the Deck tab’s name', () => {
       async (_, tournament) => {
         const { tab } = await openPlanIn(tournament);
 
-        expect(text(tab)).toContain(
-          'Your deck is locked until the tournament is complete or cancelled.',
-        );
+        expect(text(tab)).toContain(LOCKED);
         expect(text(tab)).not.toContain(REMINDER);
         expect(text(tab)).not.toContain(SHORT);
         expect(deckEdits(tab)).toEqual([]);
@@ -775,7 +795,7 @@ describe('the Deck tab’s name', () => {
     it('shows no reminder, and offers edits, to a player who has left', async () => {
       const { tab } = await openPlanIn(registration(bob.id));
 
-      expect(tab.textContent).not.toContain('locked');
+      expect(text(tab)).not.toContain(LOCKED);
       expect(text(tab)).not.toContain(REMINDER);
       expect(deckEdits(tab).length).toBeGreaterThan(0);
     });
@@ -789,7 +809,7 @@ describe('the Deck tab’s name', () => {
       await pushTournament(fixture, tournament, 1, { asPlayer: true, plan: deck, fields: {} });
 
       const tab = planPanel(page);
-      expect(text(tab)).not.toContain('locked');
+      expect(text(tab)).not.toContain(LOCKED);
       expect(deckEdits(tab).length).toBeGreaterThan(0);
       expect(planBoards(tab)[0].heading).toBe('Mainboard 6 (6 picked)');
     });
