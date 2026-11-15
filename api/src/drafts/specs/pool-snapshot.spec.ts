@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import { Logger } from '@nestjs/common';
+import type { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import {
   ScryfallRejectedSearchError,
@@ -28,6 +29,7 @@ import {
   pool,
   post,
   refuseNextSnapshotReset,
+  DROPPED_CONNECTION,
   creationMatchQuery,
 } from './harness.js';
 
@@ -35,15 +37,21 @@ useDraftsApp();
 
 describe('pool snapshot', () => {
   /**
-   * A pool query draft whose snapshot a previous process left Running.
-   * Written directly: no route leaves a snapshot running across a restart.
+   * A draft of the pool source whose snapshot a previous process left
+   * Running. Written directly: no route leaves a snapshot running across a
+   * restart, nor a cube link's running at all.
    */
-  const leftRunning = (name: string, poolQuery: string) =>
+  const draftLeftRunning = (
+    name: string,
+    poolSource: Pick<
+      Prisma.DraftUncheckedCreateInput,
+      'poolSourceKind' | 'poolQuery' | 'cubeId' | 'cubeName'
+    >,
+  ) =>
     app.get(PrismaService).draft.create({
       data: {
         name,
-        poolSourceKind: 'PoolQuery',
-        poolQuery,
+        ...poolSource,
         picksPerPlayer: 40,
         organizerId: alice.id,
         snapshotState: 'Running',
@@ -517,7 +525,7 @@ describe('pool snapshot', () => {
     expect(errors).toHaveBeenCalledWith(
       expect.stringContaining(created.body.id),
       expect.objectContaining({
-        message: 'Connection terminated unexpectedly',
+        message: DROPPED_CONNECTION,
       }),
     );
 
@@ -540,7 +548,7 @@ describe('pool snapshot', () => {
     const drafts = app.get(PrismaService).draft;
     // The snapshot's only write to a draft outside a transaction is its failure.
     vi.spyOn(drafts, 'updateMany').mockRejectedValueOnce(
-      new Error('Connection terminated unexpectedly'),
+      new Error(DROPPED_CONNECTION),
     );
     const created = await createDraft({
       name: 'Red dragons',
@@ -550,9 +558,9 @@ describe('pool snapshot', () => {
 
     await vi.waitFor(() =>
       expect(errors).toHaveBeenCalledWith(
-        `Could not record the failed pool snapshot for draft ${id}; it stays Running until the next boot resumes it`,
+        `Could not record the pool snapshot for draft ${id} as Failed; it stays Running until the next boot resumes it`,
         expect.objectContaining({
-          message: 'Connection terminated unexpectedly',
+          message: DROPPED_CONNECTION,
         }),
       ),
     );
@@ -692,7 +700,10 @@ describe('pool snapshot', () => {
   it('resumes a snapshot a previous process left running', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({ [query]: page('Shock', 'Lightning Bolt') });
-    const { id } = await leftRunning('Red', 'c:r');
+    const { id } = await draftLeftRunning('Red', {
+      poolSourceKind: 'PoolQuery',
+      poolQuery: 'c:r',
+    });
     await app.close();
 
     await startApp();
@@ -717,14 +728,20 @@ describe('pool snapshot', () => {
       [snapshotQuery('c:g')]: page('Giant Growth'),
     });
     const drafts = [
-      await leftRunning('Red', 'c:r'),
-      await leftRunning('Green', 'c:g'),
+      await draftLeftRunning('Red', {
+        poolSourceKind: 'PoolQuery',
+        poolQuery: 'c:r',
+      }),
+      await draftLeftRunning('Green', {
+        poolSourceKind: 'PoolQuery',
+        poolQuery: 'c:g',
+      }),
     ];
     await app.close();
     // The first transaction after the restart is the first resumed reset;
     // nothing else at boot writes.
     vi.spyOn(PrismaService.prototype, '$transaction').mockRejectedValueOnce(
-      new Error('Connection terminated unexpectedly'),
+      new Error(DROPPED_CONNECTION),
     );
 
     await startApp();
@@ -758,25 +775,19 @@ describe('pool snapshot', () => {
     expect(errors).toHaveBeenCalledWith(
       expect.stringContaining(refused!.id),
       expect.objectContaining({
-        message: 'Connection terminated unexpectedly',
+        message: DROPPED_CONNECTION,
       }),
     );
     expect(unhandled).toEqual([]);
   });
 
   it('fails a cube draft’s snapshot that a previous process left running, as a cube’s pool is taken only at creation', async () => {
-    // Written directly: a cube link's snapshot is complete from creation, so
-    // only a draft left running by an older version reaches the snapshot.
-    const { id } = await app.get(PrismaService).draft.create({
-      data: {
-        name: 'Vintage cube',
-        poolSourceKind: 'Cube',
-        cubeId: 'vintage',
-        cubeName: 'Vintage Cube',
-        picksPerPlayer: 40,
-        organizerId: alice.id,
-        snapshotState: 'Running',
-      },
+    // A cube link's snapshot is complete from creation, so only a draft left
+    // running by an older version reaches the snapshot.
+    const { id } = await draftLeftRunning('Vintage cube', {
+      poolSourceKind: 'Cube',
+      cubeId: 'vintage',
+      cubeName: 'Vintage Cube',
     });
     await app.close();
 

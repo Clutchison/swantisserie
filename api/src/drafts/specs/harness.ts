@@ -106,6 +106,9 @@ export function failNextPublish(err = new Error('Connection dropped')) {
     .mockRejectedValueOnce(err);
 }
 
+/** The message of the database's error when its connection drops: how the specs' database refuses a write. */
+export const DROPPED_CONNECTION = 'Connection terminated unexpectedly';
+
 /**
  * The database refuses the pool snapshot reset of the next draft created.
  * Picks it by count: it assumes creation's only transactions are the one that
@@ -120,7 +123,7 @@ export function refuseNextSnapshotReset() {
     .mockImplementationOnce((...args) =>
       save(...(args as Parameters<typeof save>)),
     )
-    .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
+    .mockRejectedValueOnce(new Error(DROPPED_CONNECTION));
   return vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
 }
 

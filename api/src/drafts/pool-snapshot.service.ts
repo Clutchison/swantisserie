@@ -19,11 +19,7 @@ import {
 } from '../scryfall/scryfall-client.js';
 import { withoutBasicLands } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
-import {
-  MissingCardFieldError,
-  NoOracleIdError,
-  toPoolCard,
-} from './pool-card.js';
+import { MissingCardFieldError, toPoolCard } from './pool-card.js';
 import { storedSetList } from './pool-source.js';
 import { setListPrintings } from './set-list-pool.js';
 import { SetCatalog } from '../sets/set-catalog.js';
@@ -56,6 +52,11 @@ class PoolSnapshotError extends Error {}
  * Scryfall in the background: the pool snapshot. Progress lives on the draft (snapshotState,
  * poolTotal, snapshotError) and in its PoolCard rows. A draft defined by a
  * cube link has its snapshot taken whole when it is created, never here.
+ *
+ * A start that fails is handled by what asked for it. A resume at boot is
+ * logged and the draft stays Running, for the next boot. A new draft's start
+ * is logged and the snapshot recorded Failed, for the organizer to retry
+ * (startOrRecordFailure). An organizer's retry answers with the error.
  */
 @Injectable()
 export class PoolSnapshotService
@@ -87,13 +88,16 @@ export class PoolSnapshotService
         // A PoolFrozenError lands here too: the snapshot completed meanwhile.
         this.start(id).catch((err: unknown) => {
           this.logger.error(
-            `Could not resume the pool snapshot for draft ${id}`,
+            `Could not resume the pool snapshot for draft ${id}; it stays Running until the next boot resumes it`,
             err,
           );
         });
       }
     } catch (err) {
-      this.logger.error('Could not resume unfinished pool snapshots', err);
+      this.logger.error(
+        'Could not resume the unfinished pool snapshots; they stay Running until the next boot resumes them',
+        err,
+      );
     }
   }
 
@@ -112,7 +116,10 @@ export class PoolSnapshotService
    * Starts the draft's snapshot over. Resolves once the draft is marked
    * Running and its old cards are gone; the paging carries on in the
    * background. Does nothing if this process is already snapshotting it.
-   * Rejects with PoolFrozenError if the snapshot is already complete.
+   * Rejects with PoolFrozenError if the snapshot is already complete, and
+   * with the database's error if the reset fails, leaving the draft as it
+   * was: a resume at boot logs that and the draft stays Running;
+   * startOrRecordFailure logs it and records the snapshot Failed.
    */
   start(draftId: string): Promise<void> {
     if (this.running.has(draftId)) return Promise.resolve();
@@ -147,7 +154,7 @@ export class PoolSnapshotService
       return running;
     } catch (err) {
       this.logger.error(
-        `Could not start the pool snapshot for new draft ${draftId}`,
+        `Could not start the pool snapshot for new draft ${draftId}; recording it Failed for the organizer to retry`,
         err,
       );
       switch (await this.recordFailure(draftId, failed.snapshotError)) {
@@ -207,7 +214,7 @@ export class PoolSnapshotService
       return count > 0 ? 'recorded' : 'cancelled';
     } catch (err) {
       this.logger.error(
-        `Could not record the failed pool snapshot for draft ${draftId}; it stays Running until the next boot resumes it`,
+        `Could not record the pool snapshot for draft ${draftId} as Failed; it stays Running until the next boot resumes it`,
         err,
       );
       return 'not-recorded';
@@ -356,7 +363,6 @@ export const UNEXPECTED_SNAPSHOT_FAILURE =
 function explain(err: unknown): string {
   if (
     err instanceof PoolSnapshotError ||
-    err instanceof NoOracleIdError ||
     err instanceof MissingCardFieldError
   ) {
     return err.message;

@@ -24,6 +24,7 @@ import {
   pool,
   post,
   refuseNextSnapshotReset,
+  DROPPED_CONNECTION,
   scryfall,
   scryfallAnswers,
   signIn,
@@ -444,7 +445,7 @@ describe('the pool snapshot of a set list', () => {
     expect(errors).toHaveBeenCalledWith(
       expect.stringContaining(created.body.id),
       expect.objectContaining({
-        message: 'Connection terminated unexpectedly',
+        message: DROPPED_CONNECTION,
       }),
     );
 

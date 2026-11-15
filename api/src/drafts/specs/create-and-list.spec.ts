@@ -214,7 +214,11 @@ it('refuses a pool query that matches no cards', async () => {
 
 it('refuses a pool query whose only matches are basic lands', async () => {
   const poolQuery = 't:basic -t:snow -!Wastes';
-  scryfallAnswers({ [creationMatchQuery(poolQuery)]: null });
+  scryfallAnswers({
+    [poolQuery]: page('Plains', 'Island', 'Swamp', 'Mountain', 'Forest'),
+    [creationMatchQuery(poolQuery)]: null,
+    [`(${poolQuery}) -in:arena`]: null,
+  });
 
   const res = await createDraft({
     name: 'Basics',

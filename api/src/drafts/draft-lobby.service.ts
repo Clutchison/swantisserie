@@ -117,16 +117,12 @@ export class DraftLobbyService {
           draft.platform,
           deadline,
         );
-        const created = await this.saveDraft({
+        return this.saveDraftAndStartSnapshot({
           ...fields,
           poolSourceKind,
           poolQuery: poolSource.poolQuery,
           organizerId,
         });
-        return {
-          ...created,
-          ...(await this.snapshots.startOrRecordFailure(created.id)),
-        };
       }
       case 'cube': {
         const { cubeId, cubeName, printings } = await this.checkCubeLink(
@@ -151,22 +147,32 @@ export class DraftLobbyService {
           this.sets.check(draft.platform, poolSource.setList),
           () => scryfallTooSlow(deadline),
         );
-        const created = await this.saveDraft({
+        return this.saveDraftAndStartSnapshot({
           ...fields,
           poolSourceKind,
           setList: setList.map(({ code, sublists }) => ({ code, sublists })),
           organizerId,
         });
-        return {
-          ...created,
-          ...(await this.snapshots.startOrRecordFailure(created.id)),
-        };
       }
       default: {
         const unhandled: never = poolSource;
         throw new Error(`Unknown pool source ${JSON.stringify(unhandled)}.`);
       }
     }
+  }
+
+  /**
+   * Saves the draft, as saveDraft does, and starts its pool snapshot in the
+   * background. Answers the draft with its snapshot as the start left it.
+   */
+  private async saveDraftAndStartSnapshot(
+    data: Prisma.DraftUncheckedCreateInput,
+  ): Promise<DraftWithOrganizer> {
+    const created = await this.saveDraft(data);
+    return {
+      ...created,
+      ...(await this.snapshots.startOrRecordFailure(created.id)),
+    };
   }
 
   /** Saves the draft, showing its organizer as a sign-in in progress leaves them. */

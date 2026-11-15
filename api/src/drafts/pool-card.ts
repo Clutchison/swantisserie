@@ -17,16 +17,12 @@ interface StoredCardFace extends CardFace {
   [key: string]: string | string[] | null;
 }
 
-/** Scryfall gave a printing no oracle id, so it can't be a pool card. */
-export class NoOracleIdError extends Error {
-  constructor(cardName: string) {
-    super(`${cardName} has no oracle id.`);
-  }
-}
-
-/** Scryfall gave a printing no mana value, or no type line, on the card or its front face, so it can't be a pool card. */
+/** Scryfall gave a printing no oracle id, mana value or type line, on the card or its front face, so it can't be a pool card. */
 export class MissingCardFieldError extends Error {
-  constructor(cardName: string, field: 'mana value' | 'type line') {
+  constructor(
+    cardName: string,
+    field: 'oracle id' | 'mana value' | 'type line',
+  ) {
     super(`${cardName} has no ${field}.`);
   }
 }
@@ -52,7 +48,7 @@ export function toPoolCard(
 ): Prisma.PoolCardCreateManyDraftInput {
   const faces = card.card_faces ?? [];
   const oracleId = oracleIdOf(card);
-  if (!oracleId) throw new NoOracleIdError(card.name);
+  if (!oracleId) throw new MissingCardFieldError(card.name, 'oracle id');
   const manaValue = ofCardOrFrontFace(card, 'cmc');
   if (manaValue === undefined) {
     throw new MissingCardFieldError(card.name, 'mana value');
