@@ -29,6 +29,29 @@ describe('FetchScryfallClient', () => {
     );
   }
 
+  /**
+   * Answers `status` with a body nobody should read, returning a probe that
+   * records its cancel. The cancel settles after `cancelTakesMs`.
+   */
+  function respondWithCancelProbe(status: number, cancelTakesMs = 0) {
+    const probe = { cancelled: false };
+    fetch.mockResolvedValueOnce(
+      new Response(
+        new ReadableStream({
+          cancel: () =>
+            new Promise<void>((resolve) =>
+              setTimeout(() => {
+                probe.cancelled = true;
+                resolve();
+              }, cancelTakesMs),
+            ),
+        }),
+        { status },
+      ),
+    );
+    return probe;
+  }
+
   const balefire = { object: 'card', name: 'Balefire Dragon' };
 
   it('searches with a real User-Agent and an Accept header', async () => {
@@ -118,6 +141,51 @@ describe('FetchScryfallClient', () => {
     }
   });
 
+  it('cancels the body of a 429 it backs off from', async () => {
+    vi.useFakeTimers();
+    try {
+      const probe = respondWithCancelProbe(429);
+      respond(200, {
+        object: 'list',
+        total_cards: 1,
+        has_more: false,
+        data: [balefire],
+      });
+
+      const search = scryfall.search('c:r');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(probe.cancelled).toBe(true);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(await search).toMatchObject({ cards: [balefire] });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('holds a search waiting for its slot while a 429’s body is still being cancelled', async () => {
+    vi.useFakeTimers();
+    try {
+      respondWithCancelProbe(429, 1000);
+      for (let i = 0; i < 2; i++) {
+        respond(404, { object: 'error', status: 404, details: 'No cards' });
+      }
+
+      const searches = Promise.all([
+        scryfall.search('a'),
+        scryfall.search('b'),
+      ]);
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(30_000);
+      expect(fetch).toHaveBeenCalledTimes(3);
+      await searches;
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('holds a search already waiting for its slot when a 429 arrives until the lockout is over, then keeps them 600 ms apart', async () => {
     vi.useFakeTimers();
     try {
@@ -177,6 +245,13 @@ describe('FetchScryfallClient', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('cancels the body of a 404, which it doesn’t read', async () => {
+    const probe = respondWithCancelProbe(404);
+
+    expect(await scryfall.search('c:r')).toBeNull();
+    expect(probe.cancelled).toBe(true);
   });
 
   it('returns null when nothing matches', async () => {
@@ -564,6 +639,45 @@ describe('FetchScryfallClient', () => {
 
       expect(await search).toMatchObject({ cards: [balefire] });
     });
+
+    it('cancels a server error’s body before trying again', async () => {
+      const probe = respondWithCancelProbe(503);
+      someCards();
+
+      const search = scryfall.search('c:r');
+      await vi.advanceTimersByTimeAsync(0);
+      expect(probe.cancelled).toBe(true);
+      expect(fetch).toHaveBeenCalledTimes(1);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(await search).toMatchObject({ cards: [balefire] });
+    });
+
+    const search = (client: FetchScryfallClient) => client.search('c:r');
+    const sets = (client: FetchScryfallClient) => client.sets();
+    it.each([
+      ['search', 403, 1, search],
+      ['set list', 403, 1, sets],
+      ['search', 429, 4, search],
+      ['search', 503, 4, search],
+      ['set list', 503, 4, sets],
+    ])(
+      'cancels the body of every failing %s answer (%i) up to giving up',
+      async (_request, status, tries, request) => {
+        const probes = Array.from({ length: tries }, () =>
+          respondWithCancelProbe(status),
+        );
+
+        const error = await failure(request(scryfall));
+
+        expect(error).toBeInstanceOf(ScryfallUnavailableError);
+        expect(error).toMatchObject({ status });
+        expect(fetch).toHaveBeenCalledTimes(tries);
+        expect(probes.map((p) => p.cancelled)).toEqual(
+          Array<boolean>(tries).fill(true),
+        );
+      },
+    );
 
     it('waits 1, 2 and then 4 seconds between its 4 tries', async () => {
       for (let i = 0; i < 4; i++) down();
