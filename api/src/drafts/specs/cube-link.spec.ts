@@ -3,10 +3,8 @@ import {
   type Cube,
 } from '../../cubecobra/cubecobra-client.js';
 import type { ScryfallCard } from '../../scryfall/scryfall-client.js';
-import {
-  createPastDeadline,
-  held,
-} from '../../testing/draft-creation-deadline.js';
+import { held } from '../../testing/deadlines.js';
+import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
   aliceCookie,
   bob,

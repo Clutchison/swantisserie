@@ -346,13 +346,8 @@ export class DraftLobbyService {
         message: 'That isn’t a CubeCobra cube link.',
       });
     }
-    const found = await deadline.race(
-      this.cubeCobra.cube(cubeId),
-      () =>
-        new CubeCobraUnavailableError(
-          'CubeCobra didn’t answer within the draft creation deadline.',
-          { cause: new DeadlinePassedError(deadline.name) },
-        ),
+    const found = await deadline.race(this.cubeCobra.cube(cubeId), () =>
+      cubeCobraTooSlow(deadline),
     );
     if (!found) {
       // CubeCobra answers the same for a private cube as for a missing one.
@@ -455,5 +450,13 @@ export class DraftLobbyService {
 function scryfallTooSlow(deadline: Deadline): ScryfallUnavailableError {
   return ScryfallUnavailableError.unreachable(
     new DeadlinePassedError(deadline.name),
+  );
+}
+
+/** CubeCobra hadn't answered a check when the deadline passed. */
+function cubeCobraTooSlow(deadline: Deadline): CubeCobraUnavailableError {
+  return new CubeCobraUnavailableError(
+    `CubeCobra didn’t answer within the ${deadline.name} deadline.`,
+    { cause: new DeadlinePassedError(deadline.name) },
   );
 }
