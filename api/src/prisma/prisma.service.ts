@@ -10,7 +10,7 @@ import { PrismaClient } from '../generated/prisma/client.js';
  * the router to answer 503. pg waits forever by default, and ignores a
  * `connect_timeout` in `DATABASE_URL`.
  */
-export const DATABASE_CONNECTION_DEADLINE_MS = 5_000;
+const DATABASE_CONNECT_TIMEOUT_MS = 5_000;
 
 @Injectable()
 export class PrismaService
@@ -23,7 +23,7 @@ export class PrismaService
         connectionString: process.env.DATABASE_URL,
         // Unset in production, for pg's default.
         max: Number(process.env.DATABASE_POOL_SIZE) || undefined,
-        connectionTimeoutMillis: DATABASE_CONNECTION_DEADLINE_MS,
+        connectionTimeoutMillis: DATABASE_CONNECT_TIMEOUT_MS,
       }),
     });
   }

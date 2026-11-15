@@ -13,7 +13,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
  * well under Heroku's 30 s router limit, so a database that has stopped
  * answering shows on the status page as "DB error" within seconds, not as
  * "API unreachable" after the router gives up. It covers a connection
- * already open that stops answering, which the pool's connection deadline
+ * already open that stops answering, which the pool's connect timeout
  * doesn't.
  */
 export const HEALTH_CHECK_DEADLINE_MS = 5_000;
