@@ -93,6 +93,7 @@ legend {
 
   li {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: var(--space-sm);
     min-height: 2.5rem;
@@ -100,6 +101,13 @@ legend {
 
   button {
     margin-left: auto;
+  }
+
+  /* Why Reinstate is refused: a line of its own under the row, ending under the button it describes. */
+  .detail {
+    flex-basis: 100%;
+    margin: 0;
+    text-align: end;
   }
 }
 

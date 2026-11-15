@@ -11,6 +11,7 @@ import type {
   PoolCardView,
   StandingView,
   TournamentEntryView,
+  TournamentRefusal,
   TournamentRoundView,
   ViewerTournamentView,
   UserView,
@@ -81,7 +82,12 @@ export const erin = player('Erin');
 /** `player` signed in. */
 export const signedIn = ({ id, name }: PlayerView): UserView => ({ ...alice, id, name });
 
-/** The tournament entry of the player `playerId`: undropped, droppable and unseeded, or with `fields` changed. */
+/**
+ * The tournament entry of the player `playerId`: undropped, droppable and
+ * unseeded, with no reinstate refusal, as the api reads such an entry, or
+ * with `fields` changed. A dropped entry keeps no refusal unless `fields`
+ * gives the one the api would, as `completed` does.
+ */
 export const entry = (
   playerId: string,
   fields: Partial<TournamentEntryView> = {},
@@ -91,6 +97,7 @@ export const entry = (
   droppable: true,
   ready: false,
   seed: null,
+  reinstateRefusal: null,
   ...fields,
 });
 
@@ -129,7 +136,10 @@ export const registration = (...playerIds: string[]): ViewerTournamentView => ({
   reopenRound: null,
 });
 
-/** An unreported match `id` between the players `a` and `b`, in that order. */
+/**
+ * An unreported match `id` between the players `a` and `b`, in that order,
+ * as the api reads it while the tournament is playing: either may report it.
+ */
 export const unreportedMatch = (id: string, a: string, b: string): MatchView => ({
   id,
   players: [a, b],
@@ -137,14 +147,15 @@ export const unreportedMatch = (id: string, a: string, b: string): MatchView => 
   outcome: { kind: 'Unreported' },
   reportedBy: null,
   confirmed: false,
+  reportableBy: [a, b],
   confirmableBy: [],
   clearLeaves: null,
 });
 
 /**
  * `match` reported by `reportedBy` at the game score `games`, in its player
- * order, as the api reads it: its other players may confirm it, and
- * clearing it leaves it unreported.
+ * order, as the api reads it: nobody may report it, its other players may
+ * confirm it, and clearing it leaves it unreported.
  */
 export const reported = (
   match: MatchView,
@@ -154,17 +165,19 @@ export const reported = (
   ...match,
   outcome: { kind: 'GameScore', games, draws: 0 },
   reportedBy,
+  reportableBy: [],
   confirmableBy: match.players.filter((id) => id !== reportedBy),
   clearLeaves: { kind: 'Unreported' },
 });
 
 /**
  * `match` as the api reads it once completing grants it a draw: nobody may
- * confirm it, and clearing it leaves it unreported.
+ * report or confirm it, and clearing it leaves it unreported.
  */
 export const grantedDraw = (match: MatchView): MatchView => ({
   ...match,
   outcome: { kind: 'GrantedDraw' },
+  reportableBy: [],
   confirmableBy: [],
   clearLeaves: { kind: 'Unreported' },
 });
@@ -297,7 +310,9 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
 
 /**
  * The tournament `view` once it is complete: none of its rounds
- * correctable any more, and its decklists shown, as the api reads it.
+ * correctable any more, nobody able to report its matches, its decklists
+ * shown, and Reinstate of each dropped player refused, as no change is made
+ * outside play, as the api reads it.
  */
 export function completed(view: ViewerTournamentView): ViewerTournamentView {
   return {
@@ -305,9 +320,23 @@ export function completed(view: ViewerTournamentView): ViewerTournamentView {
     state: 'Complete',
     showsDecklists: true,
     completedAt: '2026-11-10T20:00:00.000Z',
-    rounds: view.rounds.map((round) => ({ ...round, correctable: false })),
+    entries: view.entries.map((entered) => ({
+      ...entered,
+      reinstateRefusal: entered.dropped ? NOT_PLAYING : null,
+    })),
+    rounds: view.rounds.map((round) => ({
+      ...round,
+      correctable: false,
+      matches: round.matches.map((match) => ({ ...match, reportableBy: [] })),
+    })),
   };
 }
+
+/** The api's refusal of a change made only while a tournament is playing, outside play. */
+const NOT_PLAYING: TournamentRefusal = {
+  error: 'not-playing',
+  message: 'This tournament isn’t being played.',
+};
 
 /** The tournament rounds of `swissPlaying`, round 2's match m2 replaced by `m2`, and round 1's by `m1` if given. */
 export function swissRoundsWith(m2: MatchView, m1?: MatchView): TournamentRoundView[] {
@@ -454,11 +483,13 @@ export const singleEliminationCarolDropped = singleEliminationPlaying({
 
 /**
  * `match` forfeited by the player `forfeitedBy`, who dropped, as the api
- * reads it: clearing it would leave it as it is.
+ * reads it: nobody may report or confirm it, and clearing it would leave
+ * it as it is.
  */
 export const forfeited = (match: MatchView, forfeitedBy: string): MatchView => ({
   ...match,
   outcome: { kind: 'Forfeit', forfeitedBy },
+  reportableBy: [],
   confirmableBy: [],
   clearLeaves: null,
 });

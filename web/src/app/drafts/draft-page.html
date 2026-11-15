@@ -41,6 +41,11 @@
           Couldn't refresh this draft. What's shown may be out of date.
         }
       </p>
+      <p class="detail" role="status" aria-label="Controls">
+        @if (powersFailed()) {
+          Couldn't load your controls for this draft. Try reloading the page.
+        }
+      </p>
       <p class="frozen" role="status" aria-label="Frozen">
         @if (draft.state === 'Frozen') {
           The draft is frozen. No picks until it is unfrozen.
