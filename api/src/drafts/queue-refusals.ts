@@ -1,7 +1,7 @@
 import type { QueueRefusal } from 'contract';
 import type { DraftState } from '../generated/prisma/client.js';
 import { NotAPlayerError } from './draft-errors.js';
-import { lockPlayer } from './draft-lock.js';
+import { type LockedPlayer, lockPlayer } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
 
 export class QueueRefusedError extends Error {
@@ -21,8 +21,15 @@ export async function lockQueue(
   tx: Transaction,
   draftId: string,
   userId: string,
-): Promise<{ playerId: string; state: DraftState }> {
-  const locked = await lockPlayer(tx, draftId, userId);
+): Promise<LockedPlayer> {
+  return checkQueuePlayer(await lockPlayer(tx, draftId, userId));
+}
+
+/**
+ * The player `lockPlayer` locked, for a change to their queue. Throws as
+ * `lockQueue` does.
+ */
+export function checkQueuePlayer(locked: LockedPlayer | null): LockedPlayer {
   if (!locked) throw new NotAPlayerError('queues');
   checkQueueChangeable(locked.state);
   return locked;

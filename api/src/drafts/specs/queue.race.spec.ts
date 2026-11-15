@@ -6,10 +6,13 @@ import {
   describeRaces,
   queueOf,
   race,
+  raceBehindLongCommit,
 } from './race-harness.js';
 import {
   aliceCookie,
   bobCookie,
+  carol,
+  dave,
   enqueue,
   fourCards,
   pick,
@@ -22,6 +25,7 @@ import {
   setQueuePaused,
   setQueuePicking,
   setStealBehavior,
+  signIn,
   start,
   undo,
 } from './harness.js';
@@ -137,6 +141,34 @@ describeRaces('queue changes against a cascade', () => {
       queue: await queueOf(id, aliceCookie),
     });
     expect(picked.status).toBe(200);
+  });
+
+  it('queues a card once a cascade committing after Prisma’s default timeout has picked', async () => {
+    // Dave neither picks nor is picked for, so only the lock holds his
+    // change back, until the cascade commits.
+    const carolCookie = await signIn(carol);
+    const daveCookie = await signIn(dave);
+    const id = await readyDraft(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      1,
+      fourCards,
+    );
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+
+    const [picked, queued] = await raceBehindLongCommit(
+      () => pick(id, ids.Shock),
+      () => enqueue(id, ids['Skewer the Critics'], daveCookie),
+    );
+
+    expect(picked.status).toBe(200);
+    expect(answered(queued)).toBe(200);
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
+    expect(await queueOf(id, daveCookie)).toEqual({
+      cards: ['Skewer the Critics'],
+      lost: [],
+    });
   });
 });
 
