@@ -21,6 +21,7 @@ import {
   powersAnswer,
   ALL_POWERS,
   openUrl,
+  answerDraftListOpening,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore } from './draft-header-harness';
 import { openList } from './draft-list-harness';
@@ -36,6 +37,7 @@ describe('cancel', () => {
   /** Waits for the draft list the page sent the viewer to, and returns its notice. */
   async function flushList(fixture: AppFixture, page: HTMLElement) {
     await vi.waitFor(() => expect(router.url).toBe('/'));
+    await answerDraftListOpening();
     await fixture.whenStable();
     return page.querySelector('.notice')?.textContent?.trim();
   }

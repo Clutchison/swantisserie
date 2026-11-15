@@ -37,6 +37,7 @@ import {
   couldntRefresh,
   bob,
   drafting,
+  answerDraftListOpening,
 } from './harness';
 import { pushDraft } from './turn-harness';
 import { alicesTurnItem } from './draft-list-harness';
@@ -315,6 +316,7 @@ describe('draft page', () => {
       const { fixture } = await openDraft(completeSnapshot);
 
       await router.navigateByUrl('/');
+      await answerDraftListOpening();
       await fixture.whenStable();
 
       expect(document.title).toBe('Swantisserie');
@@ -325,6 +327,7 @@ describe('draft page', () => {
 
       updates.events.next({ type: 'cancelled' });
       await vi.waitFor(() => expect(router.url).toBe('/'));
+      await answerDraftListOpening();
       await fixture.whenStable();
 
       expect(router.url).toBe('/');
@@ -776,6 +779,7 @@ describe('draft page', () => {
       back();
 
       await vi.waitFor(() => expect(router.url).toBe('/'));
+      await answerDraftListOpening();
     });
 
     it('shows the URL’s tab again when the navigation to a clicked tab is cancelled', async () => {

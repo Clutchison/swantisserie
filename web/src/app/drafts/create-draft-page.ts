@@ -32,6 +32,7 @@ import { doublePicksProblem, doublePicksRule, MIN_DOUBLE_PICKS, startingDoublePi
 import { firstValueFrom } from 'rxjs';
 import type { DraftProblem } from './drafts';
 import { SetListPicker } from './set-list-picker';
+import { ViewerDrafts } from './viewer-drafts';
 
 /** What was typed for each pool source, whichever is chosen. */
 interface PoolSourceFields {
@@ -50,6 +51,7 @@ interface PoolSourceFields {
 export class CreateDraftPage {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly viewerDrafts = inject(ViewerDrafts);
   private readonly fb = inject(FormBuilder).nonNullable;
 
   // Validated by the API, whose messages say exactly what to fix.
@@ -161,6 +163,8 @@ export class CreateDraftPage {
       const draft = await firstValueFrom(
         this.http.post<DraftView>('/api/drafts', this.requestBody()),
       );
+      // Not pushed to the organizer, who isn't a player yet: the draft list lists it from this.
+      this.viewerDrafts.created(draft);
       await this.router.navigate(['/drafts', draft.id]);
     } catch (err) {
       this.problem.set(problemFrom(err));

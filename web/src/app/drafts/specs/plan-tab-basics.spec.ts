@@ -16,6 +16,7 @@ import {
   router,
   serverError,
   image,
+  answerDraftListOpening,
 } from './harness';
 import {
   clickBackdrop,
@@ -695,6 +696,7 @@ describe('basic lands on the plan tab', () => {
     await openBasics(fixture, await openPlan(fixture, page));
 
     await router.navigateByUrl('/');
+    await answerDraftListOpening();
     await fixture.whenStable();
 
     expect(openDialog()).toBeNull();

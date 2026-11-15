@@ -12,6 +12,7 @@ import {
   expectLoadingAnimation,
   http,
   link,
+  loadingAnimation,
   openUrl,
   router,
   serverError,
@@ -710,17 +711,83 @@ describe('draft list', () => {
       http.expectNone('/api/drafts');
     });
 
-    it('opening on another page, are shown as read when the list opens, without reading them again', async () => {
-      const { fixture, page } = await openUrl('/trophy-hall', alice, {
-        viewerDrafts: [alicesTurnItem('a', 'Red dragons')],
+    describe('opening on another page', () => {
+      /** Opens the app on the Trophy Hall, the drafts read as Red dragons on Alice's turn, then goes to the list. */
+      async function openListAfterTrophyHall() {
+        const { fixture, page } = await openUrl('/trophy-hall', alice, {
+          viewerDrafts: [alicesTurnItem('a', 'Red dragons')],
+        });
+        answerTrophyHall();
+        await router.navigateByUrl('/');
+        TestBed.tick();
+        return { fixture, page };
+      }
+
+      it('are read again as the list opens, shown as known while that read is on its way', async () => {
+        const { page } = await openListAfterTrophyHall();
+
+        const reread = http.expectOne('/api/drafts');
+        expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+        expect(loadingAnimation(page)).toBeNull();
+        expect(page.textContent).not.toContain('Loading…');
+
+        reread.flush([
+          alicesTurnItem('a', 'Red dragons'),
+          listItemOf({ id: 'n', name: 'Fresh lobby', state: 'Lobby' }),
+        ]);
+        await TestBed.inject(ApplicationRef).whenStable();
+        expect(listedDrafts(page, 'Active drafts')).toEqual(['Fresh lobby']);
       });
-      answerTrophyHall();
 
-      await router.navigateByUrl('/');
-      await fixture.whenStable();
+      it('lay a push newer than the read again over it', async () => {
+        const { page } = await openListAfterTrophyHall();
+        const reread = http.expectOne('/api/drafts');
 
-      http.expectNone('/api/drafts');
-      expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+        pushToOwnRoom(updates, {
+          type: 'changed',
+          draft: draft({
+            id: 'a',
+            name: 'Red dragons',
+            version: 3,
+            ...drafting({ ...yourTurn, state: 'Frozen' }),
+          }),
+        });
+        reread.flush([
+          listItemOf({ id: 'a', name: 'Red dragons', version: 2, ...drafting(yourTurn) }),
+        ]);
+        await TestBed.inject(ApplicationRef).whenStable();
+
+        expect(findSection(page, 'Your turn')).toBeNull();
+        expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
+      });
+
+      it('stay as last read when the read again fails', async () => {
+        const { page } = await openListAfterTrophyHall();
+
+        http.expectOne('/api/drafts').flush(null, serverError);
+        await TestBed.inject(ApplicationRef).whenStable();
+
+        expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+        expect(page.textContent).not.toContain("Couldn't load the drafts.");
+      });
+
+      it('aren’t read a second time while a read is on its way', async () => {
+        const { fixture, page } = await openUrl('/trophy-hall', alice, {
+          viewerDrafts: [alicesTurnItem('a', 'Red dragons')],
+        });
+        answerTrophyHall();
+        connect();
+        const reread = http.expectOne('/api/drafts');
+
+        await router.navigateByUrl('/');
+        TestBed.tick();
+        http.expectNone('/api/drafts');
+        reread.flush([alicesTurnItem('a', 'Red dragons')]);
+        await fixture.whenStable();
+
+        http.expectNone('/api/drafts');
+        expect(listedDrafts(page, 'Your turn')).toEqual(['Red dragons']);
+      });
     });
 
     it('stay as last read when reading them again fails', async () => {

@@ -13,6 +13,7 @@ import {
   pickOf,
   button,
   router,
+  answerDraftListOpening,
 } from './harness';
 import {
   brightclimb,
@@ -333,6 +334,7 @@ describe('preloading the first results', () => {
     const running = requests.map((request) => request.image);
 
     await router.navigateByUrl('/');
+    await answerDraftListOpening();
     await fixture.whenStable();
     running.forEach((image) => image.onload?.());
 

@@ -40,6 +40,7 @@ import {
   startDraft,
   chooseInRowMenu,
   rowMenu,
+  answerDraftListOpening,
 } from './harness';
 import { measuredAs } from './measure-harness';
 import {
@@ -530,6 +531,7 @@ describe('Queue pane layout', () => {
 
       // Away to the draft list, and back.
       await router.navigateByUrl('/');
+      await answerDraftListOpening();
       await fixture.whenStable();
       expect(findQueuePane(page)).toBeNull();
       await router.navigateByUrl('/drafts/draft-1');

@@ -28,7 +28,9 @@ import { isTurnOf } from './drafts';
  * push leaves a listed draft's tournament in a state other than its read
  * badge's, whether the push lands before the read or after: only a read
  * says whether the viewer can join (ADR 0003), and pushes carry no trophy
- * holders.
+ * holders. Read again, too, each time the draft list opens, unless a read
+ * is on its way, as drafts the viewer doesn't play in aren't pushed; and a
+ * draft the viewer creates is kept from the create answer as a push is.
  */
 @Injectable({ providedIn: 'root' })
 export class ViewerDrafts {
@@ -130,6 +132,26 @@ export class ViewerDrafts {
       this.readAgain.set(false);
       untracked(() => this.read.reload());
     });
+  }
+
+  /**
+   * Reads the drafts again, unless a read is on its way: the draft list does
+   * each time it opens, as drafts the viewer doesn't play in aren't pushed.
+   * The drafts already known are shown meanwhile, and kept if it fails.
+   */
+  refresh() {
+    untracked(() => {
+      if (!this.read.isLoading()) this.read.reload();
+    });
+  }
+
+  /**
+   * Keeps draft `draft`, just created by the viewer, as a push is kept: laid
+   * over any read made before it, until a read of a newer version. So it is
+   * listed before the next read lands, or if that read fails.
+   */
+  created(draft: DraftView) {
+    this.keepNewest(draft.id, draft);
   }
 
   /** Notes draft `draftId` as pushed (null once cancelled), unless an older version than one pushed before. */

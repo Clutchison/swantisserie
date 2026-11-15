@@ -1,4 +1,5 @@
 import { HttpTestingController } from '@angular/common/http/testing';
+import { ApplicationRef } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import {
   MAX_PICKS_PER_PLAYER,
@@ -9,6 +10,7 @@ import {
 import {
   useDraftsApp,
   alertIn,
+  answerDraftListOpening,
   button,
   buttonOrder,
   controlByLabel,
@@ -17,8 +19,10 @@ import {
   link,
   router,
   openUrl,
+  serverError,
   webhooksAnswer,
 } from './harness';
+import { listedDrafts, listItem } from './draft-list-harness';
 
 useDraftsApp();
 beforeEach(() => webhooksAnswer(null));
@@ -86,6 +90,7 @@ describe('create form', () => {
     link(page, 'Cancel')!.click();
 
     await vi.waitFor(() => expect(router.url).toBe('/'));
+    await answerDraftListOpening();
     await fixture.whenStable();
   });
 
@@ -283,6 +288,46 @@ describe('create form', () => {
     // The draft page is lazy-loaded, so it may ask for the draft after the URL changes.
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9'))).flush(draft({ id: 'draft-9' }));
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
+  });
+
+  describe('the created draft', () => {
+    /** Creates Red dragons, a lobby draft, lands on its page, then follows the link back to the draft list. */
+    async function createAndGoBack() {
+      const form = await openForm();
+      (await create(form)).flush(draft({ id: 'draft-9', name: 'Red dragons', state: 'Lobby' }), {
+        status: 201,
+        statusText: 'Created',
+      });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9'))).flush(
+        draft({ id: 'draft-9', name: 'Red dragons', state: 'Lobby' }),
+      );
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-9/pool'))).flush([]);
+      await form.fixture.whenStable();
+
+      link(form.page, 'Drafts')!.click();
+      await vi.waitFor(() => expect(router.url).toBe('/'));
+      TestBed.tick();
+      return form;
+    }
+
+    it('is listed under Active drafts on going back, before the drafts are read again', async () => {
+      const { page } = await createAndGoBack();
+
+      const reread = http.expectOne('/api/drafts');
+      expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
+      expect(listItem(page, 'Red dragons').textContent).not.toContain('Tournament');
+
+      reread.flush([]);
+    });
+
+    it('stays listed when reading the drafts again fails', async () => {
+      const { page } = await createAndGoBack();
+
+      http.expectOne('/api/drafts').flush(null, serverError);
+      await TestBed.inject(ApplicationRef).whenStable();
+
+      expect(listedDrafts(page, 'Active drafts')).toEqual(['Red dragons']);
+    });
   });
 
   /** Chooses where the pool comes from by its radio button's label. */
