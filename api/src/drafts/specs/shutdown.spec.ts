@@ -3,6 +3,7 @@ import {
   DraftNotifier,
   SHUTDOWN_DEADLINE_MS,
 } from '../../discord/draft-notifier.js';
+import { held, pastDeadline } from '../../testing/deadlines.js';
 import {
   aliceCookie,
   app,
@@ -107,47 +108,31 @@ describe('shutting down', () => {
     });
 
     describe('past the shutdown deadline', () => {
-      beforeEach(() => {
-        vi.useFakeTimers({
-          toFake: ['setTimeout', 'clearTimeout', 'Date'],
-          shouldAdvanceTime: true,
-        });
-      });
-
-      afterEach(() => {
-        vi.useRealTimers();
-      });
-
-      /** A post that doesn't fail until the function this returns is called. */
+      /** A post that fails only once the function this returns is called. */
       function holdPost(): () => void {
-        let fail!: (err: Error) => void;
-        webhookClient.post.mockImplementationOnce(
-          () =>
-            new Promise<void>((_, reject) => {
-              fail = reject;
-            }),
-        );
-        return () => fail(new Error('Discord is down'));
+        const { promise, letGo } = held<void>();
+        webhookClient.post.mockImplementationOnce(async () => {
+          await promise;
+          throw new Error('Discord is down');
+        });
+        return letGo;
       }
 
-      /** Closes the app, jumping past the deadline once shutdown waits. */
-      async function closePastDeadline() {
-        let closed = false;
-        const closing = app.close().then(() => {
-          closed = true;
-        });
-        await vi.advanceTimersByTimeAsync(SHUTDOWN_DEADLINE_MS);
-        await closing;
-        return closed;
+      /** Closes the app, jumping past the deadline once a post is sending. */
+      async function closePastDeadline(): Promise<void> {
+        await pastDeadline(
+          () => app.close(),
+          webhookClient.post,
+          SHUTDOWN_DEADLINE_MS,
+        );
       }
 
       it('stops waiting for an announcement that never finishes and logs it dropped', async () => {
         const errors = vi.spyOn(Logger.prototype, 'error');
         holdPost();
         await start(id).expect(200);
-        await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
 
-        expect(await closePastDeadline()).toBe(true);
+        await closePastDeadline();
 
         expect(errors).toHaveBeenCalledTimes(1);
         expect(errors).toHaveBeenCalledWith(
@@ -159,13 +144,12 @@ describe('shutting down', () => {
         const errors = vi.spyOn(Logger.prototype, 'error');
         const fail = holdPost();
         await start(id).expect(200);
-        await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
         void app.get(DraftNotifier).notify(id, [{ type: 'frozen' }]);
 
         await closePastDeadline();
-        // A retry would be a new post.
+        // A retry, or the queued freeze, would be a new post.
         fail();
-        await vi.advanceTimersByTimeAsync(1000);
+        await new Promise((resolve) => setTimeout(resolve, 50));
 
         expect(webhookClient.post).toHaveBeenCalledTimes(1);
         // The start still sending and the freeze still queued.
@@ -176,7 +160,6 @@ describe('shutting down', () => {
         const errors = vi.spyOn(Logger.prototype, 'error');
         holdPost();
         await start(id).expect(200);
-        await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
         await closePastDeadline();
         errors.mockClear();
 
