@@ -45,6 +45,7 @@ import {
   collapseWhitespace,
   opensDraftList,
   serverError,
+  statusIn,
   table,
   tableRows,
   text,
@@ -579,9 +580,9 @@ export async function expectSignedOut(
   http.expectNone('/api/auth/logout');
 }
 
-/** A status message inside `root`, by its text. */
+/** A status message inside `root`, by its text; undefined if none holds it. */
 export const statusMessage = (root: HTMLElement, text: string) =>
-  [...root.querySelectorAll('[role="status"]')].find((el) => el.textContent?.trim() === text);
+  statusIn(root, { text }) ?? undefined;
 
 /** The preview of the file chosen for a pick import inside `root`: the status headed Import picks; undefined if none shows. */
 export const pickImportPreview = (root: HTMLElement) =>

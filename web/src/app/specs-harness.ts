@@ -36,6 +36,30 @@ export const serverError = { status: 500, statusText: 'Server Error' };
 /** The first alert inside `root`: an error shown to the viewer, if any. */
 export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
 
+/**
+ * How `statusIn` finds a status region: by its accessible name (its
+ * aria-label, or the text of the element its aria-labelledby names), or by
+ * the text it holds: a string the whole text, whitespace collapsed, or a
+ * pattern it matches.
+ */
+export type StatusQuery = { name: string } | { text: string | RegExp };
+
+/**
+ * The live region with `role="status"` inside `root` that `query` finds; null
+ * if there is none. Find a region by name to check it is on the page, empty,
+ * before its text arrives, as screen readers only announce a change to a
+ * region already there; by text for a message whose region has no name.
+ */
+export function statusIn(root: HTMLElement, query: StatusQuery): HTMLElement | null {
+  if ('name' in query) return byName(root, '[role="status"]', query.name);
+  const wanted = query.text;
+  return (
+    [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((region) =>
+      typeof wanted === 'string' ? text(region) === wanted : wanted.test(text(region)),
+    ) ?? null
+  );
+}
+
 export let http: HttpTestingController;
 export let router: Router;
 /** Stands in for the API's Socket.IO gateway. */

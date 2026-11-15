@@ -105,3 +105,24 @@ A non-modal popover, such as the Seat strip's Players popover, isn't a dialog in
 Why: Close and a dialog's confirm stay reachable however long its content grows, as they didn't in the Tournament summary with a long bracket.
 
 Origin: #654.
+
+### Put a status message into a live region that is already on the page
+
+_Hard._ A `role="status"` element is rendered whenever the component or section that can show its message is, and is empty while there is nothing to say. The `@if` that decides whether there is a message goes inside the region, around its text and any content such as a notice's Dismiss button; never around the region itself. An empty region takes no space and shows no box, and is never hidden with `display: none` or `hidden`. The Turn banner (`draft-header.html`) and the export status (`export-buttons.html`) are the models. A spec checks the region is there, empty, before its text arrives, finding it with `statusIn` in `web/src/app/specs-harness.ts`. `role="alert"` is announced on insertion, so an alert may stay inside its `@if`.
+
+Why: screen readers announce a change to a live region already on the page, but many, NVDA and JAWS among them, don't announce one that arrives holding its text.
+
+```html
+<!-- BAD: the region is created together with its text, so it may go unspoken -->
+@if (reconnecting()) {
+  <p role="status">Reconnecting…</p>
+}
+<!-- GOOD: the region is always there; only its text comes and goes -->
+<p role="status" aria-label="Connection">
+  @if (reconnecting()) {
+    Reconnecting…
+  }
+</p>
+```
+
+Origin: #771.
