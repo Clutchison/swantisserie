@@ -108,6 +108,8 @@ export class DraftPage {
 
   /** The viewer's draft powers, which gate retrying a failed snapshot. */
   protected readonly powers = this.store.powers;
+  /** Whether the viewer's draft powers couldn't be read, so their controls are missing. */
+  protected readonly powersFailed = this.store.powersFailed;
   protected readonly joined = this.store.joined;
   /** Whether the queue or plan couldn't be loaded. A failed re-read keeps the last one loaded. */
   protected readonly queueFailed = this.store.queue.missing;

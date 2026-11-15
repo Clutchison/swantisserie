@@ -212,7 +212,7 @@
               type="button"
               [attr.aria-label]="'Reinstate ' + player.name"
               (click)="reinstate(player.id)"
-              [disabled]="player.reinstateRefusal !== null"
+              [disabled]="!!player.reinstateRefusal"
               [attr.aria-describedby]="
                 player.reinstateRefusal ? 'reinstate-refusal-' + player.id : null
               "

@@ -23,6 +23,7 @@ import {
   tabLabels,
   tabs,
   panelName,
+  statusMessage,
   statusTexts,
   updates,
   NO_POWERS,
@@ -338,6 +339,8 @@ describe('draft page', () => {
     const powersUrl = '/api/drafts/draft-1/powers';
     const organizerButtons = (page: HTMLElement) =>
       ['Randomize seats', 'Start draft', 'More'].filter((name) => button(page, name));
+    const couldntLoadControls = (page: HTMLElement) =>
+      statusMessage(page, "Couldn't load your controls for this draft. Try reloading the page.");
 
     it('are read once when the page opens, not again as the draft changes or catches up', async () => {
       const { fixture } = await openUrl('/drafts/draft-1');
@@ -417,10 +420,10 @@ describe('draft page', () => {
       expect(organizerButtons(page)).toEqual(['Randomize seats', 'Start draft', 'More']);
     });
 
-    it('show no controls they gate when they can’t be read, and the draft itself', async () => {
+    it('show no controls they gate when they can’t be read, and the draft itself, saying they couldn’t load', async () => {
       const { fixture, page } = await openUrl('/drafts/draft-1');
       http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
-      http.expectOne(powersUrl).flush(null, { status: 503, statusText: 'Service Unavailable' });
+      http.expectOne(powersUrl).flush(null, serverError);
       await flushPool();
       await fixture.whenStable();
 
@@ -429,6 +432,21 @@ describe('draft page', () => {
       expect(organizerButtons(page)).toEqual([]);
       expect(button(page, 'Add bot')).toBeUndefined();
       expect(button(page, 'Announcements')).toBeUndefined();
+      expect(couldntLoadControls(page)).toBeDefined();
+    });
+
+    it.each([
+      ['an organizer', ORGANIZE_ONLY],
+      ['a player without draft powers', NO_POWERS],
+    ])('say nothing of a failure when they load, for %s', async (_viewer, powers) => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft({ snapshot: completeSnapshot }));
+      http.expectOne(powersUrl).flush(powers);
+      await flushPool();
+      await fixture.whenStable();
+
+      expect(heading(page, 'Red dragons')).toBeDefined();
+      expect(couldntLoadControls(page)).toBeUndefined();
     });
   });
 
