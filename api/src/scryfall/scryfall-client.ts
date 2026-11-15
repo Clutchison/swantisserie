@@ -261,10 +261,10 @@ export class FetchScryfallClient extends ScryfallClient {
     }
   }
 
-  /** Sends a request in its turn, waiting out rate limiting. */
+  /** Sends a request in its slot, waiting out rate limiting. */
   private async send(url: string): Promise<Response> {
     for (let rateLimited = 0; ; rateLimited++) {
-      await this.waitForTurn();
+      await this.waitForSlot();
       const res = await fetchWithTimeout(
         url,
         { headers: HEADERS },
@@ -304,28 +304,39 @@ export class FetchScryfallClient extends ScryfallClient {
 
   /**
    * Reserves the next free slot synchronously, so concurrent requests queue
-   * up. A request that wakes inside a lockout begun while it slept books
-   * a new start after it, so none is sent until the lockout is over.
+   * up. A request whose slot a lockout begun while it slept has overtaken
+   * books a new slot after the lockout, so none is sent until it is over.
    */
-  private async waitForTurn(): Promise<void> {
+  private async waitForSlot(): Promise<void> {
     for (;;) {
-      const now = Date.now();
-      const start = Math.max(now, this.nextStart);
+      const start = Math.max(Date.now(), this.nextStart);
       this.nextStart = start + REQUEST_INTERVAL_MS;
-      if (start > now) {
-        await new Promise((resolve) => setTimeout(resolve, start - now));
-      }
-      if (Date.now() >= this.lockedUntil) return;
+      await sleepUntil(start);
+      if (start >= this.lockedUntil) return;
     }
   }
 
   /**
    * Holds every request, not just this one, until the lockout is over:
-   * those booking their turn from now on, and those already waiting for it.
+   * those booking a slot from now on, and those already waiting for theirs.
    */
   private backOff(): void {
-    this.lockedUntil = Date.now() + RATE_LIMITED_WAIT_MS;
+    this.lockedUntil = Math.max(
+      this.lockedUntil,
+      Date.now() + RATE_LIMITED_WAIT_MS,
+    );
     this.nextStart = Math.max(this.nextStart, this.lockedUntil);
+  }
+}
+
+/**
+ * Resolves once the clock has reached `time` (ms since epoch), at once if it
+ * already has. Sleeps again if a timer fires early, so a slot is never left
+ * before it starts.
+ */
+async function sleepUntil(time: number): Promise<void> {
+  while (Date.now() < time) {
+    await new Promise((resolve) => setTimeout(resolve, time - Date.now()));
   }
 }
 

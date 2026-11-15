@@ -117,7 +117,7 @@ describe('FetchScryfallClient', () => {
     }
   });
 
-  it('holds a search that already had its turn until a 429’s lockout is over, then keeps them 600 ms apart', async () => {
+  it('holds a search already waiting for its slot when a 429 arrives until the lockout is over, then keeps them 600 ms apart', async () => {
     vi.useFakeTimers();
     try {
       respond(429, { object: 'error', status: 429, details: 'Too many' });
