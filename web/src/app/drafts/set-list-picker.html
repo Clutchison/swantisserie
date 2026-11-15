@@ -9,8 +9,11 @@
 </label>
 @if (loading()) {
   <span class="hint">Loading the sets on {{ platform() }}…</span>
-} @else if (failed()) {
-  <span class="hint error">Couldn’t load the sets from Scryfall. Try reloading the page.</span>
+} @else if (loadFailure(); as failure) {
+  <div class="load-failed">
+    <span class="hint error" role="alert">{{ failure }}</span>
+    <button class="button compact secondary" type="button" (click)="tryAgain()">Try again</button>
+  </div>
 } @else {
   <ul class="sets" aria-label="Sets">
     @for (set of shown(); track set.code) {
@@ -35,6 +38,9 @@
   }
   @if (counting()) {
     <span class="hint">Still counting cards on Scryfall, so more sets may appear.</span>
+  }
+  @if (rereadFailure(); as failure) {
+    <span class="hint error">{{ failure }}</span>
   }
 }
 <span class="hint">

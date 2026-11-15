@@ -7,6 +7,7 @@ import {
 } from 'contract';
 import {
   useDraftsApp,
+  alertIn,
   button,
   controlByLabel,
   group,
@@ -52,6 +53,8 @@ const mir: SetOptionView = {
 
 /** The request for the sets on Arena, the platform the form starts on. */
 const ARENA_SETS_URL = '/api/sets?platform=Arena';
+/** What the picker says when asking again for the sets fails. */
+const REREAD_FAILED = 'Couldn’t check for more sets; asking again.';
 
 const catalog = (sets: SetOptionView[], counting = false): SetCatalogView => ({ sets, counting });
 
@@ -336,6 +339,51 @@ describe('choosing a set list on the create form', () => {
     expect(toggleButtons(namedList(page, 'Sets'))).toHaveLength(2);
   });
 
+  it('keeps the sets and what was chosen through a failed re-read, and asks again until they are counted', async () => {
+    const { fixture, page } = await openSets(catalog([otj], true));
+    setToggle(page, nameOf(otj))!.click();
+    await fixture.whenStable();
+
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
+      { message: 'Internal server error' },
+      { status: 500, statusText: 'Internal Server Error' },
+    );
+    await fixture.whenStable();
+
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj, true)]);
+    expect(toggleButtons(group(page, 'OTJ sublists')!)).toEqual([
+      shown(big, true),
+      shown(otp, true),
+      shown(yotj),
+    ]);
+    expect(page.textContent).toContain(REREAD_FAILED);
+    expect(page.textContent).not.toContain('Scryfall.');
+
+    await answerSets('Arena', catalog([otj, mkm]));
+    await fixture.whenStable();
+
+    expect(page.textContent).not.toContain(REREAD_FAILED);
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj, true), shown(mkm)]);
+  });
+
+  it('drops chosen sets the platform doesn’t offer only once a read says every set is counted', async () => {
+    const { fixture, page } = await openSets(catalog([otj, mkm], true));
+    setToggle(page, nameOf(otj))!.click();
+    setToggle(page, nameOf(mkm))!.click();
+    await fixture.whenStable();
+
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
+      { message: 'Internal server error' },
+      { status: 500, statusText: 'Internal Server Error' },
+    );
+    await fixture.whenStable();
+    expect(page.textContent).toContain('Chosen: OTJ (+ BIG, OTP), MKM.');
+
+    await answerSets('Arena', catalog([mkm]));
+    await fixture.whenStable();
+    expect(page.textContent).toContain('Chosen: MKM.');
+  });
+
   it('offers no more sets once as many are chosen as a set list can hold', async () => {
     const many = Array.from({ length: MAX_SET_LIST_SETS + 2 }, (_, i) => ({
       ...mir,
@@ -356,7 +404,36 @@ describe('choosing a set list on the create form', () => {
     expect(page.textContent).toContain(`A set list holds at most ${MAX_SET_LIST_SETS} sets.`);
   });
 
-  it('says when the sets fail to load', async () => {
+  it('says when the sets fail to load, and asks again on Try again', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    const name = controlByLabel(page, 'textbox', 'Name')!;
+    typeInto(name, 'Spring 2024');
+    controlByLabel(page, 'radio', 'Sets')!.click();
+
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
+      { message: 'Internal server error' },
+      { status: 500, statusText: 'Internal Server Error' },
+    );
+    await fixture.whenStable();
+
+    expect(alertIn(page)?.textContent?.trim()).toBe('Couldn’t load the sets.');
+    expect(page.textContent).not.toMatch(/reload/i);
+    expect(name.value).toBe('Spring 2024');
+
+    button(page, 'Try again')!.click();
+    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
+    TestBed.tick();
+    expect(page.textContent).toContain('Loading the sets on Arena…');
+    expect(alertIn(page)).toBeNull();
+    again.flush(catalog([otj, mkm]));
+    await fixture.whenStable();
+
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj), shown(mkm)]);
+    expect(name.value).toBe('Spring 2024');
+  });
+
+  it('names Scryfall when the sets fail to load because Scryfall failed', async () => {
     const { fixture, page } = await openUrl('/drafts/new');
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
@@ -367,6 +444,8 @@ describe('choosing a set list on the create form', () => {
     );
     await fixture.whenStable();
 
-    expect(page.textContent).toContain('Couldn’t load the sets from Scryfall.');
+    expect(alertIn(page)?.textContent?.trim()).toBe('Couldn’t load the sets from Scryfall.');
+    expect(button(page, 'Try again')).toBeTruthy();
+    expect(page.textContent).not.toMatch(/reload/i);
   });
 });

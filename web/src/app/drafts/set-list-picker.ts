@@ -1,4 +1,4 @@
-import { httpResource } from '@angular/common/http';
+import { HttpErrorResponse, httpResource } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -8,6 +8,7 @@ import {
   inject,
   InjectionToken,
   input,
+  linkedSignal,
   signal,
   untracked,
 } from '@angular/core';
@@ -15,6 +16,7 @@ import { type ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
 import {
   MAX_SET_LIST_SETS,
   type Platform,
+  type SetCatalogProblem,
   type SetCatalogView,
   type SetListEntryView,
   type SetOptionView,
@@ -54,14 +56,41 @@ export class SetListPicker implements ControlValueAccessor {
     url: '/api/sets',
     params: { platform: this.platform() },
   }));
-  protected readonly loading = computed(() => this.catalog.isLoading() && !this.catalog.hasValue());
-  protected readonly failed = computed(() => !!this.catalog.error());
-  protected readonly counting = computed(
-    () => this.catalog.hasValue() && this.catalog.value().counting,
-  );
-  private readonly sets = computed(() =>
-    // Stryker disable next-line ArrayDeclaration: read only while the sets load or have failed, when the template shows neither list and no chosen code matches.
-    this.catalog.hasValue() ? this.catalog.value().sets : [],
+  /**
+   * The last catalog read on the platform, kept through a failed read, and
+   * the read's failure since then, if any; a platform switch starts afresh.
+   */
+  private readonly read = linkedSignal<CatalogAnswer, CatalogRead>({
+    source: () => ({
+      platform: this.platform(),
+      catalog: this.catalog.hasValue() ? this.catalog.value() : undefined,
+      // The resource keeps a failed read's error while it asks again: that is asking, not failing.
+      error: this.catalog.isLoading() ? undefined : this.catalog.error(),
+    }),
+    computation: (answer, previous) => {
+      if (answer.catalog) return { catalog: answer.catalog };
+      const kept: CatalogRead = previous?.source.platform === answer.platform ? previous.value : {};
+      if (answer.error) return { catalog: kept.catalog, failure: answer.error };
+      // Asking again: a re-read keeps its failure on show until it is answered.
+      return kept.catalog ? kept : {};
+    },
+  });
+  protected readonly loading = computed(() => !this.read().catalog && !this.read().failure);
+  /** Why the first read failed, while no catalog has been read. */
+  protected readonly loadFailure = computed(() => {
+    const { catalog, failure } = this.read();
+    return !catalog && failure ? failureText(failure, 'Couldn’t load the sets') : null;
+  });
+  /** Why asking again failed, while the last catalog read stays on show. */
+  protected readonly rereadFailure = computed(() => {
+    const { catalog, failure } = this.read();
+    return catalog && failure ? rereadText(failure) : null;
+  });
+  protected readonly counting = computed(() => !!this.read().catalog?.counting);
+  private readonly sets = computed(
+    () =>
+      // Stryker disable next-line ArrayDeclaration: read only while the sets load or have failed, when the template shows neither list and no chosen code matches.
+      this.read().catalog?.sets ?? [],
   );
   protected readonly search = signal('');
   /** The sets whose code or name holds what was searched for. */
@@ -96,7 +125,7 @@ export class SetListPicker implements ControlValueAccessor {
     // Once every set on the platform is counted, drops chosen sets and
     // sublists it doesn't offer, as after switching platforms.
     effect(() => {
-      if (!this.catalog.hasValue() || this.counting()) return;
+      if (!this.catalog.hasValue() || this.catalog.value().counting) return;
       const offered = new Map(this.sets().map((set) => [set.code, set]));
       const chosen = untracked(this.chosen);
       const kept = chosen
@@ -110,6 +139,11 @@ export class SetListPicker implements ControlValueAccessor {
       // Stryker disable next-line ConditionalExpression: updating anyway sets what `chosen` already holds, and nothing reads the control's dirty or touched state.
       if (setListText(kept) !== setListText(chosen)) untracked(() => this.update(kept));
     });
+  }
+
+  /** Asks again for the sets after the first read failed. */
+  protected tryAgain(): void {
+    this.catalog.reload();
   }
 
   protected isChosen(code: string): boolean {
@@ -174,4 +208,35 @@ export class SetListPicker implements ControlValueAccessor {
   registerOnTouched(onTouched: () => void): void {
     this.onTouched = onTouched;
   }
+}
+
+/** What a read of the sets answered: its catalog, or its failure. */
+interface CatalogAnswer {
+  platform: Platform;
+  catalog: SetCatalogView | undefined;
+  error: Error | undefined;
+}
+
+/** The last catalog read on the platform and the failure of a read since, if any. */
+interface CatalogRead {
+  catalog?: SetCatalogView;
+  failure?: Error;
+}
+
+/** Whether the api said Scryfall failed, the only cause the picker can name. */
+function scryfallFailed(failure: Error): boolean {
+  return (
+    failure instanceof HttpErrorResponse &&
+    (failure.error as Partial<SetCatalogProblem> | null)?.error === 'scryfall-unavailable'
+  );
+}
+
+function failureText(failure: Error, text: string): string {
+  return scryfallFailed(failure) ? `${text} from Scryfall.` : `${text}.`;
+}
+
+function rereadText(failure: Error): string {
+  return scryfallFailed(failure)
+    ? 'Couldn’t check Scryfall for more sets; asking again.'
+    : 'Couldn’t check for more sets; asking again.';
 }
