@@ -30,31 +30,63 @@ export interface TournamentReadsOf {
  * The draft page's reads of the draft's tournament: the tournament as the
  * signed-in viewer reads it, its decklists, and what they say of the
  * viewer's deck: whether it is locked, and whether its exported sideboard is
- * over Arena's cap. The `DraftStore` composes them, and exposes them through
- * members of its own, which say more of each.
+ * over Arena's cap. The `DraftStore` composes them, and exposes each through
+ * its member of the same name.
  */
 export interface TournamentReads {
-  /** The draft's tournament: null until it has loaded, and while there is none. */
+  /**
+   * The draft's tournament as the signed-in viewer reads it: null until it
+   * has loaded, and while there is none. It is read once the draft says it
+   * has one, and again for each version, as every tournament change bumps it,
+   * and after each change to their deck during registration (see
+   * `DraftStore.changePlan`).
+   */
   readonly tournament: DraftRead<ViewerTournamentView | null>;
   /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
-  readonly state: Signal<TournamentState | undefined>;
-  /** Answers once the tournament read for the draft shown has settled, loaded or failed. */
-  whenSettled(): Promise<void>;
+  readonly tournamentState: Signal<TournamentState | undefined>;
+  /**
+   * Answers once the tournament read for the draft shown has settled,
+   * loaded or failed: at once if there is no tournament to read. A change
+   * that shows a new draft version awaits it, so it settles once the page
+   * shows the tournament it made. It can't answer for the older version:
+   * showing the new one starts its read at once, before this first looks.
+   */
+  whenTournamentSettled(): Promise<void>;
   /** Re-reads the draft's tournament. */
-  reread(): void;
-  /** Whether decklists are shown; undefined while the draft or its tournament is still loading. */
+  rereadTournament(): void;
+  /**
+   * Whether decklists are shown, so the Lists tab is there: as the
+   * tournament's `showsDecklists` says, which the api decides (ADR 0003).
+   * Undefined while the draft or its tournament is still loading; false with
+   * no tournament, or none loaded.
+   */
   readonly showDecklists: Signal<boolean | undefined>;
-  /** The tournament's decklists, in join order: none until they have loaded. */
+  /**
+   * The tournament's decklists, in join order: none until they have loaded.
+   * They are read once it shows them, and are the decks as they were when it
+   * started, so no change re-reads them.
+   */
   readonly decklists: DraftRead<DecklistView[]>;
   /** Shows the signed-in player's preferred printings on their own decklist, if it is shown. */
   showPreferredPrintings(preferredPrintings: PreferredPrintings): void;
   /** Whether the signed-in player has joined the draft's tournament. */
-  readonly joined: Signal<boolean>;
-  /** Whether the signed-in player's deck is locked. */
+  readonly joinedTournament: Signal<boolean>;
+  /**
+   * Whether the signed-in player's deck is locked: they have joined a
+   * tournament that is playing. The api then refuses every change to it
+   * with `deck-locked`.
+   */
   readonly deckLocked: Signal<boolean>;
-  /** Whether the signed-in player's deck locks at Start. */
+  /**
+   * Whether the signed-in player's deck locks at Start: they have joined a
+   * tournament in registration, as setup joins every player.
+   */
   readonly deckLocksAtStart: Signal<boolean>;
-  /** The exported sideboard's count and Arena's cap, when it holds more; otherwise null. */
+  /**
+   * When the exported sideboard holds more cards, its basics included, than
+   * Arena's import may keep: how many it holds, and how many Arena keeps;
+   * otherwise null.
+   */
   readonly sideboardOverArenaCap: Signal<{ count: number; cap: number } | null>;
 }
 
@@ -62,11 +94,6 @@ export interface TournamentReads {
 export function tournamentReads(of: TournamentReadsOf): TournamentReads {
   const injector = inject(Injector);
 
-  /**
-   * The tournament is read once the draft says it has one, and again for
-   * each version, as every tournament change bumps it, and after each change
-   * to the player's deck during registration (see `DraftStore.changePlan`).
-   */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
   const hasTournament = computed(() => !!of.draft()?.tournament);
   const tournamentResource = httpResource<ViewerTournamentView>(() => {
@@ -74,35 +101,27 @@ export function tournamentReads(of: TournamentReadsOf): TournamentReads {
     return hasTournament() ? `/api/drafts/${of.id()}/tournament` : undefined;
   });
   const tournament = keptRead<ViewerTournamentView | null>(tournamentResource, null);
-  const state = computed(() => tournament.value()?.state);
+  const tournamentState = computed(() => tournament.value()?.state);
 
-  /**
-   * As the tournament's `showsDecklists` says, which the api decides (ADR
-   * 0003). False with no tournament, or none loaded.
-   */
   const showDecklists = computed(() => {
     if (!of.draft()) return undefined;
     if (!hasTournament()) return false;
     if (!tournament.loaded()) return tournament.failed() ? false : undefined;
     return tournament.value()!.showsDecklists;
   });
-  /**
-   * The decklists are read once the tournament shows them. They are the
-   * decks as they were when it started, so no change re-reads them.
-   */
   const decklistsResource = httpResource<DecklistView[]>(() =>
     showDecklists() ? `/api/drafts/${of.id()}/tournament/decklists` : undefined,
   );
 
-  const joined = computed(() => {
+  const joinedTournament = computed(() => {
     const id = of.userId();
     return !!tournament.value()?.entries.some((entry) => entry.playerId === id);
   });
 
   return {
     tournament,
-    state,
-    whenSettled: () =>
+    tournamentState,
+    whenTournamentSettled: () =>
       new Promise((resolve) => {
         const watch = effect(
           () => {
@@ -113,7 +132,7 @@ export function tournamentReads(of: TournamentReadsOf): TournamentReads {
           { injector },
         );
       }),
-    reread: () => tournamentResource.reload(),
+    rereadTournament: () => tournamentResource.reload(),
     showDecklists,
     // Stryker disable next-line ArrayDeclaration: the Lists tab reads the decklists only once they have loaded, showing loading or the error before then.
     decklists: keptRead<DecklistView[]>(decklistsResource, []),
@@ -127,9 +146,9 @@ export function tournamentReads(of: TournamentReadsOf): TournamentReads {
         );
       }
     },
-    joined,
-    deckLocked: computed(() => joined() && state() === 'Playing'),
-    deckLocksAtStart: computed(() => joined() && state() === 'Registration'),
+    joinedTournament,
+    deckLocked: computed(() => joinedTournament() && tournamentState() === 'Playing'),
+    deckLocksAtStart: computed(() => joinedTournament() && tournamentState() === 'Registration'),
     sideboardOverArenaCap: computed(() => {
       const count = planBoardCount(of.exportPlan(), 'Sideboard');
       return of.draft()!.platform === 'Arena' && count > ARENA_SIDEBOARD_CAP

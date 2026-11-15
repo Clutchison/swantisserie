@@ -508,12 +508,7 @@ export class DraftStore implements TournamentViewer {
       !this.plan.loading() &&
       !this.plan.missing(),
   );
-  /**
-   * The draft's tournament and decklists, read once the draft says it has
-   * one, and again for each version, as every tournament change bumps it,
-   * and after each change to the player's deck during registration (see
-   * `changePlan`).
-   */
+  /** The draft's tournament and decklists, and what they say of the player's deck. */
   private readonly tournamentReads = tournamentReads({
     id: this.id,
     draft: this.draft.value,
@@ -522,27 +517,19 @@ export class DraftStore implements TournamentViewer {
     userId: computed(() => this.user()?.id),
     exportPlan: this.exportPlan,
   });
-  /**
-   * When the exported sideboard holds more cards, its basics included, than
-   * Arena's import may keep: how many it holds, and how many Arena keeps;
-   * otherwise null.
-   */
-  readonly sideboardOverArenaCap = this.tournamentReads.sideboardOverArenaCap;
-
-  /** The draft's tournament: null until it has loaded, and while there is none. */
+  // The tournament reads, as `TournamentReads` describes each.
   readonly tournament = this.tournamentReads.tournament;
-  /**
-   * Answers once the tournament read for the draft shown has settled,
-   * loaded or failed: at once if there is no tournament to read. A change
-   * that shows a new draft version awaits it, so it settles once the page
-   * shows the tournament it made. It can't answer for the older version:
-   * showing the new one starts its read at once, before this first looks.
-   */
+  readonly tournamentState = this.tournamentReads.tournamentState;
+  readonly showDecklists = this.tournamentReads.showDecklists;
+  readonly decklists = this.tournamentReads.decklists;
+  readonly joinedTournament = this.tournamentReads.joinedTournament;
+  readonly deckLocked = this.tournamentReads.deckLocked;
+  readonly deckLocksAtStart = this.tournamentReads.deckLocksAtStart;
+  readonly sideboardOverArenaCap = this.tournamentReads.sideboardOverArenaCap;
+  /** As `TournamentReads.whenTournamentSettled`. */
   whenTournamentSettled(): Promise<void> {
-    return this.tournamentReads.whenSettled();
+    return this.tournamentReads.whenTournamentSettled();
   }
-  /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
-  readonly tournamentState = this.tournamentReads.state;
   /**
    * Whether a player's queue is shown, in the Queue pane beside the tabs or,
    * below the desktop layout, the Queue sheet: from when the draft starts, as
@@ -568,13 +555,6 @@ export class DraftStore implements TournamentViewer {
     return this.powersKnown() ? this.canOrganize() : undefined;
   });
   /**
-   * Whether decklists are shown, so the Lists tab is there: as the
-   * tournament's `showsDecklists` says, which the api decides (ADR 0003).
-   * Undefined while the draft or its tournament is still loading; false with
-   * no tournament, or none loaded.
-   */
-  readonly showDecklists = this.tournamentReads.showDecklists;
-  /**
    * Whether the Board tab is shown: until the Lists tab takes its place.
    * Undefined while that is still loading.
    */
@@ -583,24 +563,6 @@ export class DraftStore implements TournamentViewer {
     // Stryker disable next-line ConditionalExpression: a Board tab still undefined shows either way, and `tabInUrl` keeps a tab the URL names whether it is 'unknown' or 'yes'.
     return decklists === undefined ? undefined : !decklists;
   });
-  /**
-   * The tournament's decklists, in join order: none until they have loaded.
-   * They are the decks as they were when it started, so no change re-reads them.
-   */
-  readonly decklists = this.tournamentReads.decklists;
-  /** Whether the signed-in player has joined the draft's tournament. */
-  readonly joinedTournament = this.tournamentReads.joined;
-  /**
-   * Whether the signed-in player's deck is locked: they have joined a
-   * tournament that is playing. The api then refuses every change to it
-   * with `deck-locked`.
-   */
-  readonly deckLocked = this.tournamentReads.deckLocked;
-  /**
-   * Whether the signed-in player's deck locks at Start: they have joined a
-   * tournament in registration, as setup joins every player.
-   */
-  readonly deckLocksAtStart = this.tournamentReads.deckLocksAtStart;
   /** How many cards the signed-in player's mainboard holds, its basic lands included. */
   readonly mainboardCards = computed(() => planBoardCount(this.plan.value(), 'Mainboard'));
   /**
@@ -811,7 +773,7 @@ export class DraftStore implements TournamentViewer {
    * may have moved on with no new draft version.
    */
   rereadTournament() {
-    this.tournamentReads.reread();
+    this.tournamentReads.rereadTournament();
   }
 
   /**
