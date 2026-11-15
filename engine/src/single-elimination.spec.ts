@@ -14,12 +14,12 @@ import {
   type PlayedBracketMatch,
 } from './single-elimination.js';
 import {
+  roundByes,
   trophyHolders,
   type DecidedMatch,
   type MatchOutcome,
 } from './tournament.js';
 import {
-  byesIn,
   COMPLETE_TOURNAMENT,
   completedThrough,
   forfeited,
@@ -251,7 +251,7 @@ describe('singleEliminationStandings', () => {
     it('leaves out a bye in a tournament round not yet completed', () => {
       // s1 had a bye in round 1; s2 and s3 haven't reported their match.
       const round1 = inRound(1, unreported('s2', 's3'));
-      const byes = byesIn(1, 's1');
+      const byes = roundByes(1, ['s1']);
       const [before] = singleEliminationStandings(
         seeds(3),
         round1,
@@ -827,7 +827,7 @@ describe('byesSendingOn', () => {
       ],
       ['s1', 's5'],
     );
-    expect(sent).toEqual(byesIn(1, 's1', 's2'));
+    expect(sent).toEqual(roundByes(1, ['s1', 's2']));
   });
 });
 

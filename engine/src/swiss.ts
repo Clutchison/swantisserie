@@ -39,10 +39,8 @@ export const SWISS_PERCENT_FLOOR = 33;
 
 /**
  * The standings of a Swiss tournament's `players` after `matches`, best
- * first, with `byes` holding the player with each bye so far, once per bye.
- * The standings count a tournament round's matches and byes only once
- * `completed` says it is completed, or once the tournament is complete, so
- * every player is level until round 1 is completed. A bye counts as a 2–0
+ * first, with `byes` holding each bye so far. Only the matches and byes
+ * countedInStandings counts by `completed` count. A bye counts as a 2–0
  * win. Players rank by the MTR's order (Appendix C):
  * match points, then opponents' match-win %, game-win %, then opponents'
  * game-win %.
@@ -72,11 +70,7 @@ export function swissStandings(
   );
   const all = new Map(
     players.map((playerId) => {
-      const standing = standingOf(
-        playerId,
-        decided,
-        counted.byes.filter((id) => id === playerId).length,
-      );
+      const standing = standingOf(playerId, decided, counted.byesOf(playerId));
       const { won, lost, drawn } = standing.games;
       const played = won + lost + drawn;
       standing.gameWinPercent = floored(

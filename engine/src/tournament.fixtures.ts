@@ -29,11 +29,6 @@ export function inRound<M extends TournamentMatch>(
   return matches.map((match) => ({ ...match, round }));
 }
 
-/** A bye in tournament round `round` for each of `players`. */
-export function byesIn(round: number, ...players: string[]): RoundBye[] {
-  return roundByes(round, players);
-}
-
 /**
  * `matches` and `byes` as one tournament round of a complete tournament:
  * the matches, byes and completed rounds a Swiss or single elimination
@@ -43,7 +38,7 @@ export function oneCompleteRound<M extends TournamentMatch>(
   matches: M[],
   byes: string[] = [],
 ): [RoundMatch<M>[], RoundBye[], CompletedRounds] {
-  return [inRound(1, ...matches), byesIn(1, ...byes), COMPLETE_TOURNAMENT];
+  return [inRound(1, ...matches), roundByes(1, byes), COMPLETE_TOURNAMENT];
 }
 
 /** A match `a` and `b` played to the game score `games`, `a`'s games first. */

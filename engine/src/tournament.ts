@@ -147,19 +147,22 @@ export interface CompletedRounds {
 /**
  * The matches and byes among `matches` and `byes` that Swiss and single
  * elimination standings count: a tournament round's once it's completed,
- * and every tournament round's once the tournament is complete. The byes
- * come back as the player with each, once per bye.
+ * and every tournament round's once the tournament is complete, so every
+ * player is level until round 1 is completed. The byes come back as how
+ * many each player has.
  */
 export function countedInStandings<M extends RoundMatch>(
   matches: readonly M[],
   byes: readonly RoundBye[],
   { lastCompletedRound, complete }: CompletedRounds,
-): { matches: M[]; byes: string[] } {
+): { matches: M[]; byesOf: (playerId: string) => number } {
   const counts = ({ round }: { round: number }) =>
     complete || round <= lastCompletedRound;
+  const counted = byes.filter(counts);
   return {
     matches: matches.filter(counts),
-    byes: byes.filter(counts).map(({ playerId }) => playerId),
+    byesOf: (playerId) =>
+      counted.filter((bye) => bye.playerId === playerId).length,
   };
 }
 

@@ -402,7 +402,7 @@ function unpairedAdvancing(
  * The byes of each tournament round of `rounds`, with the players paired
  * in the tournament round after it.
  */
-export interface RoundByes {
+export interface ByesWithNextRoundPlayers {
   round: number;
   byes: readonly string[];
   nextRoundPlayers: readonly string[];
@@ -415,7 +415,7 @@ export interface RoundByes {
  * nobody advances; `dropped` holds every player who has.
  */
 export function byesSendingOn(
-  rounds: readonly RoundByes[],
+  rounds: readonly ByesWithNextRoundPlayers[],
   dropped: readonly string[],
 ): RoundBye[] {
   return rounds.flatMap(({ round, byes, nextRoundPlayers }) =>
@@ -430,10 +430,8 @@ export function byesSendingOn(
 
 /**
  * The standings of a single elimination tournament's `players`, in seed
- * order, after `matches`, with `byes` holding the player with each bye.
- * The standings count a tournament round's matches and byes only once
- * `completed` says it is completed, or once the tournament is complete, so
- * every player is level until round 1 is completed. Players rank by the
+ * order, after `matches`, with `byes` holding each bye. Only the matches
+ * and byes countedInStandings counts by `completed` count. Players rank by the
  * tournament round each reached, as counted by the matches they won, byes
  * included, so the winner of the final ranks first alone. Players out
  * in the same tournament round, or still in it, share a rank and keep seed
@@ -465,11 +463,7 @@ export function singleEliminationStandings(
       ),
   );
   const table = players.map((playerId) =>
-    standingOf(
-      playerId,
-      decided,
-      counted.byes.filter((id) => id === playerId).length,
-    ),
+    standingOf(playerId, decided, counted.byesOf(playerId)),
   );
   const standings = ranked(table, (a, b) => b.matches.won - a.matches.won);
   const out = new Set(

@@ -8,13 +8,13 @@ import {
 } from './swiss.js';
 import {
   GAME_SCORES,
+  roundByes,
   type RoundBye,
   type RoundMatch,
   type ScheduledRound,
   type Standing,
 } from './tournament.js';
 import {
-  byesIn,
   COMPLETE_TOURNAMENT,
   completedThrough,
   grantedDraw,
@@ -294,17 +294,17 @@ describe('pairSwissRound', () => {
         const players = Array.from({ length: count }, (_, i) => `p${i + 1}`);
         const random = seededRandom(rngSeed * 1000 + count);
         const matchesSoFar: RoundMatch[] = [];
-        const roundByes: RoundBye[] = [];
+        const byesSoFar: RoundBye[] = [];
 
         for (let r = 0; r < swissRoundCount(count, 'UntilWinner'); r++) {
           // Each tournament round is completed before the next is paired.
           const standings = swissStandings(
             players,
             matchesSoFar,
-            roundByes,
+            byesSoFar,
             completedThrough(r),
           );
-          const byes = roundByes.map(({ playerId }) => playerId);
+          const byes = byesSoFar.map(({ playerId }) => playerId);
           const round = pairSwissRound({
             standings,
             pastMatches: matchesSoFar.map((match) => match.players),
@@ -344,7 +344,7 @@ describe('pairSwissRound', () => {
             const bye = standings.find((s) => s.playerId === round.bye)!;
             expect(byes).not.toContain(round.bye);
             expect(bye.rank).toBe(lowestWithout.rank);
-            roundByes.push({ playerId: round.bye!, round: r + 1 });
+            byesSoFar.push({ playerId: round.bye!, round: r + 1 });
           } else {
             expect(round.bye).toBeNull();
           }
@@ -370,7 +370,7 @@ describe('swissStandings', () => {
       ...inRound(1, won('a', 'b')),
       ...inRound(2, won('c', 'a')),
     ];
-    const byes = [...byesIn(1, 'c'), ...byesIn(2, 'b')];
+    const byes = [...roundByes(1, ['c']), ...roundByes(2, ['b'])];
     const points = (standings: Standing[]) =>
       Object.fromEntries(standings.map((s) => [s.playerId, s.matchPoints]));
 
@@ -413,7 +413,7 @@ describe('swissStandings', () => {
       const [b] = swissStandings(
         ['b'],
         [],
-        byesIn(2, 'b'),
+        roundByes(2, ['b']),
         completedThrough(1),
       );
       expect(b).toMatchObject({ matchPoints: 0, games: { won: 0 } });
