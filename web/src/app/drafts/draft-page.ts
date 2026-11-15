@@ -27,7 +27,7 @@ import { DESKTOP_QUERY, hasTurn, matching, setListText } from './drafts';
 import { titleWithTurn } from './turns';
 import { DraftUpdates } from './draft-updates';
 import { ImagePreloader } from './image-preloader';
-import { Changes } from '../changes';
+import { Changes, SendsChange } from '../changes';
 import { DraftHeader } from './draft-header';
 import { PlayersPanel } from './players-panel';
 import { PicksLeft } from './picks-left';
@@ -65,12 +65,13 @@ const PLAYERS_ONLY: ReadonlySet<Panel> = new Set(['Deck']);
     QueuePane,
     RouterLink,
     SeatStrip,
+    SendsChange,
     Tab,
     TabList,
   ],
   providers: [
     CardImageSource,
-    // One for the header and the Players panel: one change to the draft at a time.
+    // One for the header, the Players panel and Retry: one change to the draft at a time.
     Changes,
     CardPreviews,
     DraftStore,
@@ -88,6 +89,7 @@ export class DraftPage {
   private readonly auth = inject(Auth);
   private readonly updates = inject(DraftUpdates);
   private readonly router = inject(Router);
+  private readonly changes = inject(Changes);
   protected readonly store = inject(DraftStore);
   protected readonly setListText = setListText;
 
@@ -289,15 +291,19 @@ export class DraftPage {
   }
 
   /** Asks for a failed pool snapshot to start again. */
-  protected async retry() {
-    this.retrying.set(true);
-    this.clearErrors();
-    try {
-      await this.store.retrySnapshot();
-    } catch {
-      this.retryFailed.set(true);
-    } finally {
-      this.retrying.set(false);
-    }
+  protected retry() {
+    return this.changes.send(async () => {
+      this.retrying.set(true);
+      this.clearErrors();
+      try {
+        await this.store.retrySnapshot();
+        return true;
+      } catch {
+        this.retryFailed.set(true);
+        return false;
+      } finally {
+        this.retrying.set(false);
+      }
+    });
   }
 }

@@ -189,7 +189,7 @@
             <div class="error" role="alert">
               <p>Snapshotting the pool failed: {{ draft.snapshot.error }}</p>
               @if (powers().organize) {
-                <button class="button" type="button" (click)="retry()" [disabled]="retrying()">
+                <button class="button" type="button" appSendsChange="retry" (click)="retry()">
                   {{ retrying() ? 'Retrying…' : 'Retry' }}
                 </button>
                 @if (retryFailed()) {
