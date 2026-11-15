@@ -95,7 +95,7 @@ One copy of a card in a pool, with the printing on the platform that the snapsho
 _Avoid_: Card entry, catalog card
 
 **Card preview**:
-A view-only image of a pool card that appears next to its name when a viewer hovers over, taps or tabs to the name, or next to its card on the Pool tab or in stacks mode when a viewer rests the mouse on the card. Escape closes it. On the Deck tab, tapping a name opens its Card detail instead.
+A view-only image of a pool card that appears next to its name when a viewer hovers over, taps or tabs to the name, or next to its card in stacks mode when a viewer rests the mouse on the card. Escape closes it. On the Deck tab, tapping a name opens its Card detail instead.
 _Avoid_: Tooltip, hover card
 
 **Mana cost**:
@@ -513,7 +513,7 @@ A tournament's first state, after setup, when the draft's players join and leave
 _Avoid_: Open, lobby (that is the draft's), sign-up
 
 **Join**:
-A draft's player entering a tournament. Every player joins at tournament setup, without asking; a player who has left can join again during registration.
+A draft's player entering a tournament. Every player joins at tournament setup, without asking; a player who has left, or been removed, can join again during registration.
 _Avoid_: Register, enter, sign up
 
 **Leave**:

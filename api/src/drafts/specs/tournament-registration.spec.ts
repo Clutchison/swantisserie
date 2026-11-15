@@ -35,6 +35,22 @@ describe('leaving and joining again', () => {
     expect(await joinedPlayers(id)).toEqual([bob.id, alice.id]);
   });
 
+  describe('with the api’s clock ahead of the database’s', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('lists a player who joins again after the players setup joined, by the api’s clock', async () => {
+      vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 60 * 60_000 });
+      const id = await inRegistration([aliceCookie, bobCookie]);
+      // The faked clock stands still unless moved.
+      vi.setSystemTime(Date.now() + 1000);
+
+      await removeEntry(id, alice.id, aliceCookie).expect(200);
+      await joinTournament(id, aliceCookie).expect(201);
+
+      expect(await joinedPlayers(id)).toEqual([bob.id, alice.id]);
+    });
+  });
+
   it('lets a player join again whatever their mainboard holds', async () => {
     // Bob's deck holds just his one pick.
     const id = await completeDraft([aliceCookie, bobCookie]);
@@ -62,9 +78,23 @@ describe('leaving and joining again', () => {
     const id = await inRegistration([aliceCookie, bobCookie]);
     const carolCookie = await signIn(carol);
 
-    expect((await joinTournament(id, carolCookie).expect(403)).body.error).toBe(
-      'not-a-player',
-    );
+    expect((await joinTournament(id, carolCookie).expect(403)).body).toEqual({
+      error: 'not-a-player',
+      message: 'Only the draft’s players can take part in its tournament.',
+    });
+    expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);
+  });
+
+  it('refuses someone who isn’t one of the draft’s players leaving as not a player', async () => {
+    const id = await inRegistration([aliceCookie, bobCookie]);
+    const carolCookie = await signIn(carol);
+
+    expect(
+      (await removeEntry(id, carol.id, carolCookie).expect(403)).body,
+    ).toEqual({
+      error: 'not-a-player',
+      message: 'Only the draft’s players can take part in its tournament.',
+    });
     expect(await joinedPlayers(id)).toEqual([alice.id, bob.id]);
   });
 

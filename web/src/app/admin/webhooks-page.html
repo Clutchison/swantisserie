@@ -39,10 +39,10 @@
   </form>
 
   <h2 id="registered-webhooks">Registered webhooks</h2>
-  @if (webhooks.isLoading() && !webhooks.hasValue()) {
-    <p>Loading…</p>
-  } @else if (webhooks.error()) {
+  @if (webhooks.error()) {
     <p class="error">Couldn't load the webhooks. Try reloading the page.</p>
+  } @else if (webhooks.isLoading() && !webhooks.hasValue()) {
+    <app-loading-animation size="page">Loading…</app-loading-animation>
   } @else if (webhooks.hasValue()) {
     <ul aria-labelledby="registered-webhooks">
       @for (webhook of webhooks.value(); track webhook.id) {
@@ -61,7 +61,7 @@
               class="button secondary"
               type="button"
               [appSendsChange]="'rename ' + webhook.id"
-              (click)="rename(webhook, name.value)"
+              (click)="rename(webhook, name)"
             >
               Rename
             </button>
@@ -84,7 +84,7 @@
               class="button secondary"
               type="button"
               [appSendsChange]="'replace url ' + webhook.id"
-              (click)="replaceUrl(webhook, url.value)"
+              (click)="replaceUrl(webhook, url)"
             >
               Replace URL
             </button>

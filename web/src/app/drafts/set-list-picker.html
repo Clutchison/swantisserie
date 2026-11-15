@@ -1,6 +1,7 @@
 <label>
   Find a set
   <input
+    #find
     type="text"
     [value]="search()"
     (input)="searchFor($event)"
@@ -9,8 +10,11 @@
 </label>
 @if (loading()) {
   <span class="hint">Loading the sets on {{ platform() }}…</span>
-} @else if (failed()) {
-  <span class="hint error">Couldn’t load the sets from Scryfall. Try reloading the page.</span>
+} @else if (loadFailure(); as failure) {
+  <div class="load-failed">
+    <span class="hint error" role="alert">{{ failure }}</span>
+    <button class="button compact secondary" type="button" (click)="tryAgain()">Try again</button>
+  </div>
 } @else {
   <ul class="sets" aria-label="Sets">
     @for (set of shown(); track set.code) {
@@ -36,6 +40,11 @@
   @if (counting()) {
     <span class="hint">Still counting cards on Scryfall, so more sets may appear.</span>
   }
+  <span class="hint error reread" role="status" aria-label="Checking for more sets">
+    @if (rereadFailure(); as failure) {
+      {{ failure }}
+    }
+  </span>
 }
 <span class="hint">
   @if (chosen().length > 0) {

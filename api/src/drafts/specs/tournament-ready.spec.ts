@@ -203,7 +203,16 @@ describe('ready refusals', () => {
     expect((await unmarkReady(id, bobCookie).expect(409)).body).toEqual(
       youHaventJoined,
     );
-    expect(await refusedMark(id, carolCookie)).toBe('not-joined');
+    const notAPlayer = {
+      error: 'not-a-player',
+      message: 'Only the draft’s players can take part in its tournament.',
+    };
+    expect((await markReady(id, carolCookie).expect(403)).body).toEqual(
+      notAPlayer,
+    );
+    expect((await unmarkReady(id, carolCookie).expect(403)).body).toEqual(
+      notAPlayer,
+    );
   });
 
   it('tells a player an organizer removed that they haven’t joined, marking ready', async () => {

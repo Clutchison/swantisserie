@@ -27,7 +27,7 @@ import {
   viewOn,
 } from './harness';
 import { moreButton, openMore } from './draft-header-harness';
-import { disclosure } from './disclosure-harness';
+import { disclosure, plainlyHeaded } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { comesBefore, onlyAlert } from '../../specs-harness';
 import { expectBySeatingTools, expectInSeat, PLAYERS_FAILED } from './players-panel-harness';
@@ -118,7 +118,9 @@ describe('lobby', () => {
       powersAnswer(ALL_POWERS);
       const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
 
-      expect(disclosure(page, 'Players · 1')!.open).toBe(true);
+      // Collapsible above the tabs on a phone; beside them, always open, with a plain heading.
+      expect(disclosure(page, 'Players · 1')?.open ?? null).toBe(screen === 'mobile' ? true : null);
+      expect(plainlyHeaded(page, 'Players · 1')).toBe(screen === 'desktop');
       // In its pane beside the tabs from the desktop layout; above them on a phone.
       expect(findPlayersBesideTabs(page)?.contains(playersPanel(page)) ?? false).toBe(
         screen !== 'mobile',

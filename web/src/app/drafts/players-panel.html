@@ -1,8 +1,16 @@
-<details [open]="open()">
-  <!-- Where it always stays open, its summary is only a heading. -->
-  <summary (click)="keepOpen($event)">
-    <h2>Players · {{ playerCount() }}</h2>
-  </summary>
+<!-- Where it always stays open, a plain heading; where it can collapse, above the tabs, a disclosure. -->
+@if (alwaysOpen()) {
+  <h2>Players · {{ playerCount() }}</h2>
+  <ng-container *ngTemplateOutlet="content" />
+} @else {
+  <details [open]="inLobby()">
+    <summary>
+      <h2>Players · {{ playerCount() }}</h2>
+    </summary>
+    <ng-container *ngTemplateOutlet="content" />
+  </details>
+}
+<ng-template #content>
   <!-- The seating tools: randomizing seats, bots and pick import. -->
   @if (inLobby() && (canOrganize() || canAddBots())) {
     <div class="controls">
@@ -66,8 +74,8 @@
           }
         </ul>
         <p>
-          {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn: Pick
-          {{ preview.next.pick }}, {{ preview.next.player }}{{ previewNextSuffix() }}.
+          {{ preview.picks }} {{ preview.picks === 1 ? 'pick' : 'picks' }}. Next turn:
+          {{ previewNextTurn() }}.
         </p>
         <p class="detail">This is only a preview: nothing has been imported.</p>
         <p class="pick-import-warning">
@@ -101,6 +109,17 @@
         }
         @if (inLobby() && (canOrganize() || (canAddBots() && player.isBot))) {
           <div class="seat-controls">
+            @if (canAddBots() && player.isBot) {
+              <button
+                class="icon remove"
+                type="button"
+                [attr.aria-label]="'Remove ' + player.name"
+                (click)="removeBot(player.id)"
+                [appSendsChange]="'remove ' + player.id"
+              >
+                Remove
+              </button>
+            }
             @if (canOrganize()) {
               <span class="move">
                 @let earlierName = 'Move ' + player.name + ' earlier';
@@ -131,17 +150,6 @@
                 </button>
               </span>
             }
-            @if (canAddBots() && player.isBot) {
-              <button
-                class="icon remove"
-                type="button"
-                [attr.aria-label]="'Remove ' + player.name"
-                (click)="removeBot(player.id)"
-                [appSendsChange]="'remove ' + player.id"
-              >
-                Remove
-              </button>
-            }
           </div>
         }
         @if (errorAt({ seat: player.id }); as message) {
@@ -152,10 +160,10 @@
       <li class="empty">Nobody has joined yet.</li>
     }
   </ol>
-</details>
+</ng-template>
 <!--
-  Outside the panel's disclosure, so they are announced even while it is closed: its status,
-  and a failure that settles once it has closed, which shows by its control while it is open.
+  Outside the panel's disclosure, where it has one, so they are announced even while it is closed:
+  its status, and a failure that settles once it has closed, which shows by its control while it is open.
 -->
 <app-change-status />
 @if (errorAfterPanel(); as message) {

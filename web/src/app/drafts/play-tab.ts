@@ -13,7 +13,7 @@ import {
 import { LucideArrowLeftRight, LucideCheck } from '@lucide/angular';
 import {
   SWISS_ROUND_OPTIONS,
-  TOURNAMENT_FORMAT_NAMES,
+  TOURNAMENT_FORMATS,
   type CompleteRoundRequest,
   type DraftView,
   type ReopenRoundView,
@@ -49,7 +49,7 @@ import {
 } from './your-matches';
 
 /** The formats tournament setup offers, in order, as it names them. */
-const FORMATS = (Object.keys(TOURNAMENT_FORMAT_NAMES) as TournamentFormat[]).map((format) => ({
+const FORMATS = TOURNAMENT_FORMATS.map((format) => ({
   format,
   name: formatName(format),
 }));

@@ -23,7 +23,7 @@ import {
   flushQueueAndPlan,
 } from './harness';
 import { expectBySeatingTools, expectInSeat, PLAYERS_FAILED } from './players-panel-harness';
-import { disclosure } from './disclosure-harness';
+import { plainlyHeaded } from './disclosure-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
 import { boardColumns } from './board-tab-harness';
 import { alertIn, clickOn, pressEscape, text } from '../../specs-harness';
@@ -106,7 +106,7 @@ describe('bots', () => {
       { players: [alicePlayer] },
       { powers: ADD_BOTS_ONLY },
     );
-    expect(disclosure(page, 'Players · 1')!.open).toBe(true);
+    expect(plainlyHeaded(page, 'Players · 1')).toBe(true);
 
     button(findPlayersBesideTabs(page)!, 'Add bot')!.click();
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/bots'))).flush(
@@ -115,7 +115,7 @@ describe('bots', () => {
     );
     await fixture.whenStable();
 
-    expect(disclosure(findPlayersBesideTabs(page)!, 'Players · 2')!.open).toBe(true);
+    expect(plainlyHeaded(findPlayersBesideTabs(page)!, 'Players · 2')).toBe(true);
     expect(playersPanel(page).textContent).toContain('Bot 1');
   });
 

@@ -2,11 +2,13 @@ import { TestBed } from '@angular/core/testing';
 import {
   MAX_SET_LIST_SETS,
   type DraftCreationProblem,
+  type SetCatalogProblem,
   type SetCatalogView,
   type SetOptionView,
 } from 'contract';
 import {
   useDraftsApp,
+  alertIn,
   button,
   controlByLabel,
   group,
@@ -19,6 +21,7 @@ import {
   wait,
   webhooksAnswer,
 } from './harness';
+import { emptyStatusIn, statusIn, text, watchChanges } from '../../specs-harness';
 
 useDraftsApp();
 beforeEach(() => webhooksAnswer([]));
@@ -52,6 +55,8 @@ const mir: SetOptionView = {
 
 /** The request for the sets on Arena, the platform the form starts on. */
 const ARENA_SETS_URL = '/api/sets?platform=Arena';
+/** What the picker says when asking again for the sets fails. */
+const REREAD_FAILED = 'Couldn’t check for more sets; asking again.';
 
 const catalog = (sets: SetOptionView[], counting = false): SetCatalogView => ({ sets, counting });
 
@@ -70,6 +75,37 @@ async function openSets(arena: SetCatalogView = catalog([otj, mkm])) {
 async function answerSets(platform: string, answer: SetCatalogView) {
   (await vi.waitFor(() => http.expectOne(`/api/sets?platform=${platform}`))).flush(answer);
 }
+
+/** How the api answers a failed read of the sets. */
+interface FailedRead {
+  body: object;
+  status: number;
+  statusText: string;
+}
+const SERVER_ERROR: FailedRead = {
+  body: { message: 'Internal server error' },
+  status: 500,
+  statusText: 'Internal Server Error',
+};
+const SCRYFALL_UNAVAILABLE: FailedRead = {
+  body: {
+    error: 'scryfall-unavailable',
+    message: 'Scryfall could not be reached.',
+  } satisfies SetCatalogProblem,
+  status: 502,
+  statusText: 'Bad Gateway',
+};
+
+/** Fails the next request for the sets on `platform`, with the api's 500 unless told otherwise. */
+async function failSets(platform: string, { body, status, statusText }: FailedRead = SERVER_ERROR) {
+  (await vi.waitFor(() => http.expectOne(`/api/sets?platform=${platform}`))).flush(body, {
+    status,
+    statusText,
+  });
+}
+
+/** The live region where the picker says asking again for the sets failed. */
+const REREAD_STATUS = 'Checking for more sets';
 
 /** What a set's or sublist's toggle button is named: its code, name and card count. */
 const nameOf = ({ code, name, cards }: { code: string; name: string; cards: number }) =>
@@ -336,6 +372,49 @@ describe('choosing a set list on the create form', () => {
     expect(toggleButtons(namedList(page, 'Sets'))).toHaveLength(2);
   });
 
+  it('keeps the sets and what was chosen through a failed re-read, and asks again until they are counted', async () => {
+    const { fixture, page } = await openSets(catalog([otj], true));
+    setToggle(page, nameOf(otj))!.click();
+    await fixture.whenStable();
+    const note = emptyStatusIn(page, REREAD_STATUS);
+
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    expect(text(note)).toBe(REREAD_FAILED);
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj, true)]);
+    expect(toggleButtons(group(page, 'OTJ sublists')!)).toEqual([
+      shown(big, true),
+      shown(otp, true),
+      shown(yotj),
+    ]);
+    const changes = watchChanges(note);
+
+    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
+    TestBed.tick();
+    expect(changes()).toEqual([]);
+    again.flush(catalog([otj, mkm]));
+    await fixture.whenStable();
+
+    expect(text(statusIn(page, { name: REREAD_STATUS }))).toBe('');
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj, true), shown(mkm)]);
+  });
+
+  it('drops chosen sets the platform doesn’t offer only once a read says every set is counted', async () => {
+    const { fixture, page } = await openSets(catalog([otj, mkm], true));
+    setToggle(page, nameOf(otj))!.click();
+    setToggle(page, nameOf(mkm))!.click();
+    await fixture.whenStable();
+
+    await failSets('Arena');
+    await fixture.whenStable();
+    expect(page.textContent).toContain('Chosen: OTJ (+ BIG, OTP), MKM.');
+
+    await answerSets('Arena', catalog([mkm]));
+    await fixture.whenStable();
+    expect(page.textContent).toContain('Chosen: MKM.');
+  });
+
   it('offers no more sets once as many are chosen as a set list can hold', async () => {
     const many = Array.from({ length: MAX_SET_LIST_SETS + 2 }, (_, i) => ({
       ...mir,
@@ -356,17 +435,92 @@ describe('choosing a set list on the create form', () => {
     expect(page.textContent).toContain(`A set list holds at most ${MAX_SET_LIST_SETS} sets.`);
   });
 
-  it('says when the sets fail to load', async () => {
+  it('says when the sets fail to load, and asks again on Try again', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    const name = controlByLabel(page, 'textbox', 'Name')!;
+    typeInto(name, 'Spring 2024');
+    controlByLabel(page, 'radio', 'Sets')!.click();
+
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    expect(alertIn(page)?.textContent?.trim()).toBe('Couldn’t load the sets.');
+    expect(page.textContent).not.toMatch(/reload/i);
+    expect(name.value).toBe('Spring 2024');
+
+    button(page, 'Try again')!.click();
+    const again = await vi.waitFor(() => http.expectOne(ARENA_SETS_URL));
+    TestBed.tick();
+    expect(page.textContent).toContain('Loading the sets on Arena…');
+    expect(alertIn(page)).toBeNull();
+    again.flush(catalog([otj, mkm]));
+    await fixture.whenStable();
+
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(otj), shown(mkm)]);
+    expect(name.value).toBe('Spring 2024');
+  });
+
+  it('puts focus on Find a set when Try again goes', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    controlByLabel(page, 'radio', 'Sets')!.click();
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    button(page, 'Try again')!.focus();
+    button(page, 'Try again')!.click();
+
+    expect(document.activeElement).toBe(controlByLabel(page, 'textbox', 'Find a set'));
+    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(catalog([otj]));
+    await fixture.whenStable();
+  });
+
+  it('names Scryfall when the sets fail to load because Scryfall failed', async () => {
     const { fixture, page } = await openUrl('/drafts/new');
     await fixture.whenStable();
     controlByLabel(page, 'radio', 'Sets')!.click();
 
-    (await vi.waitFor(() => http.expectOne(ARENA_SETS_URL))).flush(
-      { error: 'scryfall-unavailable', message: 'Scryfall could not be reached.' },
-      { status: 502, statusText: 'Bad Gateway' },
-    );
+    await failSets('Arena', SCRYFALL_UNAVAILABLE);
     await fixture.whenStable();
 
-    expect(page.textContent).toContain('Couldn’t load the sets from Scryfall.');
+    expect(alertIn(page)?.textContent?.trim()).toBe('Couldn’t load the sets from Scryfall.');
+    expect(button(page, 'Try again')).toBeTruthy();
+    expect(page.textContent).not.toMatch(/reload/i);
+  });
+
+  it('reads a new platform’s sets afresh after a failed first read, without the failure', async () => {
+    const { fixture, page } = await openUrl('/drafts/new');
+    await fixture.whenStable();
+    controlByLabel(page, 'radio', 'Sets')!.click();
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    choosePlatform(page, 'MTGO');
+    const mtgo = await vi.waitFor(() => http.expectOne('/api/sets?platform=MTGO'));
+    TestBed.tick();
+    expect(alertIn(page)).toBeNull();
+    expect(page.textContent).toContain('Loading the sets on MTGO…');
+    mtgo.flush(catalog([mkm]));
+    await fixture.whenStable();
+
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(mkm)]);
+  });
+
+  it('reads a new platform’s sets afresh after a failed re-read, without the failure or the old sets', async () => {
+    const { fixture, page } = await openSets(catalog([otj], true));
+    await failSets('Arena');
+    await fixture.whenStable();
+
+    choosePlatform(page, 'MTGO');
+    const mtgo = await vi.waitFor(() => http.expectOne('/api/sets?platform=MTGO'));
+    TestBed.tick();
+    expect(page.textContent).toContain('Loading the sets on MTGO…');
+    expect(namedList(page, 'Sets')).toBeNull();
+    mtgo.flush(catalog([mkm]));
+    await fixture.whenStable();
+
+    expect(toggleButtons(namedList(page, 'Sets'))).toEqual([shown(mkm)]);
+    expect(text(statusIn(page, { name: REREAD_STATUS }))).toBe('');
   });
 });

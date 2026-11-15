@@ -5,6 +5,7 @@ import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { Router, RouterLink, type UrlTree } from '@angular/router';
 import type { Observable } from 'rxjs';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
+import { LoadingAnimation } from '../loading/loading-animation';
 import { saveThenReread } from '../reread';
 import { tabInUrl } from '../tab-in-url';
 import { Tab, TabList } from '../tab-list';
@@ -24,7 +25,16 @@ interface Problem {
 /** Where app admins see feedback and mark it reviewed or unreviewed. */
 @Component({
   selector: 'app-feedback-page',
-  imports: [ChangeStatus, DatePipe, FocusKey, RouterLink, SendsChange, Tab, TabList],
+  imports: [
+    ChangeStatus,
+    DatePipe,
+    FocusKey,
+    LoadingAnimation,
+    RouterLink,
+    SendsChange,
+    Tab,
+    TabList,
+  ],
   providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './feedback-page.html',
