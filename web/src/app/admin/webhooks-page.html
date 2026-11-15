@@ -61,7 +61,7 @@
               class="button secondary"
               type="button"
               [appSendsChange]="'rename ' + webhook.id"
-              (click)="rename(webhook, name.value)"
+              (click)="rename(webhook, name)"
             >
               Rename
             </button>
@@ -84,7 +84,7 @@
               class="button secondary"
               type="button"
               [appSendsChange]="'replace url ' + webhook.id"
-              (click)="replaceUrl(webhook, url.value)"
+              (click)="replaceUrl(webhook, url)"
             >
               Replace URL
             </button>

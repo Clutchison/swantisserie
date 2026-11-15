@@ -66,16 +66,30 @@ export class WebhooksPage {
     if (await this.save('add', () => this.http.post(API, webhook))) this.form.reset();
   }
 
-  protected async rename(webhook: WebhookWithUrlView, name: string) {
-    await this.save({ webhook: webhook.id }, () =>
-      this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
+  /**
+   * Renames `webhook` to what its row's `field` holds. A rename that fails,
+   * refused or not sent through a lost connection, puts the stored name
+   * back, so the row shows what is stored.
+   */
+  protected async rename(webhook: WebhookWithUrlView, field: HTMLInputElement) {
+    const name = field.value;
+    await this.save(
+      { webhook: webhook.id },
+      () => this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
+      () => (field.value = webhook.name),
     );
   }
 
-  protected async replaceUrl(webhook: WebhookWithUrlView, url: string) {
-    await this.save({ webhook: webhook.id }, () =>
+  /**
+   * Replaces `webhook`'s URL with what its row's New URL `field` holds,
+   * emptying the field once it saves. A refused URL stays, to be corrected.
+   */
+  protected async replaceUrl(webhook: WebhookWithUrlView, field: HTMLInputElement) {
+    const url = field.value;
+    const replaced = await this.save({ webhook: webhook.id }, () =>
       this.http.put(`${API}/${webhook.id}/url`, { url } satisfies WebhookUrlReplaceRequest),
     );
+    if (replaced) field.value = '';
   }
 
   /**
@@ -99,17 +113,18 @@ export class WebhooksPage {
   /**
    * Sends the change `request` makes from `place` (none if the app admin
    * thinks better of it), then shows the list as it now is; answers whether
-   * it was made. A failure shows at `place`. Focus is kept as
-   * `Changes.send` keeps it.
+   * it was made. A failure shows at `place`, and `failed` runs once the
+   * change fails: refused, or not sent through a lost connection. Focus is kept as `Changes.send` keeps it.
    */
   private save(
     place: ProblemPlace,
     request: () => Observable<unknown> | Promise<Observable<unknown> | undefined>,
+    failed?: () => void,
   ): Promise<boolean> {
     return this.changes.send(async () => {
       const sending = await request();
       if (!sending) return false;
-      return saveThenReread(sending, {
+      const made = await saveThenReread(sending, {
         resource: this.webhooks,
         injector: this.injector,
         problem: this.problem,
@@ -121,6 +136,8 @@ export class WebhooksPage {
               : 'Saving failed. Check your connection and try again.',
         }),
       });
+      if (!made) failed?.();
+      return made;
     });
   }
 }
