@@ -10,7 +10,7 @@ import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 import {
   checkStarted,
-  checkQueuePlayer,
+  queuePlayerOf,
   QueueRefusedError,
 } from './queue-refusals.js';
 
@@ -285,8 +285,8 @@ export class QueuesService {
       state: DraftState,
     ) => Promise<void>,
   ): Promise<QueueView> {
-    return this.lock.forPlayer(draftId, userId, async (tx, player) => {
-      const { playerId, state } = checkQueuePlayer(player);
+    return this.lock.forPlayer(draftId, userId, async (tx, locked) => {
+      const { playerId, state } = queuePlayerOf(locked);
       await apply(tx, playerId, state);
       return this.read(tx, playerId);
     });

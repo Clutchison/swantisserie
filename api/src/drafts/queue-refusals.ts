@@ -22,14 +22,14 @@ export async function lockQueue(
   draftId: string,
   userId: string,
 ): Promise<LockedPlayer> {
-  return checkQueuePlayer(await lockPlayer(tx, draftId, userId));
+  return queuePlayerOf(await lockPlayer(tx, draftId, userId));
 }
 
 /**
- * The player `lockPlayer` locked, for a change to their queue. Throws as
- * `lockQueue` does.
+ * Returns the player `lockPlayer` locked, for a change to their queue.
+ * Throws as `lockQueue` does.
  */
-export function checkQueuePlayer(locked: LockedPlayer | null): LockedPlayer {
+export function queuePlayerOf(locked: LockedPlayer | null): LockedPlayer {
   if (!locked) throw new NotAPlayerError('queues');
   checkQueueChangeable(locked.state);
   return locked;

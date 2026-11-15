@@ -102,6 +102,8 @@ export async function raceBehindLongCommit(
   first: () => PromiseLike<Response>,
   waiting: () => PromiseLike<Response>,
 ) {
+  // 2, so the gate doesn't open on `first`'s COMMIT alone: `waiting` can't
+  // commit before `first` does, so it opens on the timer.
   database.holdCommits(2, LONG_HOLD_MS);
   const held = database.commitHeld();
   // Supertest sends a request only once something awaits it.

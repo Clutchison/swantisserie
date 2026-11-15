@@ -169,7 +169,7 @@ export class DraftLock {
 
   /**
    * Runs `change` in a transaction with user `userId`'s player row locked,
-   * as `lockPlayer` does, for a change to what is theirs alone; `player` is
+   * as `lockPlayer` does, for a change to what is theirs alone; `locked` is
    * what `lockPlayer` returns. It waits for any pick or undo holding the
    * draft's row, so it is given as long as one: a change still running
    * after `LOCKED_CHANGE_TIMEOUT_MS` rolls back and throws. Bumps no
@@ -178,7 +178,7 @@ export class DraftLock {
   async forPlayer<T>(
     draftId: string,
     userId: string,
-    change: (tx: Transaction, player: LockedPlayer | null) => Promise<T>,
+    change: (tx: Transaction, locked: LockedPlayer | null) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction(
       async (tx) => change(tx, await lockPlayer(tx, draftId, userId)),
