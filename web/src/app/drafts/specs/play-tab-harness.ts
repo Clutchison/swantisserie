@@ -897,3 +897,13 @@ export async function failChange(fixture: AppFixture, page: HTMLElement, url: st
     return text(alert);
   });
 }
+
+/**
+ * The one alert the open tab of `page` shows, failing the spec if it shows
+ * none or more than one, so a failure is said in one place only.
+ */
+export function onlyAlert(page: HTMLElement) {
+  const alerts = panel(page).querySelectorAll<HTMLElement>('[role="alert"]');
+  expect(alerts).toHaveLength(1);
+  return alerts[0];
+}

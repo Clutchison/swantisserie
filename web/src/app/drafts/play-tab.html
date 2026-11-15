@@ -177,8 +177,14 @@
         [ownId]="ownId()!"
         [matches]="ownMatches()"
         (report)="report($event)"
-        (confirmMatch)="confirmMatch($event)"
+        (confirmMatch)="confirmMatch($event, 'yourMatches')"
       />
+    }
+    <!-- Each failure shows by the controls that made it, before what follows them. -->
+    @if (error(); as failure) {
+      @if (failure.place === 'yourMatches') {
+        <p class="error" role="alert">{{ failure.message }}</p>
+      }
     }
     @if (roundRobin()) {
       <app-results-grid
@@ -192,10 +198,15 @@
         [ownId]="joined() ? ownId() : undefined"
         [currentId]="ownMatch()?.match?.id"
         (choose)="chosen.set($event)"
-        (confirmMatch)="confirmMatch($event)"
+        (confirmMatch)="confirmMatch($event, 'results')"
         (setGameScore)="setGameScore($event)"
         (clearGameScore)="clearGameScore($event)"
       />
+    }
+    @if (error(); as failure) {
+      @if (failure.place === 'results') {
+        <p class="error" role="alert">{{ failure.message }}</p>
+      }
     }
     <h3>Players</h3>
     <ul class="entries" aria-label="Players">
@@ -277,6 +288,8 @@
 } @else {
   <app-loading-animation size="tab">Loading the tournament…</app-loading-animation>
 }
-@if (error(); as message) {
-  <p class="error" role="alert">{{ message }}</p>
+@if (error(); as failure) {
+  @if (failure.place === 'tab') {
+    <p class="error" role="alert">{{ failure.message }}</p>
+  }
 }

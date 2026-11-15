@@ -69,6 +69,15 @@ const START_DETAILS: Record<TournamentFormat, string> = {
 };
 
 /**
+ * Where a failed change is explained, by the controls that made it:
+ * directly after Your matches, for Report and Confirm there; directly
+ * after the results (standings and matches, bracket or results grid), for
+ * Confirm and game score changes there; or at the foot of the tab, for
+ * everything else.
+ */
+type ErrorPlace = 'yourMatches' | 'results' | 'tab';
+
+/**
  * The Play tab of a complete draft: the setup form for organizers
  * before its tournament is set up, then registration, where the draft's
  * players join and leave and organizers remove them, start it or cancel
@@ -127,7 +136,8 @@ export class PlayTab {
   );
   /** The format and round count, summed up; read only once the tournament has loaded. */
   protected readonly summary = computed(() => summaryOf(this.tournament()!));
-  protected readonly error = signal<string | null>(null);
+  /** The latest change's failure, if it failed, and where it is explained; only one shows at a time. */
+  protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
   /** Whether the draft has a tournament; before then organizers see the setup form. */
   protected readonly setUp = computed(() => !!this.draft().tournament);
@@ -343,7 +353,7 @@ export class PlayTab {
         }))
           ? this.api.report(this.draft().id, match.id, games)
           : undefined,
-      { failure: "Couldn't report the match. Try again in a moment." },
+      { failure: "Couldn't report the match. Try again in a moment.", place: 'yourMatches' },
     );
   }
 
@@ -450,10 +460,11 @@ export class PlayTab {
     );
   }
 
-  /** Confirms the signed-in player's match `matchId`. */
-  protected confirmMatch(matchId: string) {
+  /** Confirms the signed-in player's match `matchId`, pressed at `place`: Your matches or the results. */
+  protected confirmMatch(matchId: string, place: ErrorPlace) {
     return this.send(() => this.api.confirm(this.draft().id, matchId), {
       failure: "Couldn't confirm the match. Try again in a moment.",
+      place,
     });
   }
 
@@ -462,6 +473,7 @@ export class PlayTab {
     return this.send(() => this.api.setGameScore(this.draft().id, matchId, games), {
       failure: "Couldn't save the match’s game score. Try again in a moment.",
       keep: [`correct ${matchId}`],
+      place: 'results',
     });
   }
 
@@ -478,6 +490,7 @@ export class PlayTab {
       {
         failure: "Couldn't clear the match’s game score. Try again in a moment.",
         keep: [`correct ${matchId}`],
+        place: 'results',
       },
     );
   }
@@ -508,11 +521,16 @@ export class PlayTab {
    * Sends a change to the tournament, the request `send` makes, and shows
    * the draft it answers with, unless another change is in flight; `send`
    * makes none if the organizer thinks better of it. A refusal's reason, or else `failure`, is shown
-   * if it fails, and `refused`, if any, runs on a refusal.
+   * at `place`, the foot of the tab unless given, if it fails, and `refused`, if any, runs on a refusal.
    */
   private send(
     send: () => Observable<DraftView> | undefined | Promise<Observable<DraftView> | undefined>,
-    { failure, keep, refused }: { failure: string; keep?: string[]; refused?: () => void },
+    {
+      failure,
+      keep,
+      refused,
+      place = 'tab',
+    }: { failure: string; keep?: string[]; refused?: () => void; place?: ErrorPlace },
   ) {
     return this.changes.send(
       async () => {
@@ -527,7 +545,7 @@ export class PlayTab {
           return true;
         } catch (err) {
           if (isRefusal(err)) refused?.();
-          this.error.set(changeFailure(err, failure));
+          this.error.set({ message: changeFailure(err, failure), place });
           // Stryker disable next-line BooleanLiteral: Changes.send uses the answer only for an empty status and busyOnceMade, which the Play tab never passes.
           return false;
         }

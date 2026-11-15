@@ -385,7 +385,8 @@ export const tableColumns = (table: HTMLElement) =>
 /**
  * Whether `first` comes before `second` in reading order: the order a
  * keyboard or screen-reader user reaches them. Specs use it only to check
- * that an action row comes before a list that grows.
+ * that an action row comes before a list that grows, and that a failure's
+ * message comes before the content that follows its control.
  */
 export const comesBefore = (first: Node, second: Node) =>
   Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);
