@@ -85,6 +85,12 @@ export function emptyStatusIn(root: HTMLElement, name: string): HTMLElement {
   return region!;
 }
 
+/** The status region named `name` inside `root` while it holds text; null while it is empty or there is none. */
+export function filledStatusIn(root: HTMLElement, name: string): HTMLElement | null {
+  const region = statusIn(root, { name });
+  return region && text(region) ? region : null;
+}
+
 /**
  * Starts recording every change inside `region`, its text included; returns
  * a function that stops and gives the changes made since. None means a

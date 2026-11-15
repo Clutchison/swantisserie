@@ -504,7 +504,7 @@ describe('Deck tab exports', () => {
           expect(copied.slice(copied.indexOf('Sideboard') + 1)).toHaveLength(16);
         });
 
-        it('puts the warning into its region, there and empty under the cap', async () => {
+        it('puts the sideboard cap note into its region, there and empty under the cap', async () => {
           const { sideboardPicks, yours } = sideboardOf(16);
           const underCap: PlanView = {
             ...yours,

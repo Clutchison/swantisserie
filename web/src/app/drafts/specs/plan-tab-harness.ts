@@ -6,9 +6,9 @@ import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'co
 import {
   byAriaLabel,
   collapseWhitespace,
+  filledStatusIn,
   focusAndClick,
   openDialog,
-  statusIn,
   stubScrollIntoView,
 } from '../../specs-harness';
 import {
@@ -59,17 +59,11 @@ export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
   ...fields,
 });
 
-/** The Ready notice inside `root`: the status telling the player they are no longer ready; undefined if none shows. */
-export const readyNotice = (root: HTMLElement) =>
-  [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
-    text(status).startsWith('You’re no longer ready'),
-  );
+/** The Ready notice inside `root`, telling the player they are no longer ready: its status region while it holds the notice; null otherwise. */
+export const readyNotice = (root: HTMLElement) => filledStatusIn(root, 'Ready notice');
 
-/** The Deck notice inside `root`: the status naming cards lost to other players; undefined if none shows. */
-export const deckNotice = (root: HTMLElement) => {
-  const region = statusIn(root, { name: 'Deck notice' });
-  return region && text(region) ? region : undefined;
-};
+/** The Deck notice inside `root`, naming cards lost to other players: its status region while it holds the notice; null otherwise. */
+export const deckNotice = (root: HTMLElement) => filledStatusIn(root, 'Deck notice');
 
 /**
  * Focuses and presses `notice`'s Dismiss, runs `meanwhile` while the dismiss

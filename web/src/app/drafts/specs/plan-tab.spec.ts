@@ -27,14 +27,13 @@ import {
   statusMessage,
   alertIn,
 } from './harness';
-import { emptyStatusIn, statusIn } from '../../specs-harness';
 import {
   disclosure,
   elementContaining,
   hiddenInClosedSection,
   toggleDisclosure,
 } from './disclosure-harness';
-import { expectFocusOn } from '../../specs-harness';
+import { emptyStatusIn, expectFocusOn, statusIn, watchChanges } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
@@ -358,7 +357,7 @@ describe('plan tab', () => {
     const plan = await openPlan(fixture, page);
 
     const note = deckNotice(plan)!;
-    expect(note.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    expect(text(note)).toBe(
       'Lost to other players: Shivan Dragon (picked by Bob), Lightning Bolt (picked by Carol). Dismiss',
     );
 
@@ -366,33 +365,37 @@ describe('plan tab', () => {
     const req = http.expectOne('/api/drafts/draft-1/plan/notice');
     expect(req.request.method).toBe('DELETE');
     req.flush(planOf({ mainboard: [planned(brightclimb)] }));
-    await vi.waitFor(() => expect(deckNotice(plan)).toBeUndefined());
+    await vi.waitFor(() => expect(deckNotice(plan)).toBeNull());
   });
 
-  it('puts the Deck notice into its region, there and empty before an unpicked card in the deck is lost', async () => {
+  it('puts the Deck notice into its region, there and empty before an unpicked card in the deck is lost, and says it once', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
     });
     const plan = await openPlan(fixture, page);
     const region = emptyStatusIn(plan, 'Deck notice');
-
-    updates.events.next({
-      type: 'changed',
-      draft: draft(drafting({ turn: bobsTurn, version: 1 })),
+    const withLoss = planOf({
+      mainboard: [planned(brightclimb)],
+      lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
     });
-    await flushPicks([]);
-    await flushQueueAndPlan(
-      EMPTY_QUEUE,
-      planOf({
-        mainboard: [planned(brightclimb)],
-        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
-      }),
-    );
-    await fixture.whenStable();
+    /** The draft changes, and the plan re-read is `answer`. */
+    const changed = async (version: number) => {
+      updates.events.next({ type: 'changed', draft: draft(drafting({ turn: bobsTurn, version })) });
+      await flushPicks([]);
+      await flushQueueAndPlan(EMPTY_QUEUE, withLoss);
+      await fixture.whenStable();
+    };
+
+    await changed(1);
 
     expect(statusIn(plan, { name: 'Deck notice' })).toBe(region);
     expect(text(region)).toBe('Lost to other players: Shivan Dragon (picked by Bob). Dismiss');
+
+    // A later change re-reads the plan, its notice the same: the region is left alone.
+    const changes = watchChanges(region);
+    await changed(2);
+    expect(changes()).toEqual([]);
   });
 
   it('hides its help in a closed "How this works" section until opened', async () => {
@@ -437,7 +440,7 @@ describe('plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    expect(deckNotice(plan)!.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    expect(text(deckNotice(plan)!)).toBe(
       'Lost to other players: Shivan Dragon (picked by another player). Dismiss',
     );
   });

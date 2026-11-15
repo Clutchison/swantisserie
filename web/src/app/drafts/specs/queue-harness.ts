@@ -4,6 +4,7 @@ import {
   buttons,
   byAriaLabel,
   byName,
+  filledStatusIn,
   menuItem,
   openMenu,
   text,
@@ -87,14 +88,8 @@ export async function openQueueSheet(fixture: AppFixture, page: HTMLElement) {
  */
 export const findQueuePane = (page: HTMLElement) =>
   byName(page, 'section:not([role="tabpanel"])', 'Queue');
-/**
- * The Queue notice inside `root`, naming lost cards: the status by its name,
- * while it holds the notice. Null if it is empty or there is none.
- */
-export const queueNotice = (root: HTMLElement) => {
-  const region = byAriaLabel(root, '[role="status"]', 'Queue notice');
-  return region && text(region) ? region : null;
-};
+/** The Queue notice inside `root`, naming lost cards: its status region while it holds the notice; null otherwise. */
+export const queueNotice = (root: HTMLElement) => filledStatusIn(root, 'Queue notice');
 /**
  * The play/pause button inside `root` that pauses the queue or sets it
  * picking: by its name, which is what pressing it does. Null if there is none.
