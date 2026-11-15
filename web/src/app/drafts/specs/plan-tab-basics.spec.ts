@@ -6,6 +6,7 @@ import {
   completeSnapshot,
   alertIn,
   button,
+  toggleButton,
   group,
   heading,
   namedImages,
@@ -456,7 +457,7 @@ describe('basic lands on the plan tab', () => {
     await fixture.whenStable();
 
     expect(stack(plan, 'Lands')).toEqual(['Forest', 'Island', 'Mountain', 'Plains', 'Swamp']);
-    button(plan, 'List')!.click();
+    toggleButton(plan, 'List')!.click();
     await fixture.whenStable();
     const lines = planBoards(plan)[0].lines;
     expect(lines).toContain('1 Forest');
@@ -478,7 +479,7 @@ describe('basic lands on the plan tab', () => {
     expect(groupButtons(plan, 'Group by')).toEqual(['Mana value', 'Color', 'Type']);
     expect(basicsButton(plan)).toBeDefined();
 
-    button(plan, 'List')!.click();
+    toggleButton(plan, 'List')!.click();
     await fixture.whenStable();
     expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
     expect(group(plan, 'Group by')).toBeNull();
@@ -722,7 +723,7 @@ describe('basic lands on the plan tab', () => {
         tournament,
       });
       const deck = await openPlan(fixture, page);
-      button(deck, 'List')!.click();
+      toggleButton(deck, 'List')!.click();
       await fixture.whenStable();
       basicsButton(deck)!.focus();
       await openBasics(fixture, deck);
@@ -734,7 +735,9 @@ describe('basic lands on the plan tab', () => {
       expect(basicsButton(deck)).toBeUndefined();
       http.expectNone((request) => request.url.includes('/plan/basics/'));
       // Add basics went with the lock.
-      expect(document.activeElement).toBe(withPicks ? exportButton(page) : button(deck, 'List'));
+      expect(document.activeElement).toBe(
+        withPicks ? exportButton(page) : toggleButton(deck, 'List'),
+      );
 
       await pushTournament(fixture, null, 2, asAlice);
 
@@ -795,7 +798,7 @@ describe('basic lands on the plan tab', () => {
         plan: boltAndShivanWith([{ land: 'Forest', board: 'Sideboard', count: 2 }]),
       });
       const plan = await openPlan(fixture, page);
-      button(plan, 'List')!.click();
+      toggleButton(plan, 'List')!.click();
       await fixture.whenStable();
       const [mainboard, sideboard] = planDropLists(fixture);
 

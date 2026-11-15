@@ -39,6 +39,7 @@ import {
   alertIn,
   button,
   buttonOrder,
+  toggleButton,
   accessibleName,
 } from './harness';
 import {
@@ -196,7 +197,7 @@ describe('Deck tab exports', () => {
         {},
         { plan: { ...EMPTY_PLAN, mainboard: [unpicked] } },
       );
-      button(planPanel(opened.page), 'Stacks')!.click();
+      toggleButton(planPanel(opened.page), 'Stacks')!.click();
       await opened.fixture.whenStable();
 
       // Only the row's action buttons: the mode and Group by toggles have no order to keep.
