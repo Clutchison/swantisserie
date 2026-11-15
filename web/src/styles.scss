@@ -134,6 +134,12 @@ svg.lucide {
   vertical-align: middle;
 }
 
+/* How a control looks when it can't be used: a disabled button, segment or toggle button. */
+%disabled-control {
+  opacity: 0.6;
+  cursor: default;
+}
+
 button {
   border-color: var(--color-muted);
   background: var(--color-surface);
@@ -162,8 +168,7 @@ button {
 
   &:disabled,
   &[aria-disabled='true'] {
-    opacity: 0.6;
-    cursor: default;
+    @extend %disabled-control;
   }
 
   &.secondary {
@@ -241,8 +246,7 @@ button {
 
   /* A segment whose radio is disabled looks like a disabled button. */
   label:has(:disabled) {
-    opacity: 0.6;
-    cursor: default;
+    @extend %disabled-control;
   }
 
   /*
@@ -256,7 +260,8 @@ button {
 
 /*
  * An on/off setting as an aria-pressed button that keeps its label, such as
- * the Pool tab's color filter: a 44px touch target, ringed when pressed.
+ * the Pool tab's color filter: a 44px touch target, ringed when pressed. One
+ * labelled in words is the `appToggleButton` component, in toggle-button.ts.
  */
 .toggle-button {
   display: flex;
@@ -268,14 +273,14 @@ button {
   background: transparent;
   cursor: pointer;
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled, [aria-disabled='true']) {
     background: var(--color-raised);
   }
 
   /* As a disabled button looks, such as a set the full set list picker can't add. */
-  &:disabled {
-    opacity: 0.6;
-    cursor: default;
+  &:disabled,
+  &[aria-disabled='true'] {
+    @extend %disabled-control;
   }
 
   &[aria-pressed='true'] {
@@ -304,7 +309,7 @@ button {
 
     /*
      * One whose label can be too long for a phone, such as a set in the set
-     * list picker: it wraps onto more lines, growing taller than the 44px
+     * list picker or a Drop with a long player name: it wraps onto more lines, growing taller than the 44px
      * touch target rather than overflowing its list.
      */
     &.wraps {

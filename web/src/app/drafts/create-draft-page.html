@@ -112,16 +112,7 @@
       />
     </label>
     <div class="double-picks">
-      <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
-      <button
-        type="button"
-        class="toggle-button labelled"
-        [attr.aria-pressed]="doublePicksOn()"
-        (click)="toggleDoublePicks()"
-      >
-        @if (doublePicksOn()) {
-          <svg lucideCheck size="16" aria-hidden="true"></svg>
-        }
+      <button appToggleButton [pressed]="doublePicksOn()" (click)="toggleDoublePicks()">
         Double picks
       </button>
       @if (doublePicksOn()) {

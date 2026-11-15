@@ -12,7 +12,6 @@ import {
   untracked,
 } from '@angular/core';
 import { type ControlValueAccessor, NG_VALUE_ACCESSOR } from '@angular/forms';
-import { LucideCheck } from '@lucide/angular';
 import {
   MAX_SET_LIST_SETS,
   type Platform,
@@ -22,6 +21,7 @@ import {
 } from 'contract';
 import { setListText } from './drafts';
 import { setsMatching } from './set-search';
+import { ToggleButton } from '../toggle-button';
 
 // Stryker disable next-line StringLiteral: `InjectionToken` treats a falsy `providedIn` as 'root'.
 const PROVIDED_IN = 'root';
@@ -41,7 +41,7 @@ export const SET_CATALOG_POLL_MS = new InjectionToken<number>('SET_CATALOG_POLL_
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './set-list-picker.html',
   styleUrl: './set-list-picker.scss',
-  imports: [LucideCheck],
+  imports: [ToggleButton],
   providers: [
     { provide: NG_VALUE_ACCESSOR, useExisting: forwardRef(() => SetListPicker), multi: true },
   ],

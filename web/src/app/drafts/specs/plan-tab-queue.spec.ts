@@ -22,6 +22,7 @@ import {
   alertIn,
   serverError,
   pressed,
+  toggleButton,
 } from './harness';
 import {
   clickBackdrop,
@@ -52,7 +53,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
   /** The open dialog, if any: it opens over the page, outside the tab. */
   const dialog = openDialog;
   /** The dialog's Include sideboard toggle button. */
-  const sideboardToggle = () => button(dialog()!, 'Include sideboard')!;
+  const sideboardToggle = () => toggleButton(dialog()!, 'Include sideboard')!;
   /** Whether Include sideboard is pressed, as its `aria-pressed` says. */
   const sideboardPressed = () => pressed(dialog()!, 'Include sideboard');
 

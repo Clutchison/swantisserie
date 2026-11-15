@@ -85,16 +85,12 @@
 <ng-template #dropChoices let-match>
   <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
     @for (player of match.droppable; track player.id) {
-      <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
       <button
-        type="button"
-        class="toggle-button labelled"
-        [attr.aria-pressed]="isDropping(match.id, player.id)"
+        appToggleButton
+        class="wraps"
+        [pressed]="isDropping(match.id, player.id)"
         (click)="setDropping(match.id, player.id, !isDropping(match.id, player.id))"
       >
-        @if (isDropping(match.id, player.id)) {
-          <svg lucideCheck size="16" aria-hidden="true"></svg>
-        }
         Drop {{ player.name }}
       </button>
     }

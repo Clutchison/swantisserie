@@ -12,16 +12,12 @@
     } @else {
       <p>Adds {{ queueCountText() }} to the end of your queue.</p>
     }
-    <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
     <button
-      type="button"
-      class="toggle-button labelled include-sideboard"
-      [attr.aria-pressed]="includeSideboard()"
+      appToggleButton
+      class="include-sideboard"
+      [pressed]="includeSideboard()"
       (click)="includeSideboard.set(!includeSideboard())"
     >
-      @if (includeSideboard()) {
-        <svg lucideCheck size="16" aria-hidden="true"></svg>
-      }
       Include sideboard
     </button>
   </div>

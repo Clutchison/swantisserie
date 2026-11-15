@@ -638,7 +638,6 @@ const CONTROLS = {
     'textarea, input:not([type]):not([role]), input[type="text"]:not([role]), input[type="url"]',
   spinbutton: 'input[type="number"]',
   radio: 'input[type="radio"]',
-  checkbox: 'input[type="checkbox"]',
   combobox: 'select',
 } as const;
 type ControlRole = keyof typeof CONTROLS;
@@ -646,7 +645,6 @@ type ControlOf = {
   textbox: HTMLInputElement | HTMLTextAreaElement;
   spinbutton: HTMLInputElement;
   radio: HTMLInputElement;
-  checkbox: HTMLInputElement;
   combobox: HTMLSelectElement;
 };
 

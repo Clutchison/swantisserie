@@ -15,17 +15,13 @@
   <ul class="sets" aria-label="Sets">
     @for (set of shown(); track set.code) {
       <li>
-        <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
         <button
-          type="button"
-          class="toggle-button labelled wraps"
-          [attr.aria-pressed]="isChosen(set.code)"
+          appToggleButton
+          class="wraps"
+          [pressed]="isChosen(set.code)"
           [disabled]="full() && !isChosen(set.code)"
           (click)="toggleSet(set)"
         >
-          @if (isChosen(set.code)) {
-            <svg lucideCheck size="16" aria-hidden="true"></svg>
-          }
           {{ set.code.toUpperCase() }} {{ set.name }}
           <span class="hint">{{ set.cards }} cards</span>
         </button>
@@ -54,14 +50,11 @@
     @for (sublist of chosen.set.sublists; track sublist.code) {
       @let included = chosen.entry.sublists.includes(sublist.code);
       <button
-        type="button"
-        class="toggle-button labelled wraps"
-        [attr.aria-pressed]="included"
+        appToggleButton
+        class="wraps"
+        [pressed]="included"
         (click)="toggleSublist(chosen.set, sublist.code)"
       >
-        @if (included) {
-          <svg lucideCheck size="16" aria-hidden="true"></svg>
-        }
         {{ sublist.code.toUpperCase() }} {{ sublist.name }}
         <span class="hint">{{ sublist.cards }} cards</span>
       </button>
