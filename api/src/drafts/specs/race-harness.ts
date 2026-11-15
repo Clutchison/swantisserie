@@ -1,5 +1,6 @@
 import type { PlanView, QueueView } from 'contract';
 import type { Response } from 'supertest';
+import type { TestAppOptions } from '../../testing/app.js';
 import {
   raceServer,
   startRaceDatabase,
@@ -40,13 +41,21 @@ export let bobCookie: string;
  * state is one that taking the two one at a time, in either order, leaves.
  *
  * Skipped unless RACE_DATABASE_URL names a local Postgres server; see
- * `startRaceDatabase`. Alice and Bob are signed in.
+ * `startRaceDatabase`. Alice and Bob are signed in. `overrides` are
+ * provided in place of the app's own providers.
  */
-export function describeRaces(name: string, specs: () => void) {
+export function describeRaces(
+  name: string,
+  specs: () => void,
+  overrides?: TestAppOptions['overrides'],
+) {
   describe.skipIf(!raceServer(process.env))(
     `${name}, raced on a real Postgres`,
     () => {
-      useDraftsApp(async () => (database = await startRaceDatabase()));
+      useDraftsApp(
+        async () => (database = await startRaceDatabase()),
+        overrides,
+      );
       beforeEach(async () => {
         bobCookie = await signIn(bob);
       });
@@ -58,6 +67,26 @@ export function describeRaces(name: string, specs: () => void) {
 /** Sends `requests` at once, holding their commits back as `describeRaces` says. */
 export function race(...requests: (() => PromiseLike<Response>)[]) {
   database.holdCommits(requests.length, HOLD_MS);
+  return Promise.all(requests.map((send) => send()));
+}
+
+/**
+ * How long, under `raceLastCommitFirst`, each held COMMIT waits after the
+ * one before it: long enough for that request to answer, its push sent.
+ */
+const COMMIT_GAP_MS = 300;
+
+/**
+ * As `race`, but once the commits are let through, the request whose COMMIT
+ * arrived last commits first, and the other `COMMIT_GAP_MS` later, so the
+ * first to get there commits after the other has answered. Without a lock
+ * between them, that one acts on what it read before the other's change,
+ * and the other answers before that one's change is committed.
+ */
+export function raceLastCommitFirst(
+  ...requests: (() => PromiseLike<Response>)[]
+) {
+  database.holdCommits(requests.length, HOLD_MS, COMMIT_GAP_MS);
   return Promise.all(requests.map((send) => send()));
 }
 

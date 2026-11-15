@@ -18,7 +18,7 @@ export interface RaceDatabase extends TestDatabase {
   /** The database's name: `race_` and random hex. */
   name: string;
   /** See DatabaseProxy's `holdCommits`. */
-  holdCommits(count: number, timeoutMs: number): void;
+  holdCommits(count: number, timeoutMs: number, lastFirstGapMs?: number): void;
 }
 
 /**
@@ -109,7 +109,8 @@ export async function startRaceDatabase(
     url: url.href,
     slowDown: (ms) => proxy.slowDown(ms),
     replyHeld: () => proxy.replyHeld(),
-    holdCommits: (count, timeoutMs) => proxy.holdCommits(count, timeoutMs),
+    holdCommits: (count, timeoutMs, lastFirstGapMs) =>
+      proxy.holdCommits(count, timeoutMs, lastFirstGapMs),
     async reset() {
       proxy.reset();
       const { rows } = await db.query<{ db: string; tablename: string }>(

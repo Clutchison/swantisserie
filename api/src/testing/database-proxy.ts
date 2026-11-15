@@ -18,44 +18,54 @@ export interface DatabaseProxy {
    * them are waiting, or `timeoutMs` has passed since the first arrived;
    * COMMITs after that pass straight through. Two transactions raced this
    * way have both finished their reads and writes before either commits,
-   * unless one is waiting on a lock the other holds.
+   * unless one is waiting on a lock the other holds. Given `lastFirstGapMs`,
+   * the held COMMITs go on one at a time once let through, the last to
+   * arrive first and each of the others `lastFirstGapMs` after the one
+   * before; otherwise they all go on at once.
    */
-  holdCommits(count: number, timeoutMs: number): void;
+  holdCommits(count: number, timeoutMs: number, lastFirstGapMs?: number): void;
   /** Takes away any slowness, and lets any held COMMITs through. */
   reset(): void;
 }
 
 /** COMMITs being held back until enough arrive, or time runs out. */
 class CommitGate {
-  #waiting = 0;
+  /** Lets each COMMIT held so far go on, in the order they arrived. */
+  readonly #held: (() => void)[] = [];
+  #open = false;
   #timer: NodeJS.Timeout | undefined;
-  readonly #open: Promise<void>;
-  #release!: () => void;
 
   constructor(
     private readonly count: number,
     private readonly timeoutMs: number,
-    onOpen: () => void,
-  ) {
-    this.#open = new Promise((resolve) => {
-      this.#release = () => {
-        clearTimeout(this.#timer);
-        onOpen();
-        resolve();
-      };
-    });
-  }
+    private readonly onOpen: () => void,
+    private readonly lastFirstGapMs?: number,
+  ) {}
 
   /** A COMMIT has arrived: resolves once it may go on. */
   arrive(): Promise<void> {
-    this.#waiting += 1;
-    if (this.#waiting >= this.count) this.#release();
-    else this.#timer ??= setTimeout(this.#release, this.timeoutMs);
-    return this.#open;
+    if (this.#open) return Promise.resolve();
+    const held = new Promise<void>((resolve) => this.#held.push(resolve));
+    if (this.#held.length >= this.count) this.release();
+    else this.#timer ??= setTimeout(() => this.release(), this.timeoutMs);
+    return held;
   }
 
+  /** Lets the held COMMITs go on, and any that arrive from now on. */
   release() {
-    this.#release();
+    if (this.#open) return;
+    this.#open = true;
+    clearTimeout(this.#timer);
+    this.onOpen();
+    const held = this.#held.splice(0);
+    if (this.lastFirstGapMs === undefined) {
+      for (const goOn of held) goOn();
+      return;
+    }
+    held.reverse().forEach((goOn, i) => {
+      if (i === 0) goOn();
+      else setTimeout(goOn, i * this.lastFirstGapMs!);
+    });
   }
 }
 
@@ -177,11 +187,16 @@ export async function startDatabaseProxy(
     replyHeld() {
       return new Promise((resolve) => replyHeldWaiters.push(resolve));
     },
-    holdCommits(count, timeoutMs) {
+    holdCommits(count, timeoutMs, lastFirstGapMs) {
       gate?.release();
-      const opened = new CommitGate(count, timeoutMs, () => {
-        if (gate === opened) gate = undefined;
-      });
+      const opened = new CommitGate(
+        count,
+        timeoutMs,
+        () => {
+          if (gate === opened) gate = undefined;
+        },
+        lastFirstGapMs,
+      );
       gate = opened;
     },
     reset() {
