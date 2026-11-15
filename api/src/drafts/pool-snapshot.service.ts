@@ -5,6 +5,7 @@ import {
   OnApplicationShutdown,
 } from '@nestjs/common';
 import type {
+  Draft,
   Platform,
   PoolSourceKind,
   Prisma,
@@ -36,6 +37,9 @@ interface SnapshotSource {
   setList: Prisma.JsonValue;
   platform: Platform;
 }
+
+/** A draft's snapshot state and error, as startNew leaves them. */
+export type SnapshotOutcome = Pick<Draft, 'snapshotState' | 'snapshotError'>;
 
 /** The pool snapshot is complete, so the pool can't change any more. */
 export class PoolFrozenError extends Error {
@@ -125,6 +129,33 @@ export class PoolSnapshotService
     return startedPromise;
   }
 
+  /**
+   * Starts a new draft's snapshot, as start does, but never rejects: the
+   * draft is already saved. A start that fails is logged and the snapshot
+   * recorded Failed, for the organizer to retry; if that write fails too,
+   * the draft stays Running for the next boot to resume. Resolves to the
+   * snapshot's state and error as it leaves them.
+   */
+  async startNew(draftId: string): Promise<SnapshotOutcome> {
+    try {
+      await this.start(draftId);
+      return { snapshotState: 'Running', snapshotError: null };
+    } catch (err) {
+      this.logger.error(
+        `Could not start the pool snapshot for new draft ${draftId}`,
+        err,
+      );
+      const failed = {
+        snapshotState: 'Failed',
+        snapshotError: UNEXPECTED_SNAPSHOT_FAILURE,
+      } as const;
+      return (await this.recordFailure(draftId, failed.snapshotError)) ===
+        'not-recorded'
+        ? { snapshotState: 'Running', snapshotError: null }
+        : failed;
+    }
+  }
+
   private async run(
     draftId: string,
     started: { resolve: () => void; reject: (err: unknown) => void },
@@ -146,14 +177,33 @@ export class PoolSnapshotService
         data: { snapshotState: 'Complete' },
       });
     } catch (err) {
-      const { count } = await this.prisma.draft.updateMany({
-        where: { id: draftId },
-        data: { snapshotState: 'Failed', snapshotError: explain(err) },
-      });
       // No draft left: it was cancelled, which is what stopped the snapshot.
-      if (count > 0) {
+      if ((await this.recordFailure(draftId, explain(err))) !== 'cancelled') {
         this.logger.error(`Pool snapshot for draft ${draftId} failed`, err);
       }
+    }
+  }
+
+  /**
+   * Records the draft's snapshot Failed with `error`. If the write fails,
+   * logs it and leaves the draft Running, for the next boot to resume.
+   */
+  private async recordFailure(
+    draftId: string,
+    error: string,
+  ): Promise<'recorded' | 'cancelled' | 'not-recorded'> {
+    try {
+      const { count } = await this.prisma.draft.updateMany({
+        where: { id: draftId },
+        data: { snapshotState: 'Failed', snapshotError: error },
+      });
+      return count > 0 ? 'recorded' : 'cancelled';
+    } catch (err) {
+      this.logger.error(
+        `Could not record the failed pool snapshot for draft ${draftId}; it stays Running until the next boot resumes it`,
+        err,
+      );
+      return 'not-recorded';
     }
   }
 

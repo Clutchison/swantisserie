@@ -27,6 +27,7 @@ import {
   copyIds,
   pool,
   post,
+  refuseNextSnapshotReset,
 } from './harness.js';
 
 useDraftsApp();
@@ -482,6 +483,87 @@ describe('pool snapshot', () => {
       state: 'Complete',
       cards: 2,
       total: 2,
+    });
+  });
+
+  it('creates the draft with its snapshot failed when the database refuses the snapshot’s start, and the organizer can retry it', async () => {
+    const query = snapshotQuery('t:dragon c:r');
+    scryfallAnswers({
+      't:dragon c:r': page('Balefire Dragon'),
+      '(t:dragon c:r) -in:arena': null,
+      [query]: page('Balefire Dragon', 'Shivan Dragon'),
+    });
+    const errors = refuseNextSnapshotReset();
+
+    const created = await createDraft({
+      name: 'Red dragons',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
+    }).expect(201);
+
+    const failed = {
+      state: 'Failed',
+      cards: 0,
+      total: null,
+      error: 'Snapshotting the pool failed unexpectedly.',
+    };
+    expect(created.body.snapshot).toEqual(failed);
+    expect((await getDraft(created.body.id).expect(200)).body.snapshot).toEqual(
+      failed,
+    );
+    expect(await app.get(PrismaService).draft.count()).toBe(1);
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining(created.body.id),
+      expect.objectContaining({
+        message: 'Connection terminated unexpectedly',
+      }),
+    );
+
+    await post(created.body.id, 'snapshot').expect(202);
+    expect((await snapshotted(created.body.id)).snapshot).toEqual({
+      state: 'Complete',
+      cards: 2,
+      total: 2,
+    });
+  });
+
+  it('leaves a snapshot Running for the next boot when it can’t record its failure', async () => {
+    const query = snapshotQuery('t:dragon c:r');
+    scryfallAnswers({
+      't:dragon c:r': page('Balefire Dragon'),
+      '(t:dragon c:r) -in:arena': null,
+      [query]: new ScryfallUnavailableError(503),
+    });
+    const errors = vi.spyOn(Logger.prototype, 'error').mockReturnValue();
+    const drafts = app.get(PrismaService).draft;
+    // The snapshot's only write to a draft outside a transaction is its failure.
+    vi.spyOn(drafts, 'updateMany').mockRejectedValueOnce(
+      new Error('Connection terminated unexpectedly'),
+    );
+    const created = await createDraft({
+      name: 'Red dragons',
+      poolSource: { kind: 'pool-query', poolQuery: 't:dragon c:r' },
+    }).expect(201);
+    const { id } = created.body;
+
+    await vi.waitFor(() =>
+      expect(errors).toHaveBeenCalledWith(
+        expect.stringContaining(id),
+        expect.objectContaining({
+          message: 'Connection terminated unexpectedly',
+        }),
+      ),
+    );
+    expect((await getDraft(id).expect(200)).body.snapshot.state).toBe(
+      'Running',
+    );
+
+    scryfallAnswers({ [query]: page('Balefire Dragon') });
+    await app.close();
+    await startApp();
+    expect((await snapshotted(id)).snapshot).toEqual({
+      state: 'Complete',
+      cards: 1,
+      total: 1,
     });
   });
 

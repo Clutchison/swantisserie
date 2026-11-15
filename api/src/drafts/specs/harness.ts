@@ -107,6 +107,22 @@ export function failNextPublish(err = new Error('Connection dropped')) {
 }
 
 /**
+ * The database refuses the pool snapshot reset of the next draft created:
+ * the second transaction from now, after the one that saves the draft.
+ * Silences Logger's `error` and returns its spy.
+ */
+export function refuseNextSnapshotReset() {
+  const prisma = app.get(PrismaService);
+  const save = prisma.$transaction.bind(prisma);
+  vi.spyOn(prisma, '$transaction')
+    .mockImplementationOnce((...args) =>
+      save(...(args as Parameters<typeof save>)),
+    )
+    .mockRejectedValueOnce(new Error('Connection terminated unexpectedly'));
+  return vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+}
+
+/**
  * Each push or publish of one of `draftIds` that `logged`, a spy on
  * Logger's `error`, says failed, in the order logged, with the error logged.
  */
