@@ -297,6 +297,59 @@ describe('creating a draft from a cube', () => {
     await listDrafts().expect(200).expect([]);
   });
 
+  it('refuses a cube with cards CubeCobra links to no Scryfall card, listing each once and searching Scryfall for none', async () => {
+    const homebrew = { oracleId: null, name: 'Goblin Homebrew' };
+    const { mainboard } = cube('Custom Cube', 'Lightning Bolt');
+    cubesAre({
+      customcube: {
+        name: 'Custom Cube',
+        mainboard: [
+          ...mainboard,
+          homebrew,
+          { oracleId: null, name: 'Wandering Prototype' },
+          homebrew,
+        ],
+      },
+    });
+    onPlatform('Lightning Bolt');
+
+    const res = await createDraft({
+      name: 'Custom',
+      poolSource: { kind: 'cube', cubeLink: 'customcube' },
+    }).expect(422);
+
+    expect(res.body).toEqual({
+      error: 'unidentified-cards',
+      message:
+        'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
+      cards: ['Goblin Homebrew', 'Wandering Prototype'],
+      totalCards: 2,
+    });
+    expect(scryfall.printingsOn).not.toHaveBeenCalled();
+    await listDrafts().expect(200).expect([]);
+  });
+
+  it('refuses a cube with one card CubeCobra links to no Scryfall card, saying it can’t be in a pool', async () => {
+    cubesAre({
+      customcube: {
+        name: 'Custom Cube',
+        mainboard: [{ oracleId: null, name: 'Goblin Homebrew' }],
+      },
+    });
+
+    const res = await createDraft({
+      name: 'Custom',
+      poolSource: { kind: 'cube', cubeLink: 'customcube' },
+    }).expect(422);
+
+    expect(res.body).toMatchObject({
+      message:
+        'CubeCobra doesn’t link 1 card in this cube to a Scryfall card, so it can’t be in a pool.',
+      cards: ['Goblin Homebrew'],
+      totalCards: 1,
+    });
+  });
+
   it('refuses a start when picks × players is more than the cube’s pool, counting every copy', async () => {
     cubesAre({ thepaupercube: pauper });
     onPlatform('Lightning Bolt', 'Deftblade Elite');

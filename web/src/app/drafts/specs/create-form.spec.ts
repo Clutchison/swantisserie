@@ -604,6 +604,30 @@ describe('create form', () => {
     expect(router.url).toBe('/drafts/new');
   });
 
+  it('lists the cube’s cards that CubeCobra links to no Scryfall card', async () => {
+    const form = await openForm();
+    const { fixture, page } = form;
+
+    fail(await create(form), 422, {
+      error: 'unidentified-cards',
+      message:
+        'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
+      cards: ['Goblin Homebrew', 'Wandering Prototype'],
+      totalCards: 2,
+    } satisfies DraftCreationProblem);
+    await fixture.whenStable();
+
+    const error = alertIn(page)!;
+    expect(error.textContent).toContain(
+      'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
+    );
+    expect([...error.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
+      'Goblin Homebrew',
+      'Wandering Prototype',
+    ]);
+    expect(router.url).toBe('/drafts/new');
+  });
+
   it('says how many more cards are not on Arena than it lists', async () => {
     const form = await openForm();
     const { fixture, page } = form;

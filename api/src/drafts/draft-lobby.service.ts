@@ -13,6 +13,7 @@ import {
   refuseUnchoosableWebhook,
   rethrowMissingWebhook,
   UnknownBotError,
+  unidentifiedCardsMessage,
 } from './draft-errors.js';
 import {
   type DraftEvent,
@@ -39,6 +40,7 @@ import {
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
 import {
+  type CubeCard,
   CubeCobraClient,
   CubeCobraUnavailableError,
 } from '../cubecobra/cubecobra-client.js';
@@ -372,12 +374,27 @@ export class DraftLobbyService {
         message: 'This cube has no mainboard cards.',
       });
     }
+    const identified: CubeCard[] = [];
+    const unidentified = new Set<string>();
+    for (const card of cube.mainboard) {
+      if (card.oracleId === null) unidentified.add(card.name);
+      else identified.push(card);
+    }
+    if (unidentified.size > 0) {
+      throw new CubeLinkError({
+        error: 'unidentified-cards',
+        message: unidentifiedCardsMessage(unidentified.size),
+        cards: [...unidentified],
+        totalCards: unidentified.size,
+      });
+    }
     // Searches still to come once the deadline passes would only hold up
     // other Scryfall requests, for a draft that won't be saved.
     const searches = new AbortController();
     const { printings, missing } = await deadline
-      .race(cubePrintings(this.scryfall, cube, platform, searches.signal), () =>
-        scryfallTooSlow(deadline),
+      .race(
+        cubePrintings(this.scryfall, identified, platform, searches.signal),
+        () => scryfallTooSlow(deadline),
       )
       .finally(() => searches.abort());
     if (missing.length > 0) {
