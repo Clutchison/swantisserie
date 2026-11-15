@@ -88,8 +88,9 @@ export class TournamentRegistrationService {
    * were removed, whatever their deck holds. Throws NotAPlayerError if they
    * aren't one of the draft's players, and TournamentRefusedError if they
    * are a bot, have joined already, or the tournament is past registration.
-   * Their join time is stamped from the api's clock, as setup's is, not
-   * left to the column's default, so join order reads one clock.
+   * Their join time is stamped explicitly from the api's clock, as setup's
+   * is, so join order reads the api's clock however the column's default
+   * is filled.
    */
   async join(draftId: string, userId: string): Promise<void> {
     await this.tournamentLock.inRegistration(

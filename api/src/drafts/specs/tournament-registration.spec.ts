@@ -38,7 +38,7 @@ describe('leaving and joining again', () => {
   describe('with the api’s clock ahead of the database’s', () => {
     afterEach(() => vi.useRealTimers());
 
-    it('lists a player who joins again after the players set up before them', async () => {
+    it('lists a player who joins again after the players setup joined, by the api’s clock', async () => {
       vi.useFakeTimers({ toFake: ['Date'], now: Date.now() + 60 * 60_000 });
       const id = await inRegistration([aliceCookie, bobCookie]);
       // The faked clock stands still unless moved.
