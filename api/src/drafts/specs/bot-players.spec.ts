@@ -114,6 +114,22 @@ describe('bot players', () => {
   const settle = (ms: number) =>
     new Promise((resolve) => setTimeout(resolve, ms));
 
+  const { watching } = useSockets();
+
+  /** How long bots wait before picking, after `restartWithBotDelay`. */
+  const BOT_DELAY_MS = 100;
+
+  /**
+   * Restarts the app with bots waiting `BOT_DELAY_MS` before picking, long
+   * enough to change the draft first, and listening for sockets.
+   */
+  async function restartWithBotDelay() {
+    await app.close();
+    await startApp({ botDelayMs: BOT_DELAY_MS });
+    await app.listen(0);
+    await signInAlice();
+  }
+
   it('has bots pick available cards on their turns until it is yours, through to the end', async () => {
     const { id, botIds } = await draftWithBots(3, 2);
     await start(id).expect(200);
@@ -203,14 +219,14 @@ describe('bot players', () => {
     expect((await getDraft(id).expect(200)).body.state).toBe('Complete');
   });
 
-  it('does nothing when its timer fires after the turn has moved on', async () => {
-    await app.close();
-    await startApp({ botDelayMs: 100 });
-    await signInAlice();
+  it('does nothing when its timer fires after the turn has moved on, leaving the version alone', async () => {
+    await restartWithBotDelay();
     const { id, botIds } = await draftWithBots(1, 2);
     await start(id).expect(200);
+    const { changes } = await watching(id, aliceCookie);
     const botPick = watchBotPick();
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
+    await vi.waitFor(() => expect(changes).toHaveLength(1));
 
     // Pick 2 is made some other way before the bot's timer fires.
     const prisma = app.get(PrismaService);
@@ -231,21 +247,33 @@ describe('bot players', () => {
 
     expect(await botPick.made()).toEqual([]);
     expect(await pickedNames(id)).toEqual(['Shock', 'Firebolt']);
+    await settle(BOT_DELAY_MS);
+    expect(changes).toHaveLength(1);
+    // A reconnect re-reads the draft, and finds the version it has.
+    expect((await getDraft(id).expect(200)).body.version).toBe(
+      changes[0].version,
+    );
   });
 
-  it('does nothing when its timer fires while the draft is frozen, and picks once it is unfrozen', async () => {
-    await app.close();
-    await startApp({ botDelayMs: 100 });
-    await signInAlice();
+  it('does nothing when its timer fires while the draft is frozen, leaving the version alone, and picks once it is unfrozen', async () => {
+    await restartWithBotDelay();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
+    const { changes } = await watching(id, aliceCookie);
     const botPick = watchBotPick();
     await pick(id, (await poolCardIds(id)).Shock).expect(200);
 
     await post(id, 'freeze').expect(200);
+    await vi.waitFor(() => expect(changes).toHaveLength(2));
+    const [, frozen] = changes;
+    expect(frozen.state).toBe('Frozen');
 
     expect(await botPick.made()).toEqual([]);
     expect((await pickLog(id)).body).toHaveLength(1);
+    await settle(BOT_DELAY_MS);
+    expect(changes).toHaveLength(2);
+    // A reconnect re-reads the draft, and finds the version it has.
+    expect((await getDraft(id).expect(200)).body.version).toBe(frozen.version);
 
     await post(id, 'unfreeze').expect(200);
 
@@ -255,9 +283,7 @@ describe('bot players', () => {
   });
 
   it('does nothing when its timer fires while the draft is closed, and picks once it reopens', async () => {
-    await app.close();
-    await startApp({ botDelayMs: 100 });
-    await signInAlice();
+    await restartWithBotDelay();
     const { id, botIds } = await draftWithBots(1);
     await start(id).expect(200);
     const botPick = watchBotPick();
@@ -273,6 +299,25 @@ describe('bot players', () => {
     await waitForBotPicks(1, async () => {
       expect(await pickerIds(id)).toEqual([alice.id, botIds[0]]);
     });
+  });
+
+  it('pushes a bot’s pick with a newer version', async () => {
+    const { id, botIds } = await draftWithBots(1, 2);
+    await start(id).expect(200);
+    const { changes } = await watching(id, aliceCookie);
+
+    await pick(id, (await poolCardIds(id)).Shock).expect(200);
+
+    // Alice's pick, then each of the bot's picks, 2 and 3 in snake order.
+    await waitForBotPicks(2, () => expect(changes).toHaveLength(3));
+    const [afterAlice, afterFirst, afterSecond] = changes;
+    expect(afterFirst.turn?.pick).toBe(3);
+    expect(afterFirst.version).toBeGreaterThan(afterAlice.version);
+    expect(afterSecond.turn).toEqual(
+      expect.objectContaining({ pick: 4, playerId: alice.id }),
+    );
+    expect(afterSecond.version).toBeGreaterThan(afterFirst.version);
+    expect(await pickerIds(id)).toEqual([alice.id, botIds[0], botIds[0]]);
   });
 
   it('picks again when an undo gives it its turn back', async () => {
@@ -576,93 +621,6 @@ describe('bot players', () => {
       expect((await getDraft(id).expect(200)).body.turn).toEqual(
         expect.objectContaining({ pick: 1, playerId: alice.id }),
       );
-    });
-  });
-
-  describe('what viewers are told', () => {
-    const { watching } = useSockets();
-
-    /** Restarts the app with bots waiting `botDelayMs`, listening for sockets. */
-    async function restartApp(botDelayMs: number) {
-      await app.close();
-      await startApp({ botDelayMs });
-      await app.listen(0);
-      await signInAlice();
-    }
-
-    it('leaves the version alone and pushes nothing when its timer fires while the draft is frozen', async () => {
-      await restartApp(100);
-      const { id } = await draftWithBots(1);
-      await start(id).expect(200);
-      const { changes } = await watching(id, aliceCookie);
-      const botPick = watchBotPick();
-      await pick(id, (await poolCardIds(id)).Shock).expect(200);
-
-      await post(id, 'freeze').expect(200);
-      await vi.waitFor(() => expect(changes).toHaveLength(2));
-      const frozen = changes[1];
-      expect(frozen.state).toBe('Frozen');
-
-      expect(await botPick.made()).toEqual([]);
-      await settle(100);
-      expect(changes).toHaveLength(2);
-      // A reconnect re-reads the draft, and finds the version it has.
-      expect((await getDraft(id).expect(200)).body.version).toBe(
-        frozen.version,
-      );
-    });
-
-    it('leaves the version alone and pushes nothing when its timer fires after the turn has moved on', async () => {
-      await restartApp(100);
-      const { id, botIds } = await draftWithBots(1, 2);
-      await start(id).expect(200);
-      const { changes } = await watching(id, aliceCookie);
-      const botPick = watchBotPick();
-      await pick(id, (await poolCardIds(id)).Shock).expect(200);
-      await vi.waitFor(() => expect(changes).toHaveLength(1));
-
-      // Pick 2 is made some other way before the bot's timer fires.
-      const prisma = app.get(PrismaService);
-      const player = await prisma.player.findFirstOrThrow({
-        where: { draftId: id, userId: botIds[0] },
-      });
-      const card = await prisma.poolCard.findFirstOrThrow({
-        where: { draftId: id, name: 'Firebolt' },
-      });
-      await prisma.pick.create({
-        data: {
-          draftId: id,
-          number: 2,
-          playerId: player.id,
-          poolCardId: card.id,
-        },
-      });
-
-      expect(await botPick.made()).toEqual([]);
-      await settle(100);
-      expect(changes).toHaveLength(1);
-      expect((await getDraft(id).expect(200)).body.version).toBe(
-        changes[0].version,
-      );
-    });
-
-    it('pushes a bot’s pick with a newer version', async () => {
-      const { id, botIds } = await draftWithBots(1, 2);
-      await start(id).expect(200);
-      const { changes } = await watching(id, aliceCookie);
-
-      await pick(id, (await poolCardIds(id)).Shock).expect(200);
-
-      // Alice's pick, then each of the bot's picks, 2 and 3 in snake order.
-      await waitForBotPicks(2, () => expect(changes).toHaveLength(3));
-      const [afterAlice, afterFirst, afterSecond] = changes;
-      expect(afterFirst.turn?.pick).toBe(3);
-      expect(afterFirst.version).toBeGreaterThan(afterAlice.version);
-      expect(afterSecond.turn).toEqual(
-        expect.objectContaining({ pick: 4, playerId: alice.id }),
-      );
-      expect(afterSecond.version).toBeGreaterThan(afterFirst.version);
-      expect(await pickerIds(id)).toEqual([alice.id, botIds[0], botIds[0]]);
     });
   });
 
