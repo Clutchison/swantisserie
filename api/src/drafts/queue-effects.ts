@@ -7,7 +7,7 @@ import {
 } from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
 import { leaveQueue } from './queue-order.js';
-import type { QueuedRow } from './turn-state.js';
+import type { QueuedRow } from './turn-read.js';
 
 /**
  * Persists `after`, what a new pick, already made, does to each queue, as
@@ -68,11 +68,6 @@ export async function recordQueueEffects(
           playerId_poolCardId: { playerId, poolCardId: swapped.out },
         },
         data: { poolCardId: swapped.in },
-      });
-      // Queued again, so off the notice, as when the player queues it.
-      await tx.takenOutQueuedCard.updateMany({
-        where: { playerId, poolCardId: swapped.in },
-        data: { noticeHidden: true },
       });
       now[seat] = now[seat].map((queued) =>
         queued.poolCardId === swapped.out

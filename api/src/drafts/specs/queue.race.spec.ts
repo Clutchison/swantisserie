@@ -1,32 +1,61 @@
+import type { QueueView } from 'contract';
+import type { Response } from 'supertest';
 import {
   aliceThenBob,
   answered,
   describeRaces,
   queueOf,
   race,
+  raceBehindLongCommit,
 } from './race-harness.js';
 import {
   aliceCookie,
   bobCookie,
+  carol,
+  dave,
   enqueue,
   fourCards,
   pick,
   pickLogLines,
+  poolCardIds,
+  queue,
   queuePaused,
+  readyDraft,
   reorderQueue,
   setQueuePaused,
   setQueuePicking,
+  setStealBehavior,
+  signIn,
+  start,
   undo,
 } from './harness.js';
 
-describeRaces('queue changes against a cascade', () => {
-  /** The pick log once Bob has made his second pick, Lava Spike. */
-  const throughBobsSecond = [
-    'Alice: Shock',
-    'Bob: Lightning Bolt',
-    'Bob: Lava Spike',
-  ];
+/**
+ * The queue, by name, with whether it is queue paused and what each loss on
+ * its Queue notice did to it.
+ */
+const shownQueue = (view: QueueView) => ({
+  cards: view.cards.map((card) => card.name),
+  lost: view.lost.map((card) => `${card.name}: ${card.queueLoss}`),
+  queuePaused: view.queuePaused,
+});
 
+/** What a queue change answered: the queue it shows, or its refusal. */
+const answeredQueue = (res: Response) =>
+  res.status === 200 ? shownQueue(res.body as QueueView) : answered(res);
+
+/** Alice's queue as `shownQueue` gives it. */
+const alicesQueue = async (id: string) =>
+  shownQueue((await queue(id, aliceCookie).expect(200)).body as QueueView);
+
+/** The pick log once Bob has made his second pick, Lava Spike. */
+const throughBobsSecond = [
+  'Alice: Shock',
+  'Bob: Lightning Bolt',
+  'Bob: Lava Spike',
+];
+
+describeRaces('queue changes against a cascade', () => {
   /**
    * A started draft of Alice then Bob, two picks each, on Bob's second
    * turn: the next is Alice's. Alice picked Shock, and Bob Lightning Bolt.
@@ -113,6 +142,34 @@ describeRaces('queue changes against a cascade', () => {
     });
     expect(picked.status).toBe(200);
   });
+
+  it('queues a card once a cascade committing after Prisma’s default timeout has picked', async () => {
+    // Dave neither picks nor is picked for, so only the lock holds his
+    // change back, until the cascade commits.
+    const carolCookie = await signIn(carol);
+    const daveCookie = await signIn(dave);
+    const id = await readyDraft(
+      [aliceCookie, bobCookie, carolCookie, daveCookie],
+      1,
+      fourCards,
+    );
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+    await enqueue(id, ids['Lava Spike'], bobCookie).expect(200);
+
+    const [picked, queued] = await raceBehindLongCommit(
+      () => pick(id, ids.Shock),
+      () => enqueue(id, ids['Skewer the Critics'], daveCookie),
+    );
+
+    expect(picked.status).toBe(200);
+    expect(answered(queued)).toBe(200);
+    expect(await pickLogLines(id)).toEqual(['Alice: Shock', 'Bob: Lava Spike']);
+    expect(await queueOf(id, daveCookie)).toEqual({
+      cards: ['Skewer the Critics'],
+      lost: [],
+    });
+  });
 });
 
 describeRaces('setting a queue picking on the player’s turn', () => {
@@ -163,6 +220,96 @@ describeRaces('setting a queue picking on the player’s turn', () => {
       log: await pickLogLines(id),
       queuePaused: await queuePaused(id, bobCookie),
     });
+  });
+
+  it('pauses a queue once the cascade has picked from it, or stops the cascade at it', async () => {
+    // Three picks each, so the draft is still on once the cascade has picked.
+    const id = await readyDraft([aliceCookie, bobCookie], 3, [
+      ...fourCards,
+      'Fireblast',
+      'Rift Bolt',
+    ]);
+    await start(id).expect(200);
+    const ids = await poolCardIds(id);
+    await pick(id, ids.Shock).expect(200);
+    await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+    await enqueue(id, ids['Skewer the Critics']).expect(200);
+
+    const [picked, pause] = await race(
+      () => pick(id, ids['Lava Spike'], bobCookie),
+      () => setQueuePaused(id, true),
+    );
+
+    const pickedThenQueuePaused = { cards: [], lost: [], queuePaused: true };
+    const queuePausedFirst = {
+      cards: ['Skewer the Critics'],
+      lost: [],
+      queuePaused: true,
+    };
+    expect([
+      {
+        pause: pickedThenQueuePaused,
+        log: [...throughBobsSecond, 'Alice: Skewer the Critics'],
+        queue: pickedThenQueuePaused,
+      },
+      {
+        pause: queuePausedFirst,
+        log: throughBobsSecond,
+        queue: queuePausedFirst,
+      },
+    ]).toContainEqual({
+      pause: answeredQueue(pause),
+      log: await pickLogLines(id),
+      queue: await alicesQueue(id),
+    });
+    expect(picked.status).toBe(200);
+  });
+
+  it('sets the steal behavior before a pick loses a card from the queue, or after, losing it under the old one', async () => {
+    const { id, ids } = await aliceThenBob();
+    await pick(id, ids.Shock).expect(200);
+    await pick(id, ids['Lightning Bolt'], bobCookie).expect(200);
+    await enqueue(id, ids['Lava Spike']).expect(200);
+    await enqueue(id, ids['Skewer the Critics']).expect(200);
+
+    const [picked, set] = await race(
+      () => pick(id, ids['Lava Spike'], bobCookie),
+      () => setStealBehavior(id, 'PickNext'),
+    );
+
+    const lostUnderPauseQueueThenSet = {
+      cards: ['Skewer the Critics'],
+      lost: ['Lava Spike: QueuePaused'],
+      queuePaused: true,
+    };
+    expect([
+      {
+        // Set first: lost under pick next, the queue stays queue picking, so
+        // the cascade picks its next card.
+        set: {
+          cards: ['Lava Spike', 'Skewer the Critics'],
+          lost: [],
+          queuePaused: false,
+        },
+        log: [...throughBobsSecond, 'Alice: Skewer the Critics'],
+        queue: {
+          cards: [],
+          lost: ['Lava Spike: StayedQueuePicking'],
+          queuePaused: false,
+        },
+      },
+      {
+        // Lost first, under pause queue: the queue is queue paused.
+        set: lostUnderPauseQueueThenSet,
+        log: throughBobsSecond,
+        queue: lostUnderPauseQueueThenSet,
+      },
+    ]).toContainEqual({
+      set: answeredQueue(set),
+      log: await pickLogLines(id),
+      queue: await alicesQueue(id),
+    });
+    expect(picked.status).toBe(200);
   });
 
   it('picks from the queue, refusing an undo of the pick before, or picks nothing once the undo has taken the turn back', async () => {
