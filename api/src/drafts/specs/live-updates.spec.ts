@@ -424,14 +424,15 @@ describe('live updates', () => {
       const bobCookie = await signIn(bob);
       const bobsRoom = await listeningToOwnRoom(bobCookie);
       const carolCookie = await signIn(carol);
-      const carolSees = await watch(id, carolCookie);
 
       await join(id, bobCookie).expect(201);
       await vi.waitFor(() => expect(bobsRoom.changes).toHaveLength(1));
       await leave(id, bobCookie).expect(200);
       await join(id, carolCookie).expect(201);
+      // Bob's join again is pushed to him after any push of Carol's join.
+      await join(id, bobCookie).expect(201);
 
-      await vi.waitFor(() => expect(carolSees).toHaveLength(3));
+      await vi.waitFor(() => expect(bobsRoom.changes).toHaveLength(3));
       expect(
         bobsRoom.changes.map((draft) => [
           draft.id,
@@ -440,6 +441,7 @@ describe('live updates', () => {
       ).toEqual([
         [id, [alice.id, bob.id]],
         [id, [alice.id]],
+        [id, [alice.id, carol.id, bob.id]],
       ]);
     });
 
@@ -450,6 +452,7 @@ describe('live updates', () => {
       const carolSees = await watch(id, await signIn(carol));
 
       await leave(id, bobCookie).expect(200);
+      // Bob's join is pushed to him after any push of his leave.
       await join(id, bobCookie).expect(201);
 
       await vi.waitFor(() => expect(carolSees).toHaveLength(2));

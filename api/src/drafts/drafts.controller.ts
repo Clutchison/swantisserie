@@ -367,7 +367,7 @@ export class DraftsController {
   ): Promise<DraftView> {
     await this.access.canSee(user, id);
     const wasPlayer = await this.lobby.leave(id, user.id);
-    return this.committed(id, [], wasPlayer ? [user.id] : []);
+    return this.publishCommitted(id, [], wasPlayer ? [user.id] : []);
   }
 
   /** Adds a bot to the draft's players; for app admins. */
@@ -401,19 +401,20 @@ export class DraftsController {
     id: string,
     change: () => Promise<DraftEvent[] | void>,
   ): Promise<DraftView> {
-    return this.committed(id, (await change()) ?? []);
+    return this.publishCommitted(id, (await change()) ?? []);
   }
 
   /**
    * Answers with the draft as it now is, after a committed change with
-   * `events`, published as DraftChanges says, also to each of `alsoTell`.
+   * `events`, published as DraftChanges says, also to each of
+   * `alsoTellUserIds`.
    */
-  private async committed(
+  private async publishCommitted(
     id: string,
     events: DraftEvent[],
-    alsoTell: string[] = [],
+    alsoTellUserIds: string[] = [],
   ): Promise<DraftView> {
-    const draft = await this.changes.committed(id, events, alsoTell);
+    const draft = await this.changes.committed(id, events, alsoTellUserIds);
     if (!draft) throw new NotFoundException();
     return draft;
   }
