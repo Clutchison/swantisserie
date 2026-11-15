@@ -48,7 +48,7 @@ export class FeedbackDialog {
   protected readonly formId = 'feedback-form';
   protected readonly message = signal('');
   // Stryker disable next-line StringLiteral: the status is only compared with 'Sent' and 'Failed'.
-  protected readonly status = signal<'Writing' | 'Sending' | 'Sent' | 'Failed'>('Writing');
+  protected readonly status = signal<'Writing' | 'Sent' | 'Failed'>('Writing');
   /** Submit is disabled only while there's nothing to send; while sending, it is busy, keeping focus. */
   protected readonly canSubmit = computed(() => !!this.message().trim());
 
@@ -70,7 +70,8 @@ export class FeedbackDialog {
   /** Sends the feedback: on failure focus is back on Submit, and on success Close takes it. */
   protected submit() {
     return this.changes.send(async () => {
-      this.status.set('Sending');
+      // A retry clears the last failure while it sends.
+      this.status.set('Writing');
       try {
         await firstValueFrom(
           // Closing the dialog discards the feedback, even mid-send.

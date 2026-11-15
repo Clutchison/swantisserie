@@ -2,11 +2,13 @@ import type { TestRequest } from '@angular/common/http/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { App } from '../app';
 import {
-  accessibleName,
+  alertIn,
   alice,
   button,
   clickBackdrop,
   dialogBackdrop,
+  focusAndClick,
+  focusedControl,
   hiddenFromAssistiveTech,
   http,
   openApp,
@@ -52,8 +54,7 @@ describe('sending feedback', () => {
 
   /** Presses Submit as a keyboard user does, focusing it first. */
   async function submit() {
-    anyButton('Submit')!.focus();
-    anyButton('Submit')!.click();
+    focusAndClick(anyButton('Submit')!);
     await fixture.whenStable();
     return http.expectOne('/api/feedback');
   }
@@ -61,12 +62,6 @@ describe('sending feedback', () => {
   function succeed(req: TestRequest) {
     req.flush(null, { status: 204, statusText: 'No Content' });
   }
-
-  /** The accessible name of the control with focus, or null if focus is on nothing or the page. */
-  const focused = () =>
-    document.activeElement && document.activeElement !== document.body
-      ? accessibleName(document.activeElement)
-      : null;
 
   /** The response arrives a moment after it is flushed. */
   async function expectThanks() {
@@ -136,7 +131,7 @@ describe('sending feedback', () => {
     const req = await submit();
     expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBe('true');
     expect(anyButton('Submit')!.disabled).toBe(false);
-    expect(focused()).toBe('Submit');
+    expect(focusedControl()).toEqual({ role: 'button', name: 'Submit' });
     anyButton('Submit')!.click();
     http.expectNone('/api/feedback');
 
@@ -144,6 +139,7 @@ describe('sending feedback', () => {
     await expectThanks();
   });
 
+  // Passes under jsdom without the fix, as jsdom keeps focus on a disabled button: the busy-while-sending spec guards the bug.
   it('puts focus on Submit, inside the dialog, when sending fails', async () => {
     await open();
     await type('Nice app');
@@ -151,11 +147,11 @@ describe('sending feedback', () => {
     (await submit()).flush(null, { status: 500, statusText: 'Server Error' });
     await vi.waitFor(() => {
       fixture.detectChanges();
-      expect(dialog()!.querySelector('[role="alert"]')).not.toBeNull();
+      expect(alertIn(dialog()!)).not.toBeNull();
     });
     await fixture.whenStable();
 
-    await vi.waitFor(() => expect(focused()).toBe('Submit'));
+    await vi.waitFor(() => expect(focusedControl()).toEqual({ role: 'button', name: 'Submit' }));
     expect(dialog()!.contains(document.activeElement)).toBe(true);
     expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBeNull();
   });
@@ -191,9 +187,7 @@ describe('sending feedback', () => {
     (await submit()).flush(null, { status: 500, statusText: 'Server Error' });
     await vi.waitFor(() => {
       fixture.detectChanges();
-      expect(dialog()!.querySelector('[role="alert"]')?.textContent).toContain(
-        "Couldn't send your feedback.",
-      );
+      expect(alertIn(dialog()!)?.textContent).toContain("Couldn't send your feedback.");
     });
 
     expect(field().value).toBe('Nice app');

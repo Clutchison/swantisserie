@@ -83,14 +83,24 @@ export class FeedbackPage {
         this.problem.set(failure);
         return false;
       }
-      this.feedback.reload();
       await this.reread();
       return true;
     });
   }
 
-  /** Settles once the feedback re-read `reload` started has loaded, or failed. */
-  private reread() {
+  /**
+   * Reads the feedback afresh and settles once it has loaded, or failed. A
+   * load in flight, as on changing tab, may have been sent before the change,
+   * and `reload` does nothing while one is: so it waits that out, then reads.
+   */
+  private async reread() {
+    await this.loaded();
+    this.feedback.reload();
+    await this.loaded();
+  }
+
+  /** Settles once no feedback load is in flight. */
+  private loaded() {
     return new Promise<void>((resolve) => {
       const watch = effect(
         () => {
