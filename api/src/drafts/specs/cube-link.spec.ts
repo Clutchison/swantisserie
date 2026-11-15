@@ -3,6 +3,7 @@ import {
   type Cube,
 } from '../../cubecobra/cubecobra-client.js';
 import type { ScryfallCard } from '../../scryfall/scryfall-client.js';
+import { oracleIdOf } from '../pool-card.js';
 import { held, lateWorkDone } from '../../testing/deadlines.js';
 import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
@@ -17,6 +18,7 @@ import {
   listDrafts,
   pool,
   post,
+  reversibleCard,
   scryfall,
   signIn,
   start,
@@ -47,14 +49,17 @@ function cubesAre(cubes: Record<string, Cube | null | Error>) {
 }
 
 /**
- * Scryfall has a printing on every platform of each card named, in a set of
- * its own (`<game>-set`), and of no other card.
+ * Scryfall has a printing on every platform of each card named or given, in
+ * a set of its own (`<game>-set`), and of no other card.
  */
-function onPlatform(...names: string[]) {
+function onPlatform(...cards: (string | ScryfallCard)[]) {
   scryfall.printingsOn.mockImplementation(async (game, oracleIds) =>
-    names
-      .map((name) => card(name, { set: `${game}-set` }))
-      .filter((printing) => oracleIds.includes(printing.oracle_id!)),
+    cards
+      .map((c) => ({
+        ...(typeof c === 'string' ? card(c) : c),
+        set: `${game}-set`,
+      }))
+      .filter((printing) => oracleIds.includes(oracleIdOf(printing)!)),
   );
 }
 
@@ -109,6 +114,20 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
     'arena-set',
   ]);
   expect(scryfall.search).not.toHaveBeenCalled();
+});
+
+it('makes a pool card of a reversible card in the cube, in its front face’s mana value and type line', async () => {
+  cubesAre({ commander: cube('Commander', 'Command Tower') });
+  onPlatform(reversibleCard('Command Tower', { cmc: 0, type_line: 'Land' }));
+
+  const created = await createDraft({
+    name: 'Commander',
+    poolSource: { kind: 'cube', cubeLink: 'commander' },
+  }).expect(201);
+
+  expect((await pool(created.body.id).expect(200)).body).toMatchObject([
+    { oracleId: 'command-tower-oracle', manaValue: 0, typeLine: 'Land' },
+  ]);
 });
 
 describe('cube links', () => {
@@ -265,6 +284,23 @@ describe('creating a draft from a cube', () => {
     await listDrafts().expect(200).expect([]);
   });
 
+  it('refuses a cube whose mainboard is only basic lands, saying so', async () => {
+    cubesAre({
+      basicscube: cube('Basics', 'Plains', 'Island', 'Swamp', 'Plains'),
+    });
+
+    const res = await createDraft({
+      name: 'Basics',
+      poolSource: { kind: 'cube', cubeLink: 'basicscube' },
+    }).expect(422);
+
+    expect(res.body).toEqual({
+      error: 'no-cards',
+      message: 'This cube has no mainboard cards besides basic lands.',
+    });
+    await listDrafts().expect(200).expect([]);
+  });
+
   it('refuses a cube with cards not on the platform, listing each once', async () => {
     cubesAre({
       papercube: cube(
@@ -295,6 +331,81 @@ describe('creating a draft from a cube', () => {
       expect.any(AbortSignal),
     );
     await listDrafts().expect(200).expect([]);
+  });
+
+  it('refuses a cube with cards CubeCobra links to no Scryfall card, listing each once and searching Scryfall for none', async () => {
+    const homebrew = { oracleId: null, name: 'Goblin Homebrew' };
+    const { mainboard } = cube('Custom Cube', 'Lightning Bolt');
+    cubesAre({
+      customcube: {
+        name: 'Custom Cube',
+        mainboard: [
+          ...mainboard,
+          homebrew,
+          { oracleId: null, name: 'Wandering Prototype' },
+          homebrew,
+        ],
+      },
+    });
+    onPlatform('Lightning Bolt');
+
+    const res = await createDraft({
+      name: 'Custom',
+      poolSource: { kind: 'cube', cubeLink: 'customcube' },
+    }).expect(422);
+
+    expect(res.body).toEqual({
+      error: 'unidentified-cards',
+      message:
+        'CubeCobra doesn’t link 2 cards in this cube to a Scryfall card, so they can’t be in a pool.',
+      cards: ['Goblin Homebrew', 'Wandering Prototype'],
+      totalCards: 2,
+    });
+    expect(scryfall.printingsOn).not.toHaveBeenCalled();
+    await listDrafts().expect(200).expect([]);
+  });
+
+  it('refuses a cube with an unidentified card named like a basic land, rather than leaving it out', async () => {
+    const { mainboard } = cube('Custom Cube', 'Lightning Bolt', 'Mountain');
+    cubesAre({
+      customcube: {
+        name: 'Custom Cube',
+        mainboard: [...mainboard, { oracleId: null, name: 'Island' }],
+      },
+    });
+    onPlatform('Lightning Bolt');
+
+    const res = await createDraft({
+      name: 'Custom',
+      poolSource: { kind: 'cube', cubeLink: 'customcube' },
+    }).expect(422);
+
+    expect(res.body).toMatchObject({
+      error: 'unidentified-cards',
+      cards: ['Island'],
+      totalCards: 1,
+    });
+  });
+
+  it('refuses a cube with one card CubeCobra links to no Scryfall card, saying it can’t be in a pool', async () => {
+    cubesAre({
+      customcube: {
+        name: 'Custom Cube',
+        mainboard: [{ oracleId: null, name: 'Goblin Homebrew' }],
+      },
+    });
+
+    const res = await createDraft({
+      name: 'Custom',
+      poolSource: { kind: 'cube', cubeLink: 'customcube' },
+    }).expect(422);
+
+    expect(res.body).toMatchObject({
+      message:
+        'CubeCobra doesn’t link 1 card in this cube to a Scryfall card, so it can’t be in a pool.',
+      cards: ['Goblin Homebrew'],
+      totalCards: 1,
+    });
   });
 
   it('refuses a start when picks × players is more than the cube’s pool, counting every copy', async () => {

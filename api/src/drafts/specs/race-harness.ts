@@ -85,6 +85,33 @@ export function raceLastCommitFirst(
   return raceReleasing({ order: 'last-first', gapMs: COMMIT_GAP_MS }, requests);
 }
 
+/**
+ * How long `raceBehindLongCommit` holds the first request's COMMIT: past
+ * Prisma's 5 s default transaction timeout, as a long cascade runs.
+ */
+const LONG_HOLD_MS = 6_000;
+
+/**
+ * Sends `first`, and once its COMMIT is held back, `waiting`, which so
+ * waits on any lock `first` holds. `first` commits after `LONG_HOLD_MS`,
+ * then `waiting` goes on. Its transaction has been open longer than
+ * Prisma's default timeout by then, so it rolls back unless given longer.
+ * Slower than `race`: only for a change that waits on a long pick.
+ */
+export async function raceBehindLongCommit(
+  first: () => PromiseLike<Response>,
+  waiting: () => PromiseLike<Response>,
+) {
+  // 2, so the gate doesn't open on `first`'s COMMIT alone: `waiting` can't
+  // commit before `first` does, so it opens on the timer.
+  database.holdCommits(2, LONG_HOLD_MS);
+  const held = database.commitHeld();
+  // Supertest sends a request only once something awaits it.
+  const firstAnswer = Promise.resolve(first());
+  await held;
+  return Promise.all([firstAnswer, waiting()]);
+}
+
 /** Sends `requests` at once, holding their commits back until `release`. */
 function raceReleasing(
   release: CommitRelease,

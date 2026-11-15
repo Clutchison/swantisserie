@@ -147,7 +147,7 @@ describe('steal behavior', () => {
       expect((await setStealBehavior(id, 'PickNext').expect(409)).body).toEqual(
         {
           error: 'not-started',
-          message: 'You can queue once the draft starts.',
+          message: 'You can set your steal behavior once the draft starts.',
         },
       );
       expect(await stealBehavior(id)).toBe('PauseQueue');

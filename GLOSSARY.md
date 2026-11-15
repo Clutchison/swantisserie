@@ -66,6 +66,10 @@ _Avoid_: Cube list, CubeCobra import
 A card list kept on CubeCobra, which a cube link names. Only its mainboard goes in a pool.
 _Avoid_: Cube list, CubeCobra list, pool (that is what a draft picks from)
 
+**Unidentified card**:
+A card in a cube's mainboard that CubeCobra links to no Scryfall card, so it can't be found on any platform. A CubeCobra custom card is one, but not every unidentified card need be custom. A cube with any is refused as a pool source.
+_Avoid_: Custom card (for unidentified cards in general), unknown card, invalid card
+
 **Set list**:
 The Magic sets an organizer picks, or has the app pick at random, to define a draft's pool. The pool holds every card printed in those sets that is on the platform; cards that aren't are left out.
 _Avoid_: Set selection, set codes, random sets (as a pool source)
@@ -309,7 +313,7 @@ A pool card in a player's deck that no one has picked: the player added it from 
 _Avoid_: Maybe, wishlist card, placeholder, proxy
 
 **Queue order**:
-The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck loses its place.
+The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck, by the player or by a loss, loses its place, even if an undo puts it back.
 _Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:
@@ -329,7 +333,7 @@ The basic land printing a basic land shows to a player with no preferred printin
 _Avoid_: Stock art
 
 **Printing picker**:
-The view that opens from a basic land in a player's own deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. In an unlocked deck, it also takes out the copy it opened from. A newly released set's printings join it shortly after the set's release, never before.
+The view that opens from a basic land in a player's own deck, locked or not, where they browse its basic land printings set by set, newest set first, and choose their preferred printing, or go back to the default printing. In an unlocked deck, it also takes out the copy it opened from. A newly released set's printings join it shortly after the set's release.
 _Avoid_: Art picker, Card detail (that is a pool card's)
 
 **Deck board**:

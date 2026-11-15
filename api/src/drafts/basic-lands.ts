@@ -10,3 +10,8 @@ export function isBasicLand(name: string): name is BasicLand {
 export const NO_BASIC_LANDS = BASIC_LANDS.map((land) => `-!"${land}"`).join(
   ' ',
 );
+
+/** `poolQuery` as a Scryfall search that leaves the basic lands out. */
+export function withoutBasicLands(poolQuery: string): string {
+  return `(${poolQuery}) ${NO_BASIC_LANDS}`;
+}

@@ -26,8 +26,8 @@ const UNKNOWN_RELEASE = '1993-08-05';
  * neither asks Scryfall (ADR 0015). Asking for a land's printings answers at
  * once from what is stored, and starts a refresh from Scryfall in the
  * background when there is none yet or a set has been released since the
- * last refresh started. A refresh upserts and never deletes, so a preferred
- * printing never loses its printing.
+ * day the last refresh started (see `releasedSince`). A refresh upserts and
+ * never deletes, so a preferred printing never loses its printing.
  */
 @Injectable()
 export class BasicLandPrintings implements OnApplicationShutdown {
@@ -134,15 +134,20 @@ export class BasicLandPrintings implements OnApplicationShutdown {
 }
 
 /**
- * Whether a set in Scryfall's list was released after the day `since` and
- * by today. A set still in spoiler season waits for its release, when its
- * basic lands are complete.
+ * Whether a set in Scryfall's list was released on or after the UTC day
+ * `since`, and by today, with today a later day than `since`'s. A refresh
+ * is started by a release, not by a new set code, so a set in spoiler
+ * season starts none, though a refresh another set starts may store its
+ * printings already. A refresh that started on a set's release day, which
+ * may have run before Scryfall listed that set's basic lands, is followed by
+ * exactly one more on a later day, and none more on the release day itself.
  */
 function releasedSince(sets: ScryfallSet[], since: Date): boolean {
   const sinceDay = since.toISOString().slice(0, 10);
   const today = new Date().toISOString().slice(0, 10);
-  return sets.some(
-    (set) => set.releasedAt > sinceDay && set.releasedAt <= today,
+  return (
+    today > sinceDay &&
+    sets.some((set) => set.releasedAt >= sinceDay && set.releasedAt <= today)
   );
 }
 
