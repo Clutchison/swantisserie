@@ -1,17 +1,17 @@
 import type { TournamentRefusal } from 'contract';
 import { dependentBracketPlaces, singleEliminationRoundCount } from 'engine';
 import type {
-  ChangeSteps,
+  ReinstateSteps,
   ReinstateMatch,
   ReinstateRow,
-} from './change-steps.js';
+} from './reinstate-steps.js';
 import { hasEntry } from './tournament-matches.js';
 
 /**
- * Single elimination's change steps: a player can't be reinstated once a
+ * Single elimination's Reinstate steps: a player can't be reinstated once a
  * forfeit or bye of theirs has fed a later match.
  */
-export const SINGLE_ELIMINATION_CHANGES: ChangeSteps = {
+export const SINGLE_ELIMINATION_REINSTATE: ReinstateSteps = {
   reinstateRefusal: bracketReinstateRefusal,
 };
 

@@ -26,7 +26,7 @@ import {
   type TournamentMatch,
 } from 'engine';
 import { Prisma } from '../generated/prisma/client.js';
-import { reinstateRefusalOf } from './change-steps.js';
+import { reinstateRefusalOf } from './reinstate-steps.js';
 import { type RoundStateRow, correctionRefusal } from './final-results.js';
 import {
   clearing,

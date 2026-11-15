@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import type { GameScore } from 'contract';
 import { reportProblem } from 'engine';
-import type { MatchChange } from './change-steps.js';
 import { correctionRefusal } from './final-results.js';
-import { clearing, confirmRefusal, reportRefusal } from './match-rules.js';
+import {
+  type MatchChange,
+  clearing,
+  confirmRefusal,
+  reportRefusal,
+} from './match-rules.js';
 import { TournamentRefusedError } from './tournament-errors.js';
 import {
   findMatch,

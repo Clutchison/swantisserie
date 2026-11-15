@@ -341,12 +341,27 @@ describe('completing a single elimination tournament round', () => {
       { grantedWins: [{ matchId: match.id }] },
       { grantedWins: [{ matchId: 'm', winner: match.players[0] }] },
       { grantedWins: [{ matchId: match.id, winner: bystander }] },
+      {
+        grantedWins: [
+          { matchId: match.id, winner: match.players[0] },
+          { matchId: match.id, winner: match.players[1] },
+        ],
+      },
+      {
+        grantedWins: [
+          { matchId: match.id, winner: match.players[0] },
+          { matchId: match.id, winner: match.players[0] },
+        ],
+      },
     ]) {
       const answer = await postCompleteRound(id, { round: 1, ...body }).expect(
         400,
       );
       expect(answer.body.error).toBe('invalid');
     }
+    const view = await tournamentView(id);
+    expect(view.rounds[0].matches[0].outcome).toEqual({ kind: 'Unreported' });
+    expect(view.lastCompletedRound).toBe(0);
   });
 
   it('completes the tournament with the final, whose winner alone holds the trophy, with no third-place match', async () => {
