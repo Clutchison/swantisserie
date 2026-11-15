@@ -5,6 +5,7 @@ import type {
 } from 'contract';
 import { io, type Socket } from 'socket.io-client';
 import { app } from '../../testing/app.js';
+import { getDraft } from './harness.js';
 
 /** A Socket.IO client of the api's drafts gateway, as the web's is. */
 export type DraftSocket = Socket<DraftSocketEvents, DraftSocketRequests>;
@@ -80,5 +81,66 @@ export function useSockets() {
     return { socket, changes, cancelled };
   }
 
-  return { socketFor, connected, watching, watch, listeningToOwnRoom };
+  /**
+   * The drafts pushed from now on to a socket watching each of `draftIds`,
+   * signed in with `watcherCookie`, by draft, and to the own room of whoever
+   * each of `roomCookies` signs in as, by its key.
+   */
+  async function listening<Room extends string>(
+    draftIds: string[],
+    watcherCookie: string,
+    roomCookies: Record<Room, string>,
+  ) {
+    const watched: Record<string, DraftView[]> = {};
+    for (const id of draftIds) watched[id] = await watch(id, watcherCookie);
+    const rooms = {} as Record<Room, DraftView[]>;
+    for (const [room, cookie] of Object.entries<string>(roomCookies)) {
+      rooms[room as Room] = (await listeningToOwnRoom(cookie)).changes;
+    }
+    return { watched, rooms };
+  }
+
+  return {
+    socketFor,
+    connected,
+    watching,
+    watch,
+    listeningToOwnRoom,
+    listening,
+  };
+}
+
+/** Each of the drafts' versions now, by id. */
+export async function versionsOf(
+  draftIds: string[],
+): Promise<Map<string, number>> {
+  return new Map(
+    await Promise.all(
+      draftIds.map(
+        async (id) =>
+          [
+            id,
+            (await getDraft(id).expect(200)).body.version as number,
+          ] as const,
+      ),
+    ),
+  );
+}
+
+/**
+ * Waits until `pushed` holds each of `ids` once, then expects each to be
+ * newer than in `before` and to pass `check`.
+ */
+export async function expectPushedOnce(
+  pushed: DraftView[],
+  ids: string[],
+  before: Map<string, number>,
+  check: (draft: DraftView) => void = () => {},
+) {
+  await vi.waitFor(() => expect(pushed).toHaveLength(ids.length));
+  expect(pushed.map((draft) => draft.id).sort()).toEqual([...ids].sort());
+  for (const draft of pushed) {
+    check(draft);
+    expect(draft.version).toBeGreaterThan(before.get(draft.id)!);
+  }
 }

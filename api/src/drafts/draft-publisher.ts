@@ -2,15 +2,14 @@ import { Injectable } from '@nestjs/common';
 import type { DraftView } from 'contract';
 import { DraftNotifier } from '../discord/draft-notifier.js';
 import type { DraftEvent } from './draft-events.js';
-import { DraftReadsService } from './draft-reads.service.js';
-import { toDraftView } from './draft-view.js';
+import { DraftPushes } from './draft-pushes.js';
 import { DraftsGateway } from './drafts.gateway.js';
 
 /** Tells the world about a change to a draft, once it is committed. */
 @Injectable()
 export class DraftPublisher {
   constructor(
-    private readonly reads: DraftReadsService,
+    private readonly pushes: DraftPushes,
     private readonly gateway: DraftsGateway,
     private readonly notifier: DraftNotifier,
   ) {}
@@ -28,11 +27,7 @@ export class DraftPublisher {
   ): Promise<DraftView | null> {
     // Committed by now, so a failed post can't undo the change.
     if (events.length > 0) void this.notifier.notify(draftId, events);
-    const found = await this.reads.find(draftId);
-    if (!found) return null;
-    const draft = toDraftView(found);
-    this.gateway.changed(draft, alsoTellUserIds);
-    return draft;
+    return this.pushes.push(draftId, alsoTellUserIds);
   }
 
   /**
