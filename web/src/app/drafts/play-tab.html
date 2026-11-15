@@ -134,6 +134,9 @@
         </button>
       }
     </div>
+    @if (errorAt('registration'); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
     <ul class="entries" aria-label="Joined players">
       @for (player of entries(); track player.id) {
         <li>
@@ -152,6 +155,9 @@
             >
               Remove
             </button>
+          }
+          @if (errorInRow('joined', player.id); as message) {
+            <p class="error" role="alert">{{ message }}</p>
           }
         </li>
       } @empty {
@@ -290,6 +296,9 @@
             >
               Drop
             </button>
+          }
+          @if (errorInRow('players', player.id); as message) {
+            <p class="error" role="alert">{{ message }}</p>
           }
         </li>
       }

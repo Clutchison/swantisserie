@@ -31,6 +31,7 @@ import {
   registration,
   withTournament,
 } from './play-tab-harness';
+import { expectByRegistration } from './play-tab-placement-harness';
 import { cards, openPlan, planOf } from './plan-tab-harness';
 
 useDraftsApp();
@@ -217,6 +218,16 @@ describe('marking yourself ready on the Play tab', () => {
     expect(await failChange(fixture, page, READY_URL)).toBe(
       "Couldn't change whether you're ready. Try again in a moment.",
     );
+  });
+
+  it('says marking ready failed right after the registration row, before Joined players', async () => {
+    const { fixture, page } = await openComplete(registration(bob.id, alice.id));
+    const tab = await openPlayTab(fixture, page);
+
+    toggleButton(tab, IM_READY)!.click();
+    await failChange(fixture, page, READY_URL);
+
+    expectByRegistration(page, tab);
   });
 });
 

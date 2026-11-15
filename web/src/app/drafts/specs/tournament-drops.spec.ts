@@ -2,6 +2,7 @@ import { answer, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   accessibleDescription,
+  alertIn,
   alice,
   bob,
   button,
@@ -30,6 +31,7 @@ import {
   signedIn,
   swissPlaying,
 } from './play-tab-harness';
+import { expectInRow } from './play-tab-placement-harness';
 
 useDraftsApp();
 
@@ -253,6 +255,41 @@ describe('drops on the Play tab', () => {
       expect(await failChange(fixture, page, url)).toBe(failure);
     },
   );
+
+  it.each([
+    ['dropping', playing(), 'Drop Bob', ['Drop Bob from the tournament?', 'Drop'], bob.id],
+    ['reinstating', carolDropped, 'Reinstate Carol', null, carol.id],
+  ] as const)(
+    'says %s a player failed in that player’s row of Players',
+    async (_, tournament, label, asked, playerId) => {
+      const { fixture, page, tab } = await openPlaying(tournament, { powers: ORGANIZE_ONLY });
+
+      button(tab, label)!.click();
+      if (asked) await answer(await question(asked[0]), asked[1]);
+      await failChange(fixture, page, `/api/drafts/draft-1/tournament/entries/${playerId}/drop`);
+
+      expectInRow(page, tab, 'Players', label);
+    },
+  );
+
+  it('clears a failure in a player’s row once the organizer’s next change goes through', async () => {
+    const { fixture, page, tab } = await openPlaying(carolDropped, { powers: ORGANIZE_ONLY });
+
+    button(tab, 'Reinstate Carol')!.click();
+    await failChange(fixture, page, `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`);
+    button(tab, 'Drop Bob')!.click();
+    await answer(await question('Drop Bob from the tournament?'), 'Drop');
+    await answerChange(
+      fixture,
+      `/api/drafts/draft-1/tournament/entries/${bob.id}/drop`,
+      'POST',
+      withDrops([carol.id, bob.id]),
+      1,
+      threePlayers,
+    );
+
+    expect(alertIn(panel(page))).toBeNull();
+  });
 
   it('offers no Drop or Reinstate once the tournament is complete', async () => {
     const { tab } = await openPlaying(completed(carolDropped), { powers: ORGANIZE_ONLY });

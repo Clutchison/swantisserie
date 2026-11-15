@@ -68,18 +68,27 @@ const START_DETAILS: Record<TournamentFormat, string> = {
     'Joining closes, the players are seeded at random into the bracket, and tournament round 1 opens.',
 };
 
+/** The Play tab's lists of players whose rows have buttons: Joined players during registration, Players during play. */
+type RowList = 'joined' | 'players';
+
 /**
  * Where a failed change is explained, by the controls that made it:
- * directly after the action rows during play, for Drop from tournament
- * and the organizer's Cancel tournament, Reopen round, Complete round and
- * Complete tournament; directly after Your matches, for Report and Confirm
- * there; directly after the results (standings and matches, bracket or
- * results grid), for Confirm and game score changes there; or at the foot
- * of the tab, for everything else, and for a failure whose section the tab
- * no longer shows. So `actions` falls back to the foot whenever the action
- * rows aren't shown, as for Cancel tournament during registration.
+ * directly after the registration row, for Join, Leave, I'm ready, Cancel
+ * tournament and Start tournament during registration; inside a player's
+ * row, by list and player id, for Remove in Joined players and Reinstate
+ * and Drop in Players; directly after the action rows during play, for
+ * Drop from tournament and the organizer's Cancel tournament, Reopen
+ * round, Complete round and Complete tournament; directly after Your
+ * matches, for Report and Confirm there; directly after the results
+ * (standings and matches, bracket or results grid), for Confirm and game
+ * score changes there; or at the foot of the tab, for setup, and for a
+ * failure whose section the tab no longer shows. A row the tab no longer
+ * shows, as once that player has left its list or the list has gone,
+ * falls back to the registration row's place during registration, to the
+ * action rows' during play, and else to the foot.
  */
-type ErrorPlace = 'actions' | 'yourMatches' | 'results' | 'foot';
+type ErrorPlace =
+  'registration' | 'actions' | 'yourMatches' | 'results' | 'foot' | `${RowList} ${string}`;
 
 /**
  * The Play tab of a complete draft: the setup form for organizers
@@ -280,17 +289,21 @@ export class PlayTab {
   protected readonly showsYourMatches = computed(
     () => this.showsResults() && this.showsOwnMatches(),
   );
-  /** Where the failure shows: its own place while the tab shows that section, else the foot, so it is never lost. */
+  /** Whether the tab shows registration: the registration row and Joined players. */
+  private readonly showsRegistration = computed(
+    () => this.setUp() && !this.read.missing() && !!this.tournament() && !this.showsResults(),
+  );
+  /**
+   * Where the failure shows: its own place while the tab shows it, else,
+   * for a row, the registration row's or the action rows' place, whichever
+   * the tab shows, else the foot, so it is never lost.
+   */
   private readonly errorPlace = computed((): ErrorPlace | null => {
     const place = this.error()?.place;
     if (!place) return null;
-    const shown: Record<ErrorPlace, boolean> = {
-      actions: this.playsOn() || this.organizePlay(),
-      yourMatches: this.showsYourMatches(),
-      results: this.showsResults(),
-      foot: true,
-    };
-    return shown[place] ? place : 'foot';
+    if (this.shows(place)) return place;
+    const fallbacks: ErrorPlace[] = isRow(place) ? ['registration', 'actions'] : [];
+    return fallbacks.find((fallback) => this.shows(fallback)) ?? 'foot';
   });
   /** The signed-in player's matches their own matches show: all of them in round robin, else "Your match"'s, if any. */
   protected readonly ownMatches = computed((): OwnMatch[] => {
@@ -334,6 +347,7 @@ export class PlayTab {
     return this.send(() => this.api.join(this.draft().id), {
       failure: "Couldn't join the tournament. Try again in a moment.",
       keep: ['leave'],
+      place: 'registration',
     });
   }
 
@@ -341,6 +355,7 @@ export class PlayTab {
     return this.send(() => this.api.removeEntry(this.draft().id, playerId), {
       failure: "Couldn't leave the tournament. Try again in a moment.",
       keep: ['join'],
+      place: 'registration',
     });
   }
 
@@ -353,12 +368,14 @@ export class PlayTab {
     return this.send(() => this.api.setReady(this.draft().id, !this.ownReady()), {
       failure: "Couldn't change whether you're ready. Try again in a moment.",
       refused: () => this.store.rereadTournament(),
+      place: 'registration',
     });
   }
 
   protected remove(playerId: string) {
     return this.send(() => this.api.removeEntry(this.draft().id, playerId), {
       failure: "Couldn't remove the player. Try again in a moment.",
+      place: rowPlace('joined', playerId),
     });
   }
 
@@ -373,7 +390,7 @@ export class PlayTab {
         }))
           ? this.api.start(this.draft().id)
           : undefined,
-      { failure: "Couldn't start the tournament. Try again in a moment." },
+      { failure: "Couldn't start the tournament. Try again in a moment.", place: 'registration' },
     );
   }
 
@@ -424,7 +441,10 @@ export class PlayTab {
         }))
           ? this.api.drop(this.draft().id, playerId)
           : undefined,
-      { failure: "Couldn't drop the player. Try again in a moment." },
+      {
+        failure: "Couldn't drop the player. Try again in a moment.",
+        place: rowPlace('players', playerId),
+      },
     );
   }
 
@@ -432,6 +452,7 @@ export class PlayTab {
   protected reinstate(playerId: string) {
     return this.send(() => this.api.reinstate(this.draft().id, playerId), {
       failure: "Couldn't reinstate the player. Try again in a moment.",
+      place: rowPlace('players', playerId),
     });
   }
 
@@ -485,10 +506,10 @@ export class PlayTab {
 
   /** Cancels the tournament, in registration or being played, once the organizer goes ahead. */
   protected cancel() {
-    const detail =
-      this.state() === 'Playing'
-        ? 'Its matches are removed, nothing from it counts, and every deck unlocks.'
-        : 'Everyone who joined is taken out of it, and their decks unlock.';
+    const playing = this.state() === 'Playing';
+    const detail = playing
+      ? 'Its matches are removed, nothing from it counts, and every deck unlocks.'
+      : 'Everyone who joined is taken out of it, and their decks unlock.';
     const question = {
       question: 'Cancel the tournament?',
       detail,
@@ -500,8 +521,8 @@ export class PlayTab {
       {
         failure: "Couldn't cancel the tournament. Try again in a moment.",
         keep: ['set-up'],
-        // During play, by the action rows; in registration, where they aren't shown, at the foot.
-        place: 'actions',
+        // By the row it was pressed in: the action rows during play, else the registration row.
+        place: playing ? 'actions' : 'registration',
       },
     );
   }
@@ -566,6 +587,28 @@ export class PlayTab {
     return this.errorPlace() === place ? this.error()!.message : null;
   }
 
+  /** The failure's message if it shows in the row of `playerId` in `list`, else null. */
+  protected errorInRow(list: RowList, playerId: string) {
+    return this.errorAt(rowPlace(list, playerId));
+  }
+
+  /** Whether the tab shows `place`: a row while its list shows and lists that player. */
+  private shows(place: ErrorPlace): boolean {
+    if (isRow(place)) {
+      const [list, playerId] = place.split(' ');
+      const listShown = list === 'joined' ? this.showsRegistration() : this.showsResults();
+      return listShown && this.tournament()!.entries.some((entry) => entry.playerId === playerId);
+    }
+    const shown: Record<Exclude<ErrorPlace, `${RowList} ${string}`>, boolean> = {
+      registration: this.showsRegistration(),
+      actions: this.playsOn() || this.organizePlay(),
+      yourMatches: this.showsYourMatches(),
+      results: this.showsResults(),
+      foot: true,
+    };
+    return shown[place];
+  }
+
   /** Asks `question` in the question dialog, and answers whether the viewer goes ahead. */
   private ask(question: Question) {
     return this.questions.ask(question, this.injector);
@@ -575,7 +618,7 @@ export class PlayTab {
    * Sends a change to the tournament, the request `send` makes, and shows
    * the draft it answers with, unless another change is in flight; `send`
    * makes none if the organizer thinks better of it. A refusal's reason, or else `failure`, is shown
-   * at `place`, the foot of the tab unless given, if it fails, and `refused`, if any, runs on a refusal.
+   * at `place`, the foot of the tab unless given (as for setup), if it fails, and `refused`, if any, runs on a refusal.
    */
   private send(
     send: () => Observable<DraftView> | undefined | Promise<Observable<DraftView> | undefined>,
@@ -608,6 +651,12 @@ export class PlayTab {
     );
   }
 }
+
+/** Where a failure in the row of `playerId` in `list` shows. */
+const rowPlace = (list: RowList, playerId: string): ErrorPlace => `${list} ${playerId}`;
+
+/** Whether `place` is a player's row. */
+const isRow = (place: ErrorPlace): place is `${RowList} ${string}` => place.includes(' ');
 
 /** Names joined as a sentence lists them, such as "Alice, Bob, and Carol". */
 // Stryker disable next-line ObjectLiteral: conjunction is Intl.ListFormat's default type, so `{}` lists names the same.
