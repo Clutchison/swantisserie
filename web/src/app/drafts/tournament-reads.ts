@@ -53,7 +53,11 @@ export interface TournamentReads {
    * showing the new one starts its read at once, before this first looks.
    */
   whenTournamentSettled(): Promise<void>;
-  /** Re-reads the draft's tournament. */
+  /**
+   * Re-reads the draft's tournament, as something only the viewer's own
+   * tournament read shows, such as whether they may mark themselves ready,
+   * may have moved on with no new draft version.
+   */
   rereadTournament(): void;
   /**
    * Whether decklists are shown, so the Lists tab is there: as the

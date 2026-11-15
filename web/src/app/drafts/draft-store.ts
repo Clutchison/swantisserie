@@ -89,6 +89,9 @@ export interface QueueAdd {
 export class DraftStore implements TournamentViewer {
   private readonly http = inject(HttpClient);
   private readonly user = inject(Auth).user;
+  /** The signed-in viewer's user id. */
+  // Stryker disable next-line OptionalChaining: the `signedIn` guard means a draft page always has a user.
+  private readonly userId = computed(() => this.user()?.id);
   private readonly pollMs = inject(DRAFT_POLL_MS);
 
   /** The id of the open draft. */
@@ -150,12 +153,12 @@ export class DraftStore implements TournamentViewer {
   private readonly players = computed(() => this.draft.value()?.players ?? []);
   /** Whether the signed-in user is a player in this draft. */
   readonly joined = computed(() => {
-    const user = this.user();
-    return !!user && this.players().some((player) => player.id === user.id);
+    const id = this.userId();
+    return !!id && this.players().some((player) => player.id === id);
   });
   /** The signed-in player, if they have joined. */
   readonly ownPlayer = computed(() => {
-    const id = this.user()?.id;
+    const id = this.userId();
     return this.players().find((player) => player.id === id) ?? null;
   });
   /** Whether `player` is the signed-in player: the viewer's own seat. */
@@ -181,7 +184,7 @@ export class DraftStore implements TournamentViewer {
   readonly turn = computed(() => this.draft.value()?.turn ?? null);
   readonly yourTurn = computed(() => {
     const draft = this.draft.value();
-    return !!draft && isTurnOf(draft, this.user()?.id);
+    return !!draft && isTurnOf(draft, this.userId());
   });
   /** Whether the signed-in player can pick now: it is their turn and the draft is drafting, not frozen. */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
@@ -334,7 +337,7 @@ export class DraftStore implements TournamentViewer {
   readonly queuePicks = computed<QueuedCardView[]>(() => {
     const draft = this.draft.value();
     if (!draft || !this.yourTurnToPick()) return [];
-    const seat = this.players().findIndex((player) => player.id === this.user()?.id);
+    const seat = this.players().findIndex((player) => player.id === this.userId());
     const cards = this.queue.value().cards;
     const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
     const picks = queuePicksBeforeAnotherPlayerPicks(
@@ -513,8 +516,7 @@ export class DraftStore implements TournamentViewer {
     id: this.id,
     draft: this.draft.value,
     version: this.version,
-    // Stryker disable next-line OptionalChaining: the `signedIn` guard means a draft page always has a user.
-    userId: computed(() => this.user()?.id),
+    userId: this.userId,
     exportPlan: this.exportPlan,
   });
   // The tournament reads, as `TournamentReads` describes each.
@@ -777,11 +779,7 @@ export class DraftStore implements TournamentViewer {
     return plan;
   }
 
-  /**
-   * Re-reads the draft's tournament, as something only the viewer's own
-   * tournament read shows, such as whether they may mark themselves ready,
-   * may have moved on with no new draft version.
-   */
+  /** As `TournamentReads.rereadTournament`. */
   rereadTournament() {
     this.tournamentReads.rereadTournament();
   }
