@@ -392,20 +392,28 @@ describe('live updates', () => {
       expect(notice(page)).toBeUndefined();
     });
 
-    it('says it is reconnecting when the socket drops', async () => {
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        draft(drafting({ turn: alicesTurn })),
-      );
+    /**
+     * Opens the draft, connected and caught up, then the socket drops: for
+     * any reason, including the API closing it, which the draft updates
+     * spec covers.
+     */
+    async function dropped() {
+      const opened = await openDraft(completeSnapshot, draft(drafting({ turn: alicesTurn })), {
+        cards: [shivan],
+      });
       updates.events.next({ type: 'connected' });
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
         draft(drafting({ turn: alicesTurn })),
       );
       await flushPicks([]);
-      await fixture.whenStable();
-
+      await opened.fixture.whenStable();
       updates.events.next({ type: 'disconnected' });
-      await fixture.whenStable();
+      await opened.fixture.whenStable();
+      return opened;
+    }
+
+    it('says it is reconnecting when the socket drops', async () => {
+      const { page } = await dropped();
 
       expect(notice(page)).toBeDefined();
     });
@@ -423,14 +431,7 @@ describe('live updates', () => {
     });
 
     it('clears the notice and catches up when the socket reconnects', async () => {
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        draft(drafting({ turn: alicesTurn })),
-        { cards: [shivan] },
-      );
-      updates.events.next({ type: 'disconnected' });
-      await fixture.whenStable();
-      expect(notice(page)).toBeDefined();
+      const { fixture, page } = await dropped();
 
       updates.events.next({ type: 'connected' });
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
@@ -443,14 +444,8 @@ describe('live updates', () => {
       expect(page.textContent).toContain('Bob’s turn: pick 2, round 1');
     });
 
-    it('clears the notice at once when the reconnect is refused for a session that has ended', async () => {
-      const { fixture, page } = await openDraft(
-        completeSnapshot,
-        draft(drafting({ turn: alicesTurn })),
-      );
-      updates.events.next({ type: 'disconnected' });
-      await fixture.whenStable();
-      expect(notice(page)).toBeDefined();
+    it('clears the notice at once and signs the player out when the reconnect is refused for a session that has ended', async () => {
+      const { fixture, page } = await dropped();
 
       updates.events.next({ type: 'unauthorized' });
       // Not yet whenStable(): the notice must go before sign-in replaces the page.

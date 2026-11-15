@@ -221,6 +221,66 @@ describe('draft updates', () => {
     });
   });
 
+  describe('when the API closes the socket', () => {
+    /** The API closes the socket, after which Socket.IO doesn't reconnect on its own. */
+    function closedByTheApi() {
+      socket.push('connect');
+      socket.answerWatches();
+      socket.active = false;
+      socket.push('disconnect', 'io server disconnect');
+    }
+
+    it('says it is disconnected and connects again', () => {
+      closedByTheApi();
+
+      expect(received).toEqual([{ type: 'connected' }, { type: 'disconnected' }]);
+      expect(socket.connect).toHaveBeenCalledOnce();
+    });
+
+    it('says the session has ended, and stops, when the API refuses the reconnect for it', () => {
+      closedByTheApi();
+
+      socket.refuse('unauthorized', { active: false });
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(received).toEqual([
+        { type: 'connected' },
+        { type: 'disconnected' },
+        { type: 'unauthorized' },
+      ]);
+      expect(socket.connect).toHaveBeenCalledOnce();
+    });
+
+    it('retries after the usual delay when the API refuses the reconnect for its own reasons', () => {
+      closedByTheApi();
+      socket.connect.mockClear();
+
+      socket.refuse('lookup failed', { active: false });
+      vi.advanceTimersByTime(RETRY_MS - 1);
+      expect(socket.connect).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+
+      expect(socket.connect).toHaveBeenCalledOnce();
+    });
+
+    it('watches each draft again once reconnected', () => {
+      alsoWatch('draft-2');
+      closedByTheApi();
+
+      socket.push('connect');
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-2', 'draft-1', 'draft-2']);
+    });
+  });
+
+  it('leaves Socket.IO to reconnect a socket that dropped for any other reason', () => {
+    socket.push('connect');
+
+    socket.push('disconnect', 'transport close');
+
+    expect(socket.connect).not.toHaveBeenCalled();
+  });
+
   describe('when a draft is no longer watched', () => {
     it('asks to stop watching it, keeping the socket for the drafts still watched', () => {
       const { subscription } = alsoWatch('draft-2');
@@ -287,6 +347,16 @@ describe('draft updates', () => {
       updates.close();
 
       expect(socket.disconnect).toHaveBeenCalledOnce();
+    });
+
+    it('doesn’t connect again when the socket says it disconnected', () => {
+      socket.push('connect');
+
+      updates.close();
+      socket.active = false;
+      socket.push('disconnect', 'io client disconnect');
+
+      expect(socket.connect).not.toHaveBeenCalled();
     });
 
     it('doesn’t retry a handshake the API refused before it closed', () => {
