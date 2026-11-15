@@ -35,6 +35,9 @@ import { expectInRow } from './play-tab-placement-harness';
 
 useDraftsApp();
 
+/** The drop of the player `playerId`, which Drop and Drop from tournament send and Reinstate deletes. */
+const dropUrl = (playerId: string) => `/api/drafts/draft-1/tournament/entries/${playerId}/drop`;
+
 /** Carol dropped, after beating Bob: her match against Alice (m3) is a forfeit. */
 const carolDropped = withDrops(
   [carol.id],
@@ -91,7 +94,7 @@ describe('drops on the Play tab', () => {
     await answer(dialog, 'Drop');
     await answerChange(
       fixture,
-      `/api/drafts/draft-1/tournament/entries/${alice.id}/drop`,
+      dropUrl(alice.id),
       'POST',
       withDrops(
         [alice.id],
@@ -120,7 +123,7 @@ describe('drops on the Play tab', () => {
     await answer(await question('Drop from the tournament?'), 'Cancel');
     await fixture.whenStable();
 
-    http.expectNone(`/api/drafts/draft-1/tournament/entries/${alice.id}/drop`);
+    http.expectNone(dropUrl(alice.id));
 
     expect(button(tab, 'Drop from tournament')).toBeDefined();
   });
@@ -152,14 +155,7 @@ describe('drops on the Play tab', () => {
     const dialog = await question('Drop Bob from the tournament?');
     expect(dialog.textContent).toContain('Their unplayed matches become forfeits.');
     await answer(dialog, 'Drop');
-    await answerChange(
-      fixture,
-      `/api/drafts/draft-1/tournament/entries/${bob.id}/drop`,
-      'POST',
-      withDrops([bob.id]),
-      1,
-      threePlayers,
-    );
+    await answerChange(fixture, dropUrl(bob.id), 'POST', withDrops([bob.id]), 1, threePlayers);
 
     expect(playerLines(panel(page))).toContain('Bob · Dropped');
     expect(button(panel(page), 'Reinstate Bob')).toBeDefined();
@@ -172,7 +168,7 @@ describe('drops on the Play tab', () => {
     await answer(await question('Drop Bob from the tournament?'), 'Cancel');
     await fixture.whenStable();
 
-    http.expectNone(`/api/drafts/draft-1/tournament/entries/${bob.id}/drop`);
+    http.expectNone(dropUrl(bob.id));
     expect(button(tab, 'Drop Bob')).toBeDefined();
   });
 
@@ -184,7 +180,7 @@ describe('drops on the Play tab', () => {
     button(tab, 'Reinstate Carol')!.click();
     await answerChange(
       fixture,
-      `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`,
+      dropUrl(carol.id),
       'DELETE',
       playing([reported(unreportedMatch('m1', bob.id, carol.id), [0, 2], carol.id)]),
       1,
@@ -223,7 +219,7 @@ describe('drops on the Play tab', () => {
       {},
       'Drop from tournament',
       ['Drop from the tournament?', 'Drop'],
-      `/api/drafts/draft-1/tournament/entries/${alice.id}/drop`,
+      dropUrl(alice.id),
       "Couldn't drop from the tournament. Try again in a moment.",
     ],
     [
@@ -232,7 +228,7 @@ describe('drops on the Play tab', () => {
       { powers: ORGANIZE_ONLY },
       'Drop Bob',
       ['Drop Bob from the tournament?', 'Drop'],
-      `/api/drafts/draft-1/tournament/entries/${bob.id}/drop`,
+      dropUrl(bob.id),
       "Couldn't drop the player. Try again in a moment.",
     ],
     [
@@ -241,7 +237,7 @@ describe('drops on the Play tab', () => {
       { powers: ORGANIZE_ONLY },
       'Reinstate Carol',
       null,
-      `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`,
+      dropUrl(carol.id),
       "Couldn't reinstate the player. Try again in a moment.",
     ],
   ] as const)(
@@ -266,7 +262,7 @@ describe('drops on the Play tab', () => {
 
       button(tab, label)!.click();
       if (asked) await answer(await question(asked[0]), asked[1]);
-      await failChange(fixture, page, `/api/drafts/draft-1/tournament/entries/${playerId}/drop`);
+      await failChange(fixture, page, dropUrl(playerId));
 
       expectInRow(page, tab, 'Players', label);
     },
@@ -276,12 +272,12 @@ describe('drops on the Play tab', () => {
     const { fixture, page, tab } = await openPlaying(carolDropped, { powers: ORGANIZE_ONLY });
 
     button(tab, 'Reinstate Carol')!.click();
-    await failChange(fixture, page, `/api/drafts/draft-1/tournament/entries/${carol.id}/drop`);
+    await failChange(fixture, page, dropUrl(carol.id));
     button(tab, 'Drop Bob')!.click();
     await answer(await question('Drop Bob from the tournament?'), 'Drop');
     await answerChange(
       fixture,
-      `/api/drafts/draft-1/tournament/entries/${bob.id}/drop`,
+      dropUrl(bob.id),
       'POST',
       withDrops([carol.id, bob.id]),
       1,

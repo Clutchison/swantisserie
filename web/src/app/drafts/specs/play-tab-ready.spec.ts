@@ -23,6 +23,7 @@ import {
   dave,
   entry,
   failChange,
+  IM_READY,
   flushTournament,
   joinedNames,
   openComplete,
@@ -37,7 +38,6 @@ import { cards, openPlan, planOf } from './plan-tab-harness';
 useDraftsApp();
 
 const READY_URL = '/api/drafts/draft-1/tournament/ready';
-const IM_READY = 'I’m ready';
 
 /** `view` with the players `playerIds` ready, counted as the api counts them. */
 function withReady(view: ViewerTournamentView, ...playerIds: string[]): ViewerTournamentView {

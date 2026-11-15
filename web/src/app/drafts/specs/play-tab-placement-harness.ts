@@ -1,6 +1,6 @@
 import { comesBefore, onlyAlert } from '../../specs-harness';
 import { accessibleName, button, namedList, panel, region } from './harness';
-import { bracket, roundLists } from './play-tab-harness';
+import { bracket, IM_READY, roundLists } from './play-tab-harness';
 
 /** The accessible names of the buttons in the Play tab's action rows during play: Drop from tournament and the organizer's. */
 const ACTION_NAMES = [
@@ -49,10 +49,10 @@ export function expectByActionRows(tab: HTMLElement, node: Node) {
 }
 
 /** The accessible names of the buttons in the Play tab's registration row: Join, Leave, I'm ready and the organizer's. */
-const REGISTRATION_NAMES = [
+const REGISTRATION_BUTTONS = [
   /^Join \(/,
   /^Leave$/,
-  /^I’m ready$/,
+  new RegExp(`^${IM_READY}$`),
   /^Cancel tournament$/,
   /^Start tournament$/,
 ];
@@ -65,7 +65,7 @@ const REGISTRATION_NAMES = [
 export function expectByRegistration(page: HTMLElement, tab: HTMLElement) {
   const alert = onlyAlert(panel(page));
   const row = [...tab.querySelectorAll('button')].filter((shown) =>
-    REGISTRATION_NAMES.some((name) => name.test(accessibleName(shown))),
+    REGISTRATION_BUTTONS.some((name) => name.test(accessibleName(shown))),
   );
   expect(row).not.toHaveLength(0);
   for (const control of row) expect(comesBefore(control, alert)).toBe(true);

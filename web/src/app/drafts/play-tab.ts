@@ -72,23 +72,28 @@ const START_DETAILS: Record<TournamentFormat, string> = {
 type RowList = 'joined' | 'players';
 
 /**
- * Where a failed change is explained, by the controls that made it:
- * directly after the registration row, for Join, Leave, I'm ready, Cancel
- * tournament and Start tournament during registration; inside a player's
- * row, by list and player id, for Remove in Joined players and Reinstate
- * and Drop in Players; directly after the action rows during play, for
- * Drop from tournament and the organizer's Cancel tournament, Reopen
- * round, Complete round and Complete tournament; directly after Your
- * matches, for Report and Confirm there; directly after the results
- * (standings and matches, bracket or results grid), for Confirm and game
- * score changes there; or at the foot of the tab, for setup, and for a
- * failure whose section the tab no longer shows. A row the tab no longer
- * shows, as once that player has left its list or the list has gone,
- * falls back to the registration row's place during registration, to the
- * action rows' during play, and else to the foot.
+ * A section of the tab where a failed change is explained, directly after
+ * the controls that made it: the registration row, the action rows during
+ * play, Your matches or the results; or the foot, for setup and for a
+ * failure whose section the tab no longer shows.
  */
-type ErrorPlace =
-  'registration' | 'actions' | 'yourMatches' | 'results' | 'foot' | `${RowList} ${string}`;
+type SectionPlace = 'registration' | 'actions' | 'yourMatches' | 'results' | 'foot';
+
+/** A player's row in one of the tab's lists, where a failure from that row's buttons is explained. */
+interface RowPlace {
+  list: RowList;
+  playerId: string;
+}
+
+/**
+ * Where a failed change is explained: a section, or a player's row. A row
+ * the tab no longer shows falls back to the registration row or the action
+ * rows, whichever shows, else the foot.
+ */
+type ErrorPlace = SectionPlace | RowPlace;
+
+/** Where a row's failure shows once the tab no longer shows that row, in order of preference. */
+const ROW_FALLBACKS: SectionPlace[] = ['registration', 'actions'];
 
 /**
  * The Play tab of a complete draft: the setup form for organizers
@@ -301,9 +306,9 @@ export class PlayTab {
   private readonly errorPlace = computed((): ErrorPlace | null => {
     const place = this.error()?.place;
     if (!place) return null;
-    if (this.shows(place)) return place;
-    const fallbacks: ErrorPlace[] = isRow(place) ? ['registration', 'actions'] : [];
-    return fallbacks.find((fallback) => this.shows(fallback)) ?? 'foot';
+    if (typeof place === 'string') return this.showsSection(place) ? place : 'foot';
+    if (this.showsRow(place)) return place;
+    return ROW_FALLBACKS.find((fallback) => this.showsSection(fallback)) ?? 'foot';
   });
   /** The signed-in player's matches their own matches show: all of them in round robin, else "Your match"'s, if any. */
   protected readonly ownMatches = computed((): OwnMatch[] => {
@@ -375,7 +380,7 @@ export class PlayTab {
   protected remove(playerId: string) {
     return this.send(() => this.api.removeEntry(this.draft().id, playerId), {
       failure: "Couldn't remove the player. Try again in a moment.",
-      place: rowPlace('joined', playerId),
+      place: { list: 'joined', playerId },
     });
   }
 
@@ -443,7 +448,7 @@ export class PlayTab {
           : undefined,
       {
         failure: "Couldn't drop the player. Try again in a moment.",
-        place: rowPlace('players', playerId),
+        place: { list: 'players', playerId },
       },
     );
   }
@@ -452,7 +457,7 @@ export class PlayTab {
   protected reinstate(playerId: string) {
     return this.send(() => this.api.reinstate(this.draft().id, playerId), {
       failure: "Couldn't reinstate the player. Try again in a moment.",
-      place: rowPlace('players', playerId),
+      place: { list: 'players', playerId },
     });
   }
 
@@ -528,7 +533,7 @@ export class PlayTab {
   }
 
   /** Confirms the signed-in player's match `matchId`, pressed at `place`: Your matches or the results. */
-  protected confirmMatch(matchId: string, place: ErrorPlace) {
+  protected confirmMatch(matchId: string, place: SectionPlace) {
     return this.send(() => this.api.confirm(this.draft().id, matchId), {
       failure: "Couldn't confirm the match. Try again in a moment.",
       place,
@@ -583,23 +588,21 @@ export class PlayTab {
   }
 
   /** The failure's message if it shows at `place`, else null. */
-  protected errorAt(place: ErrorPlace) {
+  protected errorAt(place: SectionPlace) {
     return this.errorPlace() === place ? this.error()!.message : null;
   }
 
   /** The failure's message if it shows in the row of `playerId` in `list`, else null. */
   protected errorInRow(list: RowList, playerId: string) {
-    return this.errorAt(rowPlace(list, playerId));
+    const place = this.errorPlace();
+    return typeof place === 'object' && place?.list === list && place.playerId === playerId
+      ? this.error()!.message
+      : null;
   }
 
-  /** Whether the tab shows `place`: a row while its list shows and lists that player. */
-  private shows(place: ErrorPlace): boolean {
-    if (isRow(place)) {
-      const [list, playerId] = place.split(' ');
-      const listShown = list === 'joined' ? this.showsRegistration() : this.showsResults();
-      return listShown && this.tournament()!.entries.some((entry) => entry.playerId === playerId);
-    }
-    const shown: Record<Exclude<ErrorPlace, `${RowList} ${string}`>, boolean> = {
+  /** Whether the tab shows the section `place`. */
+  private showsSection(place: SectionPlace): boolean {
+    const shown: Record<SectionPlace, boolean> = {
       registration: this.showsRegistration(),
       actions: this.playsOn() || this.organizePlay(),
       yourMatches: this.showsYourMatches(),
@@ -607,6 +610,12 @@ export class PlayTab {
       foot: true,
     };
     return shown[place];
+  }
+
+  /** Whether the tab shows the row `place`: while its list shows and lists that player. */
+  private showsRow({ list, playerId }: RowPlace): boolean {
+    const listShown = list === 'joined' ? this.showsRegistration() : this.showsResults();
+    return listShown && this.tournament()!.entries.some((entry) => entry.playerId === playerId);
   }
 
   /** Asks `question` in the question dialog, and answers whether the viewer goes ahead. */
@@ -651,12 +660,6 @@ export class PlayTab {
     );
   }
 }
-
-/** Where a failure in the row of `playerId` in `list` shows. */
-const rowPlace = (list: RowList, playerId: string): ErrorPlace => `${list} ${playerId}`;
-
-/** Whether `place` is a player's row. */
-const isRow = (place: ErrorPlace): place is `${RowList} ${string}` => place.includes(' ');
 
 /** Names joined as a sentence lists them, such as "Alice, Bob, and Carol". */
 // Stryker disable next-line ObjectLiteral: conjunction is Intl.ListFormat's default type, so `{}` lists names the same.
