@@ -513,7 +513,7 @@ A tournament's first state, after setup, when the draft's players join and leave
 _Avoid_: Open, lobby (that is the draft's), sign-up
 
 **Join**:
-A draft's player entering a tournament. Every player joins at tournament setup, without asking; a player who has left can join again during registration.
+A draft's player entering a tournament. Every player joins at tournament setup, without asking; a player who has left, or been removed, can join again during registration.
 _Avoid_: Register, enter, sign up
 
 **Leave**:
