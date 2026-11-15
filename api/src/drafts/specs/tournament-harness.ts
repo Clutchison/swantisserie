@@ -291,11 +291,11 @@ export function placesOf(round: TournamentView['rounds'][number]) {
 }
 
 /**
- * Makes the draft's complete tournament as the migration of ADR 0017 left
- * one that completed before every deck was kept, without public
- * decklists: no completion time, and no decklist kept for anyone.
+ * Clears every decklist kept for the draft's tournament, and its completion
+ * time. A complete tournament is then as the migration of ADR 0017 left one
+ * that completed before every deck was kept, without public decklists.
  */
-export async function completedBeforeDecklistsWereKept(id: string) {
+export async function clearKeptDecklists(id: string) {
   const prisma = app.get(PrismaService);
   await prisma.tournament.update({
     where: { draftId: id },
