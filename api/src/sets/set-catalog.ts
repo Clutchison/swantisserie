@@ -4,6 +4,9 @@ import type { Platform } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import {
   ScryfallClient,
+  ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
+  type ScryfallSearchPage,
   type ScryfallSet,
 } from '../scryfall/scryfall-client.js';
 import { NO_BASIC_LANDS } from '../drafts/basic-lands.js';
@@ -84,8 +87,10 @@ export class SetCatalog implements OnApplicationShutdown {
 
   /**
    * The sets the picker offers on `platform`, newest first, as counted so
-   * far. Starts counting any set not counted yet, or counted too long ago.
-   * Throws ScryfallUnavailableError if Scryfall's list of sets can't be had.
+   * far. Starts counting any set not counted yet, or counted too long ago,
+   * and says it is still counting while any such set is left, one whose
+   * count failed included. Throws ScryfallUnavailableError if Scryfall's
+   * list of sets can't be had.
    */
   async options(platform: Platform): Promise<SetCatalogView> {
     const mainSets = await this.mainSets();
@@ -97,7 +102,7 @@ export class SetCatalog implements OnApplicationShutdown {
     if (stale) this.countInBackground(platform, mainSets);
     return {
       sets: offered(mainSets, counts),
-      counting: this.counting.has(platform),
+      counting: stale,
     };
   }
 
@@ -210,17 +215,36 @@ export class SetCatalog implements OnApplicationShutdown {
     this.counting.set(platform, job);
   }
 
-  /** Counts each stale set's cards on the platform, newest set first, each followed by its sublists. */
+  /**
+   * Counts each stale set's cards on the platform, newest set first, each
+   * followed by its sublists. A set whose search fails is logged and left
+   * stale, to be counted when the picker next asks, and counting goes on.
+   */
   private async count(platform: Platform, mainSets: MainSet[]): Promise<void> {
     const counts = await this.counts(platform);
     for (const { set, sublists } of mainSets) {
       for (const s of [set, ...sublists]) {
         if (this.stopping) return;
         if (!isStale(s, counts.get(s.code), Date.now())) continue;
-        const found = await this.scryfall.search(
-          `e:${s.code} ${NO_BASIC_LANDS} in:${SCRYFALL_GAME[platform]} unique:cards`,
-          1,
-        );
+        let found: ScryfallSearchPage | null;
+        try {
+          found = await this.scryfall.search(
+            `e:${s.code} ${NO_BASIC_LANDS} in:${SCRYFALL_GAME[platform]} unique:cards`,
+            1,
+          );
+        } catch (err: unknown) {
+          if (
+            !(err instanceof ScryfallUnavailableError) &&
+            !(err instanceof ScryfallRejectedSearchError)
+          ) {
+            throw err;
+          }
+          this.logger.error(
+            `Counting ${s.code.toUpperCase()}'s cards on ${platform} failed`,
+            err,
+          );
+          continue;
+        }
         const row = {
           cards: found?.totalCards ?? 0,
           countedAt: new Date(),
