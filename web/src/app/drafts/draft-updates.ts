@@ -6,6 +6,9 @@ import { io, type Socket } from 'socket.io-client';
 /** How long to wait before retrying a handshake the API refused for its own reasons. */
 const RETRY_MS = 5000;
 
+/** Why Socket.IO says the socket dropped when the API closed it. */
+const CLOSED_BY_THE_API: Socket.DisconnectReason = 'io server disconnect';
+
 /** What the tab's socket says of its connection, to each stream. */
 type ConnectionUpdate =
   /**
@@ -160,7 +163,7 @@ export class DraftUpdates {
       // Socket.IO reconnects by itself after every drop but one the API
       // makes, as when the session ended. Connect again: the handshake then
       // refuses an ended session, and `connect_error` takes it from there.
-      if (reason === 'io server disconnect' && !this.stopped) socket.connect();
+      if (reason === CLOSED_BY_THE_API && !this.stopped) socket.connect();
     });
     socket.on('connect_error', (err) => {
       const unauthorized = err.message === 'unauthorized';
