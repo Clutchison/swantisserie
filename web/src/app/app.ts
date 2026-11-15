@@ -21,7 +21,7 @@ import {
 import type { AppVersionView, UnreviewedFeedbackCount } from 'contract';
 import { filter, map } from 'rxjs';
 import { Auth } from './auth/auth';
-import { Changes, SendsChange } from './changes';
+import { LogOutButton } from './auth/log-out-button';
 import { DialogShell } from './dialog-shell';
 import { FEEDBACK_HEADING, FeedbackDialog } from './feedback/feedback-dialog';
 import { LoadingAnimation } from './loading/loading-animation';
@@ -29,9 +29,7 @@ import { TopBarMenu } from './top-bar/top-bar-menu';
 import { ViewerDrafts } from './drafts/viewer-drafts';
 
 @Component({
-  imports: [LoadingAnimation, NgTemplateOutlet, RouterLink, RouterOutlet, SendsChange, TopBarMenu],
-  // Log out's: it takes the page away, so it needs no status nor focus key.
-  providers: [Changes],
+  imports: [LoadingAnimation, LogOutButton, NgTemplateOutlet, RouterLink, RouterOutlet, TopBarMenu],
   selector: 'app-root',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './app.scss',
@@ -42,7 +40,6 @@ export class App {
   private readonly router = inject(Router);
   private readonly dialogs = inject(DialogShell);
   private readonly injector = inject(Injector);
-  private readonly changes = inject(Changes);
   protected readonly user = this.auth.user;
   /** The narrow top bar's menu, whose items are gone once it closes. */
   private readonly narrowMenu = viewChild<TopBarMenu>('narrowMenu');
@@ -123,10 +120,5 @@ export class App {
         return this.narrowMenu()?.button();
       },
     });
-  }
-
-  /** Logs out, once: a press while signing out is ignored. */
-  protected logout() {
-    void this.changes.send(() => this.auth.logout());
   }
 }

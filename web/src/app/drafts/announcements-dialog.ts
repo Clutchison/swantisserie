@@ -51,8 +51,8 @@ export class AnnouncementsDialog {
   });
   protected readonly choice = new FormControl<string | null>(null);
   protected readonly saving = signal(false);
-  /** The latest choice made while one saves, to save once it settles; undefined if none. */
-  private chosenMeanwhile: string | null | undefined;
+  /** The latest choice made while one saves, to save once it settles; null if none was made. */
+  private chosenMeanwhile: { id: string | null } | null = null;
   protected readonly saveError = signal<string | null>(null);
 
   constructor() {
@@ -67,6 +67,8 @@ export class AnnouncementsDialog {
     });
     // No change is offered while there's no list to choose from. While one saves, the choice
     // stays focusable, marked busy: a choice made meanwhile is saved once that one settles.
+    // It isn't `appSendsChange` under a `Changes`, whose `send` ignores a press while one is
+    // in flight: a select can't ignore a change, so the latest choice is kept instead (#939).
     effect(() => {
       if (this.webhooksFailed()) this.choice.disable();
       else this.choice.enable();
@@ -84,7 +86,7 @@ export class AnnouncementsDialog {
    */
   protected async save() {
     if (this.saving()) {
-      this.chosenMeanwhile = this.choice.value;
+      this.chosenMeanwhile = { id: this.choice.value };
       return;
     }
     this.saving.set(true);
@@ -110,9 +112,9 @@ export class AnnouncementsDialog {
       this.saving.set(false);
     }
     const next = this.chosenMeanwhile;
-    this.chosenMeanwhile = undefined;
-    if (next !== undefined && next !== this.currentId()) {
-      this.choice.setValue(next);
+    this.chosenMeanwhile = null;
+    if (next && next.id !== this.currentId()) {
+      this.choice.setValue(next.id);
       await this.save();
     }
   }
