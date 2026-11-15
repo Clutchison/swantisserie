@@ -253,9 +253,10 @@ describe('drafts using a webhook', () => {
   let draftIds: string[];
   /** Each draft's version before the test's registry change. */
   let versionsBefore: Map<string, number>;
+  let bobCookie: string;
 
   beforeEach(async () => {
-    const bobCookie = await signIn(bob);
+    bobCookie = await signIn(bob);
     webhookId = await registerWebhook('#roto-main');
     const lobby = await readyDraft([aliceCookie], 1, undefined, webhookId);
     const drafting = await readyDraft(
@@ -316,27 +317,38 @@ describe('drafts using a webhook', () => {
   }
 
   /**
-   * Waits until a socket watching each draft, and Alice's own room, are
-   * each pushed every draft they hear of once, as `expected` says.
+   * What is pushed to a socket watching each draft, and to each player's own
+   * room: Alice plays in every draft, Bob in all but the Lobby one.
+   */
+  async function listening() {
+    return {
+      watched: await watchingEach(),
+      alicesRoom: (await listeningToOwnRoom(aliceCookie)).changes,
+      bobsRoom: (await listeningToOwnRoom(bobCookie)).changes,
+    };
+  }
+
+  /**
+   * Waits until each of `listening`'s sockets is pushed every draft it hears
+   * of once, as `expected` says.
    */
   async function expectEachPushedOnce(
-    watched: DraftView[][],
-    alicesRoom: DraftView[],
+    { watched, alicesRoom, bobsRoom }: Awaited<ReturnType<typeof listening>>,
     expected: Partial<DraftView>,
   ) {
     await expectPushedOnce(alicesRoom, draftIds, expected);
+    await expectPushedOnce(bobsRoom, draftIds.slice(1), expected);
     for (const [i, changes] of watched.entries()) {
       await expectPushedOnce(changes, [draftIds[i]], expected);
     }
   }
 
   it('pushes every draft using a renamed webhook, in every state, with its new name', async () => {
-    const watched = await watchingEach();
-    const alicesRoom = await listeningToOwnRoom(aliceCookie);
+    const pushed = await listening();
 
     await renameWebhook(webhookId, '#roto-league');
 
-    await expectEachPushedOnce(watched, alicesRoom.changes, {
+    await expectEachPushedOnce(pushed, {
       webhook: { id: webhookId, name: '#roto-league', gone: false },
     });
   });
@@ -349,23 +361,21 @@ describe('drafts using a webhook', () => {
     await announcementsSettled(drafting);
     expect((await getDraft(drafting).expect(200)).body.webhook.gone).toBe(true);
     await noteVersions();
-    const watched = await watchingEach();
-    const alicesRoom = await listeningToOwnRoom(aliceCookie);
+    const pushed = await listening();
 
     await replaceWebhookUrl(webhookId, sideUrl);
 
-    await expectEachPushedOnce(watched, alicesRoom.changes, {
+    await expectEachPushedOnce(pushed, {
       webhook: { id: webhookId, name: '#roto-main', gone: false },
     });
   });
 
   it('pushes every draft that used a removed webhook, with no webhook', async () => {
-    const watched = await watchingEach();
-    const alicesRoom = await listeningToOwnRoom(aliceCookie);
+    const pushed = await listening();
 
     await removeWebhook(webhookId);
 
-    await expectEachPushedOnce(watched, alicesRoom.changes, { webhook: null });
+    await expectEachPushedOnce(pushed, { webhook: null });
   });
 
   it('bumps and pushes no draft for a change none of them shows', async () => {
