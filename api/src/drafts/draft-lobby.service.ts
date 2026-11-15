@@ -33,15 +33,27 @@ import { TurnsService } from './turns.service.js';
 import {
   ScryfallClient,
   ScryfallRejectedSearchError,
+  ScryfallUnavailableError,
   type ScryfallCard,
   type ScryfallSearchPage,
 } from '../scryfall/scryfall-client.js';
 import { SCRYFALL_GAME } from './platform.js';
-import { CubeCobraClient } from '../cubecobra/cubecobra-client.js';
+import {
+  CubeCobraClient,
+  CubeCobraUnavailableError,
+} from '../cubecobra/cubecobra-client.js';
 import { cubeIdFrom } from '../cubecobra/cube-link.js';
 import { cubePrintings } from './cube-pool.js';
 import { STORED_POOL_SOURCE_KIND } from './pool-source.js';
 import { SetCatalog } from '../sets/set-catalog.js';
+import { Deadline, DeadlinePassedError } from '../deadline.js';
+
+/**
+ * How long draft creation waits on its outside checks, all told. Stays under
+ * Heroku's 30 s router limit, with room left to save the draft and answer:
+ * past the limit the router answers 503 while the draft is saved anyway.
+ */
+export const DRAFT_CREATION_DEADLINE_MS = 25_000;
 
 /** A cube as a draft keeps it, with a printing on the platform of each mainboard copy. */
 interface CheckedCube {
@@ -83,18 +95,26 @@ export class DraftLobbyService {
    * doesn't exist, GoneWebhookChosenError if it is gone, PoolQueryError,
    * CubeLinkError or SetNotOfferedError if its pool source can't make a pool,
    * and ScryfallUnavailableError or CubeCobraUnavailableError if that can't
-   * be checked.
+   * be checked. Its outside checks share one deadline,
+   * DRAFT_CREATION_DEADLINE_MS: a check still waiting on Scryfall or
+   * CubeCobra when it passes fails with that service's unavailable error,
+   * and nothing is saved, even if the check finishes later.
    */
   async create(
     organizerId: string,
     draft: NewDraft,
   ): Promise<DraftWithOrganizer> {
     await refuseUnchoosableWebhook(this.prisma, draft.webhookId);
+    const deadline = new Deadline('draft creation', DRAFT_CREATION_DEADLINE_MS);
     const { poolSource, ...fields } = draft;
     const poolSourceKind = STORED_POOL_SOURCE_KIND[poolSource.kind];
     switch (poolSource.kind) {
       case 'pool-query': {
-        await this.checkPoolQuery(poolSource.poolQuery, draft.platform);
+        await this.checkPoolQuery(
+          poolSource.poolQuery,
+          draft.platform,
+          deadline,
+        );
         const created = await this.saveDraft({
           ...fields,
           poolSourceKind,
@@ -108,6 +128,7 @@ export class DraftLobbyService {
         const { cubeId, cubeName, printings } = await this.checkCubeLink(
           poolSource.cubeLink,
           draft.platform,
+          deadline,
         );
         // One statement, so the draft and its pool cards are saved together or not at all.
         return this.saveDraft({
@@ -122,9 +143,9 @@ export class DraftLobbyService {
         });
       }
       case 'set-list': {
-        const setList = await this.sets.check(
-          draft.platform,
-          poolSource.setList,
+        const setList = await deadline.race(
+          this.sets.check(draft.platform, poolSource.setList),
+          () => scryfallTooSlow(deadline),
         );
         const created = await this.saveDraft({
           ...fields,
@@ -316,6 +337,7 @@ export class DraftLobbyService {
   private async checkCubeLink(
     cubeLink: string,
     platform: Platform,
+    deadline: Deadline,
   ): Promise<CheckedCube> {
     const cubeId = cubeIdFrom(cubeLink);
     if (!cubeId) {
@@ -324,7 +346,14 @@ export class DraftLobbyService {
         message: 'That isn’t a CubeCobra cube link.',
       });
     }
-    const found = await this.cubeCobra.cube(cubeId);
+    const found = await deadline.race(
+      this.cubeCobra.cube(cubeId),
+      () =>
+        new CubeCobraUnavailableError(
+          'CubeCobra didn’t answer within the draft creation deadline.',
+          { cause: new DeadlinePassedError(deadline.name) },
+        ),
+    );
     if (!found) {
       // CubeCobra answers the same for a private cube as for a missing one.
       throw new CubeLinkError({
@@ -344,11 +373,14 @@ export class DraftLobbyService {
         message: 'This cube has no mainboard cards.',
       });
     }
-    const { printings, missing } = await cubePrintings(
-      this.scryfall,
-      cube,
-      platform,
-    );
+    // Searches still to come once the deadline passes would only hold up
+    // other Scryfall requests, for a draft that won't be saved.
+    const searches = new AbortController();
+    const { printings, missing } = await deadline
+      .race(cubePrintings(this.scryfall, cube, platform, searches.signal), () =>
+        scryfallTooSlow(deadline),
+      )
+      .finally(() => searches.abort());
     if (missing.length > 0) {
       throw new CubeLinkError({
         error: 'not-on-platform',
@@ -363,8 +395,9 @@ export class DraftLobbyService {
   private async checkPoolQuery(
     poolQuery: string,
     platform: Platform,
+    deadline: Deadline,
   ): Promise<void> {
-    const matches = await this.search(poolQuery);
+    const matches = await this.search(poolQuery, deadline);
     if (!matches) {
       throw new PoolQueryError({
         error: 'no-cards',
@@ -384,6 +417,7 @@ export class DraftLobbyService {
     // also catch Arena cards that have a paper-only printing. Likewise MTGO.
     const notOnPlatform = await this.search(
       `(${poolQuery}) -in:${SCRYFALL_GAME[platform]}`,
+      deadline,
     );
     if (notOnPlatform) {
       const { totalCards } = notOnPlatform;
@@ -396,9 +430,14 @@ export class DraftLobbyService {
     }
   }
 
-  private async search(query: string): Promise<ScryfallSearchPage | null> {
+  private async search(
+    query: string,
+    deadline: Deadline,
+  ): Promise<ScryfallSearchPage | null> {
     try {
-      return await this.scryfall.search(query);
+      return await deadline.race(this.scryfall.search(query), () =>
+        scryfallTooSlow(deadline),
+      );
     } catch (err) {
       if (err instanceof ScryfallRejectedSearchError) {
         throw new PoolQueryError({
@@ -410,4 +449,11 @@ export class DraftLobbyService {
       throw err;
     }
   }
+}
+
+/** Scryfall hadn't answered a check when the deadline passed. */
+function scryfallTooSlow(deadline: Deadline): ScryfallUnavailableError {
+  return ScryfallUnavailableError.unreachable(
+    new DeadlinePassedError(deadline.name),
+  );
 }
