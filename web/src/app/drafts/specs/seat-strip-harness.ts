@@ -39,3 +39,15 @@ export const playersSheet = () =>
  * state, so the seat says it in `data-pulse`.
  */
 export const seatPulse = (seat: HTMLElement) => seat.dataset['pulse'] ?? null;
+
+/**
+ * The name the Seat strip's hint shows under the seat hovered or focused, as
+ * a sighted viewer reads it; null while it shows none. The hint is hidden
+ * from screen readers, the seat's accessible name saying it already.
+ */
+export const stripNameHint = (page: HTMLElement) => {
+  const hint = seatStrip(page).parentElement!.querySelector(
+    ':scope > :not(section) [aria-hidden="true"]',
+  );
+  return hint?.textContent?.trim() || null;
+};

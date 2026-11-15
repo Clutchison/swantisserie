@@ -199,6 +199,32 @@ describe('picksMessage', () => {
       '1- **\\*star\\*\\_ \\<@2\\>** picked **Fire // Ice**',
     );
   });
+
+  it('shows a draft name with line breaks in bold on one line, a space for each break', () => {
+    const { content } = draftStartedMessage(
+      { ...draft, name: 'Red\n# Big\r\nCube\rDraft' },
+      [bob, alice],
+    );
+
+    expect(content.split('\n').slice(0, 2)).toEqual([
+      '**Red # Big Cube Draft** has started. Seat order:',
+      '1. **Bob**',
+    ]);
+  });
+
+  it('shows a player name with a line break in bold on their pick line, a space for the break', () => {
+    const { content } = picksMessage(draft, [
+      {
+        number: 1,
+        player: { id: '1', name: 'Al\n- ice', isBot: false },
+        card: 'Shock',
+        queued: false,
+        next: null,
+      },
+    ]);
+
+    expect(content).toBe('1- **Al - ice** picked **Shock**');
+  });
 });
 
 describe('draftMessages', () => {

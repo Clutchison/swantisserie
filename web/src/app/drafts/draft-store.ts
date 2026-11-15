@@ -7,16 +7,13 @@ import {
   inject,
   Injectable,
   InjectionToken,
-  Injector,
   linkedSignal,
-  type Signal,
   signal,
   untracked,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute } from '@angular/router';
 import type {
-  DecklistView,
   DraftPowersView,
   DraftView,
   PickView,
@@ -27,7 +24,6 @@ import type {
   PoolCardView,
   QueuedCardView,
   QueueView,
-  ViewerTournamentView,
 } from 'contract';
 import { MIN_MAINBOARD_CARDS } from 'contract';
 import {
@@ -47,41 +43,20 @@ import {
   hasTurn,
   isActive,
   isRefusal,
-  isTurnOf,
   NO_POWERS,
   queueStateName,
 } from './drafts';
-import { ARENA_SIDEBOARD_CAP, type ExportPlan } from './export-plan';
+import type { ExportPlan } from './export-plan';
+import { type DraftRead, keptRead } from './kept-read';
 import { planBoardCount } from './plan-boards';
+import { tournamentReads } from './tournament-reads';
+import { isTurnOf } from './turns';
 
 /** How often to re-read a draft whose pool snapshot is still running. */
 export const DRAFT_POLL_MS = new InjectionToken<number>('DRAFT_POLL_MS', {
   providedIn: 'root',
   factory: () => 2000,
 });
-
-/**
- * One of the page's reads of the api: the last value it loaded, and whether
- * it is loading or its latest read failed.
- */
-export interface DraftRead<T> {
-  /**
-   * The last value the read loaded, kept when a later re-read fails, or its
-   * empty value until it has loaded.
-   */
-  readonly value: Signal<T>;
-  /** Whether the read has loaded a value, which `value` then holds. */
-  readonly loaded: Signal<boolean>;
-  /** Whether the read is on its way and has nothing to show yet. */
-  readonly loading: Signal<boolean>;
-  /**
-   * Whether the latest read failed: with nothing loaded if `loaded` is false,
-   * or else a re-read, while `value` keeps the last good one.
-   */
-  readonly failed: Signal<boolean>;
-  /** Whether the read failed with nothing loaded, so there is nothing to show. */
-  readonly missing: Signal<boolean>;
-}
 
 /**
  * A pick as the pick log shows it: the pick as the api sends it, with the
@@ -114,8 +89,10 @@ export interface QueueAdd {
 export class DraftStore implements TournamentViewer {
   private readonly http = inject(HttpClient);
   private readonly user = inject(Auth).user;
+  /** The signed-in viewer's user id. */
+  // Stryker disable next-line OptionalChaining: the `signedIn` guard means a draft page always has a user.
+  private readonly userId = computed(() => this.user()?.id);
   private readonly pollMs = inject(DRAFT_POLL_MS);
-  private readonly injector = inject(Injector);
 
   /** The id of the open draft. */
   // Stryker disable next-line ObjectLiteral: `paramMap` emits on subscribe, so the id is there at once either way.
@@ -176,12 +153,12 @@ export class DraftStore implements TournamentViewer {
   private readonly players = computed(() => this.draft.value()?.players ?? []);
   /** Whether the signed-in user is a player in this draft. */
   readonly joined = computed(() => {
-    const user = this.user();
-    return !!user && this.players().some((player) => player.id === user.id);
+    const id = this.userId();
+    return !!id && this.players().some((player) => player.id === id);
   });
   /** The signed-in player, if they have joined. */
   readonly ownPlayer = computed(() => {
-    const id = this.user()?.id;
+    const id = this.userId();
     return this.players().find((player) => player.id === id) ?? null;
   });
   /** Whether `player` is the signed-in player: the viewer's own seat. */
@@ -207,7 +184,7 @@ export class DraftStore implements TournamentViewer {
   readonly turn = computed(() => this.draft.value()?.turn ?? null);
   readonly yourTurn = computed(() => {
     const draft = this.draft.value();
-    return !!draft && isTurnOf(draft, this.user()?.id);
+    return !!draft && isTurnOf(draft, this.userId());
   });
   /** Whether the signed-in player can pick now: it is their turn and the draft is drafting, not frozen. */
   // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
@@ -360,7 +337,7 @@ export class DraftStore implements TournamentViewer {
   readonly queuePicks = computed<QueuedCardView[]>(() => {
     const draft = this.draft.value();
     if (!draft || !this.yourTurnToPick()) return [];
-    const seat = this.players().findIndex((player) => player.id === this.user()?.id);
+    const seat = this.players().findIndex((player) => player.id === this.userId());
     const cards = this.queue.value().cards;
     const pool = new Map(this.pool.value().map((card) => [card.id, card.oracleId]));
     const picks = queuePicksBeforeAnotherPlayerPicks(
@@ -534,53 +511,27 @@ export class DraftStore implements TournamentViewer {
       !this.plan.loading() &&
       !this.plan.missing(),
   );
-  /**
-   * When the exported sideboard holds more cards, its basics included, than
-   * Arena's import may keep: how many it holds, and how many Arena keeps;
-   * otherwise null.
-   */
-  readonly sideboardOverArenaCap = computed(() => {
-    const count = planBoardCount(this.exportPlan(), 'Sideboard');
-    return this.shown().platform === 'Arena' && count > ARENA_SIDEBOARD_CAP
-      ? { count, cap: ARENA_SIDEBOARD_CAP }
-      : null;
+  /** The draft's tournament and decklists, and what they say of the player's deck. */
+  private readonly tournamentReads = tournamentReads({
+    id: this.id,
+    draft: this.draft.value,
+    version: this.version,
+    userId: this.userId,
+    exportPlan: this.exportPlan,
   });
-
-  /**
-   * The draft's tournament as the signed-in viewer reads it, read once the
-   * draft says it has one, and again for each version, as every tournament
-   * change bumps it, and after each change to their deck during registration
-   * (see `changePlan`).
-   */
-  // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
-  private readonly hasTournament = computed(() => !!this.draft.value()?.tournament);
-  private readonly tournamentResource = httpResource<ViewerTournamentView>(() => {
-    this.version();
-    return this.hasTournament() ? `/api/drafts/${this.id()}/tournament` : undefined;
-  });
-  /** The draft's tournament: null until it has loaded, and while there is none. */
-  readonly tournament = keptRead<ViewerTournamentView | null>(this.tournamentResource, null);
-  /**
-   * Answers once the tournament read for the draft shown has settled,
-   * loaded or failed: at once if there is no tournament to read. A change
-   * that shows a new draft version awaits it, so it settles once the page
-   * shows the tournament it made. It can't answer for the older version:
-   * showing the new one starts its read at once, before this first looks.
-   */
+  // The tournament reads, as `TournamentReads` describes each.
+  readonly tournament = this.tournamentReads.tournament;
+  readonly tournamentState = this.tournamentReads.tournamentState;
+  readonly showDecklists = this.tournamentReads.showDecklists;
+  readonly decklists = this.tournamentReads.decklists;
+  readonly joinedTournament = this.tournamentReads.joinedTournament;
+  readonly deckLocked = this.tournamentReads.deckLocked;
+  readonly deckLocksAtStart = this.tournamentReads.deckLocksAtStart;
+  readonly sideboardOverArenaCap = this.tournamentReads.sideboardOverArenaCap;
+  /** As `TournamentReads.whenTournamentSettled`. */
   whenTournamentSettled(): Promise<void> {
-    return new Promise((resolve) => {
-      const watch = effect(
-        () => {
-          if (this.tournamentResource.isLoading()) return;
-          watch.destroy();
-          resolve();
-        },
-        { injector: this.injector },
-      );
-    });
+    return this.tournamentReads.whenTournamentSettled();
   }
-  /** The state of the draft's tournament; undefined until it has loaded, and while there is none. */
-  readonly tournamentState = computed(() => this.tournament.value()?.state);
   /**
    * Whether a player's queue is shown, in the Queue pane beside the tabs or,
    * below the desktop layout, the Queue sheet: from when the draft starts, as
@@ -606,18 +557,6 @@ export class DraftStore implements TournamentViewer {
     return this.powersKnown() ? this.canOrganize() : undefined;
   });
   /**
-   * Whether decklists are shown, so the Lists tab is there: as the
-   * tournament's `showsDecklists` says, which the api decides (ADR 0003).
-   * Undefined while the draft or its tournament is still loading; false with
-   * no tournament, or none loaded.
-   */
-  readonly showDecklists = computed(() => {
-    if (!this.draft.value()) return undefined;
-    if (!this.hasTournament()) return false;
-    if (!this.tournament.loaded()) return this.tournament.failed() ? false : undefined;
-    return this.tournament.value()!.showsDecklists;
-  });
-  /**
    * Whether the Board tab is shown: until the Lists tab takes its place.
    * Undefined while that is still loading.
    */
@@ -626,37 +565,6 @@ export class DraftStore implements TournamentViewer {
     // Stryker disable next-line ConditionalExpression: a Board tab still undefined shows either way, and `tabInUrl` keeps a tab the URL names whether it is 'unknown' or 'yes'.
     return decklists === undefined ? undefined : !decklists;
   });
-  /**
-   * The tournament's decklists, read once it shows them. They are the decks
-   * as they were when it started, so no change re-reads them.
-   */
-  private readonly decklistsResource = httpResource<DecklistView[]>(() =>
-    this.showDecklists() ? `/api/drafts/${this.id()}/tournament/decklists` : undefined,
-  );
-  /** The tournament's decklists, in join order: none until they have loaded. */
-  // Stryker disable next-line ArrayDeclaration: the Lists tab reads the decklists only once they have loaded, showing loading or the error before then.
-  readonly decklists = keptRead<DecklistView[]>(this.decklistsResource, []);
-  /** Whether the signed-in player has joined the draft's tournament. */
-  readonly joinedTournament = computed(() => {
-    // Stryker disable next-line OptionalChaining: the `signedIn` guard means a draft page always has a user.
-    const id = this.user()?.id;
-    return !!this.tournament.value()?.entries.some((entry) => entry.playerId === id);
-  });
-  /**
-   * Whether the signed-in player's deck is locked: they have joined a
-   * tournament that is playing. The api then refuses every change to it
-   * with `deck-locked`.
-   */
-  readonly deckLocked = computed(
-    () => this.joinedTournament() && this.tournamentState() === 'Playing',
-  );
-  /**
-   * Whether the signed-in player's deck locks at Start: they have joined a
-   * tournament in registration, as setup joins every player.
-   */
-  readonly deckLocksAtStart = computed(
-    () => this.joinedTournament() && this.tournamentState() === 'Registration',
-  );
   /** How many cards the signed-in player's mainboard holds, its basic lands included. */
   readonly mainboardCards = computed(() => planBoardCount(this.plan.value(), 'Mainboard'));
   /**
@@ -725,25 +633,35 @@ export class DraftStore implements TournamentViewer {
       const timer = setTimeout(() => this.rereadDraft(), this.pollMs);
       onCleanup(() => clearTimeout(timer));
     });
-    this.rereadQueueOnReturn();
+    this.rereadOwnOnReturn();
   }
 
   /**
-   * Re-reads the queue each time the viewer comes back to this window: it
-   * gains focus, or is shown again. A change to the player's queue that no
-   * one else sees, such as pausing it, makes no new draft version, so a
-   * second window of theirs learns of it only this way.
+   * Re-reads the player's own queue and plan each time the viewer comes back
+   * to this window: it gains focus, or is shown again. A change to either
+   * that no one else sees, such as pausing the queue or moving a card to the
+   * sideboard, makes no new draft version, so a second window of theirs
+   * learns of it only this way. A viewer who isn't a player reads neither.
+   * While their deck locks at Start, the tournament is read again too, as
+   * `changePlan` reads it: a deck changed in the other window may change
+   * whether they may mark themselves ready, with no new draft version.
+   * A change answered while a re-read is in flight still wins: showing its
+   * answer sets the read, which aborts the re-read.
    */
-  private rereadQueueOnReturn() {
+  private rereadOwnOnReturn() {
     const document = inject(DOCUMENT);
     const stopped = new AbortController();
     inject(DestroyRef).onDestroy(() => stopped.abort());
-    const reloadQueue = () => this.queueResource.reload();
-    document.defaultView?.addEventListener('focus', reloadQueue, { signal: stopped.signal });
+    const reloadOwn = () => {
+      this.queueResource.reload();
+      this.planResource.reload();
+      if (this.deckLocksAtStart()) this.rereadTournament();
+    };
+    document.defaultView?.addEventListener('focus', reloadOwn, { signal: stopped.signal });
     document.addEventListener(
       'visibilitychange',
       () => {
-        if (document.visibilityState === 'visible') reloadQueue();
+        if (document.visibilityState === 'visible') reloadOwn();
       },
       { signal: stopped.signal },
     );
@@ -841,19 +759,11 @@ export class DraftStore implements TournamentViewer {
    * They are the player's, not the draft's, so no draft version applies.
    */
   showPreferredPrintings(preferredPrintings: PreferredPrintings) {
-    // Stryker disable next-line OptionalChaining: the `signedIn` guard means a draft page always has a user.
-    const userId = this.user()?.id;
     // Stryker disable next-line ConditionalExpression: the Printing picker opens only from a loaded plan; this differs only if a plan re-read has failed while it is open.
     if (this.planResource.hasValue()) {
       this.planResource.update((plan) => plan && { ...plan, preferredPrintings });
     }
-    if (this.decklistsResource.hasValue()) {
-      this.decklistsResource.update((decklists) =>
-        decklists!.map((decklist) =>
-          decklist.playerId === userId ? { ...decklist, preferredPrintings } : decklist,
-        ),
-      );
-    }
+    this.tournamentReads.showPreferredPrintings(preferredPrintings);
   }
 
   /**
@@ -869,13 +779,9 @@ export class DraftStore implements TournamentViewer {
     return plan;
   }
 
-  /**
-   * Re-reads the draft's tournament, as something only the viewer's own
-   * tournament read shows, such as whether they may mark themselves ready,
-   * may have moved on with no new draft version.
-   */
+  /** As `TournamentReads.rereadTournament`. */
   rereadTournament() {
-    this.tournamentResource.reload();
+    this.tournamentReads.rereadTournament();
   }
 
   /**
@@ -914,43 +820,4 @@ export class DraftStore implements TournamentViewer {
       if (!resource.isLoading()) resource.reload();
     }
   }
-}
-
-/** What a read keeps: the last value it loaded, if it has loaded one. */
-interface Kept<T> {
-  readonly value: T;
-  readonly loaded: boolean;
-}
-
-/**
- * A read that keeps the last value it loaded when a later re-read fails, and
- * isn't loading as it re-reads once it has a value: `value` is `empty` until
- * it has loaded, and again once there is nothing to read (the resource is
- * idle).
- */
-function keptRead<T>(resource: HttpResourceRef<T | undefined>, empty: T): DraftRead<T> {
-  const kept = linkedSignal<Kept<T> | 'idle' | 'none', Kept<T>>({
-    source: () =>
-      resource.status() === 'idle'
-        ? 'idle'
-        : resource.hasValue()
-          ? { value: resource.value()!, loaded: true }
-          : 'none',
-    computation: (latest, previous) =>
-      latest === 'idle'
-        ? // Stryker disable next-line BooleanLiteral: an idle read has no error, and every reader of `loaded` returns early for the states that leave a read idle.
-          { value: empty, loaded: false }
-        : latest === 'none'
-          ? (previous?.value ?? { value: empty, loaded: false })
-          : latest,
-  });
-  const loaded = computed(() => kept().loaded);
-  const failed = computed(() => !!resource.error());
-  return {
-    value: computed(() => kept().value),
-    loaded,
-    loading: computed(() => resource.isLoading() && !loaded()),
-    failed,
-    missing: computed(() => failed() && !loaded()),
-  };
 }
