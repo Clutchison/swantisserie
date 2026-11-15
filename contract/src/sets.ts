@@ -33,8 +33,9 @@ export interface SetOptionView {
 export interface SetCatalogView {
   sets: SetOptionView[];
   /**
-   * Cards are still being counted, so sets may be missing or their counts
-   * out of date; asking again later gives more.
+   * True while any set or sublist is still to be counted, one whose count
+   * failed included, so sets may be missing or their counts out of date;
+   * asking again later counts them.
    */
   counting: boolean;
 }
