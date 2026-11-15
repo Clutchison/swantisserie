@@ -16,6 +16,7 @@ import {
   notJoined,
   NoMatchError,
   NoTournamentError,
+  NOT_PLAYING,
   TournamentRefusedError,
 } from './tournament-errors.js';
 
@@ -68,10 +69,7 @@ export class TournamentLock {
    * TournamentRefusedError if it isn't playing.
    */
   inPlay<T>(draftId: string, change: TournamentChange<T>): Promise<T> {
-    return this.whileTournamentIn(draftId, 'Playing', change, {
-      error: 'not-playing',
-      message: 'This tournament isn’t being played.',
-    });
+    return this.whileTournamentIn(draftId, 'Playing', change, NOT_PLAYING);
   }
 
   /**

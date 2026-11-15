@@ -46,10 +46,10 @@ export interface TournamentEntryView {
   /** Whether they have dropped: their unplayed matches are forfeits. */
   dropped: boolean;
   /**
-   * Whether they can be taken out of the tournament and put back in:
-   * removed during registration, dropped by an organizer, themselves or
-   * Complete round, and reinstated. Never a bot, which stays in its
-   * tournament from setup to the end.
+   * Whether they are a player who can ever be taken out of the tournament
+   * and put back in, as removal, dropping and Reinstate first ask: never a
+   * bot, which stays in its tournament from setup to the end. Whether
+   * Reinstate would be refused now is `reinstateRefusal`.
    */
   droppable: boolean;
   /**
@@ -62,6 +62,14 @@ export interface TournamentEntryView {
    * Start shuffles; null in other formats and during registration.
    */
   seed: number | null;
+  /**
+   * Why Reinstate of this dropped player would be refused now, such as a
+   * Swiss tournament round paired after their drop
+   * (`paired-since-drop`), as the Reinstate write refuses it; null for a
+   * player who hasn't dropped, for a bot and for a player Reinstate would
+   * accept.
+   */
+  reinstateRefusal: TournamentRefusal | null;
 }
 
 /**

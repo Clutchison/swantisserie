@@ -26,6 +26,7 @@ import {
   type TournamentMatch,
 } from 'engine';
 import { Prisma } from '../generated/prisma/client.js';
+import { reinstateRefusalOf } from './change-steps.js';
 import { correctionRefusal } from './correction-refusal.js';
 import { clearing, confirmRefusal } from './match-rules.js';
 import { droppable } from './tournament-matches.js';
@@ -169,6 +170,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     droppable: droppable(entry),
     ready: entry.ready,
     seed: entry.seed,
+    reinstateRefusal: reinstateRefusalOf(row, entry.id),
   }));
   const humans = row.entries.filter((entry) => !entry.player.user.isBot);
   const dropped = droppedPlayers(entries);
