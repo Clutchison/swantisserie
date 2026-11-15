@@ -25,13 +25,27 @@ export class WebhookRefusedError extends Error {
   }
 }
 
+/**
+ * Thrown when Discord rate limits a post (a 429) and says how long to wait,
+ * in its body's `retry_after` or else its `Retry-After` header. Posting again
+ * before `retryAfterMs` has passed would be rate limited too.
+ */
+export class WebhookRateLimitedError extends Error {
+  constructor(readonly retryAfterMs: number) {
+    super(
+      `Discord webhook post failed: 429, rate limited for ${retryAfterMs} ms`,
+    );
+  }
+}
+
 /** Posting to Discord webhooks: the boundary faked in tests. */
 export abstract class WebhookClient {
   /**
    * Posts `message` to the webhook at `url`. Throws WebhookGoneError if
    * the webhook is gone, WebhookRefusedError if Discord refuses the post
-   * for good, and another error on a failure worth retrying: a rate limit, a
-   * server error, a network error or a timeout.
+   * for good, WebhookRateLimitedError if Discord rate limits it and says how
+   * long to wait, and another error on a failure worth retrying: a rate limit
+   * that doesn't say how long, a server error, a network error or a timeout.
    */
   abstract post(url: string, message: WebhookMessage): Promise<void>;
 }
@@ -56,21 +70,67 @@ export class FetchWebhookClient extends WebhookClient {
         'Discord webhook post failed: Discord could not be reached.',
       );
     }
-    const error = webhookPostError(res.status);
+    const error = webhookPostError(
+      res.status,
+      res.status === 429 ? await retryAfterMs(res) : undefined,
+    );
     if (error) throw error;
   }
 }
 
 /**
- * What a webhook post answered with `status` failed with, as
- * WebhookClient.post throws it, or null if it didn't fail.
+ * How long a 429 says to wait, in ms: its body's `retry_after`, else its
+ * `Retry-After` header, both in seconds. Undefined if it says neither.
  */
-export function webhookPostError(status: number): Error | null {
+async function retryAfterMs(res: Response): Promise<number | undefined> {
+  const seconds =
+    secondsIn(await bodyRetryAfter(res)) ??
+    secondsIn(res.headers.get('Retry-After'));
+  return seconds === undefined ? undefined : Math.ceil(seconds * 1000);
+}
+
+/** The `retry_after` of a 429's JSON body, if it can be read. */
+async function bodyRetryAfter(res: Response): Promise<unknown> {
+  try {
+    const body: unknown = await res.json();
+    return typeof body === 'object' && body !== null && 'retry_after' in body
+      ? body.retry_after
+      : undefined;
+  } catch {
+    // Unreadable or not JSON: the header may still say.
+    return undefined;
+  }
+}
+
+/** `value` as a number of seconds to wait, if it is one. */
+function secondsIn(value: unknown): number | undefined {
+  const seconds =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string' && value.trim() !== ''
+        ? Number(value)
+        : NaN;
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds : undefined;
+}
+
+/**
+ * What a webhook post answered with `status` failed with, as
+ * WebhookClient.post throws it, or null if it didn't fail. A 429 is a
+ * WebhookRateLimitedError when `retryAfterMs`, how long Discord said to wait,
+ * is known.
+ */
+export function webhookPostError(
+  status: number,
+  retryAfterMs?: number,
+): Error | null {
   if (status >= 200 && status < 300) return null;
   if (status === 404 || status === 401) return new WebhookGoneError(status);
   // Never the URL in an error: it is a secret, and errors get logged.
   if (status >= 400 && status < 500 && status !== 429) {
     return new WebhookRefusedError(status);
+  }
+  if (status === 429 && retryAfterMs !== undefined) {
+    return new WebhookRateLimitedError(retryAfterMs);
   }
   return new Error(`Discord webhook post failed: ${status}`);
 }

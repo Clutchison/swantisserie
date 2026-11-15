@@ -1,8 +1,10 @@
 import { Logger } from '@nestjs/common';
 import {
   DraftNotifier,
+  RATE_LIMIT_CAP_MS,
   SHUTDOWN_DEADLINE_MS,
 } from '../../discord/draft-notifier.js';
+import { WebhookRateLimitedError } from '../../discord/webhook-client.js';
 import {
   held,
   pastDeadline,
@@ -195,6 +197,30 @@ describe('shutting down', () => {
         } finally {
           vi.useRealTimers();
         }
+      });
+
+      it('ends a rate limit wait at the deadline, without posting again', async () => {
+        const errors = vi.spyOn(Logger.prototype, 'error');
+        // Past the deadline, but within the cap, so the post would wait it out.
+        const rateLimitMs = (SHUTDOWN_DEADLINE_MS + RATE_LIMIT_CAP_MS) / 2;
+        webhookClient.post.mockRejectedValueOnce(
+          new WebhookRateLimitedError(rateLimitMs),
+        );
+        await start(id).expect(200);
+        // Settles once the start's announcement does.
+        const settled = app.get(DraftNotifier).notify(id, []);
+
+        await closePastDeadline();
+
+        // A wait left running would hold the process until Heroku's SIGKILL.
+        await settled;
+        expect(webhookClient.post).toHaveBeenCalledTimes(1);
+        // The start still waiting, and the empty one queued behind it; no
+        // rate limit failure.
+        expect(errors.mock.calls).toEqual([
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}.*started`))],
+          [expect.stringMatching(new RegExp(`dropped.*draft ${id}`))],
+        ]);
       });
 
       it('drops and logs an announcement notified after the deadline', async () => {

@@ -1,9 +1,12 @@
 import { Logger } from '@nestjs/common';
+import { RATE_LIMIT_CAP_MS } from '../../discord/draft-notifier.js';
 import {
   WebhookGoneError,
   webhookPostError,
+  WebhookRateLimitedError,
   WebhookRefusedError,
 } from '../../discord/webhook-client.js';
+import { useDeadlineTimers } from '../../testing/deadlines.js';
 import {
   alice,
   bob,
@@ -431,6 +434,91 @@ describe('announcements', () => {
       expect(retried).toBe(first);
     },
   );
+
+  describe('when Discord rate limits a post', () => {
+    /** Longer than the 1 s and 5 s the retries wait outside tests. */
+    const RATE_LIMIT_MS = 10_000;
+
+    beforeEach(() => useDeadlineTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it('waits as long as Discord says, then gets the post through', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValueOnce(
+        new WebhookRateLimitedError(RATE_LIMIT_MS),
+      );
+      await start(id).expect(200);
+      await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+
+      await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS - 1);
+      expect(webhookClient.post).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+
+      const [first, retried] = await posted(id, 2);
+      expect(retried).toBe(first);
+      expect(first).toContain('has started');
+    });
+
+    it('holds another draft’s post on the same webhook until it is over', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      const other = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      webhookClient.post.mockRejectedValueOnce(
+        new WebhookRateLimitedError(RATE_LIMIT_MS),
+      );
+      await start(id).expect(200);
+      await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
+
+      await start(other).expect(200);
+      await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS - 1);
+      expect(webhookClient.post).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+
+      await announcementsSettled(other);
+      await posted(id, 3);
+    });
+
+    it('drops and logs a post whose wait would pass the cap, and posts the next', async () => {
+      const id = await readyDraft(
+        [aliceCookie, bobCookie],
+        1,
+        undefined,
+        webhookId,
+      );
+      const ids = await poolCardIds(id);
+      webhookClient.post.mockRejectedValueOnce(
+        new WebhookRateLimitedError(RATE_LIMIT_CAP_MS + 1),
+      );
+      const logged = vi
+        .spyOn(Logger.prototype, 'error')
+        .mockImplementation(() => {});
+      await start(id).expect(200);
+
+      await pick(id, ids.Shock).expect(200);
+
+      const [dropped, next] = await posted(id, 2);
+      expect(dropped).toContain('has started');
+      expect(next).not.toContain('has started');
+      expect(logged).toHaveBeenCalledOnce();
+      expect(logged).toHaveBeenCalledWith(
+        expect.stringMatching(new RegExp(`draft ${id}.*rate limit`)),
+      );
+    });
+  });
 
   describe('when its webhook is gone', () => {
     it.each([404, 401])(
