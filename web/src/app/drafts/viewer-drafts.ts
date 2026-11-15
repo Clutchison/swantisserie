@@ -8,7 +8,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import type { DraftListItemView, DraftView } from 'contract';
+import type { DraftListItemView, DraftView, TournamentBadgeView } from 'contract';
 import { Auth } from '../auth/auth';
 import { DraftUpdates } from './draft-updates';
 import { isTurnOf } from './drafts';
@@ -24,7 +24,11 @@ import { isTurnOf } from './drafts';
  * but before the socket joined the viewer's own room is pushed to no one,
  * and pushes may be missed while the socket is down. A connect while the
  * first read is on its way reads again once it lands, as a resource can't
- * be reloaded before its first load.
+ * be reloaded before its first load. Read again, the same way, once each
+ * push leaves a listed draft's tournament in a state other than its read
+ * badge's, whether the push lands before the read or after: only a read
+ * says whether the viewer can join (ADR 0003), and pushes carry no trophy
+ * holders.
  */
 @Injectable({ providedIn: 'root' })
 export class ViewerDrafts {
@@ -54,6 +58,12 @@ export class ViewerDrafts {
   /** Whether the drafts are to be read again once the read on its way lands. */
   private readonly readAgain = signal(false);
   /**
+   * The pushes, as `id@version`, that have had the drafts read again for
+   * their tournament: once each, so a read that still lags a push can't
+   * have them read again without end.
+   */
+  private readonly readAgainFor = new Set<string>();
+  /**
    * The drafts as last read, each as its newest version read or pushed, the
    * cancelled ones dropped: undefined until the first read lands, or if it
    * fails. A failed read again keeps those already listed, rather than leave
@@ -80,6 +90,7 @@ export class ViewerDrafts {
     effect((onCleanup) => {
       // Another viewer's pushes aren't this one's.
       this.pushed.set(new Map());
+      this.readAgainFor.clear();
       const user = this.user();
       // Signed out, the tab mustn't stay in the viewer's own room.
       if (user === null) updates.close();
@@ -104,6 +115,17 @@ export class ViewerDrafts {
       onCleanup(() => pushes.unsubscribe());
     });
     effect(() => {
+      const pushed = this.pushed();
+      for (const draft of this.lastRead() ?? []) {
+        const push = pushOver(draft, pushed);
+        if (!push || badgeStands(push, draft.tournamentBadge)) continue;
+        const key = `${push.id}@${push.version}`;
+        if (this.readAgainFor.has(key)) continue;
+        this.readAgainFor.add(key);
+        this.readAgain.set(true);
+      }
+    });
+    effect(() => {
       if (!this.readAgain() || this.read.status() === 'loading') return;
       this.readAgain.set(false);
       untracked(() => this.read.reload());
@@ -122,24 +144,51 @@ export class ViewerDrafts {
 
 /**
  * The drafts `read`, each replaced by its push in `pushed` when that is no
- * older, keeping the tournament badge read, as pushes don't carry it; the
- * cancelled dropped, and the drafts pushed but not read added, without a badge.
+ * older, its tournament badge as `badgeOf` makes it; the cancelled dropped,
+ * and the drafts pushed but not read added.
  */
 function withPushes(
   read: DraftListItemView[],
   pushed: Map<string, DraftView | null>,
 ): DraftListItemView[] {
   const listed = read.flatMap((draft): DraftListItemView[] => {
-    if (!pushed.has(draft.id)) return [draft];
-    const push = pushed.get(draft.id);
-    if (!push) return [];
-    return push.version < draft.version
-      ? [draft]
-      : [{ ...push, tournamentBadge: draft.tournamentBadge }];
+    const push = pushOver(draft, pushed);
+    if (push === undefined) return [draft];
+    if (push === null) return [];
+    return [{ ...push, tournamentBadge: badgeOf(push, draft.tournamentBadge) }];
   });
   const readIds = new Set(read.map((draft) => draft.id));
   const added = [...pushed.values()].filter(
     (push): push is DraftView => !!push && !readIds.has(push.id),
   );
-  return [...listed, ...added.map((push) => ({ ...push, tournamentBadge: null }))];
+  return [...listed, ...added.map((push) => ({ ...push, tournamentBadge: badgeOf(push, null) }))];
+}
+
+/**
+ * Draft `read`'s push in `pushed` that lists in its place: null once
+ * cancelled; undefined when it hasn't been pushed, or only older than read.
+ */
+function pushOver(
+  read: DraftListItemView,
+  pushed: Map<string, DraftView | null>,
+): DraftView | null | undefined {
+  const push = pushed.get(read.id);
+  return push && push.version < read.version ? undefined : push;
+}
+
+/** Whether tournament badge `badge`, as read, still stands for draft `push`: its tournament's state, or none, is the same. */
+function badgeStands(push: DraftView, badge: TournamentBadgeView | null): boolean {
+  return (push.tournament?.state ?? null) === (badge?.state ?? null);
+}
+
+/**
+ * Draft `push`'s tournament badge, read as `read`: that badge while it still
+ * stands. Otherwise one with the pushed state, without Join or trophy
+ * holders until a read says them, as only the api decides whether the
+ * viewer can join (ADR 0003) and pushes carry no trophy holders; none for
+ * a draft pushed without a tournament.
+ */
+function badgeOf(push: DraftView, read: TournamentBadgeView | null): TournamentBadgeView | null {
+  if (badgeStands(push, read)) return read;
+  return push.tournament && { state: push.tournament.state, canJoin: false, trophyHolders: [] };
 }
