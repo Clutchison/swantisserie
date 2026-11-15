@@ -305,7 +305,7 @@ describe('create form', () => {
     expect(textBox(form.page, 'Cube link')!.value).toBe('');
   });
 
-  it('offers the pool sources as a group named Pool from of three radios', async () => {
+  it('offers the pool sources as three radios in the Pool from group', async () => {
     const { page } = await openForm();
     const poolFrom = group(page, 'Pool from')!;
 

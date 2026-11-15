@@ -25,14 +25,6 @@ label {
   list-style: none;
 }
 
-/* A set's or sublist's toggle: a long name wraps onto a phone's next line rather than overflow the list. */
-.toggle-button.labelled {
-  height: auto;
-  min-height: 44px;
-  white-space: normal;
-  text-align: start;
-}
-
 .sublists {
   display: flex;
   flex-direction: column;

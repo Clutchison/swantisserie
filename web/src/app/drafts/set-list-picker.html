@@ -18,7 +18,7 @@
         <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
         <button
           type="button"
-          class="toggle-button labelled"
+          class="toggle-button labelled wraps"
           [attr.aria-pressed]="isChosen(set.code)"
           [disabled]="full() && !isChosen(set.code)"
           (click)="toggleSet(set)"
@@ -55,7 +55,7 @@
       @let included = chosen.entry.sublists.includes(sublist.code);
       <button
         type="button"
-        class="toggle-button labelled"
+        class="toggle-button labelled wraps"
         [attr.aria-pressed]="included"
         (click)="toggleSublist(chosen.set, sublist.code)"
       >
