@@ -22,7 +22,8 @@ input {
   overflow-wrap: anywhere;
 }
 
-.gone {
+.gone,
+.error {
   flex-basis: 100%;
   margin: 0;
   color: var(--color-error);

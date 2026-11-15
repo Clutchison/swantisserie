@@ -5,7 +5,7 @@
     URLs.
   </p>
 
-  @if (problem(); as problem) {
+  @if (addProblem(); as problem) {
     <p class="error" role="alert">{{ problem }}</p>
   }
 
@@ -65,6 +65,9 @@
               Rename
             </button>
           </div>
+          @if (problemFor(webhook); as problem) {
+            <p class="error" role="alert">{{ problem }}</p>
+          }
           @if (webhook.gone) {
             <p class="gone">
               <strong>Gone:</strong> Discord no longer accepts posts here, so drafts' announcements
