@@ -53,6 +53,7 @@ import {
   threePlayers,
   withTournament,
   completed,
+  carolBeatAlice,
   completedSwiss,
   confirmedMatch,
   COMPLETE_ROUND_URL,
@@ -204,13 +205,13 @@ describe('Swiss tournaments on the Play tab', () => {
   });
 
   it('offers Report in the list only on a match the api lists you as able to report', async () => {
-    const bobBeatAlice = unconfirmable(
+    const bobBeatAliceInRound1 = unconfirmable(
       reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id),
     );
     const { tab } = await openPlaying(
       swissPlaying({
         rounds: [
-          { round: 1, correctable: false, matches: [bobBeatAlice], byes: [carol.id] },
+          { round: 1, correctable: false, matches: [bobBeatAliceInRound1], byes: [carol.id] },
           {
             round: 2,
             correctable: true,
@@ -618,8 +619,6 @@ describe('Swiss tournaments on the Play tab', () => {
 
   describe('your match', () => {
     const yourMatch = (tab: HTMLElement) => region(tab, 'Your match')!;
-    /** Carol reporting that she beat Alice 2–1 in round 2's match. */
-    const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
 
     it('offers the four game scores straight away, with a link to your Deck tab, and reports the one you choose', async () => {
       const { fixture, tab } = await openPlaying(swissPlaying());
@@ -748,10 +747,14 @@ describe('Swiss tournaments on the Play tab', () => {
     });
 
     it('shows a later match you choose to report from the list over an earlier one the api lists you as able to confirm', async () => {
-      const bobBeatAlice = reported(unreportedMatch('m1', alice.id, bob.id), [1, 2], bob.id);
+      const bobBeatAliceInRound1 = reported(
+        unreportedMatch('m1', alice.id, bob.id),
+        [1, 2],
+        bob.id,
+      );
       const { fixture, tab } = await openPlaying(
         swissPlaying({
-          rounds: swissRoundsWith(unreportedMatch('m2', alice.id, carol.id), bobBeatAlice),
+          rounds: swissRoundsWith(unreportedMatch('m2', alice.id, carol.id), bobBeatAliceInRound1),
         }),
       );
       expect(text(yourMatch(tab))).toContain('Tournament round 1: Bob reported you lost 1–2');

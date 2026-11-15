@@ -8,7 +8,7 @@ import {
   type TemplateRef,
 } from '@angular/core';
 import type { BracketPlaceView, BracketSideView, TournamentView } from 'contract';
-import { seededName, seedsOf, type MatchLine } from './match-lines';
+import { hasDropped, seededName, seedsOf, type MatchLine } from './match-lines';
 import { inRound, roundName } from './round-names';
 import { TournamentViewer } from './tournament-viewer';
 
@@ -56,9 +56,7 @@ export class TournamentBracket {
   private readonly seeds = computed(() => seedsOf(this.tournament().entries));
 
   /** Whether the signed-in player's entry is dropped; never for a viewer who didn't join. */
-  private readonly ownDropped = computed(
-    () => this.tournament().entries.find((entry) => entry.playerId === this.ownId())?.dropped,
-  );
+  private readonly ownDropped = computed(() => hasDropped(this.tournament().entries, this.ownId()));
 
   protected readonly rounds = computed(() =>
     this.bracket().map((round) => ({

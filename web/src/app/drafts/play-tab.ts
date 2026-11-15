@@ -37,7 +37,7 @@ import { PlayerAvatar } from './player-avatar';
 import { TournamentApi } from './tournament-api';
 import { TournamentProgress } from './tournament-progress';
 import { ResultsGrid } from './results-grid';
-import type { ClearGameScore } from './match-lines';
+import { hasDropped, type ClearGameScore } from './match-lines';
 import { TournamentResults, type SetGameScore } from './tournament-results';
 import {
   inMatchOrder,
@@ -223,10 +223,9 @@ export class PlayTab {
       reinstateRefusal: entry.reinstateRefusal,
     })),
   );
-  /** Whether the signed-in player joined and has dropped. */
-  private readonly ownDropped = computed(
-    // Stryker disable next-line OptionalChaining: read only from playsOn, once playing and joined, so the tournament holds the viewer's entry.
-    () => !!this.tournament()?.entries.find((entry) => entry.playerId === this.ownId())?.dropped,
+  /** Whether the signed-in player joined and has dropped; read only from playsOn, once playing, so there is a tournament. */
+  private readonly ownDropped = computed(() =>
+    hasDropped(this.tournament()!.entries, this.ownId()),
   );
   /** The signed-in player's matches, each with its tournament round, in tournament round order. */
   private readonly mine = computed((): OwnMatch[] => {

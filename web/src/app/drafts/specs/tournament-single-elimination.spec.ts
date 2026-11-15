@@ -27,28 +27,30 @@ import {
   winnerOf,
   openPlaying,
   openPlayTab,
-  place,
   progressLine,
   pushTournament,
   registration,
   reported,
   signedIn,
-  carolBeatBob,
   forfeited,
-  side,
-  singleEliminationFinal as final,
-  singleEliminationPlaying,
   standing,
   standingsColumns,
   threePlayers,
   unreportedMatch,
-  winnerToCome,
   completed,
   COMPLETE_ROUND_URL,
   erin,
   entry,
   fourPlayers,
 } from './play-tab-harness';
+import {
+  place,
+  carolBeatBob,
+  side,
+  singleEliminationPlaying,
+  winnerToCome,
+  singleEliminationFinal as final,
+} from './play-tab-single-elimination-harness';
 
 useDraftsApp();
 
