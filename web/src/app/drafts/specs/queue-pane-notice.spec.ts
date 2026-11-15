@@ -32,7 +32,7 @@ import {
   rowMenu,
   rowMenuName,
 } from './harness';
-import { disabledMenuItems } from '../../specs-harness';
+import { disabledMenuItems, emptyStatusIn, statusIn } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { bolt } from './plan-tab-harness';
 
@@ -161,6 +161,30 @@ describe('Queue pane notice, cutoff and read-only state', () => {
     await fixture.whenStable();
 
     expect(queueNotice(queue)?.textContent).toContain('Shivan Dragon');
+  });
+
+  it('puts the notice into its region, there and empty before a queued card is lost', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [brightclimb, shivan],
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    const queue = queuePane(page);
+    const region = emptyStatusIn(queue, 'Queue notice');
+
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: { pick: 2, round: 1, playerId: bob.id }, version: 1 })),
+    });
+    await flushPicks([]);
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
+      queueOf({ lost: [queued(shivan)] }),
+    );
+    await flushPlan(EMPTY_PLAN);
+    await fixture.whenStable();
+
+    expect(statusIn(queue, { name: 'Queue notice' })).toBe(region);
+    expect(text(region)).toBe('Lost to other players: Shivan Dragon. Dismiss');
+    expect(button(region, 'Dismiss')).toBeDefined();
   });
 
   it('is read-only once the draft is closed, as the api refuses every queue change with `draft-closed`', async () => {
