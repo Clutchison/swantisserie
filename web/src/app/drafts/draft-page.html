@@ -28,28 +28,36 @@
     <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()">
       <ng-container *ngTemplateOutlet="backLink" />
     </app-draft-header>
-    <!-- The notes a player needs whichever tab is open. -->
+    <!-- The notes a player needs whichever tab is open. Each note's live region
+         is always here, empty while there is nothing to say, as screen readers
+         only announce a change to a region already on the page. -->
     <div class="status-strip">
-      @if (reconnecting()) {
-        <p role="status">Reconnecting…</p>
-      }
-      @if (refreshFailed()) {
-        <p class="detail" role="status">
+      <p role="status" aria-label="Connection">
+        @if (reconnecting()) {
+          Reconnecting…
+        }
+      </p>
+      <p class="detail" role="status" aria-label="Refresh">
+        @if (refreshFailed()) {
           Couldn't refresh this draft. What's shown may be out of date.
-        </p>
-      }
-      @if (draft.state === 'Frozen') {
-        <p class="frozen" role="status">The draft is frozen. No picks until it is unfrozen.</p>
-      }
-      @if (draft.state === 'Closed') {
-        <p class="closed" role="status">This draft is closed. No picks until it reopens.</p>
-      }
-      @if (draft.webhook?.gone) {
-        <p class="webhook-gone" role="status">
+        }
+      </p>
+      <p class="frozen" role="status" aria-label="Frozen">
+        @if (draft.state === 'Frozen') {
+          The draft is frozen. No picks until it is unfrozen.
+        }
+      </p>
+      <p class="closed" role="status" aria-label="Closed">
+        @if (draft.state === 'Closed') {
+          This draft is closed. No picks until it reopens.
+        }
+      </p>
+      <p class="webhook-gone" role="status" aria-label="Webhook">
+        @if (draft.webhook?.gone) {
           This draft’s announcements aren’t posting: Discord no longer accepts posts on its webhook,
           {{ draft.webhook?.name }}. An app admin can replace its URL.
-        </p>
-      }
+        }
+      </p>
     </div>
 
     <!-- The Players panel: from the desktop layout, beside the tabs in the lobby and once the draft is closed or complete, and in the Seat strip's popover while it is drafting or frozen; below it, above the tabs, or in the Players sheet from the Seat strip. -->

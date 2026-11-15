@@ -41,18 +41,16 @@ main > .seat-strip,
   }
 }
 
-/* The notes under the header, on every tab; nothing while there are none. */
-.status-strip {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-xs);
+/*
+ * The notes under the header, on every tab. Each note's region is always
+ * there; an empty one takes no space, and is never hidden, or a screen
+ * reader would miss its text arriving.
+ */
+.status-strip p {
+  margin: 0;
 
-  &:empty {
-    display: none;
-  }
-
-  p {
-    margin: 0;
+  &:not(:empty) ~ p:not(:empty) {
+    margin-block-start: var(--space-xs);
   }
 }
 

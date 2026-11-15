@@ -37,11 +37,12 @@ import {
   couldntRefresh,
   bob,
   drafting,
+  text,
 } from './harness';
 import { pushDraft } from './turn-harness';
 import { alicesTurnItem } from './draft-list-harness';
 import { turnLinkShown } from '../../top-bar/specs-harness';
-import { followBack, pressKey } from '../../specs-harness';
+import { followBack, pressKey, statusIn } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
 
@@ -198,6 +199,24 @@ describe('draft page', () => {
       const { page } = await openDraft(completeSnapshot, { webhook }, { user: { ...alice, id } });
 
       expect(statusTexts(page)).toContain(goneNotice);
+    });
+
+    it('says so in its region, there and empty until the webhook is gone, so it is announced', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, {
+        webhook: { ...webhook, gone: false },
+      });
+      const region = statusIn(page, { name: 'Webhook' });
+      expect(region).not.toBeNull();
+      expect(text(region)).toBe('');
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: completeSnapshot, webhook, version: 1 }),
+      });
+      await fixture.whenStable();
+
+      expect(statusIn(page, { name: 'Webhook' })).toBe(region);
+      expect(text(region)).toBe(goneNotice);
     });
 
     it('says nothing while its webhook isn’t gone', async () => {
@@ -465,6 +484,23 @@ describe('draft page', () => {
       expect(page.textContent).toContain('540 cards in the pool');
       expect(page.textContent).not.toContain("Couldn't load this draft");
       expect(couldntRefresh(page)).toBeDefined();
+    });
+
+    it('says it couldn’t refresh in its region, there and empty before the read fails, so it is announced', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { name: 'Friday Cube' });
+      const region = statusIn(page, { name: 'Refresh' });
+      expect(region).not.toBeNull();
+      expect(text(region)).toBe('');
+
+      updates.events.next({ type: 'connected' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(null, {
+        status: 503,
+        statusText: 'Service Unavailable',
+      });
+      await fixture.whenStable();
+
+      expect(statusIn(page, { name: 'Refresh' })).toBe(region);
+      expect(text(region)).toBe("Couldn't refresh this draft. What's shown may be out of date.");
     });
 
     it('stops saying it couldn’t refresh once a later read succeeds', async () => {

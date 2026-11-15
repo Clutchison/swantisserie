@@ -1,4 +1,4 @@
-import { answer, menu, menuItem, pressKey, question } from '../../specs-harness';
+import { answer, menu, menuItem, pressKey, question, statusIn } from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
@@ -22,6 +22,7 @@ import {
   buttonOrder,
   rowMenu,
   openQueueSheet,
+  text,
 } from './harness';
 import { chooseFromMore, moreButton, offeredInMore, openMore } from './draft-header-harness';
 
@@ -230,6 +231,22 @@ describe('close and reopen', () => {
     await fixture.whenStable();
 
     expect(page.textContent).toContain(banner);
+  });
+
+  it('says the draft is closed in its region, there and empty while drafting, so it is announced', async () => {
+    const organizer = { id: bob.id, name: bob.name };
+    const { fixture, page } = await openDraft(completeSnapshot, { ...underway, organizer });
+    const region = statusIn(page, { name: 'Closed' });
+    expect(region).not.toBeNull();
+    expect(text(region)).toBe('');
+
+    updates.events.next({ type: 'changed', draft: draft({ ...closed, organizer, version: 1 }) });
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    expect(statusIn(page, { name: 'Closed' })).toBe(region);
+    expect(text(region)).toBe(banner);
   });
 
   it('makes the queue read-only while closed, keeping it on show', async () => {

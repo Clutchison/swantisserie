@@ -21,7 +21,9 @@ import {
   pickOf,
   poolCardOf,
   statusMessage,
+  text,
 } from './harness';
+import { statusIn } from '../../specs-harness';
 import { openMore } from './draft-header-harness';
 
 const FROZEN_NOTE = 'The draft is frozen. No picks until it is unfrozen.';
@@ -151,6 +153,34 @@ describe('freeze and unfreeze', () => {
     await fixture.whenStable();
 
     expect(statusMessage(page, FROZEN_NOTE)).toBeDefined();
+  });
+
+  it('says the draft is frozen in its region, there and empty while drafting, so it is announced once', async () => {
+    const organizer = { id: bob.id, name: bob.name };
+    const { fixture, page } = await openDraft(completeSnapshot, { ...aliceUp, organizer });
+    const region = statusIn(page, { name: 'Frozen' });
+    expect(region).not.toBeNull();
+    expect(text(region)).toBe('');
+
+    updates.events.next({ type: 'changed', draft: draft({ ...frozen, organizer, version: 1 }) });
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+    expect(statusIn(page, { name: 'Frozen' })).toBe(region);
+    expect(text(region)).toBe(FROZEN_NOTE);
+
+    // The same note re-rendered by a later change isn't put in again, so it isn't said twice.
+    const changes: MutationRecord[] = [];
+    const observer = new MutationObserver((records) => changes.push(...records));
+    observer.observe(region!, { childList: true, subtree: true, characterData: true });
+    updates.events.next({ type: 'changed', draft: draft({ ...frozen, organizer, version: 2 }) });
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+    observer.disconnect();
+
+    expect(changes).toEqual([]);
+    expect(text(region)).toBe(FROZEN_NOTE);
   });
 
   it('moves focus from Freeze draft to Unfreeze draft, and back', async () => {
