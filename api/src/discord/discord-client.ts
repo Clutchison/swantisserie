@@ -47,7 +47,7 @@ export class FetchDiscordClient extends DiscordClient {
         redirect_uri: redirectUri,
       }),
     });
-    if (!res.ok) throw await failure(res, 'Discord token exchange failed');
+    if (!res.ok) await failWith(res, 'Discord token exchange failed');
     const { access_token } = (await res.json()) as { access_token: string };
     return access_token;
   }
@@ -56,7 +56,7 @@ export class FetchDiscordClient extends DiscordClient {
     const res = await send(`${API}/users/@me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
-    if (!res.ok) throw await failure(res, 'Discord /users/@me failed');
+    if (!res.ok) await failWith(res, 'Discord /users/@me failed');
     return (await res.json()) as DiscordProfile;
   }
 
@@ -68,22 +68,17 @@ export class FetchDiscordClient extends DiscordClient {
       await cancelBody(res);
       return false;
     }
-    if (!res.ok) {
-      throw await failure(res, 'Discord guild member lookup failed');
-    }
+    if (!res.ok) await failWith(res, 'Discord guild member lookup failed');
     // Only the status matters: the member itself is never read.
     await cancelBody(res);
     return true;
   }
 }
 
-/**
- * What a request Discord answered with a failing status throws, `what`
- * naming the request. Cancels the answer's body, which is never read.
- */
-async function failure(res: Response, what: string): Promise<Error> {
+/** Throws for `res`'s failing status, `what` naming the request, cancelling its unread body first. */
+async function failWith(res: Response, what: string): Promise<never> {
   await cancelBody(res);
-  return new Error(`${what}: ${res.status}`);
+  throw new Error(`${what}: ${res.status}`);
 }
 
 /** Sends a request to Discord, giving up after the timeout. */

@@ -80,10 +80,12 @@ export class FetchCubeCobraClient extends CubeCobraClient {
     } catch (err) {
       throw unreachable(err);
     }
-    if (!res.ok) {
-      // A failing answer's body is never read.
+    if (res.status === 404) {
       await cancelBody(res);
-      if (res.status === 404) return null;
+      return null;
+    }
+    if (!res.ok) {
+      await cancelBody(res);
       throw new CubeCobraUnavailableError(`CubeCobra answered ${res.status}.`);
     }
     let body: unknown;
