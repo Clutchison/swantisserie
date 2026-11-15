@@ -681,6 +681,9 @@ export const listControls = (root: HTMLElement, round: number) =>
 export const ownPath = (root: HTMLElement) =>
   [...bracket(root)!.querySelectorAll('li[aria-current="true"]')].map((li) => accessibleName(li));
 
+/** I'm ready's label, on the registration row. */
+export const IM_READY = 'I’m ready';
+
 /** The names listed as joined inside `root`, in order, leaving out their buttons. */
 export const joinedNames = (root: HTMLElement) => itemTexts(namedList(root, 'Joined players'));
 

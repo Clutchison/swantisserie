@@ -1,4 +1,11 @@
-import { emptyStatusIn, expectFocusOn, statusIn, watchChanges } from '../../specs-harness';
+import {
+  comesBefore,
+  emptyStatusIn,
+  expectFocusOn,
+  onlyAlert,
+  statusIn,
+  watchChanges,
+} from '../../specs-harness';
 import { alice, bob, button, http, text, useDraftsApp } from './harness';
 import { flushTournament, openComplete, registration } from './play-tab-harness';
 import {
@@ -8,6 +15,7 @@ import {
   planOf,
   readyNotice,
   READY_NOTICE,
+  SIDEBOARD_CAP_NOTE,
 } from './plan-tab-harness';
 import { brightclimb, shivan } from './pool-tab-harness';
 
@@ -84,6 +92,22 @@ describe('the Ready notice on the Deck tab', () => {
     await fixture.whenStable();
 
     expect(readyNotice(deck)).toBeNull();
+  });
+
+  it('says a failed dismiss after the notice, outside its region, before what follows', async () => {
+    const withNotice = planOf({ readyNotice: true });
+    const { fixture, deck } = await openPlanOf(withNotice);
+
+    button(readyNotice(deck)!, 'Dismiss')!.click();
+    http.expectOne(READY_NOTICE_URL).flush(null, { status: 500, statusText: 'Server Error' });
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(withNotice);
+    await fixture.whenStable();
+
+    const alert = onlyAlert(deck);
+    expect(text(alert)).toBe("Couldn't change your deck. Try again in a moment.");
+    const region = statusIn(deck, { name: READY_NOTICE })!;
+    expect(comesBefore(region, alert) && !region.contains(alert)).toBe(true);
+    expect(comesBefore(alert, statusIn(deck, { name: SIDEBOARD_CAP_NOTE })!)).toBe(true);
   });
 
   it('moves focus to the nearest control after its Dismiss once the dismiss settles', async () => {

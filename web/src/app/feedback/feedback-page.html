@@ -17,10 +17,6 @@
     }
   </div>
 
-  @if (problem(); as problem) {
-    <p class="error" role="alert">{{ problem }}</p>
-  }
-
   <div id="feedback-panel" role="tabpanel" [attr.aria-label]="selectedTab()">
     @if (feedback.isLoading() && !feedback.hasValue()) {
       <p>Loading…</p>
@@ -61,6 +57,9 @@
               >
                 Mark reviewed
               </button>
+            }
+            @if (problemAt(item); as problem) {
+              <p class="error" role="alert">{{ problem }}</p>
             }
           </li>
         } @empty {
