@@ -11,15 +11,6 @@ label {
   font-weight: 600;
 }
 
-input,
-textarea,
-select {
-  padding: var(--space-sm);
-  border: 1px solid var(--color-muted);
-  border-radius: 0.25rem;
-  font-weight: normal;
-}
-
 .pool-source {
   display: flex;
   flex-wrap: wrap;
