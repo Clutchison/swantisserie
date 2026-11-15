@@ -172,6 +172,54 @@
     } @else if (tournament.state === 'Complete') {
       <p class="detail">Nobody holds the trophy: no player was left in the bracket to win it.</p>
     }
+    <!-- Each failure shows by the controls that made it, before what follows them. The action
+      rows come before Your matches and every list, so a full list doesn’t push them out of view. -->
+    @if (playsOn()) {
+      <div class="controls">
+        <button class="button secondary" type="button" (click)="dropSelf()" appSendsChange="drop">
+          Drop from tournament
+        </button>
+      </div>
+    }
+    @if (organizePlay()) {
+      <div class="controls">
+        @if (offeredReopenRound(); as offered) {
+          <button
+            class="button secondary"
+            type="button"
+            (click)="reopenRound(offered)"
+            [disabled]="offered.refusal !== null"
+            [attr.aria-describedby]="offered.refusal ? 'reopen-round-refusal' : null"
+            appSendsChange="reopen-round"
+          >
+            Reopen round {{ offered.round }}
+          </button>
+        }
+        <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
+          Cancel tournament
+        </button>
+        @if (tournament.completeRoundGrants !== null) {
+          <button
+            class="button"
+            type="button"
+            (click)="openCompleteRound()"
+            appSendsChange="complete-round"
+          >
+            Complete round
+          </button>
+        } @else {
+          <button class="button" type="button" (click)="complete()" appSendsChange="complete">
+            Complete tournament
+          </button>
+        }
+      </div>
+      @if (offeredReopenRound()?.refusal; as refusal) {
+        <p id="reopen-round-refusal" class="detail">{{ refusal.message }}</p>
+      }
+    }
+    @if (errorAt('actions'); as message) {
+      <p class="error" role="alert">{{ message }}</p>
+    }
     @if (showsYourMatches()) {
       <app-your-matches
         [tournament]="tournament"
@@ -181,7 +229,6 @@
         (confirmMatch)="confirmMatch($event, 'yourMatches')"
       />
     }
-    <!-- Each failure shows by the controls that made it, before what follows them. -->
     @if (errorAt('yourMatches'); as message) {
       <p class="error" role="alert">{{ message }}</p>
     }
@@ -247,49 +294,6 @@
         </li>
       }
     </ul>
-    @if (playsOn()) {
-      <div class="controls">
-        <button class="button secondary" type="button" (click)="dropSelf()" appSendsChange="drop">
-          Drop from tournament
-        </button>
-      </div>
-    }
-    @if (organizePlay()) {
-      <div class="controls">
-        @if (offeredReopenRound(); as offered) {
-          <button
-            class="button secondary"
-            type="button"
-            (click)="reopenRound(offered)"
-            [disabled]="offered.refusal !== null"
-            [attr.aria-describedby]="offered.refusal ? 'reopen-round-refusal' : null"
-            appSendsChange="reopen-round"
-          >
-            Reopen round {{ offered.round }}
-          </button>
-        }
-        <button class="button secondary" type="button" (click)="cancel()" appSendsChange="cancel">
-          Cancel tournament
-        </button>
-        @if (tournament.completeRoundGrants !== null) {
-          <button
-            class="button"
-            type="button"
-            (click)="openCompleteRound()"
-            appSendsChange="complete-round"
-          >
-            Complete round
-          </button>
-        } @else {
-          <button class="button" type="button" (click)="complete()" appSendsChange="complete">
-            Complete tournament
-          </button>
-        }
-      </div>
-      @if (offeredReopenRound()?.refusal; as refusal) {
-        <p id="reopen-round-refusal" class="detail">{{ refusal.message }}</p>
-      }
-    }
   }
 } @else {
   <app-loading-animation size="tab">Loading the tournament…</app-loading-animation>

@@ -70,25 +70,29 @@ const START_DETAILS: Record<TournamentFormat, string> = {
 
 /**
  * Where a failed change is explained, by the controls that made it:
- * directly after Your matches, for Report and Confirm there; directly
+ * directly after the action rows during play, for Drop from tournament
+ * and the organizer's Reopen round, Cancel tournament, Complete round and
+ * Complete tournament; directly after Your matches, for Report and Confirm there; directly
  * after the results (standings and matches, bracket or results grid), for
  * Confirm and game score changes there; or at the foot of the tab, for
  * everything else, and for a failure whose section the tab no longer shows.
  */
-type ErrorPlace = 'yourMatches' | 'results' | 'foot';
+type ErrorPlace = 'actions' | 'yourMatches' | 'results' | 'foot';
 
 /**
  * The Play tab of a complete draft: the setup form for organizers
  * before its tournament is set up, then registration, where the draft's
  * players join and leave and organizers remove them, start it or cancel
- * it, then play. In Swiss and single elimination, play shows the
- * signed-in player's match to report or confirm, then the standings and matches;
- * in round robin, which has no tournament rounds, it shows Your matches and
- * the results grid. Then come the players with Drop, and for organizers
- * Reinstate, Complete tournament (round robin) or Complete round (Swiss,
- * whose dialog grants draws in unreported matches, and single elimination,
- * whose dialog picks their winners) and Reopen round of the last completed
- * one, and at last the trophy.
+ * it, then play. Play shows the summary and the trophy, then the action
+ * rows, before every list that grows: Drop from tournament, and for
+ * organizers Reopen round of the last completed tournament round, Cancel
+ * tournament, and Complete tournament (round robin) or Complete round
+ * (Swiss, whose dialog grants draws in unreported matches, and single
+ * elimination, whose dialog picks their winners). In Swiss and single
+ * elimination it then shows the signed-in player's match to report or
+ * confirm, then the standings and matches; in round robin, which has no
+ * tournament rounds, Your matches and the results grid. Then come the
+ * players, with Drop and Reinstate for organizers.
  */
 @Component({
   selector: 'app-play-tab',
@@ -279,6 +283,7 @@ export class PlayTab {
     const place = this.error()?.place;
     if (!place) return null;
     const shown: Record<ErrorPlace, boolean> = {
+      actions: this.playsOn() || this.organizePlay(),
       yourMatches: this.showsYourMatches(),
       results: this.showsResults(),
       foot: true,
@@ -402,7 +407,7 @@ export class PlayTab {
         }))
           ? this.api.drop(this.draft().id, this.ownId()!)
           : undefined,
-      { failure: "Couldn't drop from the tournament. Try again in a moment." },
+      { failure: "Couldn't drop from the tournament. Try again in a moment.", place: 'actions' },
     );
   }
 
@@ -439,7 +444,10 @@ export class PlayTab {
         }))
           ? this.api.complete(this.draft().id)
           : undefined,
-      { failure: "Couldn't complete the tournament. Try again in a moment." },
+      {
+        failure: "Couldn't complete the tournament. Try again in a moment.",
+        place: 'actions',
+      },
     );
   }
 
@@ -469,6 +477,7 @@ export class PlayTab {
   private completeRound(request: CompleteRoundRequest) {
     return this.send(() => this.api.completeRound(this.draft().id, request), {
       failure: "Couldn't complete the tournament round. Try again in a moment.",
+      place: 'actions',
     });
   }
 
@@ -489,6 +498,8 @@ export class PlayTab {
       {
         failure: "Couldn't cancel the tournament. Try again in a moment.",
         keep: ['set-up'],
+        // During play, by the action rows; in registration, where they aren't shown, at the foot.
+        place: 'actions',
       },
     );
   }
@@ -541,7 +552,10 @@ export class PlayTab {
     };
     return this.send(
       async () => ((await this.ask(question)) ? this.api.reopenRound(this.draft().id) : undefined),
-      { failure: "Couldn't reopen the tournament round. Try again in a moment." },
+      {
+        failure: "Couldn't reopen the tournament round. Try again in a moment.",
+        place: 'actions',
+      },
     );
   }
 
