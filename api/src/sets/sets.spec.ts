@@ -18,6 +18,8 @@ import {
   OTJ_SETS,
   scryfallSet,
 } from '../testing/scryfall-sets.js';
+import { holdScryfallSets } from '../testing/held-scryfall-sets.js';
+import { askPastSetsDeadline } from '../testing/sets-deadline.js';
 
 useDraftsApp();
 
@@ -256,6 +258,39 @@ it('says so when Scryfall can’t be reached for its sets', async () => {
   expect(res.body).toEqual({
     error: 'scryfall-unavailable',
     message: 'Scryfall could not be reached. Try again in a moment.',
+  });
+});
+
+describe('when Scryfall doesn’t answer with its sets within the deadline', () => {
+  it('says so, and logs the passed deadline', async () => {
+    const errors = vi
+      .spyOn(Logger.prototype, 'error')
+      .mockImplementation(() => {});
+    holdScryfallSets();
+
+    const res = await askPastSetsDeadline(() => setsRequest('Arena'));
+
+    expect(res.status).toBe(502);
+    expect(res.body).toEqual({
+      error: 'scryfall-unavailable',
+      message: 'Scryfall could not be reached. Try again in a moment.',
+    });
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining('sets deadline'),
+    );
+  });
+
+  it('offers the sets once they come, without asking Scryfall again', async () => {
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    const answer = holdScryfallSets();
+    await askPastSetsDeadline(() => setsRequest('Arena'));
+
+    answer();
+    scryfallAnswers(countAnswers(OTJ_COUNTS));
+    const { sets } = await counted();
+
+    expect(sets.map((set) => set.code)).toEqual(['otj']);
+    expect(scryfall.sets).toHaveBeenCalledTimes(1);
   });
 });
 

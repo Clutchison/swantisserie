@@ -65,29 +65,34 @@ const COLLAPSED_KEY = 'queue-pane';
 const COLLAPSED = 'collapsed';
 
 /**
- * Each steal behavior: what it's called, what it does once the rest of the
- * queue has stayed, and the one the pill switches to.
+ * Each steal behavior: what it's called, the pill's explanation of what it
+ * does to the rest of the queue, the clause "How this works" says about a
+ * queue that loses a card under it, and the one the pill switches to.
  */
 const STEAL_BEHAVIOR_TEXT: Record<
   StealBehavior,
-  { name: string; effect: string; other: StealBehavior }
+  { name: string; explanation: string; howThisWorks: string; other: StealBehavior }
 > = {
   PauseQueue: {
     name: 'Pause queue',
-    effect: 'your queue is set to queue paused, for you to pick by hand',
+    explanation:
+      'the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand',
+    howThisWorks: 'your queue is set to queue paused, for you to pick by hand',
     other: 'PickNext',
   },
   PickNext: {
     name: 'Pick next',
-    effect: 'your next available card is picked on your turn',
+    explanation:
+      'the rest of your queue stays as it was, and while it is queue picking, ' +
+      'your next available card is picked on your turn',
+    howThisWorks: 'it stays as it was: queue picking, or queue paused if it already was',
     other: 'PauseQueue',
   },
 };
 
-/** What "How this works" says each steal behavior does to a queue that loses a card. */
 const STEAL_BEHAVIOR_HELP =
-  `Under ${STEAL_BEHAVIOR_TEXT.PauseQueue.name}, ${STEAL_BEHAVIOR_TEXT.PauseQueue.effect}; ` +
-  `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, it stays queue picking.`;
+  `Under ${STEAL_BEHAVIOR_TEXT.PauseQueue.name}, ${STEAL_BEHAVIOR_TEXT.PauseQueue.howThisWorks}; ` +
+  `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, ${STEAL_BEHAVIOR_TEXT.PickNext.howThisWorks}.`;
 
 /**
  * Where a failed change is explained, of two places: `header`, directly
@@ -200,7 +205,7 @@ export class QueuePane {
     () => STEAL_BEHAVIOR_TEXT[this.queue().stealBehavior].name,
   );
   protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIOR_TEXT)
-    .map(({ name, effect }) => `${name}: the rest of your queue stays, and ${effect}.`)
+    .map(({ name, explanation }) => `${name}: ${explanation}.`)
     .join(' ');
   protected readonly stealBehaviorHelp = STEAL_BEHAVIOR_HELP;
 
@@ -481,9 +486,11 @@ export class QueuePane {
 
   /**
    * Opens the Set queue picking dialog, `afterRefusal` when queue picking
-   * with none was just refused. A failure it closes with is said by the
-   * play/pause button, where focus returns; should the queue, read again
-   * after a refusal, pick nothing after all, it is set queue picking with none.
+   * with none was just refused. When its change is made, it clears an
+   * earlier failure, as every change does; closed with no result, it leaves
+   * one showing. A failure it closes with is said by the play/pause button,
+   * where focus returns; should the queue, read again after a refusal, pick
+   * nothing after all, it is set queue picking with none.
    */
   private confirmQueuePicking({ afterRefusal = false }: { afterRefusal?: boolean } = {}) {
     this.dialogShell
@@ -493,7 +500,9 @@ export class QueuePane {
         bindings: [inputBinding('afterRefusal', () => afterRefusal)],
       })
       .closed.subscribe((result) => {
-        if (result?.outcome === 'failed') {
+        if (result?.outcome === 'made') {
+          this.error.set(null);
+        } else if (result?.outcome === 'failed') {
           this.error.set({ message: result.message, place: 'header' });
         } else if (result?.outcome === 'none-to-pick') {
           void this.sendQueuePaused(false);

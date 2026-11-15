@@ -5,7 +5,8 @@ import type { DraftListItemView } from 'contract';
 import { Auth } from '../auth/auth';
 import { liveRegionReady } from '../live-region';
 import { LoadingAnimation } from '../loading/loading-animation';
-import { isActive, isTurnOf, pickAndRound, titleWithTurn } from './drafts';
+import { isActive } from './drafts';
+import { isTurnOf, pickAndRound, titleWithTurn } from './turns';
 import { ViewerDrafts } from './viewer-drafts';
 
 /** Names a list of players as a sentence does: "Alice", "Alice and Bob", "Alice, Bob, and Carol". */
