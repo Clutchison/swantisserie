@@ -4,6 +4,10 @@ import type {
   TournamentState,
 } from '../generated/prisma/client.js';
 import type { MatchChange } from './change-steps.js';
+import {
+  type CorrectionRow,
+  finalResultsRefusal,
+} from './correction-refusal.js';
 import { NOT_PLAYING } from './tournament-errors.js';
 
 /**
@@ -60,11 +64,14 @@ export function reportRefusal(
 }
 
 /**
- * Why the draft's user `userId` may not confirm `match`; null when they
- * may: one of its players, with a game score someone else reported.
+ * Why the draft's user `userId` may not confirm `match` of the tournament
+ * `row`; null when they may: one of its players, with a game score someone
+ * else reported, while its results aren't final, as finalResultsRefusal
+ * decides (ADR 0009).
  */
 export function confirmRefusal(
-  match: MatchOfRules & { reportedById: string | null },
+  row: CorrectionRow,
+  match: MatchOfRules & { round: number; reportedById: string | null },
   userId: string,
 ): TournamentRefusal | null {
   if (!isHumanPlayer(match, userId)) {
@@ -73,6 +80,8 @@ export function confirmRefusal(
       message: 'Only a match’s own players can confirm it.',
     };
   }
+  const final = finalResultsRefusal(row, match.round);
+  if (final) return final;
   if (match.outcome !== 'GameScore') {
     return {
       error: 'not-reported',

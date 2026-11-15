@@ -601,7 +601,7 @@ An organizer taking a match's game score, granted draw, granted win or forfeit a
 _Avoid_: Reset, delete, clear result, undo (that is a pick's)
 
 **Confirm**:
-A match's other player agreeing with the game score it was reported with. A reported match counts whether or not it is confirmed.
+A match's other player agreeing with the game score it was reported with, while its results aren't final (as under Correct). A reported match counts whether or not it is confirmed, and one never confirmed before its results are final stays unconfirmed.
 _Avoid_: Approve, verify, accept
 
 **Draw**:
