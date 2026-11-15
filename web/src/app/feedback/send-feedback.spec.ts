@@ -16,11 +16,10 @@ import {
   pressEscape,
   pressTab,
   router,
-  signInLink,
+  expectSignedOut,
   updates,
   useApp,
 } from '../specs-harness';
-import { expectSignedOut } from '../drafts/specs/harness';
 import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 import { narrowMenuButton } from '../top-bar/specs-harness';
 import { answerDraft42NotFound } from './specs-harness';
@@ -204,11 +203,8 @@ describe('sending feedback', () => {
     const unauthorized = { status: 401, statusText: 'Unauthorized' };
 
     /** The sign-in page shows, set to return to the page, with no dialog or anything modal over it. */
-    async function expectSignedOutWithNoDialog() {
-      await expectSignedOut(fixture, { router, http, user: alice, returnTo: '/status' });
-      expect(dialog()).toBeNull();
-      expect(hiddenFromAssistiveTech(signInLink(page)!)).toBe(false);
-    }
+    const expectSignedOutOfStatus = () =>
+      expectSignedOut(fixture, { router, http, user: alice, returnTo: '/status' });
 
     it('closes and goes to sign-in when sending is refused as unauthorized', async () => {
       await open();
@@ -216,7 +212,7 @@ describe('sending feedback', () => {
 
       (await submit()).flush(null, unauthorized);
 
-      await expectSignedOutWithNoDialog();
+      await expectSignedOutOfStatus();
     });
 
     it('closes and goes to sign-in when another request is refused as unauthorized', async () => {
@@ -227,7 +223,7 @@ describe('sending feedback', () => {
       pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush(null, unauthorized);
 
-      await expectSignedOutWithNoDialog();
+      await expectSignedOutOfStatus();
       http.expectNone('/api/feedback');
     });
   });

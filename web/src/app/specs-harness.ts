@@ -6,7 +6,7 @@ import {
   type TestRequest,
 } from '@angular/common/http/testing';
 import { Location } from '@angular/common';
-import { TestBed } from '@angular/core/testing';
+import { type ComponentFixture, TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import type { DraftListItemView, UserView } from 'contract';
 import { App } from './app';
@@ -274,6 +274,38 @@ export const signInLink = (page: HTMLElement) =>
   [...page.querySelectorAll('a')].find(
     (link) => link.textContent?.trim() === 'Sign in with Discord',
   );
+
+/** The app's header, shown to signed-in viewers. */
+export const banner = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="banner"]');
+
+/**
+ * Expects `user` to have been signed out of this tab because the API ended
+ * their session: sent to sign-in, to return to `returnTo` (the page they were
+ * on) once signed in, with no dialog left open nor anything modal over the
+ * sign-in page, gone from the header, and the API not told.
+ * Takes the router and HTTP mock as the drafts app's specs have their own.
+ */
+export async function expectSignedOut(
+  fixture: ComponentFixture<unknown>,
+  {
+    router,
+    http,
+    user,
+    returnTo,
+  }: { router: Router; http: HttpTestingController; user: UserView; returnTo?: string },
+) {
+  const signIn = returnTo ? `/sign-in?${new URLSearchParams({ returnTo })}` : '/sign-in';
+  await vi.waitFor(() => expect(router.url).toBe(signIn));
+  await fixture.whenStable();
+
+  const page = fixture.nativeElement as HTMLElement;
+  expect(openDialogs()).toEqual([]);
+  expect(signInLink(page)).toBeDefined();
+  expect(hiddenFromAssistiveTech(signInLink(page)!)).toBe(false);
+  expect(banner(page)?.textContent ?? '').not.toContain(user.name);
+  // The session is already gone: there's nothing to log out of.
+  http.expectNone('/api/auth/logout');
+}
 
 /** `value` as a viewer reads it: each run of whitespace one space, none at either end. */
 export const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();

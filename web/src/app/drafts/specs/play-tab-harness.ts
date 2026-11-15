@@ -25,6 +25,7 @@ import {
   alicePlayer,
   bob,
   button,
+  controlByLabel,
   completeSnapshot,
   draft,
   drafting,
@@ -32,6 +33,7 @@ import {
   flushPicks,
   findNamedList,
   flushQueueAndPlan,
+  group,
   http,
   namedList,
   openDraft,
@@ -603,6 +605,14 @@ export async function openCompleteRound(
   await opened.fixture.whenStable();
   return { ...opened, dialog: openDialog()! };
 }
+
+/** The Complete round dialog `dialog`'s checkbox to drop `player` from the match `matchLabel`. */
+export const dropFrom = (dialog: HTMLElement, matchLabel: string, player: string) =>
+  controlByLabel(group(dialog, `Drop from ${matchLabel}`)!, 'checkbox', `Drop ${player}`)!;
+
+/** The Complete round dialog `dialog`'s radio to choose `player` as the winner of the match `matchLabel`. */
+export const winnerOf = (dialog: HTMLElement, matchLabel: string, player: string) =>
+  controlByLabel(group(dialog, `Winner of ${matchLabel}`)!, 'radio', player)!;
 
 /** The standings table inside `root`, in its region; null if there is none. */
 export const standingsTable = (root: HTMLElement) => regionTable(root, 'Standings');

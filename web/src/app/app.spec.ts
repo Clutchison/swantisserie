@@ -6,6 +6,8 @@ import { App } from './app';
 import {
   alice,
   answerViewerDrafts,
+  banner,
+  expectSignedOut,
   http,
   openApp,
   openDialog,
@@ -15,11 +17,9 @@ import {
   useApp,
 } from './specs-harness';
 import {
-  banner,
   button,
   drafting,
   expectLoadingAnimation,
-  expectSignedOut,
   loadingAnimation,
   midNavigation,
 } from './drafts/specs/harness';
