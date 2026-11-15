@@ -64,30 +64,37 @@ import { LoadingAnimation } from '../loading/loading-animation';
 const COLLAPSED_KEY = 'queue-pane';
 const COLLAPSED = 'collapsed';
 
+const PAUSE_QUEUE_EFFECT = 'your queue is set to queue paused, for you to pick by hand';
+
 /**
- * Each steal behavior: what it's called, what it does once the rest of the
- * queue has stayed, and the one the pill switches to.
+ * Each steal behavior: what it's called, the pill's description of what it
+ * does to the rest of the queue, what "How this works" says it does to a queue
+ * that loses a card, and the one the pill switches to.
  */
 const STEAL_BEHAVIOR_TEXT: Record<
   StealBehavior,
-  { name: string; effect: string; other: StealBehavior }
+  { name: string; description: string; help: string; other: StealBehavior }
 > = {
   PauseQueue: {
     name: 'Pause queue',
-    effect: 'your queue is set to queue paused, for you to pick by hand',
+    description: `the rest of your queue stays, and ${PAUSE_QUEUE_EFFECT}`,
+    help: PAUSE_QUEUE_EFFECT,
     other: 'PickNext',
   },
   PickNext: {
     name: 'Pick next',
-    effect: 'your next available card is picked on your turn',
+    description:
+      'the rest of your queue stays as it was, and while it is queue picking, ' +
+      'your next available card is picked on your turn',
+    help: 'it stays as it was: queue picking, or queue paused if it already was',
     other: 'PauseQueue',
   },
 };
 
 /** What "How this works" says each steal behavior does to a queue that loses a card. */
 const STEAL_BEHAVIOR_HELP =
-  `Under ${STEAL_BEHAVIOR_TEXT.PauseQueue.name}, ${STEAL_BEHAVIOR_TEXT.PauseQueue.effect}; ` +
-  `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, it stays queue picking.`;
+  `Under ${STEAL_BEHAVIOR_TEXT.PauseQueue.name}, ${STEAL_BEHAVIOR_TEXT.PauseQueue.help}; ` +
+  `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, ${STEAL_BEHAVIOR_TEXT.PickNext.help}.`;
 
 /**
  * Where a failed change is explained, of two places: `header`, directly
@@ -200,7 +207,7 @@ export class QueuePane {
     () => STEAL_BEHAVIOR_TEXT[this.queue().stealBehavior].name,
   );
   protected readonly stealBehaviorExplanation = Object.values(STEAL_BEHAVIOR_TEXT)
-    .map(({ name, effect }) => `${name}: the rest of your queue stays, and ${effect}.`)
+    .map(({ name, description }) => `${name}: ${description}.`)
     .join(' ');
   protected readonly stealBehaviorHelp = STEAL_BEHAVIOR_HELP;
 

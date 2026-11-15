@@ -39,7 +39,7 @@ describe('steal behavior', () => {
 
   const EXPLANATION =
     'Pause queue: the rest of your queue stays, and your queue is set to queue paused, for you to pick by hand. ' +
-    'Pick next: the rest of your queue stays, and your next available card is picked on your turn.';
+    'Pick next: the rest of your queue stays as it was, and while it is queue picking, your next available card is picked on your turn.';
 
   /** The steal behavior pill. */
   function pill(queue: HTMLElement) {
@@ -244,7 +244,7 @@ describe('steal behavior', () => {
     expect(help.textContent?.replace(/\s+/g, ' ')).toContain(
       'If another player picks a queued card first and no copy is left, it is lost. ' +
         'Under Pause queue, your queue is set to queue paused, for you to pick by hand; ' +
-        'under Pick next, it stays queue picking.',
+        'under Pick next, it stays as it was: queue picking, or queue paused if it already was.',
     );
   });
 });
