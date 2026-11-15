@@ -1,3 +1,4 @@
+import { respondWithCancelProbe } from '../testing/cancel-probe.js';
 import { hangOnce } from '../testing/hanging-fetch.js';
 import { inspect } from 'node:util';
 import type { WebhookMessage } from './draft-messages.js';
@@ -108,6 +109,13 @@ describe('FetchWebhookClient', () => {
     await expect(webhooks.post(WEBHOOK_URL, message)).resolves.toBeUndefined();
   });
 
+  it('cancels the body of a post Discord took, which it doesn’t read', async () => {
+    const probe = respondWithCancelProbe(fetch, 200);
+
+    await webhooks.post(WEBHOOK_URL, message);
+    expect(probe.cancelled).toBe(true);
+  });
+
   it('throws WebhookGoneError when Discord no longer has the webhook', async () => {
     respond(404);
 
@@ -118,6 +126,13 @@ describe('FetchWebhookClient', () => {
     respond(400);
 
     expect(await failure()).toBeInstanceOf(WebhookRefusedError);
+  });
+
+  it('cancels the body of a refused post, which it doesn’t read', async () => {
+    const probe = respondWithCancelProbe(fetch, 400);
+
+    expect(await failure()).toBeInstanceOf(WebhookRefusedError);
+    expect(probe.cancelled).toBe(true);
   });
 
   it('throws WebhookRateLimitedError with the wait the body’s retry_after gives on a 429', async () => {
