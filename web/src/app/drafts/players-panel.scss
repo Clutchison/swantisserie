@@ -41,6 +41,12 @@ summary {
   text-align: right;
 }
 
+/* A seat's failed change, on its own line under the seat. */
+li > .error {
+  flex-basis: 100%;
+  margin: 0;
+}
+
 /* In line with the name on a narrow screen, with Remove before the arrows. */
 .seat-controls {
   display: contents;
@@ -90,7 +96,8 @@ summary {
     grid-template-rows: 1fr;
   }
 
-  .seat-controls {
+  .seat-controls,
+  li > .error {
     display: flex;
     grid-column: 3 / -1;
   }

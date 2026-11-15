@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import {
   ChangeDetectionStrategy,
@@ -27,6 +28,17 @@ import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';
 
+/** A player's seat in the seat order, where a failure from that seat's buttons shows. */
+interface SeatPlace {
+  seat: string;
+}
+
+/**
+ * Where a failed change shows while the panel is open: just after the
+ * seating tools, or in a seat, by its player's id.
+ */
+type ErrorPlace = 'tools' | SeatPlace;
+
 /**
  * The Players panel: the players in seat order, at every state, and the
  * seating tools of a draft in Lobby: seats, bots and pick import. Joining,
@@ -40,6 +52,7 @@ import { PlayerAvatar } from './player-avatar';
     LucideArrowLeft,
     LucideArrowRight,
     LucideArrowUp,
+    NgTemplateOutlet,
     PlayerAvatar,
     SendsChange,
   ],
@@ -91,7 +104,38 @@ export class PlayersPanel {
   }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
-  protected readonly error = signal<string | null>(null);
+  /** The latest change's failure, with the place it came from, set when the change is sent. */
+  private readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
+  /**
+   * Where the failure shows while the panel is open: by its place, or just
+   * after the seating tools once its seat is no longer listed.
+   */
+  private readonly errorPlace = computed((): ErrorPlace | null => {
+    const place = this.error()?.place;
+    if (!place || place === 'tools') return place ?? null;
+    return this.draft().players.some((player) => player.id === place.seat) ? place : 'tools';
+  });
+
+  /** The failure to show at `place` inside the panel, while it is open; null if none shows there. */
+  protected errorAt(place: ErrorPlace) {
+    const error = this.error();
+    const shown = this.errorPlace();
+    if (!error || !shown || !this.open()) return null;
+    const here =
+      typeof place === 'string'
+        ? shown === place
+        : typeof shown === 'object' && shown.seat === place.seat;
+    return here ? error.message : null;
+  }
+  /**
+   * The failure to show after the panel, while it is closed: a change that
+   * settles once the draft has left the Lobby. Everything after the
+   * disclosure's summary is hidden while it is closed, so it shows there to
+   * still be announced.
+   */
+  protected readonly errorAfterPanel = computed(() =>
+    this.open() ? null : (this.error()?.message ?? null),
+  );
 
   /**
    * What the latest file chosen for a pick import would do, with its text to
@@ -123,14 +167,16 @@ export class PlayersPanel {
     });
   }
 
-  /** Forgets the latest change's failure, as another change to the draft is being sent. */
+  /** Forgets the latest change's failure, and any problems with a file, as another change to the draft is being sent. */
   clearError() {
     this.error.set(null);
+    this.pickImportProblems.set([]);
   }
 
   protected randomizeSeats() {
     return this.changePlayers(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/seats/randomize`, null),
+      'tools',
     );
   }
 
@@ -138,6 +184,7 @@ export class PlayersPanel {
   protected addBot() {
     return this.changePlayers(
       this.http.post<DraftView>(`/api/drafts/${this.draft().id}/bots`, null),
+      'tools',
     );
   }
 
@@ -150,6 +197,7 @@ export class PlayersPanel {
       this.http.delete<DraftView>(
         `/api/drafts/${this.draft().id}/bots/${encodeURIComponent(userId)}`,
       ),
+      { seat: userId },
       { keep: neighbours.map((bot) => `remove ${bot.id}`) },
     );
   }
@@ -168,6 +216,7 @@ export class PlayersPanel {
       this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, {
         playerIds,
       } satisfies SeatOrderRequest),
+      { seat: id },
       {
         // A player moved to the last seat keeps focus on their Move earlier. One moved
         // to the first seat needs no key: the control after their Move earlier, which
@@ -207,7 +256,10 @@ export class PlayersPanel {
           this.pickImportProblems.set(pickImportProblems(err));
         } else if (err instanceof HttpErrorResponse && err.status === 413) {
           // The API's own limit, or the body parser's, which doesn't say so as plainly.
-          this.error.set('That file is too large to be a sheet of picks.');
+          this.error.set({
+            message: 'That file is too large to be a sheet of picks.',
+            place: 'tools',
+          });
         } else {
           this.showFailure(err, failure);
         }
@@ -252,30 +304,31 @@ export class PlayersPanel {
     if (isRefusal(err)) {
       // The draft's state no longer allows this: show why, and catch up with it.
       // Stryker disable next-line OptionalChaining: the api's 409 always carries a refusal body.
-      this.error.set(err.error?.message ?? failure);
+      this.error.set({ message: err.error?.message ?? failure, place: 'tools' });
       this.store.catchUp();
     } else {
-      this.error.set(failure);
+      this.error.set({ message: failure, place: 'tools' });
     }
   }
 
   /**
    * Sends a change to the draft and shows the draft it answers with, unless
-   * another change is in flight; a failure is shown, or the API's reason
-   * if it refused, and the store catches up with the draft.
+   * another change is in flight; a failure is shown at `place`, or the API's
+   * reason if it refused, and the store catches up with the draft.
    * Focus is kept as `Changes.send` keeps it, and a change made says `status`.
    */
   private changePlayers(
     request: Observable<DraftView>,
+    place: ErrorPlace,
     options: { keep?: string[]; status?: string } = {},
   ) {
     return sendDraftChange(this.changes, () => () => this.store.changeDraft(request), {
       failure: PLAYERS_CHANGE_FAILED,
       started: () => {
-        this.error.set(null);
+        this.clearError();
         this.changeStarted.emit();
       },
-      failed: (message) => this.error.set(message),
+      failed: (message) => this.error.set({ message, place }),
       ...options,
     });
   }
