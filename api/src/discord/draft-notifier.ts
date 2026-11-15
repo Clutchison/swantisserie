@@ -44,7 +44,7 @@ export const SHUTDOWN_DEADLINE_MS = 25_000;
 export const RATE_LIMIT_CAP_MS = 60_000;
 
 /**
- * The shortest a rate limit holds a webhook, however little Discord says:
+ * The shortest a webhook stays rate limited, however little Discord says:
  * a `retry_after` of 0 (Discord gives it to the millisecond, and may round
  * down) would let the next try go at once and spend it on another 429.
  */
@@ -73,6 +73,18 @@ interface Announcement {
   sending: boolean;
 }
 
+/** A rate limited webhook, or one whose waiting posts are still going. */
+interface RateLimitedWebhook {
+  /** When it takes posts again (`Date.now()` time). */
+  until: number;
+  /**
+   * Its waiting posts, if any: settles once the last post to join them has
+   * landed or failed. Posts that join while it is rate limited, or while its
+   * waiting posts are still going, go one at a time in the order they joined.
+   */
+  waiting?: Promise<void>;
+}
+
 /** How long to wait before each retry of a failed post. */
 export class DraftNotifierRetries {
   constructor(readonly delaysMs: readonly number[]) {}
@@ -83,8 +95,8 @@ export class DraftNotifierRetries {
  * at a time, in the order notified, and a failed post is retried if a retry
  * may help, then logged. When Discord rate limits a post, every post on that
  * webhook, from any draft, waits as long as Discord says; a post that would
- * wait longer than RATE_LIMIT_CAP_MS is logged and dropped. Once the hold
- * ends, the posts that waited go one at a time, each after the one before
+ * wait longer than RATE_LIMIT_CAP_MS is logged and dropped. Once the rate
+ * limit ends, the posts that waited go one at a time, each after the one before
  * has landed or failed, in the order they started waiting, and a post that
  * arrives meanwhile waits behind them. A post that finds
  * the webhook gone marks it so, nothing more is posted on it until its URL is
@@ -104,16 +116,10 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   /** Aborted once the shutdown deadline has passed: no new post starts. */
   private readonly pastShutdownDeadline = new AbortController();
   /**
-   * When each rate limited webhook, by URL, takes posts again (`Date.now()`
-   * time): every post on it, from any draft, waits until then.
+   * Each rate limited webhook, by URL, until it takes posts again and its
+   * waiting posts have gone: every post on it, from any draft, waits its turn.
    */
-  private readonly rateLimitedUntil = new Map<string, number>();
-  /**
-   * Each held webhook's waiting posts, by URL: settles once the last post to
-   * join has landed or failed. Posts that join while it is held, or while its
-   * waiting posts drain, go one at a time in the order they joined.
-   */
-  private readonly waitingLines = new Map<string, Promise<void>>();
+  private readonly rateLimited = new Map<string, RateLimitedWebhook>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -288,18 +294,21 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   /**
    * Posts `message`, retrying after each of the retry delays unless the
    * failure is one a retry won't fix. A try Discord rate limits counts as one
-   * of the tries: it holds every post on the webhook for as long as Discord
-   * said, and the next try waits out that hold instead of the delay. A post
-   * that finds the webhook held, or its waiting posts still going, joins them
-   * and keeps its turn until it lands or fails, retries included. Fails
-   * without posting when the hold has longer left than RATE_LIMIT_CAP_MS.
-   * Gives up without posting once the shutdown deadline has passed.
+   * of the tries: it makes every post on the webhook wait as long as Discord
+   * said, and the next try waits out that rate limit instead of the delay. A
+   * post that finds the webhook rate limited, or its waiting posts still
+   * going, joins them and keeps its turn until it lands or fails, retries
+   * included. Fails without posting when the rate limit has longer left than
+   * RATE_LIMIT_CAP_MS. Gives up without posting once the shutdown deadline
+   * has passed.
    */
   private async post(url: string, message: WebhookMessage): Promise<void> {
-    let leaveLine: (() => void) | undefined;
+    let leaveTurn: (() => void) | undefined;
     try {
       for (let tries = 0; ; tries++) {
-        if (!leaveLine && this.held(url)) leaveLine = await this.joinLine(url);
+        if (!leaveTurn && this.mustWaitTurn(url)) {
+          leaveTurn = await this.waitTurn(url);
+        }
         await this.waitOutRateLimitOrDrop(url);
         if (this.deadlinePassed) return;
         try {
@@ -312,74 +321,88 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
             throw err;
           }
           const rateLimited = err instanceof WebhookRateLimitedError;
-          if (rateLimited) this.holdWebhook(url, err.retryAfterMs);
+          if (rateLimited) this.rateLimit(url, err.retryAfterMs);
           const delay = this.retries.delaysMs.at(tries);
           if (delay === undefined) throw err;
           if (!rateLimited) await this.wait(delay);
         }
       }
     } finally {
-      leaveLine?.();
+      leaveTurn?.();
     }
   }
 
   /**
    * Whether a post on the webhook at `url` must wait its turn: the webhook
-   * is held by a rate limit, or its waiting posts are still draining.
+   * is rate limited, or its waiting posts are still going.
    */
-  private held(url: string): boolean {
-    const until = this.rateLimitedUntil.get(url);
+  private mustWaitTurn(url: string): boolean {
     return (
-      (until !== undefined && until > Date.now()) || this.waitingLines.has(url)
+      this.rateLimitLeftMs(url) > 0 ||
+      this.rateLimited.get(url)?.waiting !== undefined
     );
   }
 
   /**
-   * Joins the webhook's waiting posts, returning once the posts that joined
-   * before have each landed or failed, or the shutdown deadline has passed.
-   * Throws, dropping the post without joining, when the hold has longer left
-   * than RATE_LIMIT_CAP_MS. Returns how to leave, which lets the next post go.
+   * Joins the rate limited webhook's waiting posts, returning once those
+   * that joined before have each landed or failed, or the shutdown deadline
+   * has passed. Throws, dropping the post without joining, when the rate
+   * limit has longer left than RATE_LIMIT_CAP_MS. Returns how to leave,
+   * which lets the next post go.
    */
-  private async joinLine(url: string): Promise<() => void> {
+  private async waitTurn(url: string): Promise<() => void> {
     this.dropIfPastCap(url);
-    const before = this.waitingLines.get(url) ?? Promise.resolve();
+    const webhook = this.rateLimited.get(url)!;
+    const before = webhook.waiting ?? Promise.resolve();
     let leave!: () => void;
     const left = new Promise<void>((resolve) => (leave = resolve));
-    const line = before.then(() => left);
-    this.waitingLines.set(url, line);
-    // Forgotten once drained, unless more joined meanwhile.
-    void line.then(() => {
-      if (this.waitingLines.get(url) === line) this.waitingLines.delete(url);
+    const waiting = before.then(() => left);
+    webhook.waiting = waiting;
+    // Forgotten once they have all gone, unless more joined meanwhile.
+    void waiting.then(() => {
+      if (webhook.waiting !== waiting) return;
+      webhook.waiting = undefined;
+      this.forgetIfOver(url);
     });
     await this.untilDeadline(before);
     return leave;
   }
 
   /**
-   * Holds posts on the webhook at `url` for `retryAfterMs`, at least
-   * RATE_LIMIT_MIN_WAIT_MS, or longer if it is held longer already.
+   * Rate limits the webhook at `url` for `retryAfterMs`, at least
+   * RATE_LIMIT_MIN_WAIT_MS, or longer if it is rate limited longer already.
    */
-  private holdWebhook(url: string, retryAfterMs: number): void {
+  private rateLimit(url: string, retryAfterMs: number): void {
     const until = Date.now() + Math.max(retryAfterMs, RATE_LIMIT_MIN_WAIT_MS);
-    this.rateLimitedUntil.set(
-      url,
-      Math.max(until, this.rateLimitedUntil.get(url) ?? 0),
-    );
+    const webhook = this.rateLimited.get(url);
+    if (webhook) webhook.until = Math.max(until, webhook.until);
+    else this.rateLimited.set(url, { until });
+  }
+
+  /** How long the webhook at `url` stays rate limited: 0 or less if not. */
+  private rateLimitLeftMs(url: string): number {
+    return (this.rateLimited.get(url)?.until ?? 0) - Date.now();
+  }
+
+  /** Forgets the webhook's rate limit once it is over and none wait on it. */
+  private forgetIfOver(url: string): void {
+    const webhook = this.rateLimited.get(url);
+    if (webhook && !webhook.waiting && this.rateLimitLeftMs(url) <= 0) {
+      this.rateLimited.delete(url);
+    }
   }
 
   /**
-   * Waits until the webhook at `url` is no longer held by a rate limit, or
-   * until the shutdown deadline passes if that is sooner. Throws, dropping the
-   * post without a request, when the hold has longer left than
+   * Waits until the webhook at `url` is no longer rate limited, or until the
+   * shutdown deadline passes if that is sooner. Throws, dropping the post
+   * without a request, when the rate limit has longer left than
    * RATE_LIMIT_CAP_MS.
    */
   private async waitOutRateLimitOrDrop(url: string): Promise<void> {
     for (;;) {
-      const until = this.rateLimitedUntil.get(url);
-      if (until === undefined || this.deadlinePassed) return;
-      const left = until - Date.now();
-      if (left <= 0) {
-        this.rateLimitedUntil.delete(url);
+      const left = this.rateLimitLeftMs(url);
+      if (left <= 0 || this.deadlinePassed) {
+        this.forgetIfOver(url);
         return;
       }
       this.dropIfPastCap(url);
@@ -388,11 +411,11 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   }
 
   /**
-   * Throws, dropping the post without a request, when the webhook's hold has
-   * longer left than RATE_LIMIT_CAP_MS.
+   * Throws, dropping the post without a request, when the webhook's rate
+   * limit has longer left than RATE_LIMIT_CAP_MS.
    */
   private dropIfPastCap(url: string): void {
-    const left = (this.rateLimitedUntil.get(url) ?? 0) - Date.now();
+    const left = this.rateLimitLeftMs(url);
     if (left > RATE_LIMIT_CAP_MS) throw new RateLimitPastCapError(left);
   }
 
@@ -411,18 +434,13 @@ export class DraftNotifier implements OnModuleDestroy, OnApplicationShutdown {
   }
 
   /** Waits `ms`, or until the shutdown deadline passes if that is sooner. */
-  private wait(ms: number): Promise<void> {
-    const { signal } = this.pastShutdownDeadline;
-    if (signal.aborted) return Promise.resolve();
+  private async wait(ms: number): Promise<void> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     // The global timer, not `node:timers/promises`, so fake timers drive it.
-    return new Promise((resolve) => {
-      const done = () => {
-        clearTimeout(timer);
-        signal.removeEventListener('abort', done);
-        resolve();
-      };
-      const timer = setTimeout(done, ms);
-      signal.addEventListener('abort', done, { once: true });
+    const elapsed = new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, ms);
     });
+    await this.untilDeadline(elapsed);
+    clearTimeout(timer);
   }
 }

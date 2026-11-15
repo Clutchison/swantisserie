@@ -13,17 +13,16 @@ import {
 import {
   aliceCookie,
   app,
-  bob,
   useDraftsApp,
   slowDownDatabase,
   slowQueryUnderway,
   readyDraft,
+  readyDraftOnWebhook,
   getDraft,
   pick,
   poolCardIds,
-  registerWebhook,
-  signIn,
   start,
+  useAnnouncements,
   webhookClient,
   webhookUrl,
 } from './harness.js';
@@ -50,16 +49,10 @@ describe('shutting down', () => {
 
   describe('with announcements', () => {
     let id: string;
-    let webhookId: string;
 
+    useAnnouncements();
     beforeEach(async () => {
-      webhookId = await registerWebhook();
-      id = await readyDraft(
-        [aliceCookie, await signIn(bob)],
-        1,
-        undefined,
-        webhookId,
-      );
+      id = await readyDraftOnWebhook();
     });
 
     /** A post that takes 100 ms, and whether it has finished. */
@@ -227,12 +220,7 @@ describe('shutting down', () => {
 
       it('drops and logs the posts going one at a time after a rate limit, naming their drafts', async () => {
         const errors = vi.spyOn(Logger.prototype, 'error');
-        const other = await readyDraft(
-          [aliceCookie, await signIn(bob)],
-          1,
-          undefined,
-          webhookId,
-        );
+        const other = await readyDraftOnWebhook();
         webhookClient.post.mockRejectedValueOnce(
           new WebhookRateLimitedError(0),
         );

@@ -29,6 +29,10 @@ import {
   addBot,
   fourCards,
   announcementsSettled,
+  bobCookie,
+  posted,
+  useAnnouncements,
+  webhookId,
   failedPushes,
   queueInLobby,
   renameWebhook,
@@ -41,23 +45,7 @@ const sideUrl = 'https://discord.com/api/webhooks/1234567891/side-token';
 useDraftsApp();
 
 describe('announcements', () => {
-  let bobCookie: string;
-  let webhookId: string;
-
-  beforeEach(async () => {
-    bobCookie = await signIn(bob);
-    webhookId = await registerWebhook();
-  });
-
-  /**
-   * Each post's content, once the draft's announcements have settled,
-   * expecting exactly `count` posts.
-   */
-  async function posted(id: string, count: number) {
-    await announcementsSettled(id);
-    expect(webhookClient.post).toHaveBeenCalledTimes(count);
-    return webhookClient.post.mock.calls.map(([, message]) => message.content);
-  }
+  useAnnouncements();
 
   it('announces the start to the draft’s webhook, with the seat order', async () => {
     const id = await readyDraft(

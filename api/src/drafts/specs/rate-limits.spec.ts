@@ -8,16 +8,14 @@ import {
 import { WebhookRateLimitedError } from '../../discord/webhook-client.js';
 import { useDeadlineTimers } from '../../testing/deadlines.js';
 import {
-  aliceCookie,
   announcementsSettled,
   app,
-  bob,
   pick,
   poolCardIds,
-  readyDraft,
-  registerWebhook,
-  signIn,
+  posted,
+  readyDraftOnWebhook,
   start,
+  useAnnouncements,
   useDraftsApp,
   webhookClient,
 } from './harness.js';
@@ -29,38 +27,17 @@ describe('when Discord rate limits a post', () => {
   const RATE_LIMIT_MS = 10_000;
   /**
    * Room for the real time a step takes, which the fake clock counts too
-   * (`shouldAdvanceTime`): a hold may end this much before the fake timers
-   * have been advanced through it.
+   * (`shouldAdvanceTime`): a rate limit may end this much before the fake
+   * timers have been advanced through it.
    */
   const SLACK_MS = 200;
 
-  let bobCookie: string;
-  let webhookId: string;
-
-  beforeEach(async () => {
-    useDeadlineTimers();
-    bobCookie = await signIn(bob);
-    webhookId = await registerWebhook();
-  });
+  useAnnouncements();
+  beforeEach(useDeadlineTimers);
   afterEach(() => vi.useRealTimers());
 
-  /** A draft ready to start, announcing on the webhook. */
-  function draftOnWebhook(): Promise<string> {
-    return readyDraft([aliceCookie, bobCookie], 1, undefined, webhookId);
-  }
-
-  /**
-   * Each post's content, once the draft's announcements have settled,
-   * expecting exactly `count` posts.
-   */
-  async function posted(id: string, count: number) {
-    await announcementsSettled(id);
-    expect(webhookClient.post).toHaveBeenCalledTimes(count);
-    return webhookClient.post.mock.calls.map(([, message]) => message.content);
-  }
-
   it('waits as long as Discord says, then gets the post through', async () => {
-    const id = await draftOnWebhook();
+    const id = await readyDraftOnWebhook();
     webhookClient.post.mockRejectedValueOnce(
       new WebhookRateLimitedError(RATE_LIMIT_MS),
     );
@@ -76,9 +53,9 @@ describe('when Discord rate limits a post', () => {
     expect(first).toContain('has started');
   });
 
-  it('holds another draft’s post on the same webhook until it is over', async () => {
-    const id = await draftOnWebhook();
-    const other = await draftOnWebhook();
+  it('makes another draft’s post on the same webhook wait until it is over', async () => {
+    const id = await readyDraftOnWebhook();
+    const other = await readyDraftOnWebhook();
     webhookClient.post.mockRejectedValueOnce(
       new WebhookRateLimitedError(RATE_LIMIT_MS),
     );
@@ -95,7 +72,7 @@ describe('when Discord rate limits a post', () => {
   });
 
   it('waits a little even when Discord says not to wait', async () => {
-    const id = await draftOnWebhook();
+    const id = await readyDraftOnWebhook();
     webhookClient.post.mockRejectedValueOnce(new WebhookRateLimitedError(0));
     await start(id).expect(200);
     await vi.waitFor(() => expect(webhookClient.post).toHaveBeenCalled());
@@ -108,7 +85,7 @@ describe('when Discord rate limits a post', () => {
   });
 
   it('drops and logs posts while the wait would pass the cap, without a request, then posts again', async () => {
-    const id = await draftOnWebhook();
+    const id = await readyDraftOnWebhook();
     const ids = await poolCardIds(id);
     const rateLimitMs = RATE_LIMIT_CAP_MS + RATE_LIMIT_MS;
     webhookClient.post.mockRejectedValueOnce(
@@ -136,7 +113,7 @@ describe('when Discord rate limits a post', () => {
     expect(logged).toHaveBeenCalledTimes(2);
   });
 
-  describe('once the hold is over', () => {
+  describe('with posts that land or fail only when told', () => {
     /** Posts sent and not yet landed or failed, oldest first. */
     let sending: { land: () => void; fail: (err: Error) => void }[];
 
@@ -173,21 +150,26 @@ describe('when Discord rate limits a post', () => {
       expect(sending).toHaveLength(1);
     }
 
-    /** Lets the hold run out. */
-    async function endHold(): Promise<void> {
-      await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS);
-    }
-
-    /** Lands the post still sending. */
+    /** Lands the oldest post still sending. */
     function land(): void {
       sending.shift()!.land();
     }
 
+    /** Fails the oldest post still sending with `err`. */
+    function fail(err: Error): void {
+      sending.shift()!.fail(err);
+    }
+
+    /** Lets the rate limit run out. */
+    async function endRateLimit(): Promise<void> {
+      await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS);
+    }
+
     /**
-     * Holds the webhook with a 429 on the first draft's start, then starts
-     * the rest of `ids`, in order, while it is held.
+     * Rate limits the webhook with a 429 on the first draft's start, then
+     * starts the rest of `ids`, in order, while it is rate limited.
      */
-    async function startWhileHeld(ids: string[]): Promise<void> {
+    async function startWhileRateLimited(ids: string[]): Promise<void> {
       webhookClient.post.mockRejectedValueOnce(
         new WebhookRateLimitedError(RATE_LIMIT_MS),
       );
@@ -197,89 +179,130 @@ describe('when Discord rate limits a post', () => {
       }
     }
 
-    it('posts the waiting posts one at a time, in the order they started waiting', async () => {
-      const ids = [
-        await draftOnWebhook(),
-        await draftOnWebhook(),
-        await draftOnWebhook(),
+    /** Three drafts ready to start, announcing on the webhook. */
+    async function threeDrafts(): Promise<string[]> {
+      return [
+        await readyDraftOnWebhook(),
+        await readyDraftOnWebhook(),
+        await readyDraftOnWebhook(),
       ];
-      const [first, second, third] = ids;
-      await startWhileHeld(ids);
-      expect(postedFor(ids)).toEqual([first]);
+    }
 
-      await endHold();
-      await expectPostedFor(ids, [first, first]);
-      land();
-      await expectPostedFor(ids, [first, first, second]);
-      land();
-      await expectPostedFor(ids, [first, first, second, third]);
-      land();
-      await announcementsSettled(third);
-    });
-
-    it('posts a post that arrives while they go after them', async () => {
-      const ids = [await draftOnWebhook(), await draftOnWebhook()];
-      const late = await draftOnWebhook();
+    it('lets different drafts post at once on a webhook that isn’t rate limited', async () => {
+      const ids = [await readyDraftOnWebhook(), await readyDraftOnWebhook()];
       const [first, second] = ids;
-      const all = [...ids, late];
-      await startWhileHeld(ids);
-      await endHold();
-      await expectPostedFor(all, [first, first]);
 
-      await start(late).expect(200);
-      await expectPostedFor(all, [first, first]);
+      await start(first).expect(200);
+      await start(second).expect(200);
+
+      await vi.waitFor(() => expect(postedFor(ids)).toEqual([first, second]));
+      expect(sending).toHaveLength(2);
       land();
-      await expectPostedFor(all, [first, first, second]);
       land();
-      await expectPostedFor(all, [first, first, second, late]);
-      land();
-      await announcementsSettled(late);
+      await posted(second, 2);
     });
 
-    it('holds the webhook again when Discord rate limits one of them', async () => {
-      const ids = [
-        await draftOnWebhook(),
-        await draftOnWebhook(),
-        await draftOnWebhook(),
-      ];
-      const [first, second, third] = ids;
-      await startWhileHeld(ids);
-      await endHold();
-      await expectPostedFor(ids, [first, first]);
-      land();
-      await expectPostedFor(ids, [first, first, second]);
+    describe('once the rate limit is over', () => {
+      it('posts the waiting posts one at a time, in the order they started waiting', async () => {
+        const ids = await threeDrafts();
+        const [first, second, third] = ids;
+        await startWhileRateLimited(ids);
+        expect(postedFor(ids)).toEqual([first]);
 
-      sending.shift()!.fail(new WebhookRateLimitedError(RATE_LIMIT_MS));
-      await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS - SLACK_MS);
-      expect(postedFor(ids)).toEqual([first, first, second]);
-      await vi.advanceTimersByTimeAsync(SLACK_MS);
-      await expectPostedFor(ids, [first, first, second, second]);
-      land();
-      await expectPostedFor(ids, [first, first, second, second, third]);
-      land();
-      await announcementsSettled(third);
-    });
+        await endRateLimit();
+        await expectPostedFor(ids, [first, first]);
+        land();
+        await expectPostedFor(ids, [first, first, second]);
+        land();
+        await expectPostedFor(ids, [first, first, second, third]);
+        land();
+        await posted(third, 4);
+      });
 
-    it('keeps each draft’s posts in order', async () => {
-      const ids = [await draftOnWebhook(), await draftOnWebhook()];
-      const [first, second] = ids;
-      const shock = (await poolCardIds(first)).Shock;
-      await startWhileHeld(ids);
-      await pick(first, shock).expect(200);
-      await endHold();
+      it('posts the next waiting post once one fails', async () => {
+        vi.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+        const ids = await threeDrafts();
+        const [first, second, third] = ids;
+        await startWhileRateLimited(ids);
+        await endRateLimit();
+        await expectPostedFor(ids, [first, first]);
+        land();
 
-      await expectPostedFor(ids, [first, first]);
-      land();
-      await expectPostedFor(ids, [first, first, second]);
-      land();
-      await expectPostedFor(ids, [first, first, second, first]);
-      land();
-      await announcementsSettled(first);
-      const contents = webhookClient.post.mock.calls.map(
-        ([, { content }]) => content,
-      );
-      expect(contents[1]).toContain('has started');
-      expect(contents[3]).not.toContain('has started');
+        // The first try and two retries, each failing.
+        await expectPostedFor(ids, [first, first, second]);
+        fail(new Error('Discord is down'));
+        await expectPostedFor(ids, [first, first, second, second]);
+        fail(new Error('Discord is down'));
+        await expectPostedFor(ids, [first, first, second, second, second]);
+        fail(new Error('Discord is down'));
+
+        await expectPostedFor(ids, [
+          first,
+          first,
+          second,
+          second,
+          second,
+          third,
+        ]);
+        land();
+        await posted(third, 6);
+      });
+
+      it('posts a post that arrives while they go after them', async () => {
+        const ids = await threeDrafts();
+        const [first, second, late] = ids;
+        await startWhileRateLimited([first, second]);
+        await endRateLimit();
+        await expectPostedFor(ids, [first, first]);
+
+        await start(late).expect(200);
+        await expectPostedFor(ids, [first, first]);
+        land();
+        await expectPostedFor(ids, [first, first, second]);
+        land();
+        await expectPostedFor(ids, [first, first, second, late]);
+        land();
+        await posted(late, 4);
+      });
+
+      it('waits out a new rate limit on one of them before posting the rest', async () => {
+        const ids = await threeDrafts();
+        const [first, second, third] = ids;
+        await startWhileRateLimited(ids);
+        await endRateLimit();
+        await expectPostedFor(ids, [first, first]);
+        land();
+        await expectPostedFor(ids, [first, first, second]);
+
+        fail(new WebhookRateLimitedError(RATE_LIMIT_MS));
+        await vi.advanceTimersByTimeAsync(RATE_LIMIT_MS - SLACK_MS);
+        expect(postedFor(ids)).toEqual([first, first, second]);
+        await vi.advanceTimersByTimeAsync(SLACK_MS);
+        await expectPostedFor(ids, [first, first, second, second]);
+        land();
+        await expectPostedFor(ids, [first, first, second, second, third]);
+        land();
+        await posted(third, 5);
+      });
+
+      it('keeps each draft’s posts in order', async () => {
+        const ids = [await readyDraftOnWebhook(), await readyDraftOnWebhook()];
+        const [first, second] = ids;
+        const shock = (await poolCardIds(first)).Shock;
+        await startWhileRateLimited(ids);
+        await pick(first, shock).expect(200);
+        await endRateLimit();
+
+        await expectPostedFor(ids, [first, first]);
+        land();
+        await expectPostedFor(ids, [first, first, second]);
+        land();
+        await expectPostedFor(ids, [first, first, second, first]);
+        land();
+        const contents = await posted(first, 4);
+        expect(contents[1]).toContain('has started');
+        expect(contents[3]).not.toContain('has started');
+      });
     });
   });
 });
