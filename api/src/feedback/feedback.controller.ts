@@ -19,6 +19,7 @@ import type {
 } from 'contract';
 import { MAX_FEEDBACK_LENGTH } from 'contract';
 import { AppAdminGuard } from '../auth/app-admin.guard.js';
+import { isInAppPath } from '../in-app-path.js';
 import { bodyFields } from '../request-body.js';
 import { avatarUrl } from '../auth/avatar-url.js';
 import {
@@ -152,15 +153,11 @@ function parseMessage(message: unknown): string {
 
 /**
  * The page's path, or a 400. App admins open it as one of this app's pages,
- * so it must start with exactly one `/`: a browser reads `//` or `/\` as
- * naming another host, and a scheme names another site.
+ * so it must be a path within this app, not one a browser reads as naming
+ * another host or site.
  */
 function parsePagePath(pagePath: unknown): string {
-  if (
-    typeof pagePath === 'string' &&
-    pagePath.length <= MAX_PAGE_PATH_LENGTH &&
-    /^\/(?![/\\])/.test(pagePath)
-  ) {
+  if (isInAppPath(pagePath) && pagePath.length <= MAX_PAGE_PATH_LENGTH) {
     return pagePath;
   }
   throw invalid('The page is not valid.');
