@@ -23,6 +23,12 @@ const API = '/api/admin/webhooks';
 /** Where a change came from, so its failure shows there: the Add form, or a webhook's id. */
 type ProblemPlace = 'add' | WebhookWithUrlView['id'];
 
+/** A failed change's message, with the place it came from. */
+interface Problem {
+  place: ProblemPlace;
+  message: string;
+}
+
 /**
  * Where app admins add, rename, replace the URLs of and remove the webhooks
  * drafts announce to, and see which are gone.
@@ -45,7 +51,7 @@ export class WebhooksPage {
   protected readonly saving = signal(false);
   protected readonly maxNameLength = MAX_WEBHOOK_NAME_LENGTH;
   /** The one failure showing, with the place its change came from. */
-  private readonly problem = signal<{ place: ProblemPlace; message: string } | null>(null);
+  private readonly problem = signal<Problem | null>(null);
 
   /** A row's failure, or null once its webhook is no longer listed. */
   private readonly rowProblem = computed(() => {
@@ -57,7 +63,7 @@ export class WebhooksPage {
   });
 
   /** The failure shown before the Add form: the Add form's own, or a row's no longer listed. */
-  protected readonly addProblem = computed(() => {
+  protected readonly pageProblem = computed(() => {
     const problem = this.problem();
     return problem && !this.rowProblem() ? problem.message : null;
   });

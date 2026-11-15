@@ -22,11 +22,16 @@ input {
   overflow-wrap: anywhere;
 }
 
-.gone,
-.error {
+.gone {
   flex-basis: 100%;
   margin: 0;
   color: var(--color-error);
+}
+
+/* A row's own failure, on its own line after the row's actions. */
+li .error {
+  flex-basis: 100%;
+  margin: 0;
 }
 
 .replace {
