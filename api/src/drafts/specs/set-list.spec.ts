@@ -17,11 +17,14 @@ import {
   bob,
   card,
   createDraft,
+  getDraft,
   join,
   listDrafts,
   page,
   pool,
   post,
+  refuseNextSnapshotReset,
+  DROPPED_CONNECTION,
   scryfall,
   scryfallAnswers,
   signIn,
@@ -407,6 +410,46 @@ describe('the pool snapshot of a set list', () => {
     });
     await post(created.body.id, 'snapshot').expect(202);
 
+    expect((await snapshotted(created.body.id)).snapshot).toEqual({
+      state: 'Complete',
+      cards: 1,
+      total: 1,
+    });
+  });
+
+  it('creates the draft with its snapshot failed when the database refuses the snapshot’s start, and the organizer can retry it', async () => {
+    await scryfallHas({
+      [onPlatformQuery('otj')]: page(printing('Slickshot Show-Off', 'otj')),
+      [elsewhereQuery('otj')]: null,
+    });
+    const errors = refuseNextSnapshotReset();
+
+    const created = await createDraft({
+      name: 'Outlaws',
+      poolSource: {
+        kind: 'set-list',
+        setList: [{ code: 'otj', sublists: [] }],
+      },
+    }).expect(201);
+
+    expect(created.body.snapshot).toEqual({
+      state: 'Failed',
+      cards: 0,
+      total: null,
+      error: 'Snapshotting the pool failed unexpectedly.',
+    });
+    expect((await getDraft(created.body.id).expect(200)).body.snapshot).toEqual(
+      created.body.snapshot,
+    );
+    expect(await app.get(PrismaService).draft.count()).toBe(1);
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining(created.body.id),
+      expect.objectContaining({
+        message: DROPPED_CONNECTION,
+      }),
+    );
+
+    await post(created.body.id, 'snapshot').expect(202);
     expect((await snapshotted(created.body.id)).snapshot).toEqual({
       state: 'Complete',
       cards: 1,
