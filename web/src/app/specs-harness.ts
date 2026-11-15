@@ -33,6 +33,12 @@ export const carol: UserView = {
 /** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
 export const serverError = { status: 500, statusText: 'Server Error' };
 
+/** The api's refusal of a change to a closed draft: its body, then its status, to spread into `flush`. */
+export const draftClosed = [
+  { error: 'draft-closed', message: 'This draft is closed.' },
+  { status: 409, statusText: 'Conflict' },
+] as const;
+
 /** An alert: an error shown to the viewer. */
 const ALERT = '[role="alert"]';
 
