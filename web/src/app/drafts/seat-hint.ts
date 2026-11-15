@@ -32,6 +32,12 @@ export class SeatHintState {
     this.hint.set(seat ? { name: player.name, seatBox: seat.getBoundingClientRect() } : null);
   }
 
+  /** Hides the hint, as Escape does; the next seat hovered or focused shows its name again. */
+  hide() {
+    this.seat = null;
+    this.hint.set(null);
+  }
+
   /** Places the hint under its seat again, as when the seats scroll, so it moves with the seat. */
   follow() {
     const { seat } = this;
