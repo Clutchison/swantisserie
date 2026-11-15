@@ -59,8 +59,9 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
     // The draft list reads tournament badges.
     TournamentBadges,
   ],
-  // For the tournaments module, which sits beside drafts, and the webhook
-  // registry: DraftPushesModule for DraftAccess and DraftPushes.
+  // For the tournaments module, which sits beside drafts, the webhook
+  // registry, and every read of many drafts, which goes through draft access:
+  // DraftPushesModule for DraftAccess and DraftPushes.
   exports: [DraftPushesModule, DraftLock, DraftPublisher],
 })
 export class DraftsModule {}

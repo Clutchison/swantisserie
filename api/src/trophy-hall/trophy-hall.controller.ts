@@ -1,6 +1,10 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
 import type { TrophyHallView } from 'contract';
-import { SessionGuard } from '../auth/session.guard.js';
+import {
+  CurrentUser,
+  SessionGuard,
+  type SessionUser,
+} from '../auth/session.guard.js';
 import { TrophyHallService } from './trophy-hall.service.js';
 
 /** Where signed-in users read the Trophy Hall. */
@@ -9,9 +13,9 @@ import { TrophyHallService } from './trophy-hall.service.js';
 export class TrophyHallController {
   constructor(private readonly trophyHall: TrophyHallService) {}
 
-  /** The Trophy Hall of every complete tournament, as TrophyHallService.read groups it. */
+  /** The Trophy Hall of the drafts the viewer sees, as TrophyHallService.read groups it. */
   @Get()
-  async read(): Promise<TrophyHallView> {
-    return this.trophyHall.read();
+  async read(@CurrentUser() user: SessionUser): Promise<TrophyHallView> {
+    return this.trophyHall.read(user);
   }
 }

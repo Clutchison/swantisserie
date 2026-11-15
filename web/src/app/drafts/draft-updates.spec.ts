@@ -42,9 +42,14 @@ class FakeSocket {
     return this.emit.mock.calls.filter(([name]) => name === event).map(([, draftId]) => draftId);
   }
 
-  /** The API answers each request to watch so far with `result`. */
+  /** How many of the socket's requests the API has answered. */
+  private answered = 0;
+
+  /** The API answers each request to watch not yet answered with `result`. */
   answerWatches(result = 'watching') {
-    for (const [name, , ack] of this.emit.mock.calls) if (name === 'watch') ack(result);
+    const unanswered = this.emit.mock.calls.slice(this.answered);
+    this.answered = this.emit.mock.calls.length;
+    for (const [name, , ack] of unanswered) if (name === 'watch') ack(result);
   }
 }
 
@@ -123,6 +128,62 @@ describe('draft updates', () => {
     socket.answerWatches('refused');
 
     expect(received).toEqual([{ type: 'connected' }]);
+  });
+
+  describe('when the API couldn’t check the watch', () => {
+    beforeEach(() => {
+      socket.push('connect');
+      socket.answerWatches('unchecked');
+    });
+
+    it('says it is disconnected, and asks again after the usual delay', () => {
+      expect(received).toEqual([{ type: 'disconnected' }]);
+
+      vi.advanceTimersByTime(RETRY_MS - 1);
+      expect(socket.asked('watch')).toEqual(['draft-1']);
+      vi.advanceTimersByTime(1);
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-1']);
+    });
+
+    it('says it is connected once the API accepts the watch asked again', () => {
+      vi.advanceTimersByTime(RETRY_MS);
+
+      socket.answerWatches();
+
+      expect(received).toEqual([{ type: 'disconnected' }, { type: 'connected' }]);
+    });
+
+    it('goes on asking while the API can’t check it', () => {
+      vi.advanceTimersByTime(RETRY_MS);
+      socket.answerWatches('unchecked');
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-1', 'draft-1']);
+    });
+
+    it('asks nothing more once the draft is no longer watched', () => {
+      watching.unsubscribe();
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1']);
+    });
+
+    it('asks only once when the socket reconnects before the delay is up', () => {
+      socket.push('disconnect');
+      socket.push('connect');
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-1']);
+    });
+
+    it('asks again only for that draft', () => {
+      const { updatesOf } = alsoWatch('draft-2');
+      socket.answerWatches();
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-2', 'draft-1']);
+      expect(updatesOf).toEqual([{ type: 'connected' }]);
+    });
   });
 
   it('asks to watch a draft straight away when the socket is already connected', () => {
@@ -221,6 +282,66 @@ describe('draft updates', () => {
     });
   });
 
+  describe('when the API closes the socket', () => {
+    /** The API closes the socket, after which Socket.IO doesn't reconnect on its own. */
+    function closedByTheApi() {
+      socket.push('connect');
+      socket.answerWatches();
+      socket.active = false;
+      socket.push('disconnect', 'io server disconnect');
+    }
+
+    it('says it is disconnected and connects again', () => {
+      closedByTheApi();
+
+      expect(received).toEqual([{ type: 'connected' }, { type: 'disconnected' }]);
+      expect(socket.connect).toHaveBeenCalledOnce();
+    });
+
+    it('says the session has ended, and stops, when the API refuses the reconnect for it', () => {
+      closedByTheApi();
+
+      socket.refuse('unauthorized', { active: false });
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(received).toEqual([
+        { type: 'connected' },
+        { type: 'disconnected' },
+        { type: 'unauthorized' },
+      ]);
+      expect(socket.connect).toHaveBeenCalledOnce();
+    });
+
+    it('retries after the usual delay when the API refuses the reconnect for its own reasons', () => {
+      closedByTheApi();
+      socket.connect.mockClear();
+
+      socket.refuse('lookup failed', { active: false });
+      vi.advanceTimersByTime(RETRY_MS - 1);
+      expect(socket.connect).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(1);
+
+      expect(socket.connect).toHaveBeenCalledOnce();
+    });
+
+    it('watches each draft again once reconnected', () => {
+      alsoWatch('draft-2');
+      closedByTheApi();
+
+      socket.push('connect');
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-2', 'draft-1', 'draft-2']);
+    });
+  });
+
+  it('leaves Socket.IO to reconnect a socket that dropped for any other reason', () => {
+    socket.push('connect');
+
+    socket.push('disconnect', 'transport close');
+
+    expect(socket.connect).not.toHaveBeenCalled();
+  });
+
   describe('when a draft is no longer watched', () => {
     it('asks to stop watching it, keeping the socket for the drafts still watched', () => {
       const { subscription } = alsoWatch('draft-2');
@@ -287,6 +408,16 @@ describe('draft updates', () => {
       updates.close();
 
       expect(socket.disconnect).toHaveBeenCalledOnce();
+    });
+
+    it('doesn’t connect again when the socket says it disconnected', () => {
+      socket.push('connect');
+
+      updates.close();
+      socket.active = false;
+      socket.push('disconnect', 'io client disconnect');
+
+      expect(socket.connect).not.toHaveBeenCalled();
     });
 
     it('doesn’t retry a handshake the API refused before it closed', () => {
@@ -383,6 +514,14 @@ describe('draft updates', () => {
 
       expect(own).toEqual([{ type: 'unauthorized' }]);
       expect(socket.connect).not.toHaveBeenCalled();
+    });
+
+    it('aren’t told disconnected when the API couldn’t check a watched draft', () => {
+      socket.push('connect');
+
+      socket.answerWatches('unchecked');
+
+      expect(own).toEqual([{ type: 'connected' }]);
     });
 
     it('ask nothing of the API once unsubscribed', () => {

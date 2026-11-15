@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { PoolCard, Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
+import { DraftAccess, type DraftViewer } from './draft-access.js';
 import { SEAT_ORDER } from './draft-shapes.js';
 
 export const WITH_ORGANIZER = {
@@ -24,15 +25,19 @@ export type DraftWithOrganizer = Prisma.DraftGetPayload<typeof WITH_ORGANIZER>;
 /** Drafts and their pools as they are read, whatever state they are in. */
 @Injectable()
 export class DraftReadsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: DraftAccess,
+  ) {}
 
   async find(id: string): Promise<DraftWithOrganizer | null> {
     return this.prisma.draft.findUnique({ where: { id }, ...WITH_ORGANIZER });
   }
 
-  /** Every draft, newest first. */
-  async list(): Promise<DraftWithOrganizer[]> {
+  /** Every draft the viewer sees, newest first. */
+  async list(viewer: DraftViewer): Promise<DraftWithOrganizer[]> {
     return this.prisma.draft.findMany({
+      where: this.access.seenBy(viewer),
       orderBy: { createdAt: 'desc' },
       ...WITH_ORGANIZER,
     });

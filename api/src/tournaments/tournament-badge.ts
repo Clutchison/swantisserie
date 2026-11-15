@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { TournamentBadgeView } from 'contract';
 import type { Prisma } from '../generated/prisma/client.js';
+import { DraftAccess, type DraftViewer } from '../drafts/draft-access.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { readCompleteTournaments } from './complete-tournaments.js';
 import { viewerJoin, JOINING_PLAYER } from './join-rules.js';
@@ -12,19 +13,26 @@ import { viewerJoin, JOINING_PLAYER } from './join-rules.js';
  */
 @Injectable()
 export class TournamentBadges {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly access: DraftAccess,
+  ) {}
 
   /**
-   * The tournament badge of every draft with a tournament, as the user
-   * `viewerId` sees it, by draft id: its state, whether the viewer may join
-   * it now, as joining would let them, and its trophy holders once
-   * complete. Only complete tournaments are read in full, as only their
-   * trophy holders need the matches.
+   * The tournament badge of every draft the viewer sees with a tournament,
+   * as they see it, by draft id: its state, whether the viewer may join it
+   * now, as joining would let them, and its trophy holders once complete.
+   * Only complete tournaments are read in full, as only their trophy holders
+   * need the matches.
    */
-  async read(viewerId: string): Promise<Map<string, TournamentBadgeView>> {
+  async read(viewer: DraftViewer): Promise<Map<string, TournamentBadgeView>> {
+    const seen = this.access.seenBy(viewer);
     const [tournaments, complete] = await Promise.all([
-      this.prisma.tournament.findMany({ select: badgeRead(viewerId) }),
-      readCompleteTournaments(this.prisma),
+      this.prisma.tournament.findMany({
+        where: { draft: seen },
+        select: badgeRead(viewer.id),
+      }),
+      readCompleteTournaments(this.prisma, seen),
     ]);
     const trophyHolders = new Map(
       complete.map(({ draftId, view }) => [draftId, view.trophyHolders]),

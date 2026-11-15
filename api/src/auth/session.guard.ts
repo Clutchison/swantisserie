@@ -48,9 +48,9 @@ export class SessionGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const req = context.switchToHttp().getRequest<AuthedRequest>();
     const token = sessionToken(req);
-    const user = token ? await this.sessions.findUser(token) : null;
-    if (!user) throw new UnauthorizedException();
-    req.user = toSessionUser(user, this.appAdmins);
+    const session = token ? await this.sessions.find(token) : null;
+    if (!session) throw new UnauthorizedException();
+    req.user = toSessionUser(session.user, this.appAdmins);
     return true;
   }
 }
