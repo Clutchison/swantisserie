@@ -30,7 +30,7 @@ import {
   accessibleName,
   group,
 } from './harness';
-import { openDialog } from '../../specs-harness';
+import { clickOn, expectBusy, expectFocusOn, focusAndClick, openDialog } from '../../specs-harness';
 import { playing, withTournament } from './play-tab-harness';
 import {
   useTallScreen,
@@ -570,6 +570,45 @@ describe('plan tab', () => {
       expect(button(detail, 'Move to mainboard')).toBeDefined();
     });
 
+    it('keeps Move focused and busy while a move is on its way, sending it once, and puts focus on the other direction’s Move once it is made', async () => {
+      const { fixture, open } = await openFromPlan({ turn: bobsTurn });
+      const detail = await open('Shivan Dragon');
+
+      focusAndClick(button(detail, 'Move to sideboard')!);
+      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
+      expectBusy(button(detail, 'Move to sideboard')!);
+      expectFocusOn(detail, 'Move to sideboard');
+      clickOn(button(detail, 'Move to sideboard')!);
+      http.expectNone('/api/drafts/draft-1/plan/shivan-card');
+
+      req.flush(
+        planOf({
+          mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+          sideboard: [planned(shivan)],
+        }),
+      );
+      await vi.waitFor(() => expectFocusOn(detail, 'Move to mainboard'));
+      await fixture.whenStable();
+      expectFocusOn(detail, 'Move to mainboard');
+      expect(button(detail, 'Move to mainboard')!.getAttribute('aria-disabled')).toBeNull();
+    });
+
+    it('keeps focus on Move when a move fails', async () => {
+      const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn });
+      const detail = await open('Shivan Dragon');
+
+      focusAndClick(button(detail, 'Move to sideboard')!);
+      http
+        .expectOne('/api/drafts/draft-1/plan/shivan-card')
+        .flush(null, { status: 500, statusText: 'Server Error' });
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
+      await vi.waitFor(() => expect(alertIn(tab)).not.toBeNull());
+      await fixture.whenStable();
+
+      expectFocusOn(detail, 'Move to sideboard');
+      expect(button(detail, 'Move to sideboard')!.getAttribute('aria-disabled')).toBeNull();
+    });
+
     it('offers to move an unpicked card on the sideboard to the mainboard', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: bobsTurn },
@@ -611,7 +650,10 @@ describe('plan tab', () => {
       await fixture.whenStable();
       const detail = await open('Shivan Dragon');
 
-      expect(button(detail, 'Move to sideboard')!.disabled).toBe(true);
+      expectBusy(button(detail, 'Move to sideboard')!);
+      focusAndClick(button(detail, 'Move to sideboard')!);
+      http.expectNone('/api/drafts/draft-1/plan/shivan-card');
+      expectFocusOn(detail, 'Move to sideboard');
 
       http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(
         planOf({
@@ -619,7 +661,9 @@ describe('plan tab', () => {
           sideboard: [planned(bolt)],
         }),
       );
-      await vi.waitFor(() => expect(button(detail, 'Move to sideboard')!.disabled).toBe(false));
+      await vi.waitFor(() =>
+        expect(button(detail, 'Move to sideboard')!.getAttribute('aria-disabled')).toBeNull(),
+      );
     });
 
     it('offers no Move on a locked deck', async () => {
