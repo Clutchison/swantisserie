@@ -1,3 +1,4 @@
+import type { MatchView } from 'contract';
 import { answer, openDialog, question, table } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -49,6 +50,9 @@ import {
   completed,
   confirmedMatch,
   COMPLETE_ROUND_URL,
+  entry,
+  erin,
+  fourPlayers,
   listControls,
 } from './play-tab-harness';
 
@@ -320,6 +324,79 @@ describe('Swiss tournaments on the Play tab', () => {
     );
 
     expect(req.request.body).toEqual({ round: 1, grantedDraws: [{ matchId: 'm1', drop: [] }] });
+  });
+
+  it('stops counting a drop chosen on a match once it is reported while the dialog is open', async () => {
+    const { fixture, dialog } = await openCompleteRound(bobDroppedAfterBye);
+    dropCarol(dialog).click();
+    await vi.waitFor(() => expect(text(dialog)).toContain(completesEarly));
+
+    const [roundOne] = bobDroppedAfterBye.rounds;
+    await pushTournament(
+      fixture,
+      {
+        ...bobDroppedAfterBye,
+        rounds: [{ ...roundOne, matches: [reported(roundOne.matches[0], [2, 1], carol.id)] }],
+      },
+      1,
+      { asPlayer: true },
+    );
+
+    await vi.waitFor(() => expect(text(dialog)).toContain(pairsRoundTwo));
+    expect(text(dialog)).not.toContain(completesEarly);
+    expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull();
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      COMPLETE_ROUND_URL,
+      'POST',
+      swissPlaying(),
+      2,
+      threePlayers,
+    );
+
+    expect(req.request.body).toEqual({ round: 1, grantedDraws: [] });
+  });
+
+  it('keeps the drops chosen on the other unreported matches once one is reported while the dialog is open', async () => {
+    const aliceVsBob = unreportedMatch('m1', alice.id, bob.id);
+    const carolVsErin = unreportedMatch('m2', carol.id, erin.id);
+    /** Tournament round 1 of Alice, Bob, Carol and Erin, with `m2` as Carol and Erin's match. */
+    const roundOneOfFour = (m2: MatchView) =>
+      swissPlaying({
+        lastCompletedRound: 0,
+        entries: [alice.id, bob.id, carol.id, erin.id].map((playerId) => entry(playerId)),
+        rounds: [{ round: 1, correctable: true, matches: [aliceVsBob, m2], byes: [] }],
+      });
+    const { fixture, dialog } = await openCompleteRound(roundOneOfFour(carolVsErin), {
+      fields: fourPlayers,
+    });
+    const dropBob = () =>
+      controlByLabel(group(dialog, 'Drop from Alice vs Bob')!, 'checkbox', 'Drop Bob')!;
+    dropBob().click();
+    await fixture.whenStable();
+
+    await pushTournament(fixture, roundOneOfFour(reported(carolVsErin, [2, 0])), 1, {
+      asPlayer: true,
+      fields: fourPlayers,
+    });
+
+    await vi.waitFor(() => expect(group(dialog, 'Drop from Carol vs Erin')).toBeNull());
+    expect(dropBob().checked).toBe(true);
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      COMPLETE_ROUND_URL,
+      'POST',
+      swissPlaying(),
+      2,
+      fourPlayers,
+    );
+
+    expect(req.request.body).toEqual({
+      round: 1,
+      grantedDraws: [{ matchId: 'm1', drop: [bob.id] }],
+    });
   });
 
   it('completes a fully reported tournament round with no granted draws, in place of completing the tournament', async () => {

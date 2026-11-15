@@ -96,12 +96,15 @@ export class CompleteRoundDialog {
   /**
    * What completing the round will do, as the engine's roundCompletion
    * forecasts it from the tournament with the organizer's picks: the
-   * players chosen to drop counted as dropped, and in single elimination
-   * each unreported match decided as the organizer decides it.
+   * players chosen to drop from its unreported matches counted as dropped,
+   * as its request drops them, and in single elimination each unreported
+   * match decided as the organizer decides it. A match reported while the
+   * dialog is open takes its choices with it.
    */
   protected readonly completion = computed(() => {
     const tournament = this.tournament()!;
-    const chosen = Object.values(this.dropping()).flat();
+    // Stryker disable next-line ArrayDeclaration: an unknown id is nobody's, so it counts nobody as dropped.
+    const chosen = this.unreported().flatMap((match) => this.dropping()[match.id] ?? []);
     const entries = tournament.entries.map(({ playerId, dropped }) => ({
       playerId,
       dropped: dropped || chosen.includes(playerId),
