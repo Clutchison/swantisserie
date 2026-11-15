@@ -7,6 +7,8 @@ import { DiscordConfig } from './discord-config.js';
 const API = 'https://discord.com/api/v10';
 /** How long each request, its body included, may take: sign-in waits on it. */
 const REQUEST_TIMEOUT_MS = 10_000;
+/** How many times a call is sent again after a 429 before it fails. */
+const MAX_RATE_LIMITED_RETRIES = 1;
 
 /** The fields of `GET /users/@me` we use. */
 export interface DiscordProfile {
@@ -46,7 +48,7 @@ export class RateLimitedPastDeadlineError extends Error {
 @Injectable()
 export class FetchDiscordClient extends DiscordClient {
   /**
-   * When the last 429's wait is over (ms since epoch). Pending while that
+   * When the last 429's lockout is over (ms since epoch). Pending while that
    * 429's body is read for its wait, so no call slips through meanwhile.
    */
   private lockedUntil: Promise<number> = Promise.resolve(0);
@@ -108,11 +110,11 @@ export class FetchDiscordClient extends DiscordClient {
   }
 
   /**
-   * Sends a request to Discord once any rate limit's wait has passed,
+   * Sends a request to Discord once any 429's lockout is over,
    * giving up after the timeout. After a 429 it waits as long as Discord
    * says and sends once more; the answer to that is returned, 429 or not.
-   * Throws RateLimitedPastDeadlineError, at once, for a wait that would end
-   * past `deadline`.
+   * Throws RateLimitedPastDeadlineError, at once, for a lockout that would
+   * end past `deadline`.
    */
   private async send(
     deadline: Deadline,
@@ -120,21 +122,21 @@ export class FetchDiscordClient extends DiscordClient {
     init: Omit<RequestInit, 'signal'>,
   ): Promise<Response> {
     for (let rateLimited = 0; ; rateLimited++) {
-      await this.waitOutRateLimit(deadline);
+      await this.waitOutLockout(deadline);
       const res = await fetchWithTimeout(url, init, REQUEST_TIMEOUT_MS);
       if (res.status !== 429) return res;
-      // Hold every call from now, not just this one, while the wait is read.
-      this.lockedUntil = latest(this.lockedUntil, rateLimitEnd(res));
-      if (rateLimited === 1) return res;
+      // Lock out every call from now, not just this one, while the wait is read.
+      this.lockedUntil = latest(this.lockedUntil, lockoutEnd(res));
+      if (rateLimited === MAX_RATE_LIMITED_RETRIES) return res;
     }
   }
 
   /**
-   * Resolves once the last 429's wait has passed, at once if there is none,
+   * Resolves once the last 429's lockout is over, at once if there is none,
    * or throws if it would end past `deadline`. Waits again if a 429 that
-   * arrived meanwhile moved the wait on.
+   * arrived meanwhile moved the lockout on.
    */
-  private async waitOutRateLimit(deadline: Deadline): Promise<void> {
+  private async waitOutLockout(deadline: Deadline): Promise<void> {
     for (;;) {
       const until = await this.lockedUntil;
       if (until > deadline.endsAt) {
@@ -147,11 +149,12 @@ export class FetchDiscordClient extends DiscordClient {
 }
 
 /**
- * When a 429's wait ends (ms since epoch): its body's `retry_after`, or else
- * its `Retry-After` header. Reads the body. Discord always says; if it
- * didn't, there is no wait to hold calls for.
+ * When a 429's lockout ends (ms since epoch): its body's `retry_after`, or
+ * else its `Retry-After` header. Reads the body.
  */
-async function rateLimitEnd(res: Response): Promise<number> {
+async function lockoutEnd(res: Response): Promise<number> {
+  // 0, not Scryfall's 30 s: Discord always sends `retry_after`, while
+  // Scryfall documents a 30 s lockout for a 429 that says nothing.
   return Date.now() + ((await bodyOrHeaderRetryAfterMs(res)) ?? 0);
 }
 

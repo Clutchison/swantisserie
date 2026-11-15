@@ -37,9 +37,9 @@ export class AuthService {
    * opens a session for them. Throws NotAllowedError for anyone else, and
    * DeadlinePassedError if Discord hasn't answered all three calls within
    * `SIGN_IN_DEADLINE_MS`, or RateLimitedPastDeadlineError, at once, if a
-   * Discord rate limit's wait would outlast it. When their name or avatar has changed, bumps and
-   * pushes every draft they play in or organize, all of which show it,
-   * announcing nothing.
+   * Discord 429's lockout would outlast it. When their name or avatar has
+   * changed, bumps and pushes every draft they play in or organize, all of
+   * which show it, announcing nothing.
    */
   async signIn(code: string): Promise<NewSession> {
     const deadline = new Deadline('sign-in', SIGN_IN_DEADLINE_MS);

@@ -231,6 +231,29 @@ describe('FetchDiscordClient', () => {
     });
   });
 
+  it('holds a token exchange made during a 429’s wait on another call, such as another sign-in’s user read, until the wait has passed', async () => {
+    vi.useFakeTimers();
+    respondRateLimited(5);
+    // The two calls are sent again at the same moment, in either order.
+    fetch.mockImplementation((url) =>
+      Promise.resolve(
+        typeof url === 'string' && url.endsWith('/oauth2/token')
+          ? Response.json({ access_token: 'token-2', token_type: 'Bearer' })
+          : Response.json(profile),
+      ),
+    );
+
+    const user = discord.getCurrentUser('token-1', farDeadline());
+    await vi.advanceTimersByTimeAsync(1_000);
+    const token = discord.exchangeCode('code-2', farDeadline());
+    await vi.advanceTimersByTimeAsync(3_999);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(await token).toBe('token-2');
+    expect(await user).toEqual(profile);
+  });
+
   const calls: [string, () => Promise<unknown>][] = [
     ['exchangeCode', () => discord.exchangeCode('code-1', farDeadline())],
     ['getCurrentUser', () => discord.getCurrentUser('token-1', farDeadline())],
