@@ -525,6 +525,23 @@ describe('App', () => {
     expect(banner(page)?.textContent ?? '').not.toContain('Alice');
   });
 
+  it('sends one logout request however often Log out is pressed while signing out', async () => {
+    const page = await openSettled('/', alice);
+
+    clickLogOut(page);
+    const logout = await vi.waitFor(() => http.expectOne('/api/auth/logout'));
+    userMenuButton(page)!.click();
+    TestBed.tick();
+    expect(button(page, 'Log out')!.getAttribute('aria-disabled')).toBe('true');
+    button(page, 'Log out')!.click();
+    TestBed.tick();
+    http.expectNone('/api/auth/logout');
+    logout.flush(null, { status: 204, statusText: 'No Content' });
+
+    await vi.waitFor(() => expect(router.url).toBe('/sign-in'));
+    http.expectNone('/api/auth/logout');
+  });
+
   it('stops hearing of the viewer’s drafts once logged out', async () => {
     const page = await openSettled('/', alice);
     expect(updates.close).not.toHaveBeenCalled();
