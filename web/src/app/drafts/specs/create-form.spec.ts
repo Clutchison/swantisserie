@@ -26,7 +26,7 @@ import {
   toggleButton,
   webhooksAnswer,
 } from './harness';
-import { listItemTextsIn } from '../../specs-harness';
+import { expectFocusOn, focusAndClick, listItemTextsIn } from '../../specs-harness';
 import { landOnDraftList, listedDrafts, listItem, listItemOf, settle } from './draft-list-harness';
 
 useDraftsApp();
@@ -695,18 +695,39 @@ describe('create form', () => {
     fail(await create(form), 400, problem);
     await fixture.whenStable();
     await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(problem.message));
-    expect(button(page, 'Create draft')!.disabled).toBe(false);
+    expect(button(page, 'Create draft')!.getAttribute('aria-disabled')).toBeNull();
 
-    submit(page);
+    focusAndClick(button(page, 'Create draft')!);
     const again = await vi.waitFor(() => http.expectOne('/api/drafts'));
     await fixture.whenStable();
     expect(button(page, 'Create draft')).toBeUndefined();
-    expect(button(page, 'Checking the pool…')!.disabled).toBe(true);
+    const checking = button(page, 'Checking the pool…')!;
+    expect(checking.disabled).toBe(false);
+    expect(checking.getAttribute('aria-disabled')).toBe('true');
+    expectFocusOn(page, 'Checking the pool…');
     expect(alertIn(page)).toBeNull();
 
     fail(again, 400, problem);
     await fixture.whenStable();
-    await vi.waitFor(() => expect(button(page, 'Create draft')!.disabled).toBe(false));
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(problem.message));
+    await vi.waitFor(() => expectFocusOn(page, 'Create draft'));
+    expect(button(page, 'Create draft')!.getAttribute('aria-disabled')).toBeNull();
+  });
+
+  it('sends nothing more for a press, or a submit by Enter, while it checks the pool', async () => {
+    const form = await openForm();
+    const { fixture, page } = form;
+    const req = await create(form);
+    await fixture.whenStable();
+
+    const checking = button(page, 'Checking the pool…')!;
+    focusAndClick(checking);
+    checking.form!.requestSubmit();
+    await fixture.whenStable();
+    http.expectNone('/api/drafts');
+
+    fail(req, 400, { error: 'invalid', message: 'Give the draft a name.' });
+    await vi.waitFor(() => expect(alertIn(page)).not.toBeNull());
   });
 
   it('says creating failed when the failure’s answer has no body', async () => {

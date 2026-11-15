@@ -22,7 +22,6 @@
       }
     </p>
   </div>
-  <!-- The viewer's own buttons, then the organizer's, by the button-order standard. -->
   <div class="actions">
     @if (inLobby()) {
       @if (joined()) {
@@ -32,7 +31,6 @@
       } @else if (draftFull()) {
         <span class="detail">This draft is full.</span>
       } @else {
-        <!-- Secondary beside an organizer's Start draft, which moves the draft on. -->
         <button
           class="button"
           [class.secondary]="canOrganize()"

@@ -6,12 +6,7 @@ import { DraftLock } from '../drafts/draft-lock.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import { snapshotDecklists } from './decklists.service.js';
-import {
-  deckRefusal,
-  joinRefusal,
-  JOINING_PLAYER,
-  STARTING_PLAYER,
-} from './join-rules.js';
+import { joinRefusal, JOINING_PLAYER } from './join-rules.js';
 import { ROUND_STEPS } from './format-steps.js';
 import {
   dismissReadyNotices,
@@ -19,6 +14,7 @@ import {
   readyRefusal,
   setEntryReady,
 } from './ready-rules.js';
+import { deckRefusal, STARTING_PLAYER } from './start-rules.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
 import {
@@ -92,6 +88,9 @@ export class TournamentRegistrationService {
    * were removed, whatever their deck holds. Throws NotAPlayerError if they
    * aren't one of the draft's players, and TournamentRefusedError if they
    * are a bot, have joined already, or the tournament is past registration.
+   * Their join time is stamped explicitly from the api's clock, as setup's
+   * is, so join order reads the api's clock however the column's default
+   * is filled.
    */
   async join(draftId: string, userId: string): Promise<void> {
     await this.tournamentLock.inRegistration(
@@ -105,7 +104,11 @@ export class TournamentRegistrationService {
         const refusal = joinRefusal(player);
         if (refusal) throw new TournamentRefusedError(refusal);
         await tx.tournamentEntry.create({
-          data: { tournamentId: tournament.id, playerId: player.id },
+          data: {
+            tournamentId: tournament.id,
+            playerId: player.id,
+            joinedAt: new Date(),
+          },
         });
       },
     );
@@ -113,9 +116,11 @@ export class TournamentRegistrationService {
 
   /**
    * Takes the draft's player `userId` out of its tournament: they leave,
-   * or an organizer removes them. Throws TournamentRefusedError if they
-   * haven't joined, worded for `actor` (see notJoined), or are a bot, or
-   * the tournament is past registration.
+   * or an organizer removes them. Throws as entryOf does if they aren't in
+   * it: NotAPlayerError when someone who isn't one of the draft's players
+   * leaves, TournamentRefusedError (notJoined, worded for `actor`)
+   * otherwise. Throws TournamentRefusedError too if they are a bot, or the
+   * tournament is past registration.
    */
   async removeEntry(
     draftId: string,
@@ -135,10 +140,11 @@ export class TournamentRegistrationService {
    * Marks the draft's player `userId` ready, or unmarks them, as `ready`
    * says: their own tournament entry only, as only the player changes
    * their ready. Marking an already ready player ready, or unmarking one who
-   * isn't, changes nothing. Throws TournamentRefusedError if they haven't
-   * joined, or the tournament is past registration; and on marking, if they
-   * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS, as
-   * `readyRefusal` decides. Marking ready takes down the player's Ready
+   * isn't, changes nothing. Throws NotAPlayerError if they aren't one of the
+   * draft's players. Throws TournamentRefusedError with notJoined('self') if
+   * they haven't joined; with not-in-registration if the tournament is past
+   * registration; and on marking, with what `readyRefusal` decides if they
+   * are a bot or their mainboard holds fewer than MIN_MAINBOARD_CARDS. Marking ready takes down the player's Ready
    * notice; unmarking never sets it. Nothing is announced.
    */
   async setReady(
@@ -151,7 +157,8 @@ export class TournamentRegistrationService {
         where: { draftId_userId: { draftId, userId } },
         select: READYING_PLAYER,
       });
-      const entry = player?.tournamentEntry;
+      if (!player) throw new NotAPlayerError('tournaments');
+      const entry = player.tournamentEntry;
       if (!entry) throw new TournamentRefusedError(notJoined('self'));
       const refusal = ready ? readyRefusal(player) : null;
       if (refusal) throw new TournamentRefusedError(refusal);

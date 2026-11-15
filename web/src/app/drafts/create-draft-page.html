@@ -1,4 +1,5 @@
 <main class="page-narrow">
+  <app-change-status />
   <h1>New draft</h1>
   <form [formGroup]="form" (ngSubmit)="create()">
     <label class="field">
@@ -186,7 +187,7 @@
 
     <div class="actions">
       <a class="button secondary" routerLink="/">Cancel</a>
-      <button class="button" type="submit" [disabled]="saving()">
+      <button class="button" type="submit" appSendsChange="create">
         {{ saving() ? 'Checking the pool…' : 'Create draft' }}
       </button>
     </div>
