@@ -30,7 +30,7 @@ import {
   accessibleName,
   group,
 } from './harness';
-import { openDialog } from '../../specs-harness';
+import { openDialog, statusIn } from '../../specs-harness';
 import { playing, withTournament } from './play-tab-harness';
 import {
   useTallScreen,
@@ -586,7 +586,7 @@ describe('plan tab', () => {
       expect(button(detail, 'Move to sideboard')).toBeDefined();
     });
 
-    it('says why a move was refused as the Deck tab does, leaving the card where it was', async () => {
+    it('says in its Deck note why a move was refused, the Deck tab showing no alert, leaving the card where it was', async () => {
       const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn });
       const detail = await open('Shivan Dragon');
 
@@ -600,7 +600,8 @@ describe('plan tab', () => {
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
       await fixture.whenStable();
 
-      expect(alertIn(tab)?.textContent).toContain('That card isn’t in your deck.');
+      expect(text(statusIn(detail, { name: 'Deck note' })!)).toBe('That card isn’t in your deck.');
+      expect(alertIn(tab)).toBeNull();
       expect(openDialog()).toBe(detail);
       expect(button(detail, 'Move to sideboard')).toBeDefined();
     });

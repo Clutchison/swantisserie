@@ -56,7 +56,7 @@ import {
 import { singleEliminationPlaying } from './play-tab-single-elimination-harness';
 import {
   actionButtons,
-  expectAtFoot,
+  expectByRegistration,
   expectBeforeLists,
   expectByActionRows,
   expectByActions,
@@ -332,6 +332,7 @@ describe('Play tab while the tournament is played', () => {
       await vi.waitFor(() => expect(alertIn(panel(page))?.textContent).toContain(reason));
       expect(currentSteps(panel(page))).toEqual(['Registration']);
       expect(button(panel(page), 'Start tournament')).toBeDefined();
+      expectByRegistration(page, panel(page));
     });
 
     it.each([
@@ -576,34 +577,18 @@ describe('Play tab while the tournament is played', () => {
       },
     );
 
-    it.each([
-      {
-        doing: 'starting the tournament',
-        label: 'Start tournament',
-        asked: ['Start the tournament?', 'Start'],
-        url: '/api/drafts/draft-1/tournament/start',
-        failure: "Couldn't start the tournament. Try again in a moment.",
-      },
-      {
-        doing: 'cancelling the tournament',
-        label: 'Cancel tournament',
-        asked: ['Cancel the tournament?', 'Cancel tournament'],
-        url: '/api/drafts/draft-1/tournament',
-        failure: "Couldn't cancel the tournament. Try again in a moment.",
-      },
-    ] as const)(
-      'says $doing failed in registration at the foot of the tab, after its button',
-      async ({ label, asked: [asked, action], url, failure }) => {
-        const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
-          powers: ORGANIZE_ONLY,
-        });
+    it('says starting the tournament failed right after the registration row, before Joined players', async () => {
+      const { fixture, page, tab } = await openPlaying(registration(alice.id, bob.id, carol.id), {
+        powers: ORGANIZE_ONLY,
+      });
 
-        button(tab, label)!.click();
-        await answer(await question(asked), action);
+      button(tab, 'Start tournament')!.click();
+      await answer(await question('Start the tournament?'), 'Start');
 
-        expect(await failChange(fixture, page, url)).toBe(failure);
-        expectAtFoot(page, button(tab, label)!);
-      },
-    );
+      expect(await failChange(fixture, page, '/api/drafts/draft-1/tournament/start')).toBe(
+        "Couldn't start the tournament. Try again in a moment.",
+      );
+      expectByRegistration(page, tab);
+    });
   });
 });

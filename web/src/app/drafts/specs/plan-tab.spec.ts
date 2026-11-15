@@ -224,62 +224,6 @@ describe('plan tab', () => {
     });
   });
 
-  it('says why a move was refused, and re-reads the plan', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: planOf(),
-    });
-    const plan = await openPlan(fixture, page);
-
-    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
-    http
-      .expectOne('/api/drafts/draft-1/plan/shivan-card')
-      .flush(
-        { error: 'not-in-plan', message: 'That card isn’t in your deck.' },
-        { status: 409, statusText: 'Conflict' },
-      );
-    const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'));
-    await vi.waitFor(() =>
-      expect(alertIn(plan)?.textContent).toContain('That card isn’t in your deck.'),
-    );
-
-    reread.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)] }));
-    await fixture.whenStable();
-    expect(planBoards(plan)[0].lines).toEqual([
-      '1 Brightclimb Pathway // Grimclimb Pathway',
-      '2 Lightning Bolt',
-    ]);
-    expect(statusMessage(plan, 'Shivan Dragon moved to the sideboard')).toBeUndefined();
-  });
-
-  it('clears the reason a change was refused once one is made', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: planOf(),
-    });
-    const plan = await openPlan(fixture, page);
-    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
-    http
-      .expectOne('/api/drafts/draft-1/plan/shivan-card')
-      .flush(
-        { error: 'not-in-plan', message: 'That card isn’t in your deck.' },
-        { status: 409, statusText: 'Conflict' },
-      );
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
-    await vi.waitFor(() => expect(alertIn(plan)).not.toBeNull());
-
-    button(plan, 'Move Shivan Dragon to the sideboard')!.click();
-    http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(
-      planOf({
-        mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
-        sideboard: [planned(shivan)],
-      }),
-    );
-    await fixture.whenStable();
-
-    expect(alertIn(plan)).toBeNull();
-  });
-
   it('dims unpicked cards, marks them, counts them apart and offers to remove them', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,

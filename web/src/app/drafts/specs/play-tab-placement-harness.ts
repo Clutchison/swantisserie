@@ -1,6 +1,6 @@
 import { comesBefore, onlyAlert } from '../../specs-harness';
-import { accessibleName, namedList, panel, region } from './harness';
-import { bracket, roundLists } from './play-tab-harness';
+import { accessibleName, button, namedList, panel, region } from './harness';
+import { bracket, IM_READY, roundLists } from './play-tab-harness';
 
 /** The accessible names of the buttons in the Play tab's action rows during play: Drop from tournament and the organizer's. */
 const ACTION_NAMES = [
@@ -46,6 +46,44 @@ export function expectByActionRows(tab: HTMLElement, node: Node) {
   expect(actions).not.toHaveLength(0);
   for (const action of actions) expect(comesBefore(action, node)).toBe(true);
   expectBeforeLists(tab, node);
+}
+
+/** The accessible names of the buttons in the Play tab's registration row: Join, Leave, I'm ready and the organizer's. */
+const REGISTRATION_BUTTONS = [
+  /^Join \(/,
+  /^Leave$/,
+  new RegExp(`^${IM_READY}$`),
+  /^Cancel tournament$/,
+  /^Start tournament$/,
+];
+
+/**
+ * Expects the open tab of `page` to show its one alert directly after the
+ * registration row in `tab`, after its every button, and before the
+ * Joined players list.
+ */
+export function expectByRegistration(page: HTMLElement, tab: HTMLElement) {
+  const alert = onlyAlert(panel(page));
+  const row = [...tab.querySelectorAll('button')].filter((shown) =>
+    REGISTRATION_BUTTONS.some((name) => name.test(accessibleName(shown))),
+  );
+  expect(row).not.toHaveLength(0);
+  for (const control of row) expect(comesBefore(control, alert)).toBe(true);
+  expect(comesBefore(alert, namedList(tab, 'Joined players'))).toBe(true);
+}
+
+/**
+ * Expects the open tab of `page` to show its one alert inside the item of
+ * the list named `list` in `tab` that holds the button `label`, after it.
+ */
+export function expectInRow(page: HTMLElement, tab: HTMLElement, list: string, label: string) {
+  const alert = onlyAlert(panel(page));
+  const control = button(tab, label)!;
+  const row = [...namedList(tab, list).querySelectorAll(':scope > li')].find((item) =>
+    item.contains(control),
+  );
+  expect(row?.contains(alert)).toBe(true);
+  expect(comesBefore(control, alert)).toBe(true);
 }
 
 /** Expects the open tab of `page` to show its one alert directly after the action rows in `tab`. */

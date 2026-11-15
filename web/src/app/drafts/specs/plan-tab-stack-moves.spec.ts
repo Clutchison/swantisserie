@@ -43,7 +43,11 @@ import {
   openPrintingPicker,
   WIDE_STACKS_AREA,
   NARROW_STACKS_AREA,
+  expectByTools,
+  notInPlan,
+  conflict,
 } from './plan-tab-harness';
+import { onlyAlert } from '../../specs-harness';
 import { measuredAs } from './measure-harness';
 import { playing, withTournament } from './play-tab-harness';
 
@@ -135,6 +139,24 @@ describe('Deck tab stack moves', () => {
         'Lands: Brightclimb Pathway // Grimclimb Pathway',
       ]),
     );
+  });
+
+  it('says a refused drop after the tools row, before the plan boards', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({
+        mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
+        sideboard: [planned(shivan)],
+      }),
+    });
+    const plan = await openPlan(fixture, page);
+
+    await stackMoved(fixture, 'Shivan Dragon', 'Sideboard', '1');
+    http.expectOne(shivanUrl).flush(notInPlan, conflict);
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
+    await fixture.whenStable();
+
+    expectByTools(plan, onlyAlert(plan));
   });
 
   it('keeps stack moves through a tab switch, list mode and a narrow stacks area, showing the grouping’s stacks in the strip, which offers no drag', async () => {

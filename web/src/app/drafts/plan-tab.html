@@ -1,4 +1,10 @@
 <app-change-status />
+<!-- A failed change's message, where it shows: nothing for none. -->
+<ng-template #failure let-message>
+  @if (message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</ng-template>
 <!-- A move button's icon: off the mainboard is minus, onto it is plus. -->
 <ng-template #moveIcon let-planBoard>
   @if (planBoard.other === 'Sideboard') {
@@ -49,6 +55,8 @@
     </div>
   }
 </div>
+<!-- Each notice's failed Dismiss shows after its region, outside it, so it is said as an alert. -->
+<ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('deckNotice') }" />
 <div role="status" aria-label="Ready notice">
   @if (plan().readyNotice) {
     <div class="notice">
@@ -62,6 +70,7 @@
     </div>
   }
 </div>
+<ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('readyNotice') }" />
 <div role="status" aria-label="Sideboard over Arena’s cap">
   @if (sideboardOverArenaCap(); as over) {
     <div class="notice">
@@ -94,7 +103,8 @@
 }
 <app-deck-lock-reminder />
 <!-- The Deck tab's tools, in one row that wraps: Queue unpicked, Stacks or list, how the stacks group, Add basics and Export. -->
-<div #tools class="mode-controls">
+<!-- Named as a group for screen readers, and for the alert after it. -->
+<div #tools class="mode-controls" role="group" aria-label="Deck tools">
   @if (offerQueueUnpicked()) {
     <button
       class="button compact secondary"
@@ -144,6 +154,8 @@
   }
   <app-export-buttons />
 </div>
+<!-- A failure from the tools' Queue unpicked, from a drag and drop, or from a row that has since left its plan board. -->
+<ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('tools') }" />
 <!-- A card dragged onto the other plan board moves there: in the wide stacks layout, or the list on desktop. In the wide stacks layout, one dragged onto another mainboard stack is a stack move into it. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
   #stacksArea
@@ -302,7 +314,7 @@
                             type="button"
                             [attr.aria-label]="moveName"
                             [title]="moveName"
-                            (click)="move(card, planBoard.other)"
+                            (click)="move(card, planBoard.other, moveKey(planBoard.name, card))"
                             [appSendsChange]="moveKey(planBoard.name, card)"
                           >
                             <ng-container
@@ -311,6 +323,12 @@
                           </button>
                         }
                       </div>
+                      <ng-container
+                        *ngTemplateOutlet="
+                          failure;
+                          context: { $implicit: rowError(planBoard.name, card) }
+                        "
+                      />
                     </li>
                   }
                 </ul>
@@ -363,7 +381,7 @@
                       type="button"
                       [attr.aria-label]="moveName"
                       [title]="moveName"
-                      (click)="move(line, planBoard.other)"
+                      (click)="move(line, planBoard.other, moveKey(planBoard.name, line))"
                       [appSendsChange]="moveKey(planBoard.name, line)"
                     >
                       <ng-container
@@ -386,6 +404,12 @@
                     </button>
                   }
                 </span>
+                <ng-container
+                  *ngTemplateOutlet="
+                    failure;
+                    context: { $implicit: rowError(planBoard.name, line) }
+                  "
+                />
               </li>
             } @empty {
               <li class="empty">
@@ -402,6 +426,3 @@
     }
   </div>
 </div>
-@if (error(); as message) {
-  <p class="error" role="alert">{{ message }}</p>
-}
