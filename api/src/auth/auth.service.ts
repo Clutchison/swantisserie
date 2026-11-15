@@ -39,18 +39,36 @@ export class AuthService {
     if (!isGuildMember) {
       throw new NotAllowedError(profile.id);
     }
-    const fields = {
+    const bumped = await this.recordUser(profile.id, {
       name: profile.global_name ?? profile.username,
       avatar: profile.avatar,
-    };
-    const bumped = await this.prisma.$transaction(async (tx) => {
+    });
+    await this.pushes.pushAll(bumped);
+    return this.sessions.create(profile.id);
+  }
+
+  /**
+   * Records the user's name and avatar from Discord. When they have changed,
+   * bumps every draft the user plays in or organizes, all of which show them,
+   * in the same transaction. Returns the ids of the drafts bumped, for
+   * `pushAll` once it commits.
+   */
+  private recordUser(
+    id: string,
+    fields: { name: string; avatar: string | null },
+  ): Promise<string[]> {
+    return this.prisma.$transaction(async (tx) => {
       const before = await tx.user.findUnique({
-        where: { id: profile.id },
+        where: { id },
         select: { name: true, avatar: true },
       });
+      // Locks the user's row, then the bump locks the drafts' rows. A locked
+      // draft change, such as a join, holds its draft's row but only a key
+      // share lock on the user's, which this update doesn't wait on, so
+      // neither waits on the other in turn.
       await tx.user.upsert({
-        where: { id: profile.id },
-        create: { id: profile.id, ...fields },
+        where: { id },
+        create: { id, ...fields },
         update: fields,
       });
       // A first sign-in is in no draft yet.
@@ -61,13 +79,8 @@ export class AuthService {
         return [];
       }
       return this.pushes.bump(tx, {
-        OR: [
-          { organizerId: profile.id },
-          { players: { some: { userId: profile.id } } },
-        ],
+        OR: [{ organizerId: id }, { players: { some: { userId: id } } }],
       });
     });
-    await this.pushes.pushAll(bumped);
-    return this.sessions.create(profile.id);
   }
 }

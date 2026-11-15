@@ -371,11 +371,13 @@ describe('signing in again, to the drafts the user is in', () => {
   let bobCookie: string;
   let carolCookie: string;
   /** Organized by Alice: Alice and Bob play in it. It has a webhook. */
-  let both: string;
+  let aliceAndBob: string;
   /** Organized by Alice: Bob alone plays in it. */
-  let bobs: string;
+  let bobAlone: string;
   /** Organized by Alice: Carol alone plays in it. */
-  let carols: string;
+  let carolAlone: string;
+  /** Every draft above. */
+  const everyDraft = () => [aliceAndBob, bobAlone, carolAlone];
   /** Each draft's version before the test's sign-in. */
   let versionsBefore: Map<string, number>;
 
@@ -390,10 +392,15 @@ describe('signing in again, to the drafts the user is in', () => {
     bobCookie = await signIn(bob);
     carolCookie = await signIn(carol);
     const webhookId = await registerWebhook('#roto-main');
-    both = await readyDraft([aliceCookie, bobCookie], 1, undefined, webhookId);
-    bobs = await readyDraft([bobCookie]);
-    carols = await readyDraft([carolCookie]);
-    await announcementsSettled(both);
+    aliceAndBob = await readyDraft(
+      [aliceCookie, bobCookie],
+      1,
+      undefined,
+      webhookId,
+    );
+    bobAlone = await readyDraft([bobCookie]);
+    carolAlone = await readyDraft([carolCookie]);
+    await announcementsSettled(aliceAndBob);
     webhookClient.post.mockClear();
     versionsBefore = await versions();
   });
@@ -405,11 +412,13 @@ describe('signing in again, to the drafts the user is in', () => {
   async function listening() {
     const daveCookie = await signIn(dave);
     return {
-      watching: {
-        [both]: await watch(both, daveCookie),
-        [bobs]: await watch(bobs, daveCookie),
-        [carols]: await watch(carols, daveCookie),
-      },
+      watching: Object.fromEntries(
+        await Promise.all(
+          everyDraft().map(
+            async (id) => [id, await watch(id, daveCookie)] as const,
+          ),
+        ),
+      ),
       rooms: {
         alice: (await listeningToOwnRoom(aliceCookie)).changes,
         bob: (await listeningToOwnRoom(bobCookie)).changes,
@@ -439,11 +448,23 @@ describe('signing in again, to the drafts the user is in', () => {
   async function versions() {
     return new Map(
       await Promise.all(
-        [both, bobs, carols].map(
+        everyDraft().map(
           async (id) =>
             [id, (await getDraft(id).expect(200)).body.version] as const,
         ),
       ),
+    );
+  }
+
+  /**
+   * Signs Bob in renamed, and waits until Bob's room is pushed each of his
+   * drafts once: as its push comes after any an earlier sign-in made, a test
+   * can then tell that sign-in pushed nothing.
+   */
+  async function expectOnlyRenamePushed(bobsRoom: DraftView[]) {
+    await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
+    await expectPushedOnce(bobsRoom, [aliceAndBob, bobAlone], (draft) =>
+      expect(bobIn(draft)).toMatchObject({ name: 'Robert' }),
     );
   }
 
@@ -459,14 +480,18 @@ describe('signing in again, to the drafts the user is in', () => {
 
     const renamed = (draft: DraftView) =>
       expect(bobIn(draft)).toMatchObject({ name: 'Robert' });
-    await expectPushedOnce(pushed.watching[both], [both], renamed);
-    await expectPushedOnce(pushed.watching[bobs], [bobs], renamed);
-    await expectPushedOnce(pushed.rooms.alice, [both], renamed);
-    await expectPushedOnce(pushed.rooms.bob, [both, bobs], renamed);
-    expect(pushed.watching[carols]).toEqual([]);
+    await expectPushedOnce(
+      pushed.watching[aliceAndBob],
+      [aliceAndBob],
+      renamed,
+    );
+    await expectPushedOnce(pushed.watching[bobAlone], [bobAlone], renamed);
+    await expectPushedOnce(pushed.rooms.alice, [aliceAndBob], renamed);
+    await expectPushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], renamed);
+    expect(pushed.watching[carolAlone]).toEqual([]);
     expect(pushed.rooms.carol).toEqual([]);
-    expect((await getDraft(carols).expect(200)).body.version).toBe(
-      versionsBefore.get(carols),
+    expect((await getDraft(carolAlone).expect(200)).body.version).toBe(
+      versionsBefore.get(carolAlone),
     );
   });
 
@@ -478,7 +503,7 @@ describe('signing in again, to the drafts the user is in', () => {
       avatar: 'a_0123456789abcdef0123456789abcdef',
     });
 
-    await expectPushedOnce(pushed.rooms.bob, [both, bobs], (draft) =>
+    await expectPushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], (draft) =>
       expect(bobIn(draft)).toMatchObject({
         avatarUrl: `https://cdn.discordapp.com/avatars/${bob.id}/a_0123456789abcdef0123456789abcdef.png`,
       }),
@@ -497,11 +522,11 @@ describe('signing in again, to the drafts the user is in', () => {
 
     const renamed = (draft: DraftView) =>
       expect(draft.organizer).toEqual({ id: alice.id, name: 'Alicia' });
-    for (const id of [both, bobs, carols]) {
+    for (const id of everyDraft()) {
       await expectPushedOnce(pushed.watching[id], [id], renamed);
     }
-    await expectPushedOnce(pushed.rooms.bob, [both, bobs], renamed);
-    await expectPushedOnce(pushed.rooms.carol, [carols], renamed);
+    await expectPushedOnce(pushed.rooms.bob, [aliceAndBob, bobAlone], renamed);
+    await expectPushedOnce(pushed.rooms.carol, [carolAlone], renamed);
   });
 
   it('bumps and pushes nothing for a sign-in with the same name and avatar', async () => {
@@ -510,11 +535,7 @@ describe('signing in again, to the drafts the user is in', () => {
     await signInThroughDiscord(bobProfile);
 
     expect(await versions()).toEqual(versionsBefore);
-    // Its push comes after any the sign-in above made.
-    await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
-    await expectPushedOnce(pushed.rooms.bob, [both, bobs], (draft) =>
-      expect(bobIn(draft)).toMatchObject({ name: 'Robert' }),
-    );
+    await expectOnlyRenamePushed(pushed.rooms.bob);
   });
 
   it('bumps and pushes nothing for a first sign-in', async () => {
@@ -529,8 +550,7 @@ describe('signing in again, to the drafts the user is in', () => {
 
     await agent.get('/api/auth/me').expect(200);
     expect(await versions()).toEqual(versionsBefore);
-    await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
-    await expectPushedOnce(pushed.rooms.bob, [both, bobs], () => {});
+    await expectOnlyRenamePushed(pushed.rooms.bob);
   });
 
   it('keeps the user’s old name when bumping their drafts fails, and bumps none', async () => {
@@ -546,7 +566,7 @@ describe('signing in again, to the drafts the user is in', () => {
 
     expect(callback.headers.location).toBe('/sign-in?error=failed');
     expect(await versions()).toEqual(versionsBefore);
-    const draft = (await getDraft(both).expect(200)).body as DraftView;
+    const draft = (await getDraft(aliceAndBob).expect(200)).body as DraftView;
     expect(bobIn(draft)).toMatchObject({ name: 'Bob' });
   });
 
@@ -569,18 +589,26 @@ describe('signing in again, to the drafts the user is in', () => {
       .get('/api/auth/me')
       .expect(200)
       .expect((res) => expect(res.body.name).toBe('Robert'));
+    expect(logged).toHaveBeenCalledOnce();
+    const failed = [aliceAndBob, bobAlone].find((id) =>
+      logged.mock.calls.some(
+        ([message, err]) =>
+          message === `Couldn’t publish a change to draft ${id}` &&
+          err instanceof Error,
+      ),
+    );
+    expect(failed).toBeDefined();
+    // The other is still pushed, and the failed one isn't.
     await vi.waitFor(() => expect(bobsRoom).toHaveLength(1));
-    const [failed] = [both, bobs].filter((id) => id !== bobsRoom[0].id);
-    expect(logged).toHaveBeenCalledExactlyOnceWith(
-      expect.stringContaining(failed),
-      expect.any(Error),
+    expect(bobsRoom.map((draft) => draft.id)).toEqual(
+      [aliceAndBob, bobAlone].filter((id) => id !== failed),
     );
   });
 
   it('announces no sign-in', async () => {
     await signInThroughDiscord({ ...bobProfile, global_name: 'Robert' });
 
-    await announcementsSettled(both);
+    await announcementsSettled(aliceAndBob);
     expect(webhookClient.post).not.toHaveBeenCalled();
   });
 });
