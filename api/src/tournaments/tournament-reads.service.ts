@@ -7,14 +7,31 @@ import { READYING_PLAYER, viewerReady } from './ready-rules.js';
 import { NoTournamentError } from './tournament-errors.js';
 import { TOURNAMENT_VIEW, toTournamentView } from './tournament-view.js';
 
+const {
+  user: joiningUser,
+  tournamentEntry: joiningEntry,
+  ...joining
+} = JOINING_PLAYER;
+const {
+  user: readyingUser,
+  tournamentEntry: readyingEntry,
+  ...readying
+} = READYING_PLAYER;
+
 /**
  * What the tournament read reads of the viewer as one of the draft's
  * players: what joining reads, for `viewerJoin`, and what marking ready
- * reads, for `viewerReady`.
+ * reads, for `viewerReady`. Both read the user and the tournament entry, so
+ * each is named once, with the fields of both: spreading one rule's select
+ * over the other's would drop whatever only the first reads of them.
  */
 const TOURNAMENT_VIEWER = {
-  ...JOINING_PLAYER,
-  ...READYING_PLAYER,
+  ...joining,
+  ...readying,
+  user: { select: { ...joiningUser.select, ...readyingUser.select } },
+  tournamentEntry: {
+    select: { ...joiningEntry.select, ...readyingEntry.select },
+  },
 } satisfies Prisma.PlayerSelect;
 
 /** A draft's tournament as it is read, whatever state it is in. */

@@ -84,7 +84,10 @@ describe('organizer reports', () => {
     const invalid = await setGameScore(id, match.id, { games: [2] }).expect(
       400,
     );
-    expect(invalid.body.error).toBe('invalid');
+    expect(invalid.body).toEqual({
+      error: 'invalid',
+      message: 'Report each player’s games won, such as 2–1.',
+    });
     expect((await matchOf(id, bob.id, carol.id)).outcome.kind).toBe(
       'Unreported',
     );
