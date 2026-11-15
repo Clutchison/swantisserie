@@ -2,6 +2,7 @@ import type { TestRequest } from '@angular/common/http/testing';
 import type { ComponentFixture } from '@angular/core/testing';
 import type { App } from '../app';
 import {
+  accessibleName,
   alice,
   button,
   clickBackdrop,
@@ -49,7 +50,9 @@ describe('sending feedback', () => {
     await fixture.whenStable();
   }
 
+  /** Presses Submit as a keyboard user does, focusing it first. */
   async function submit() {
+    anyButton('Submit')!.focus();
     anyButton('Submit')!.click();
     await fixture.whenStable();
     return http.expectOne('/api/feedback');
@@ -58,6 +61,12 @@ describe('sending feedback', () => {
   function succeed(req: TestRequest) {
     req.flush(null, { status: 204, statusText: 'No Content' });
   }
+
+  /** The accessible name of the control with focus, or null if focus is on nothing or the page. */
+  const focused = () =>
+    document.activeElement && document.activeElement !== document.body
+      ? accessibleName(document.activeElement)
+      : null;
 
   /** The response arrives a moment after it is flushed. */
   async function expectThanks() {
@@ -120,17 +129,35 @@ describe('sending feedback', () => {
     succeed(req);
   });
 
-  it('disables Submit while sending, so nothing is sent twice', async () => {
+  it('marks Submit busy while sending, keeping focus on it, so nothing is sent twice', async () => {
     await open();
     await type('Nice app');
 
     const req = await submit();
-    expect(anyButton('Submit')!.disabled).toBe(true);
+    expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBe('true');
+    expect(anyButton('Submit')!.disabled).toBe(false);
+    expect(focused()).toBe('Submit');
     anyButton('Submit')!.click();
     http.expectNone('/api/feedback');
 
     succeed(req);
     await expectThanks();
+  });
+
+  it('puts focus on Submit, inside the dialog, when sending fails', async () => {
+    await open();
+    await type('Nice app');
+
+    (await submit()).flush(null, { status: 500, statusText: 'Server Error' });
+    await vi.waitFor(() => {
+      fixture.detectChanges();
+      expect(dialog()!.querySelector('[role="alert"]')).not.toBeNull();
+    });
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(focused()).toBe('Submit'));
+    expect(dialog()!.contains(document.activeElement)).toBe(true);
+    expect(anyButton('Submit')!.getAttribute('aria-disabled')).toBeNull();
   });
 
   it('thanks the sender on success, with a Close button', async () => {

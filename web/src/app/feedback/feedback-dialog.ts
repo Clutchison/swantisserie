@@ -15,6 +15,7 @@ import {
 } from '@angular/core';
 import { MAX_FEEDBACK_LENGTH, type FeedbackRequest } from 'contract';
 import { firstValueFrom } from 'rxjs';
+import { Changes, ChangeStatus, SendsChange } from '../changes';
 
 /** The id of the feedback dialog's heading, which names it. */
 export const FEEDBACK_HEADING = 'feedback-heading';
@@ -25,6 +26,8 @@ export const FEEDBACK_HEADING = 'feedback-heading';
  */
 @Component({
   selector: 'app-feedback-dialog',
+  imports: [ChangeStatus, SendsChange],
+  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './feedback-dialog.html',
   styleUrls: ['../dialog.scss', './feedback-dialog.scss'],
@@ -35,6 +38,7 @@ export class FeedbackDialog {
   private readonly closeButton = viewChild<ElementRef<HTMLButtonElement>>('closeButton');
   private readonly destroyRef = inject(DestroyRef);
   private readonly dialogRef = inject(DialogRef);
+  private readonly changes = inject(Changes);
 
   protected readonly headingId = FEEDBACK_HEADING;
   /** The thanks' id, which Close, focused on success, is described by. */
@@ -43,11 +47,10 @@ export class FeedbackDialog {
   /** Its form's id, which Submit, outside the form in the action row, submits it by. */
   protected readonly formId = 'feedback-form';
   protected readonly message = signal('');
-  // Stryker disable next-line StringLiteral: the status is only compared with 'Sending', 'Sent' and 'Failed'.
+  // Stryker disable next-line StringLiteral: the status is only compared with 'Sent' and 'Failed'.
   protected readonly status = signal<'Writing' | 'Sending' | 'Sent' | 'Failed'>('Writing');
-  protected readonly canSubmit = computed(
-    () => this.status() !== 'Sending' && !!this.message().trim(),
-  );
+  /** Submit is disabled only while there's nothing to send; while sending, it is busy, keeping focus. */
+  protected readonly canSubmit = computed(() => !!this.message().trim());
 
   constructor() {
     // Success removes the focused field, which would drop focus to the page.
@@ -64,21 +67,26 @@ export class FeedbackDialog {
     this.dialogRef.close();
   }
 
-  protected async submit() {
-    this.status.set('Sending');
-    try {
-      await firstValueFrom(
-        // Closing the dialog discards the feedback, even mid-send.
-        this.http
-          .post('/api/feedback', {
-            message: this.message(),
-            pagePath: this.pagePath(),
-          } satisfies FeedbackRequest)
-          .pipe(takeUntilDestroyed(this.destroyRef)),
-      );
+  /** Sends the feedback: on failure focus is back on Submit, and on success Close takes it. */
+  protected submit() {
+    return this.changes.send(async () => {
+      this.status.set('Sending');
+      try {
+        await firstValueFrom(
+          // Closing the dialog discards the feedback, even mid-send.
+          this.http
+            .post('/api/feedback', {
+              message: this.message(),
+              pagePath: this.pagePath(),
+            } satisfies FeedbackRequest)
+            .pipe(takeUntilDestroyed(this.destroyRef)),
+        );
+      } catch {
+        this.status.set('Failed');
+        return false;
+      }
       this.status.set('Sent');
-    } catch {
-      this.status.set('Failed');
-    }
+      return true;
+    });
   }
 }

@@ -1,9 +1,11 @@
 import { TestBed } from '@angular/core/testing';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import {
+  accessibleName,
   alertIn,
   alice,
   carol,
+  clickOn,
   followBack,
   http,
   openApp,
@@ -90,6 +92,18 @@ describe('reviewing feedback', () => {
   }
   const markReviewed = (item: Element) =>
     [...item.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Mark reviewed')!;
+
+  /** Focuses `control` and presses it, as a keyboard user does. */
+  function press(control: HTMLElement) {
+    control.focus();
+    clickOn(control);
+  }
+
+  /** The accessible name of the control with focus, or null if focus is on nothing or the page. */
+  const focused = () =>
+    document.activeElement && document.activeElement !== document.body
+      ? accessibleName(document.activeElement)
+      : null;
 
   it('links app admins to the page from the header', async () => {
     const { fixture, page } = await openApp('/status', carol);
@@ -185,15 +199,78 @@ describe('reviewing feedback', () => {
   it('holds marking while one item is being marked, then takes the next', async () => {
     const { fixture, page } = await openPage([fromAlice, fromBob]);
 
-    markReviewed(items(page)[0]).click();
+    press(markReviewed(items(page)[0]));
     const put = http.expectOne('/api/admin/feedback/feedback-1/reviewed');
     await fixture.whenStable();
-    expect(items(page).map((item) => markReviewed(item).disabled)).toEqual([true, true]);
+    const busy = () => items(page).map((item) => markReviewed(item).getAttribute('aria-disabled'));
+    expect(busy()).toEqual(['true', 'true']);
+    expect(items(page).map((item) => markReviewed(item).disabled)).toEqual([false, false]);
+    expect(document.activeElement).toBe(markReviewed(items(page)[0]));
+
+    markReviewed(items(page)[1]).click();
+    http.expectNone('/api/admin/feedback/feedback-2/reviewed');
 
     put.flush(null, { status: 204, statusText: 'No Content' });
     (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([fromBob]);
     await fixture.whenStable();
-    expect(markReviewed(items(page)[0]).disabled).toBe(false);
+    await vi.waitFor(() => expect(busy()).toEqual([null]));
+  });
+
+  describe('focus once marking settles', () => {
+    it("moves to the next item's Mark reviewed", async () => {
+      const { fixture, page } = await openPage([fromAlice, fromBob]);
+
+      press(markReviewed(items(page)[0]));
+      http
+        .expectOne('/api/admin/feedback/feedback-1/reviewed')
+        .flush(null, { status: 204, statusText: 'No Content' });
+      (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([fromBob]);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(focused()).toBe('Mark reviewed'));
+      expect(document.activeElement).toBe(markReviewed(items(page)[0]));
+      expect(items(page)[0].textContent).toContain('Bob');
+    });
+
+    it('moves to the nearest control before the last item', async () => {
+      const { fixture, page } = await openPage([fromAlice, fromBob]);
+
+      press(markReviewed(items(page)[1]));
+      http
+        .expectOne('/api/admin/feedback/feedback-2/reviewed')
+        .flush(null, { status: 204, statusText: 'No Content' });
+      (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([fromAlice]);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(focused()).toBe('Mark reviewed'));
+      expect(document.activeElement).toBe(markReviewed(items(page)[0]));
+      expect(items(page)[0].textContent).toContain('Alice');
+    });
+
+    it('moves to the selected tab once the only item has gone', async () => {
+      const { fixture, page } = await openPage([fromAlice]);
+
+      press(markReviewed(items(page)[0]));
+      http
+        .expectOne('/api/admin/feedback/feedback-1/reviewed')
+        .flush(null, { status: 204, statusText: 'No Content' });
+      (await vi.waitFor(() => http.expectOne('/api/admin/feedback'))).flush([]);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(focused()).toBe('Unreviewed'));
+      expect(document.activeElement).toBe(tab(page, 'Unreviewed'));
+    });
+
+    it('stays on Mark reviewed when marking fails', async () => {
+      const { fixture, page } = await openPage([fromAlice, fromBob]);
+
+      press(markReviewed(items(page)[0]));
+      http.expectOne('/api/admin/feedback/feedback-1/reviewed').flush(null, serverError);
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain('try again'));
+      await fixture.whenStable();
+
+      expect(document.activeElement).toBe(markReviewed(items(page)[0]));
+    });
   });
 
   it('clears the failure once marking works', async () => {
@@ -282,6 +359,21 @@ describe('reviewing feedback', () => {
 
       expect(openDialog()).toBeNull();
       expect(page.querySelector('main')?.textContent).toContain('No reviewed feedback yet');
+    });
+
+    it("moves focus to the next item's Mark unreviewed once marking settles", async () => {
+      const reviewedBob: ReviewedFeedbackView = { ...fromBob, ...reviewedByCarol, id: fromBob.id };
+      const { fixture, page } = await openReviewed([reviewedByCarol, reviewedBob]);
+
+      press(markUnreviewed(items(page)[0]));
+      http
+        .expectOne('/api/admin/feedback/feedback-1/reviewed')
+        .flush(null, { status: 204, statusText: 'No Content' });
+      (await vi.waitFor(() => http.expectOne('/api/admin/feedback/reviewed'))).flush([reviewedBob]);
+      await fixture.whenStable();
+
+      await vi.waitFor(() => expect(focused()).toBe('Mark unreviewed'));
+      expect(document.activeElement).toBe(markUnreviewed(items(page)[0]));
     });
 
     it('keeps the item and says so when marking unreviewed fails', async () => {
