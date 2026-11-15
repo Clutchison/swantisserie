@@ -22,14 +22,8 @@ import type {
 import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
-import {
-  hasTurn,
-  isDoubleTurnRound,
-  isRefusal,
-  PLAYERS_CHANGE_FAILED,
-  sendDraftChange,
-  turnWords,
-} from './drafts';
+import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
+import { isDoubleTurnRound, turnWords } from './turns';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';

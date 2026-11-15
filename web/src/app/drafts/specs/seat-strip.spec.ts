@@ -12,7 +12,6 @@ import {
   findPlayersBesideTabs,
   findQueuePane,
   flushPicks,
-  flushQueue,
   flushQueueAndPlan,
   heading,
   http,
@@ -28,7 +27,6 @@ import {
   withDoubleTurns,
 } from './harness';
 import { clickBackdrop, clickOn, pressEscape, pressKey, pressPointerOn } from '../../specs-harness';
-import { EMPTY_QUEUE } from '../drafts';
 import { plainlyHeaded } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import {
@@ -602,8 +600,8 @@ describe('the Seat strip', () => {
       const { fixture, page } = await openDraft(completeSnapshot, atPick(1, alice.id));
 
       window.dispatchEvent(new Event('focus'));
-      // The page re-reads the queue as the window takes focus.
-      await flushQueue(EMPTY_QUEUE);
+      // The page re-reads the queue and plan as the window takes focus.
+      await flushQueueAndPlan();
       await fixture.whenStable();
       beatEnds(stripSeats(page)[0]!);
 

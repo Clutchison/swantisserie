@@ -1,4 +1,6 @@
+import { respondWithCancelProbe } from '../testing/cancel-probe.js';
 import { hangOnce } from '../testing/hanging-fetch.js';
+import { Deadline } from '../deadline.js';
 import { FetchDiscordClient } from './discord-client.js';
 import { DiscordConfig } from './discord-config.js';
 
@@ -34,11 +36,40 @@ describe('FetchDiscordClient', () => {
     fetch.mockResolvedValueOnce(Response.json(body, { status }));
   }
 
+  /** Answers the next request with a 429 whose `Retry-After` says `seconds`. */
+  function respondRateLimited(seconds: number) {
+    fetch.mockResolvedValueOnce(
+      Response.json(
+        { message: 'You are being rate limited.', retry_after: seconds },
+        { status: 429, headers: { 'Retry-After': String(seconds) } },
+      ),
+    );
+  }
+
+  /** A deadline far enough off that no spec's wait reaches it. */
+  function farDeadline() {
+    return new Deadline('sign-in', 60 * 60_000);
+  }
+
+  /** Whether `promise` has settled, without waiting for it. */
+  async function hasSettled(promise: Promise<unknown>): Promise<boolean> {
+    let settled = false;
+    promise.then(
+      () => (settled = true),
+      () => (settled = true),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
+    return settled;
+  }
+
   describe('exchangeCode', () => {
     it('sends the code form-encoded with the app’s Basic auth, and returns the access token', async () => {
       respond(200, { access_token: 'token-1', token_type: 'Bearer' });
 
-      expect(await discord.exchangeCode('code-1')).toBe('token-1');
+      expect(await discord.exchangeCode('code-1', farDeadline())).toBe(
+        'token-1',
+      );
 
       const [url, init] = fetch.mock.calls[0];
       expect(url).toBe('https://discord.com/api/v10/oauth2/token');
@@ -60,7 +91,83 @@ describe('FetchDiscordClient', () => {
     it('throws when Discord refuses the code', async () => {
       respond(400, { error: 'invalid_grant' });
 
-      await expect(discord.exchangeCode('code-1')).rejects.toThrow();
+      await expect(
+        discord.exchangeCode('code-1', farDeadline()),
+      ).rejects.toThrow();
+    });
+
+    it('waits as long as a 429’s Retry-After says, then sends the code once more and returns the access token', async () => {
+      vi.useFakeTimers();
+      respondRateLimited(5);
+      respond(200, { access_token: 'token-1', token_type: 'Bearer' });
+
+      const token = discord.exchangeCode('code-1', farDeadline());
+      await vi.advanceTimersByTimeAsync(4_999);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(await token).toBe('token-1');
+      expect(fetch).toHaveBeenCalledTimes(2);
+      expect(fetch.mock.calls[1][1]?.body).toEqual(
+        fetch.mock.calls[0][1]?.body,
+      );
+    });
+
+    it('holds a call made during a 429’s wait, such as another sign-in’s, until the wait has passed', async () => {
+      vi.useFakeTimers();
+      respondRateLimited(5);
+      respond(200, { access_token: 'token-1', token_type: 'Bearer' });
+      respond(200, { access_token: 'token-2', token_type: 'Bearer' });
+
+      const first = discord.exchangeCode('code-1', farDeadline());
+      await vi.advanceTimersByTimeAsync(1_000);
+      const second = discord.exchangeCode('code-2', farDeadline());
+      await vi.advanceTimersByTimeAsync(3_999);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+
+      expect(await first).toBe('token-1');
+      expect(await second).toBe('token-2');
+    });
+
+    it('fails when Discord answers the retry with a 429 too', async () => {
+      vi.useFakeTimers();
+      respondRateLimited(5);
+      respondRateLimited(5);
+
+      const token = discord.exchangeCode('code-1', farDeadline());
+      const outcome = token.then(
+        () => 'resolved',
+        (err: unknown) => err,
+      );
+      await vi.advanceTimersByTimeAsync(5_000);
+
+      expect(await outcome).toBeInstanceOf(Error);
+      expect(fetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('fails at once when a 429’s wait would end past the deadline, and holds the next call', async () => {
+      vi.useFakeTimers();
+      respondRateLimited(30);
+      respond(200, { access_token: 'token-2', token_type: 'Bearer' });
+
+      const token = discord.exchangeCode(
+        'code-1',
+        new Deadline('sign-in', 25_000),
+      );
+      const outcome = token.then(
+        () => 'resolved',
+        (err: unknown) => err,
+      );
+      await vi.advanceTimersByTimeAsync(0);
+      expect(await hasSettled(outcome)).toBe(true);
+      expect(await outcome).toBeInstanceOf(Error);
+
+      const next = discord.exchangeCode('code-2', farDeadline());
+      await vi.advanceTimersByTimeAsync(29_999);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await next).toBe('token-2');
     });
   });
 
@@ -68,7 +175,9 @@ describe('FetchDiscordClient', () => {
     it('returns the signed-in user’s profile', async () => {
       respond(200, profile);
 
-      expect(await discord.getCurrentUser('token-1')).toEqual(profile);
+      expect(await discord.getCurrentUser('token-1', farDeadline())).toEqual(
+        profile,
+      );
 
       const [url, init] = fetch.mock.calls[0];
       expect(url).toBe('https://discord.com/api/v10/users/@me');
@@ -82,7 +191,9 @@ describe('FetchDiscordClient', () => {
     it('is true when the user is in the guild', async () => {
       respond(200, { nick: null, roles: [] });
 
-      expect(await discord.isGuildMember('token-1', 'guild-1')).toBe(true);
+      expect(
+        await discord.isGuildMember('token-1', 'guild-1', farDeadline()),
+      ).toBe(true);
 
       const [url, init] = fetch.mock.calls[0];
       expect(url).toBe(
@@ -93,17 +204,63 @@ describe('FetchDiscordClient', () => {
       );
     });
 
+    it('cancels the body of a member’s answer, which it doesn’t read', async () => {
+      const probe = respondWithCancelProbe(fetch, 200);
+
+      expect(
+        await discord.isGuildMember('token-1', 'guild-1', farDeadline()),
+      ).toBe(true);
+      expect(probe.cancelled).toBe(true);
+    });
+
+    it('cancels the body of a 404, which it doesn’t read', async () => {
+      const probe = respondWithCancelProbe(fetch, 404);
+
+      expect(
+        await discord.isGuildMember('token-1', 'guild-1', farDeadline()),
+      ).toBe(false);
+      expect(probe.cancelled).toBe(true);
+    });
+
     it('is false when the user isn’t in the guild', async () => {
       respond(404, { message: 'Unknown Guild', code: 10004 });
 
-      expect(await discord.isGuildMember('token-1', 'guild-1')).toBe(false);
+      expect(
+        await discord.isGuildMember('token-1', 'guild-1', farDeadline()),
+      ).toBe(false);
     });
   });
 
+  it('holds a token exchange made during a 429’s wait on another call, such as another sign-in’s user read, until the wait has passed', async () => {
+    vi.useFakeTimers();
+    respondRateLimited(5);
+    // The two calls are sent again at the same moment, in either order.
+    fetch.mockImplementation((url) =>
+      Promise.resolve(
+        typeof url === 'string' && url.endsWith('/oauth2/token')
+          ? Response.json({ access_token: 'token-2', token_type: 'Bearer' })
+          : Response.json(profile),
+      ),
+    );
+
+    const user = discord.getCurrentUser('token-1', farDeadline());
+    await vi.advanceTimersByTimeAsync(1_000);
+    const token = discord.exchangeCode('code-2', farDeadline());
+    await vi.advanceTimersByTimeAsync(3_999);
+    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+
+    expect(await token).toBe('token-2');
+    expect(await user).toEqual(profile);
+  });
+
   const calls: [string, () => Promise<unknown>][] = [
-    ['exchangeCode', () => discord.exchangeCode('code-1')],
-    ['getCurrentUser', () => discord.getCurrentUser('token-1')],
-    ['isGuildMember', () => discord.isGuildMember('token-1', 'guild-1')],
+    ['exchangeCode', () => discord.exchangeCode('code-1', farDeadline())],
+    ['getCurrentUser', () => discord.getCurrentUser('token-1', farDeadline())],
+    [
+      'isGuildMember',
+      () => discord.isGuildMember('token-1', 'guild-1', farDeadline()),
+    ],
   ];
 
   describe.each(calls)('%s', (_, call) => {
@@ -111,6 +268,13 @@ describe('FetchDiscordClient', () => {
       respond(503);
 
       await expect(call()).rejects.toThrow();
+    });
+
+    it('cancels the body of a server error, which it doesn’t read', async () => {
+      const probe = respondWithCancelProbe(fetch, 503);
+
+      await expect(call()).rejects.toThrow();
+      expect(probe.cancelled).toBe(true);
     });
 
     it('throws when Discord can’t be reached', async () => {
