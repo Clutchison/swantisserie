@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isRecord } from '../http/json-guards.js';
 import {
   fetchWithTimeout,
   UnreachableError,
@@ -136,8 +137,4 @@ function toCube(body: unknown): Cube {
       };
     }),
   };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }

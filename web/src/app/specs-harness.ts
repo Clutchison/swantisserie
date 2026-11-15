@@ -52,9 +52,16 @@ export function onlyAlert(root: HTMLElement) {
   return alerts[0];
 }
 
+/**
+ * A list item by role: an element given the role, or an `li` with no role of
+ * its own in a list, which is the only place an `li` is one.
+ */
+const LIST_ITEM =
+  ':is(ul:not([role]), ol:not([role]), menu:not([role]), [role="list"]) > li:not([role]), [role="listitem"]';
+
 /** The text of each list item inside `root`, by role, trimmed and in reading order. */
 export const listItemTextsIn = (root: HTMLElement) =>
-  [...root.querySelectorAll('li, [role="listitem"]')].map((item) => item.textContent?.trim());
+  [...root.querySelectorAll(LIST_ITEM)].map((item) => item.textContent?.trim());
 
 /**
  * How `statusIn` finds a status region: by its accessible name (its

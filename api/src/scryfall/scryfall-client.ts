@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import type { CardImages, Rarity } from 'contract';
+import { isRecord } from '../http/json-guards.js';
 import {
   cancelBody,
   fetchWithTimeout,
@@ -423,10 +424,6 @@ function warningsIn(value: unknown): string[] {
 /** Whether `value` is a string, or absent or null as Scryfall's nullable fields may be. */
 function isOptionalString(value: unknown): value is string | null | undefined {
   return value === undefined || value === null || typeof value === 'string';
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
 }
 
 /** Whether a retry might help: a server error or no answer at all, but not rate limiting. */

@@ -598,10 +598,7 @@ describe('create form', () => {
 
     const error = alertIn(page)!;
     expect(error.textContent).toContain('2 cards in this pool query are not on Arena.');
-    expect([...error.querySelectorAll('li')].map((li) => li.textContent?.trim())).toEqual([
-      'Ancient Hellkite',
-      'Dream Pillager',
-    ]);
+    expect(listItemTextsIn(error)).toEqual(['Ancient Hellkite', 'Dream Pillager']);
     expect(router.url).toBe('/drafts/new');
   });
 

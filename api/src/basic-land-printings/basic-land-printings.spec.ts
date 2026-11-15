@@ -36,7 +36,7 @@ function stored(land: string): Promise<BasicLandPrintingsView> {
   });
 }
 
-/** Searches a refresh makes: one page for each basic land but Wastes. */
+/** Searches a refresh makes: one page for each basic land (Plains, Island, Swamp, Mountain, Forest). */
 const SEARCHES_PER_REFRESH = 5;
 
 /**
@@ -217,7 +217,7 @@ it('answers at once while the first refresh runs, and starts no second one', asy
 
   answerIsland();
   await stored('Island');
-  // One search per basic land, Wastes not among them: the later requests started no refresh of their own.
+  // One search per basic land, none for Wastes, which isn't one: the later requests started no refresh of their own.
   expect(scryfall.search).toHaveBeenCalledTimes(5);
   expect(scryfall.search).not.toHaveBeenCalledWith(
     '!"Wastes" lang:en unique:prints',

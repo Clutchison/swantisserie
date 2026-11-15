@@ -24,16 +24,16 @@ export class CubeLinkError extends Error {
 
 /**
  * Says how many of a pool source's cards (`where`, e.g. "in this cube")
- * aren't on the platform, without a closing full stop.
+ * aren't on the platform.
  */
-export function notOnPlatformSentence(
+export function notOnPlatformMessage(
   count: number,
   where: string,
   platform: string,
 ): string {
   return count === 1
-    ? `1 card ${where} is not on ${platform}`
-    : `${count} cards ${where} are not on ${platform}`;
+    ? `1 card ${where} is not on ${platform}.`
+    : `${count} cards ${where} are not on ${platform}.`;
 }
 
 /**
