@@ -14,5 +14,6 @@ Only the api decides who may organize a draft, add bots and switch its announcem
 ## Consequences
 
 - The web reads the powers once, not every time the draft's `version` changes. A viewer's powers depend only on who they are and the draft's organizer and guild, and none of these change while the draft runs (guild-admin status is refreshed at sign-in). Conditions that depend on the draft's state, such as adding bots only in the lobby, are still read from `DraftView`.
+- If the read of the powers fails, the web shows none of the controls they gate and says on the draft page that it couldn't load them, so a failure doesn't pass for having no powers. It doesn't read them again (#814).
 - The api's draft access seam (#299) answers both the access checks and the powers view, so the two can't drift apart.
 - `UserView.isAppAdmin` stays only for app-admin pages that aren't about a draft: App version, Feedback and Webhooks.
