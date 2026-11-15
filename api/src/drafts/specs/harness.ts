@@ -7,9 +7,11 @@ import type {
 } from 'contract';
 import { Logger } from '@nestjs/common';
 import request from 'supertest';
+import type { MockInstance } from 'vitest';
 import { DraftNotifier } from '../../discord/draft-notifier.js';
 import { BotPickDelay, BotPickRetries } from '../bot-players.js';
 import { DraftPublisher } from '../draft-publisher.js';
+import { pushFailedMessage } from '../draft-pushes.js';
 import {
   ScryfallCard,
   ScryfallSearchPage,
@@ -92,6 +94,21 @@ export function failNextPublish(err = new Error('Connection dropped')) {
   return vi
     .spyOn(DraftPublisher.prototype, 'publish')
     .mockRejectedValueOnce(err);
+}
+
+/**
+ * Each push or publish of one of `draftIds` that `logged`, a spy on
+ * Logger's `error`, says failed, in the order logged, with the error logged.
+ */
+export function failedPushes(
+  logged: MockInstance<Logger['error']>,
+  draftIds: string[],
+): { draftId: string; err: unknown }[] {
+  return logged.mock.calls.flatMap(([message, err]) =>
+    draftIds
+      .filter((draftId) => message === pushFailedMessage(draftId))
+      .map((draftId) => ({ draftId, err })),
+  );
 }
 
 /**

@@ -1,10 +1,13 @@
 import { Module } from '@nestjs/common';
+import { DraftPushesModule } from '../drafts/draft-pushes.module.js';
 import { DiscordClient, FetchDiscordClient } from './discord-client.js';
 import { DiscordConfig } from './discord-config.js';
 import { DraftNotifier, DraftNotifierRetries } from './draft-notifier.js';
 import { FetchWebhookClient, WebhookClient } from './webhook-client.js';
 
 @Module({
+  // Below the drafts module, so the notifier can push drafts without a cycle.
+  imports: [DraftPushesModule],
   providers: [
     {
       provide: DiscordConfig,
