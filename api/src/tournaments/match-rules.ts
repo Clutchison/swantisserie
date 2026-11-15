@@ -1,6 +1,10 @@
 import type { TournamentRefusal } from 'contract';
-import type { MatchOutcomeKind } from '../generated/prisma/client.js';
+import type {
+  MatchOutcomeKind,
+  TournamentState,
+} from '../generated/prisma/client.js';
 import type { MatchChange } from './change-steps.js';
+import { NOT_PLAYING } from './tournament-errors.js';
 
 /**
  * The rules of a match that both enforce a change and tell the web, through
@@ -8,34 +12,39 @@ import type { MatchChange } from './change-steps.js';
  * report or confirm it and what clearing it leaves.
  */
 
-/**
- * A match as its rules read it: its players, in its order, `bots` saying
- * whether each is a bot, which never reports or confirms (ADR 0008).
- */
-interface RuledMatch {
-  players: readonly (string | undefined)[];
-  bots: readonly boolean[];
+/** A player of a match as its rules read them. */
+export interface MatchPlayer {
+  userId: string;
+  /** Whether they are a bot, which never reports or confirms (ADR 0008). */
+  bot: boolean;
+  dropped: boolean;
+}
+
+/** A match as its rules read it: its outcome and its players, in its order. */
+interface MatchOfRules {
+  players: readonly MatchPlayer[];
   outcome: MatchOutcomeKind;
 }
 
-/**
- * Whether the draft's user `userId` is one of `match`'s players who may
- * act on it: not a bot.
- */
-function actsIn(match: RuledMatch, userId: string): boolean {
-  const index = match.players.indexOf(userId);
-  return index >= 0 && !match.bots[index];
+/** Whether the draft's user `userId` is one of `match`'s players who isn't a bot. */
+function isHumanPlayer(match: MatchOfRules, userId: string): boolean {
+  return match.players.some(
+    (player) => player.userId === userId && !player.bot,
+  );
 }
 
 /**
- * Why the draft's user `userId` may not report `match`; null when they
- * may: one of its players, while it is unreported.
+ * Why the draft's user `userId` may not report `match`, of a tournament in
+ * `state`; null when they may: one of its players, while the tournament
+ * is playing and the match is unreported.
  */
 export function reportRefusal(
-  match: RuledMatch,
+  state: TournamentState,
+  match: MatchOfRules,
   userId: string,
 ): TournamentRefusal | null {
-  if (!actsIn(match, userId)) {
+  if (state !== 'Playing') return NOT_PLAYING;
+  if (!isHumanPlayer(match, userId)) {
     return {
       error: 'not-your-match',
       message: 'Only a match’s own players can report it.',
@@ -55,10 +64,10 @@ export function reportRefusal(
  * may: one of its players, with a game score someone else reported.
  */
 export function confirmRefusal(
-  match: RuledMatch & { reportedById: string | null },
+  match: MatchOfRules & { reportedById: string | null },
   userId: string,
 ): TournamentRefusal | null {
-  if (!actsIn(match, userId)) {
+  if (!isHumanPlayer(match, userId)) {
     return {
       error: 'not-your-match',
       message: 'Only a match’s own players can confirm it.',
@@ -80,14 +89,14 @@ export function confirmRefusal(
 }
 
 /**
- * The change clearing a match writes, `dropped` saying whether each of its
- * players, in its order, has dropped: the forfeit of one who has,
- * otherwise unreported.
+ * The change clearing a match, whose players in its order are `first` and
+ * `second`, writes: the forfeit of one who has dropped, otherwise
+ * unreported.
  */
-export function clearing(dropped: readonly boolean[]): MatchChange {
-  const forfeitedBy = dropped[0]
+export function clearing([first, second]: readonly MatchPlayer[]): MatchChange {
+  const forfeitedBy = first.dropped
     ? ('First' as const)
-    : dropped[1]
+    : second.dropped
       ? ('Second' as const)
       : null;
   return {

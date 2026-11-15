@@ -9,6 +9,7 @@ import { DraftGoneError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import type { TournamentProgress } from './round-steps.js';
+import type { MatchPlayer } from './match-rules.js';
 import { droppable, ENTRY_OF_MATCH } from './tournament-matches.js';
 import {
   BOT_ENTRY,
@@ -110,8 +111,8 @@ export class TournamentLock {
 
 /**
  * The tournament's match `matchId`, with its tournament round, and its
- * players' Discord user ids and whether each has dropped, in its player
- * order.
+ * players in its order: their Discord user ids, and whether each is a bot
+ * and has dropped.
  * Throws NoMatchError if it has no such match; a bye is no match.
  */
 export async function findMatch(
@@ -134,12 +135,13 @@ export async function findMatch(
     round: match.round,
     outcome: match.outcome,
     reportedById: match.reportedById,
-    players: [match.firstEntry.player.userId, match.secondEntry?.player.userId],
-    dropped: [match.firstEntry.dropped, !!match.secondEntry?.dropped],
-    bots: [
-      match.firstEntry.player.user.isBot,
-      !!match.secondEntry?.player.user.isBot,
-    ],
+    players: [match.firstEntry, match.secondEntry!].map(
+      (entry): MatchPlayer => ({
+        userId: entry.player.userId,
+        bot: entry.player.user.isBot,
+        dropped: entry.dropped,
+      }),
+    ),
   };
 }
 

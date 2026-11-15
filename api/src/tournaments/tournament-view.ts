@@ -25,10 +25,15 @@ import {
   type RoundAndBracketPlace,
   type TournamentMatch,
 } from 'engine';
-import { Prisma } from '../generated/prisma/client.js';
+import { Prisma, type TournamentState } from '../generated/prisma/client.js';
 import { reinstateRefusalOf } from './change-steps.js';
 import { correctionRefusal } from './correction-refusal.js';
-import { clearing, confirmRefusal, reportRefusal } from './match-rules.js';
+import {
+  clearing,
+  confirmRefusal,
+  type MatchPlayer,
+  reportRefusal,
+} from './match-rules.js';
 import { droppable } from './tournament-matches.js';
 import { offersReopenRound, reopenRoundOf } from './reopen-round.js';
 
@@ -125,14 +130,10 @@ type MatchRow = TournamentRow['matches'][number];
  */
 export function toTournamentView(row: TournamentRow): TournamentView {
   const order = new Map(row.entries.map((entry, i) => [entry.id, i]));
-  const userOf = new Map(
-    row.entries.map((entry) => [entry.id, entry.player.userId]),
-  );
-  const user = (entryId: string) => userOf.get(entryId)!;
   const entryById = new Map(row.entries.map((entry) => [entry.id, entry]));
-  const playing = row.state === 'Playing';
-  const toMatch = (match: MatchRow) =>
-    toMatchView(match, (entryId) => entryById.get(entryId)!, playing);
+  const entryOf = (entryId: string) => entryById.get(entryId)!;
+  const user = (entryId: string) => entryOf(entryId).player.userId;
+  const toMatch = (match: MatchRow) => toMatchView(match, entryOf, row.state);
 
   const rounds: TournamentRoundView[] = [];
   const sorted = [...row.matches].sort(
@@ -403,30 +404,29 @@ export function roundCount(
 
 /**
  * `match` as the read shows it, `entryOf` giving the tournament entry of
- * an entry id, in a tournament `playing` or not: with who may report and
- * confirm it, as reporting and confirming decide, and what clearing it
- * would leave, as clearing does.
+ * an entry id, in a tournament in `state`: with who may report and confirm
+ * it, as reporting and confirming decide, and what clearing it would
+ * leave, as clearing does.
  */
 function toMatchView(
   match: MatchRow,
   entryOf: (entryId: string) => TournamentRow['entries'][number],
-  playing: boolean,
+  state: TournamentState,
 ): MatchView {
-  const entries = [match.firstEntryId, match.secondEntryId!].map(entryOf);
-  const players = entries.map((entry) => entry.player.userId) as [
+  const matchPlayers = [match.firstEntryId, match.secondEntryId!]
+    .map(entryOf)
+    .map((entry): MatchPlayer => ({
+      userId: entry.player.userId,
+      bot: entry.player.user.isBot,
+      dropped: entry.dropped,
+    }));
+  const players = matchPlayers.map((player) => player.userId) as [
     string,
     string,
   ];
-  const ruled = {
-    ...match,
-    players,
-    bots: entries.map((entry) => entry.player.user.isBot),
-  };
+  const ofRules = { ...match, players: matchPlayers };
   const outcome = toOutcome(match, players);
-  const cleared = toOutcome(
-    clearing(entries.map((entry) => entry.dropped)),
-    players,
-  );
+  const cleared = toOutcome(clearing(matchPlayers), players);
   return {
     id: match.id,
     players,
@@ -434,12 +434,12 @@ function toMatchView(
     outcome,
     reportedBy: match.reportedById,
     confirmed: match.confirmed,
-    reportableBy: playing
-      ? players.filter((player) => reportRefusal(ruled, player) === null)
-      : [],
+    reportableBy: players.filter(
+      (player) => reportRefusal(state, ofRules, player) === null,
+    ),
     confirmableBy: match.confirmed
       ? []
-      : players.filter((player) => confirmRefusal(ruled, player) === null),
+      : players.filter((player) => confirmRefusal(ofRules, player) === null),
     clearLeaves: sameOutcome(cleared, outcome) ? null : cleared,
   };
 }

@@ -31,13 +31,27 @@ const bot = { ...carol, name: 'Bot 1', isBot: true };
 /** The draft of Alice, Bob and the bot. */
 const withBot = { fields: { players: [alicePlayer, bob, bot] } };
 
-/** `tournament` as the api reads it with the bot in Carol's seat: the bot can't be dropped. */
-const botStaysIn = (tournament: ViewerTournamentView): ViewerTournamentView => ({
-  ...tournament,
-  entries: tournament.entries.map((entry) =>
-    entry.playerId === bot.id ? { ...entry, droppable: false } : entry,
-  ),
-});
+/**
+ * `tournament` as the api reads it with the bot in Carol's seat: the bot
+ * can't be dropped, and may report or confirm none of its matches.
+ */
+const botStaysIn = (tournament: ViewerTournamentView): ViewerTournamentView => {
+  const human = (id: string) => id !== bot.id;
+  return {
+    ...tournament,
+    entries: tournament.entries.map((entry) =>
+      entry.playerId === bot.id ? { ...entry, droppable: false } : entry,
+    ),
+    rounds: tournament.rounds.map((round) => ({
+      ...round,
+      matches: round.matches.map((match) => ({
+        ...match,
+        reportableBy: match.reportableBy.filter(human),
+        confirmableBy: match.confirmableBy.filter(human),
+      })),
+    })),
+  };
+};
 
 /** Opens the Play tab of the draft of Alice, Bob and the bot, with `tournament`, for an organizer. */
 const openWithBot = (tournament: ViewerTournamentView) =>

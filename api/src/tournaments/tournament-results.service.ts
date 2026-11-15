@@ -34,7 +34,7 @@ export class TournamentResultsService {
   ): Promise<void> {
     await this.lock.inPlay(draftId, async (tx, tournament) => {
       const match = await findMatch(tx, tournament.id, matchId);
-      const refusal = reportRefusal(match, userId);
+      const refusal = reportRefusal(tournament.state, match, userId);
       if (refusal) throw new TournamentRefusedError(refusal);
       const problem = reportProblem(games);
       if (problem) throw new TournamentRefusedError(problem);
@@ -112,7 +112,7 @@ export class TournamentResultsService {
       refuseFinal(tournament, match.round);
       await tx.match.update({
         where: { id: matchId },
-        data: clearing(match.dropped),
+        data: clearing(match.players),
       });
     });
   }
