@@ -323,6 +323,28 @@ button:focus-visible,
   }
 }
 
+/*
+ * A text field's shape and text size, the same everywhere: a component sets
+ * only a field's layout. Its colors are in the rule below. Its text is never
+ * smaller than the body's, so a phone doesn't zoom in on tap, nor bold inside
+ * a bold label. Checkboxes, radios and file inputs aren't text fields.
+ */
+input:not([type='checkbox'], [type='radio'], [type='file']),
+select,
+textarea {
+  padding: var(--space-sm);
+  border-width: 1px;
+  border-style: solid;
+  border-radius: 0.25rem;
+  font-weight: normal;
+  font-size: max(1em, var(--font-size-md));
+}
+
+/* Safari's native search field ignores the padding and corners. */
+input[type='search'] {
+  appearance: none;
+}
+
 input,
 select,
 textarea {

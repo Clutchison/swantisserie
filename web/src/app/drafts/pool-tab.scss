@@ -39,11 +39,6 @@ $avatar-size: 32px;
 .search {
   box-sizing: border-box;
   width: 100%;
-  padding: var(--space-sm);
-  border: 1px solid var(--color-muted);
-  border-radius: 0.5rem;
-  /* 16px or more, so phones don't zoom in on focus. */
-  font-size: var(--font-size-md);
 }
 
 /* Hide picked and the color filter take the shared toggle button style; Hide picked keeps its width in the search bar's row. */
