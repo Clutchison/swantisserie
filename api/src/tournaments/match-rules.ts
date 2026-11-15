@@ -1,9 +1,9 @@
 import type { TournamentRefusal } from 'contract';
 import type {
   MatchOutcomeKind,
+  MatchSide,
   TournamentState,
 } from '../generated/prisma/client.js';
-import type { MatchChange } from './change-steps.js';
 import { type RoundStateRow, finalResultsRefusal } from './final-results.js';
 import { NOT_PLAYING } from './tournament-errors.js';
 
@@ -92,6 +92,22 @@ export function confirmRefusal(
     };
   }
   return null;
+}
+
+/**
+ * What a player's report, or an organizer's correction or clear, writes to
+ * a match: its new outcome, every field only another outcome uses back to
+ * its default.
+ */
+export interface MatchChange {
+  outcome: MatchOutcomeKind;
+  firstGames: number;
+  secondGames: number;
+  drawnGames: number;
+  forfeitedBy: MatchSide | null;
+  grantedTo: null;
+  reportedById: string | null;
+  confirmed: false;
 }
 
 /**
