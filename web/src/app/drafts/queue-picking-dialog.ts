@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   inject,
+  input,
   signal,
   untracked,
 } from '@angular/core';
@@ -30,8 +31,10 @@ export type QueuePickingResult =
  * picking them, once the player confirms. Should the api refuse them, as the
  * queue would now pick others, it says so, catches up, and names the cards
  * as they now are to confirm; if there are none, it closes, as there is
- * nothing to ask. It opens on Cancel, which leaves the queue paused, and
- * closes once the change is made, or fails for any other reason.
+ * nothing to ask. Should its cards drop to none otherwise, as when the turn
+ * passes while it is open, it closes as Cancel does. It opens on Cancel,
+ * which leaves the queue paused, and closes once the change is made, or
+ * fails for any other reason.
  */
 @Component({
   selector: 'app-queue-picking-dialog',
@@ -53,6 +56,11 @@ export class QueuePickingDialog {
   protected readonly picksText = computed(
     () => `${this.picks().length} ${cardsNoun(this.picks().length)}`,
   );
+  /**
+   * Whether it opened on a refusal of queue picking with none, as the queue
+   * would pick cards after all: the player asked for queue picking already.
+   */
+  readonly afterRefusal = input(false);
   /** Whether setting it queue picking is on its way. */
   protected readonly sending = signal(false);
   /** Why the cards last confirmed were refused, if they were. */
@@ -61,11 +69,15 @@ export class QueuePickingDialog {
   protected readonly rereading = this.store.rereadingQueuePicks;
 
   constructor() {
-    // Once a refusal's re-reads settle on no cards to pick, there is nothing to confirm.
+    // Once the cards settle on none, with no confirm on its way, there is
+    // nothing to confirm. After a refusal, the player asked for queue picking
+    // already, so it is set queue picking with none. Otherwise, as when the
+    // turn passes while it is open, the dialog closes as Cancel does, sending
+    // nothing: the player confirmed nothing.
     effect(() => {
-      if (this.refused() && !this.rereading() && this.picks().length === 0) {
-        untracked(() => this.dialogRef.close({ outcome: 'none-to-pick' }));
-      }
+      if (this.sending() || this.rereading() || this.picks().length > 0) return;
+      const asked = this.afterRefusal() || this.refused() !== null;
+      untracked(() => this.dialogRef.close(asked ? { outcome: 'none-to-pick' } : undefined));
     });
   }
 
