@@ -233,7 +233,9 @@ export class SeatStrip {
     if (focusInside || nowhere(focused)) this.toggle().nativeElement.focus();
   }
 
+  /** Escape hides the seats' name hint and closes the popover; it doesn't stop the event, so others still see it. */
   protected closeOnEscape() {
+    this.hint.hide();
     this.close();
   }
 

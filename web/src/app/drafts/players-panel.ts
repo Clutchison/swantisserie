@@ -10,7 +10,7 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { MAX_PLAYERS, picksPerTurn } from 'engine';
+import { MAX_PLAYERS } from 'engine';
 import type {
   DraftView,
   PickImportPreview,
@@ -19,10 +19,11 @@ import type {
   PickImportRequest,
   SeatOrderRequest,
 } from 'contract';
+import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import { hasTurn, isRefusal, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
-import { doubleTurnSuffix } from './turns';
+import { isDoubleTurnRound, turnWords } from './turns';
 import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';
@@ -40,6 +41,7 @@ import { PlayerAvatar } from './player-avatar';
     LucideArrowLeft,
     LucideArrowRight,
     LucideArrowUp,
+    NgTemplateOutlet,
     PlayerAvatar,
     SendsChange,
   ],
@@ -71,24 +73,15 @@ export class PlayersPanel {
   /** Only the organizer imports picks, and only in Lobby. */
   protected readonly canImportPicks = computed(() => this.inLobby() && this.canOrganize());
   /**
-   * Whether the panel always stays open, its seats stacked: where it has a
-   * place of its own, beside the tabs or in the Seat strip's popover or the
-   * Players sheet; the draft page says.
+   * Whether the panel always stays open, its seats stacked, under a plain
+   * heading with no disclosure: where it has a place of its own, beside the
+   * tabs or in the Seat strip's popover or the Players sheet; the draft page
+   * says. Elsewhere, above the tabs, it is a disclosure, open in the lobby
+   * and collapsed once the draft is closed or complete, out of their way;
+   * while drafting or frozen the Seat strip takes its place.
    */
   readonly alwaysOpen = input(false);
-  /**
-   * The panel is open in the lobby, wherever it is, and always open where
-   * `alwaysOpen` says. Above the tabs it collapses once the draft is closed
-   * or complete, out of their way; while drafting or frozen the Seat strip
-   * takes its place.
-   */
-  protected readonly open = computed(() => this.alwaysOpen() || this.inLobby());
   protected readonly playerCount = computed(() => this.draft().players.length);
-
-  /** Where it always stays open, a click on its summary doesn't close it. */
-  protected keepOpen(click: Event) {
-    if (this.alwaysOpen()) click.preventDefault();
-  }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
   protected readonly error = signal<string | null>(null);
@@ -99,14 +92,15 @@ export class PlayersPanel {
    */
   protected readonly pickImportPreview = signal<(PickImportPreview & { csv: string }) | null>(null);
   /**
-   * What the preview's next turn adds on a double turn, as the header's turn
-   * text does: the picks still to make before it passes, which may be 1 when
-   * the file stops partway through it.
+   * The preview's next turn, worded as the header words a turn: its player,
+   * pick and round, and on a double turn the picks still to make before it
+   * passes, which may be 1 when the file stops partway through it.
    */
-  protected readonly previewNextSuffix = computed(() => {
+  protected readonly previewNextTurn = computed(() => {
     const next = this.pickImportPreview()?.next;
-    if (!next || picksPerTurn(this.store.draftSize(), next.round) === 1) return '';
-    return doubleTurnSuffix(next.picksBeforeTurnPasses);
+    if (!next) return '';
+    const doubleTurn = isDoubleTurnRound(this.store.draftSize(), next.round);
+    return `${next.player}, ${turnWords(next, doubleTurn)}`;
   });
   /** All that's wrong with the latest file chosen for a pick import. */
   protected readonly pickImportProblems = signal<string[]>([]);

@@ -8,10 +8,10 @@ import {
   bob,
   cancelTournament,
   carol,
+  clearKeptDecklists,
   completeDraft,
   completeDraftWithBots,
   completeTournament,
-  completedBeforeDecklistsWereKept,
   dropPlayer,
   draftsRequest,
   fullDeck,
@@ -165,6 +165,25 @@ describe('decklists under public decklists', () => {
     }
   });
 
+  it('refuses them, and shows none, while playing once a deck isn’t kept, even to the organizer', async () => {
+    const id = await playingTournament(
+      [aliceCookie, bobCookie],
+      withPublicDecklists(),
+    );
+
+    await clearKeptDecklists(id);
+
+    expect((await tournamentView(id)).showsDecklists).toBe(false);
+    for (const cookie of [aliceCookie, bobCookie, daveCookie]) {
+      const { body } = await decklists(id, cookie).expect(409);
+      expect(body).toEqual({
+        error: 'decklists-not-kept',
+        message:
+          'Not every deck in this tournament was kept, so it has no decklists.',
+      });
+    }
+  });
+
   it('still serves the decks as they were locked once the tournament is complete and they unlock', async () => {
     const id = await playingTournament(
       [aliceCookie, bobCookie],
@@ -314,14 +333,15 @@ describe('decklists without public decklists', () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     await completeTournament(id).expect(200);
 
-    await completedBeforeDecklistsWereKept(id);
+    await clearKeptDecklists(id);
 
     expect((await tournamentView(id)).showsDecklists).toBe(false);
     for (const cookie of [aliceCookie, bobCookie, daveCookie]) {
       const { body } = await decklists(id, cookie).expect(409);
       expect(body).toEqual({
         error: 'decklists-not-kept',
-        message: expect.stringContaining('completed before'),
+        message:
+          'Not every deck in this tournament was kept, so it has no decklists.',
       });
     }
   });

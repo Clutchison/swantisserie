@@ -17,7 +17,7 @@ import {
   completeDraftWithBots,
   completeRound,
   completeTournament,
-  completedBeforeDecklistsWereKept,
+  clearKeptDecklists,
   drawnFrom,
   type Source,
   dropPlayer,
@@ -486,7 +486,7 @@ describe('the Trophy Hall', () => {
     expect((await tournamentView(withBot)).trophyHolders).toEqual([alice.id]);
     // Completed before every deck was kept (ADR 0017).
     const unkept = await wonBy([A(), B()]);
-    await completedBeforeDecklistsWereKept(unkept);
+    await clearKeptDecklists(unkept);
     // Cancelled once won, and still playing.
     const cancelled = await playingTournament([aliceCookie, bobCookie]);
     await reportWin(cancelled, [alice.id, bob.id], [2, 0], aliceCookie);
