@@ -91,7 +91,9 @@ export class DraftLobbyService {
    * Saves a new draft in Lobby, organized by `organizerId`, with its pool
    * snapshot: complete straight away for a cube link, which the check has
    * already looked up every card of, and started in the background for a
-   * pool query or a set list. Throws UnknownWebhookError if its webhook
+   * pool query or a set list. Once the draft is saved, a snapshot that fails
+   * to start doesn't fail creation: the draft is answered with its snapshot
+   * Failed, for the organizer to retry. Throws UnknownWebhookError if its webhook
    * doesn't exist, GoneWebhookChosenError if it is gone, PoolQueryError,
    * CubeLinkError or SetNotOfferedError if its pool source can't make a pool,
    * and ScryfallUnavailableError or CubeCobraUnavailableError if that can't
@@ -121,8 +123,10 @@ export class DraftLobbyService {
           poolQuery: poolSource.poolQuery,
           organizerId,
         });
-        await this.snapshots.start(created.id);
-        return created;
+        return {
+          ...created,
+          ...(await this.snapshots.startOrRecordFailure(created.id)),
+        };
       }
       case 'cube': {
         const { cubeId, cubeName, printings } = await this.checkCubeLink(
@@ -153,8 +157,10 @@ export class DraftLobbyService {
           setList: setList.map(({ code, sublists }) => ({ code, sublists })),
           organizerId,
         });
-        await this.snapshots.start(created.id);
-        return created;
+        return {
+          ...created,
+          ...(await this.snapshots.startOrRecordFailure(created.id)),
+        };
       }
       default: {
         const unhandled: never = poolSource;
