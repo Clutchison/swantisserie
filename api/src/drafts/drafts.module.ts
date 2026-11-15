@@ -63,7 +63,8 @@ import { TournamentBadges } from '../tournaments/tournament-badge.js';
     // The draft list reads tournament badges.
     TournamentBadges,
   ],
-  // For the tournaments module, which sits beside drafts.
+  // For the tournaments module, which sits beside drafts, and for every
+  // read of many drafts, which goes through draft access.
   exports: [DraftAccess, DraftLock, DraftPublisher],
 })
 export class DraftsModule {}
