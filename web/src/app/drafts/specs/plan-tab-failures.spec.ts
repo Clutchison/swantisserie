@@ -1,3 +1,4 @@
+import type { PlanView } from 'contract';
 import {
   useDraftsApp,
   bob,
@@ -28,6 +29,8 @@ import {
   openPlan,
   planBoards,
   READY_NOTICE,
+  notInPlan,
+  conflict,
 } from './plan-tab-harness';
 
 useDraftsApp();
@@ -36,8 +39,6 @@ useTallScreen();
 const SHIVAN_URL = '/api/drafts/draft-1/plan/shivan-card';
 const NOTICE_URL = '/api/drafts/draft-1/plan/notice';
 const MOVE_SHIVAN = 'Move Shivan Dragon to the sideboard';
-const notInPlan = { error: 'not-in-plan', message: 'That card isn’t in your deck.' };
-const conflict = { status: 409, statusText: 'Conflict' };
 const serverError = { status: 500, statusText: 'Server Error' };
 /** A plan whose Deck notice names Shivan Dragon, lost to Bob. */
 const withLost = planOf({
@@ -54,13 +55,19 @@ async function openPlanOf(plan = planOf()) {
   return { fixture, plan: await openPlan(fixture, page) };
 }
 
-/** Answers the change sent to `url` with `answer` and `init`, then the plan's re-read with `reread`. */
-async function refused(
+/**
+ * Fails the change sent to `url`, answering it with `answer` and `init` (by
+ * default a refusal, the card no longer in the plan), then the plan's re-read
+ * with `reread`.
+ */
+async function failed(
   fixture: AppFixture,
   url: string,
-  reread = planOf(),
-  answer: object | null = notInPlan,
-  init = conflict,
+  {
+    reread = planOf(),
+    answer = notInPlan,
+    init = conflict,
+  }: { reread?: PlanView; answer?: object | null; init?: typeof conflict } = {},
 ) {
   http.expectOne(url).flush(answer, init);
   (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(reread);
@@ -93,7 +100,7 @@ describe('the Deck tab’s failed changes', () => {
     const { fixture, plan } = await openPlanOf();
 
     button(plan, MOVE_SHIVAN)!.click();
-    await refused(fixture, SHIVAN_URL);
+    await failed(fixture, SHIVAN_URL);
 
     expect(text(onlyAlert(plan))).toBe('That card isn’t in your deck.');
     expect(alertIn(itemOf(plan, MOVE_SHIVAN))).toBe(onlyAlert(plan));
@@ -105,7 +112,7 @@ describe('the Deck tab’s failed changes', () => {
     await fixture.whenStable();
 
     button(plan, MOVE_SHIVAN)!.click();
-    await refused(fixture, SHIVAN_URL);
+    await failed(fixture, SHIVAN_URL);
 
     expect(alertIn(itemOf(plan, MOVE_SHIVAN))).toBe(onlyAlert(plan));
   });
@@ -116,7 +123,7 @@ describe('the Deck tab’s failed changes', () => {
     const remove = 'Remove Shivan Dragon from your deck';
 
     button(plan, remove)!.click();
-    await refused(fixture, SHIVAN_URL, withUnpicked, null, serverError);
+    await failed(fixture, SHIVAN_URL, { reread: withUnpicked, answer: null, init: serverError });
 
     expect(text(onlyAlert(plan))).toBe("Couldn't change your deck. Try again in a moment.");
     expect(alertIn(itemOf(plan, remove))).toBe(onlyAlert(plan));
@@ -126,7 +133,7 @@ describe('the Deck tab’s failed changes', () => {
     const { fixture, plan } = await openPlanOf(withLost);
 
     button(deckNotice(plan)!, 'Dismiss')!.click();
-    await refused(fixture, NOTICE_URL, withLost, null, serverError);
+    await failed(fixture, NOTICE_URL, { reread: withLost, answer: null, init: serverError });
 
     const alert = onlyAlert(plan);
     expect(comesBefore(statusIn(plan, { name: DECK_NOTICE })!, alert)).toBe(true);
@@ -137,12 +144,12 @@ describe('the Deck tab’s failed changes', () => {
   it('clears the reason a change was refused once one is made', async () => {
     const { fixture, plan } = await openPlanOf(withLost);
     button(plan, 'Move Lightning Bolt to the sideboard')!.click();
-    await refused(fixture, '/api/drafts/draft-1/plan/bolt-card', withLost);
+    await failed(fixture, '/api/drafts/draft-1/plan/bolt-card', { reread: withLost });
     await vi.waitFor(() => expect(alertIn(plan)).not.toBeNull());
 
     // A failure from another place takes its place: only one shows.
     button(deckNotice(plan)!, 'Dismiss')!.click();
-    await refused(fixture, NOTICE_URL, withLost, null, serverError);
+    await failed(fixture, NOTICE_URL, { reread: withLost, answer: null, init: serverError });
     expect(comesBefore(onlyAlert(plan), statusIn(plan, { name: READY_NOTICE })!)).toBe(true);
 
     button(plan, 'Move Lightning Bolt to the sideboard')!.click();

@@ -66,14 +66,13 @@ $stack-step: max(16%, 24px);
     }
   }
 
-  /* A failed move shows inside its card's list item, under the card, over the next card's top so none of it is hidden. */
+  /* A failed move shows inside its card's list item, under the card, which then shows whole: the cards after it start below the message, not over it. */
   li > .error {
-    position: relative;
-    z-index: 3;
-    margin: 0;
-    padding: var(--space-xs);
-    background: var(--color-bg);
-    font-size: var(--font-size-sm);
+    padding-block: var(--space-xs);
+  }
+
+  li:has(> .error) + li {
+    margin-top: 0;
   }
 
   /* An unpicked card is dimmed: it isn't the player's yet, and may not be. Darkened rather than see-through, so the card under it doesn't show through. Only the card: its mark and buttons stay bright. */

@@ -255,6 +255,7 @@ export class PlanTab {
   protected readonly drag = planDrag({
     plan: this.plan,
     deckLocked: this.deckLocked,
+    // A drop's card may land anywhere, or nowhere, so its failure shows by the tools, not in a row.
     move: (card, planBoard) => this.move(card, planBoard, 'tools'),
     stackMove: (poolCardId, into) => this.stackMoves.move(poolCardId, into),
     started: () => this.previews.dragStarted(),
@@ -426,7 +427,7 @@ export class PlanTab {
     return keys;
   });
   /** Where the failure shows: where its change came from, or the tools for a row that has left its plan board. */
-  private readonly errorPlace = computed((): ErrorPlace | null => {
+  private readonly shownAt = computed((): ErrorPlace | null => {
     const place = this.error()?.place ?? null;
     if (place === null || place === 'deckNotice' || place === 'readyNotice') return place;
     return place === 'tools' || this.rowKeys().has(place) ? place : 'tools';
@@ -434,7 +435,7 @@ export class PlanTab {
 
   /** The failure's message, if it shows at `place`. */
   protected errorAt(place: ErrorPlace) {
-    return this.errorPlace() === place ? this.error()!.message : null;
+    return this.shownAt() === place ? this.error()!.message : null;
   }
 
   /** The failure's message, if it shows inside the list item of `card` on `planBoard`: its move's or its remove's. */
@@ -556,32 +557,47 @@ export class PlanTab {
     planBoard: PlanBoard,
     place: ErrorPlace,
   ): Promise<MovedCard | null> {
-    const { made, after } = await this.sendMove(card, planBoard, place);
-    return made ? after : null;
+    const after = this.cardAfterMove(card, planBoard);
+    return (await this.sendMove(card, planBoard, after, this.failedAt(place))) ? after : null;
   }
 
   /**
-   * Moves `card` to `planBoard` as `move` does, its failure shown at
-   * `place`, or by the caller for none. Answers whether it moved, the card
-   * as it is there, and the failure's message, if any.
+   * Moves `card` from its Card detail to `planBoard` as `move` does, but
+   * answers its failure's message, for the Card detail to show, or null once
+   * it has moved.
    */
-  private async sendMove(card: MovedCard, planBoard: PlanBoard, place: ErrorPlace | null) {
-    const { basic } = card;
+  private async moveFromDetail(card: MovedCard, planBoard: PlanBoard): Promise<string | null> {
+    let failure: string | null = null;
     const after = this.cardAfterMove(card, planBoard);
+    await this.sendMove(card, planBoard, after, (message) => (failure = message));
+    return failure;
+  }
+
+  /**
+   * Moves `card` to `planBoard`, where it will be `after`, handing a
+   * failure's message to `failed`. Answers whether it moved.
+   */
+  private async sendMove(
+    card: MovedCard,
+    planBoard: PlanBoard,
+    after: MovedCard,
+    failed: (message: string) => void,
+  ) {
+    const { basic } = card;
     const stays = this.leaving(card, PLAN_BOARD_DISPLAY[planBoard].other);
-    const { made, failure } = await this.tryChange(
+    const made = await this.sendChange(
       () =>
         basic
           ? this.planApi.moveBasic(this.draftId(), basic, planBoard)
           : this.planApi.move(this.draftId(), card.poolCardId, planBoard),
-      place,
+      failed,
       {
         keep: [this.moveKey(planBoard, after)],
         status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
       },
     );
     if (!made) stays();
-    return { made, after, failure };
+    return made;
   }
 
   /**
@@ -679,8 +695,8 @@ export class PlanTab {
       move: computed(() =>
         this.deckLocked()
           ? null
-          : async (planBoard: PlanBoard) =>
-              (await this.sendMove({ poolCardId, name: card.name }, planBoard, null)).failure,
+          : (planBoard: PlanBoard) =>
+              this.moveFromDetail({ poolCardId, name: card.name }, planBoard),
       ),
       moveWaits: this.changing,
       returnFocus: (_, opener) =>
@@ -739,7 +755,7 @@ export class PlanTab {
   protected async removeLine(line: PlanLine, planBoard: PlanBoard) {
     const { basic, poolCardId } = line;
     const stays = this.leaving(line, planBoard);
-    const { made } = await this.tryChange(
+    const made = await this.tryChange(
       () =>
         basic
           ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
@@ -787,31 +803,45 @@ export class PlanTab {
     });
   }
 
+  /** Shows a failure's message at `place`. */
+  private failedAt(place: ErrorPlace) {
+    return (message: string) => this.error.set({ message, place });
+  }
+
+  /**
+   * Sends the change `send` makes to the plan as `sendChange` does, showing
+   * a failure at `place`. Answers whether the change was made.
+   */
+  private tryChange(
+    send: () => Observable<PlanView>,
+    place: ErrorPlace,
+    kept: { keep?: string[]; status?: string } = {},
+  ): Promise<boolean> {
+    return this.sendChange(send, this.failedAt(place), kept);
+  }
+
   /**
    * Sends the change `send` makes to the plan and shows the plan it answers
-   * with, unless another change is in flight. A refused change means the
-   * plan has moved on, e.g. a card was lost: say why at `place`, or leave
-   * that to the caller for none; the store re-reads it. Answers whether the
-   * change was made, and the failure's message if it failed. Focus is kept
-   * as `Changes.send` keeps it, and a change made says `status`.
+   * with, unless another change is in flight, clearing any failure shown. A
+   * refused change means the plan has moved on, e.g. a card was lost: hands
+   * `failed` why; the store re-reads it. Answers whether the change was made.
+   * Focus is kept as `Changes.send` keeps it, and a change made says
+   * `status`.
    */
-  private async tryChange(
+  private sendChange(
     send: () => Observable<PlanView>,
-    place: ErrorPlace | null,
-    kept: { keep?: string[]; status?: string } = {},
-  ): Promise<{ made: boolean; failure: string | null }> {
-    let failure: string | null = null;
-    const made = await this.changes.send(async () => {
+    failed: (message: string) => void,
+    kept: { keep?: string[]; status?: string },
+  ): Promise<boolean> {
+    return this.changes.send(async () => {
       this.error.set(null);
       try {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        failure = changeFailure(err, PLAN_CHANGE_FAILED);
-        if (place) this.error.set({ message: failure, place });
+        failed(changeFailure(err, PLAN_CHANGE_FAILED));
         return false;
       }
     }, kept);
-    return { made, failure };
   }
 }

@@ -525,11 +525,14 @@ export const accessibleDescription = (element: Element) =>
 export const link = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].find((a) => accessibleName(a) === name);
 
+/** The headings inside `root`, by role, in page order. */
+export const headings = (root: HTMLElement) => [
+  ...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]'),
+];
+
 /** A heading inside `root`, by its accessible name. */
 export const heading = (root: HTMLElement, name: string) =>
-  [...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]')].find(
-    (element) => accessibleName(element) === name,
-  );
+  headings(root).find((element) => accessibleName(element) === name);
 
 /** The images inside `root` that a screen reader names, in page order. */
 export const namedImages = (root: HTMLElement) =>

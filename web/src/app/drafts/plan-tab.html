@@ -1,4 +1,10 @@
 <app-change-status />
+<!-- A failed change's message, where it shows: nothing for none. -->
+<ng-template #failure let-message>
+  @if (message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</ng-template>
 <!-- A move button's icon: off the mainboard is minus, onto it is plus. -->
 <ng-template #moveIcon let-planBoard>
   @if (planBoard.other === 'Sideboard') {
@@ -50,9 +56,7 @@
   }
 </div>
 <!-- Each notice's failed Dismiss shows after its region, outside it, so it is said as an alert. -->
-@if (errorAt('deckNotice'); as message) {
-  <p class="error" role="alert">{{ message }}</p>
-}
+<ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('deckNotice') }" />
 <div role="status" aria-label="Ready notice">
   @if (plan().readyNotice) {
     <div class="notice">
@@ -66,9 +70,7 @@
     </div>
   }
 </div>
-@if (errorAt('readyNotice'); as message) {
-  <p class="error" role="alert">{{ message }}</p>
-}
+<ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('readyNotice') }" />
 <div role="status" aria-label="Sideboard over Arena’s cap">
   @if (sideboardOverArenaCap(); as over) {
     <div class="notice">
@@ -153,9 +155,7 @@
   <app-export-buttons />
 </div>
 <!-- A failure from the tools' Queue unpicked, from a drag and drop, or from a row that has since left its plan board. -->
-@if (errorAt('tools'); as message) {
-  <p class="error" role="alert">{{ message }}</p>
-}
+<ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('tools') }" />
 <!-- A card dragged onto the other plan board moves there: in the wide stacks layout, or the list on desktop. In the wide stacks layout, one dragged onto another mainboard stack is a stack move into it. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
   #stacksArea
@@ -323,9 +323,12 @@
                           </button>
                         }
                       </div>
-                      @if (rowError(planBoard.name, card); as message) {
-                        <p class="error" role="alert">{{ message }}</p>
-                      }
+                      <ng-container
+                        *ngTemplateOutlet="
+                          failure;
+                          context: { $implicit: rowError(planBoard.name, card) }
+                        "
+                      />
                     </li>
                   }
                 </ul>
@@ -401,9 +404,12 @@
                     </button>
                   }
                 </span>
-                @if (rowError(planBoard.name, line); as message) {
-                  <p class="error" role="alert">{{ message }}</p>
-                }
+                <ng-container
+                  *ngTemplateOutlet="
+                    failure;
+                    context: { $implicit: rowError(planBoard.name, line) }
+                  "
+                />
               </li>
             } @empty {
               <li class="empty">

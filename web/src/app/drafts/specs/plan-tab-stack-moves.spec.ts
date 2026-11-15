@@ -44,6 +44,8 @@ import {
   WIDE_STACKS_AREA,
   NARROW_STACKS_AREA,
   expectByTools,
+  notInPlan,
+  conflict,
 } from './plan-tab-harness';
 import { onlyAlert } from '../../specs-harness';
 import { measuredAs } from './measure-harness';
@@ -150,12 +152,7 @@ describe('Deck tab stack moves', () => {
     const plan = await openPlan(fixture, page);
 
     await stackMoved(fixture, 'Shivan Dragon', 'Sideboard', '1');
-    http
-      .expectOne(shivanUrl)
-      .flush(
-        { error: 'not-in-plan', message: 'That card isn’t in your deck.' },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne(shivanUrl).flush(notInPlan, conflict);
     (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(planOf());
     await fixture.whenStable();
 

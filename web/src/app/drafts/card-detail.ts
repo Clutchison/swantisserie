@@ -374,20 +374,18 @@ export class CardDetail {
    * the store re-reads the plan, and the draft too if it was refused: a stale
    * page may not know the draft has moved on.
    */
-  private async changePlan(request: Observable<PlanView>, done: string, failure: string) {
-    this.planning.set(true);
-    this.planNote.set(null);
-    try {
-      await this.store.changePlan(request);
-      this.planNote.set(done);
-      return true;
-    } catch (err) {
-      this.planNote.set(changeFailure(err, failure));
-      if (isRefusal(err)) this.store.catchUp();
-      return false;
-    } finally {
-      this.planning.set(false);
-    }
+  private changePlan(request: Observable<PlanView>, done: string, failure: string) {
+    return this.planningWhile(async () => {
+      try {
+        await this.store.changePlan(request);
+        this.planNote.set(done);
+        return true;
+      } catch (err) {
+        this.planNote.set(changeFailure(err, failure));
+        if (isRefusal(err)) this.store.catchUp();
+        return false;
+      }
+    });
   }
 
   /**
@@ -395,11 +393,20 @@ export class CardDetail {
    * it failed. It stays open, offering to move the card back once the plan
    * shows it moved.
    */
-  protected async sendMove(move: MoveToPlanBoard, planBoard: PlanBoard) {
+  protected sendMove(move: MoveToPlanBoard, planBoard: PlanBoard) {
+    return this.planningWhile(async () => this.planNote.set(await move(planBoard)));
+  }
+
+  /**
+   * Runs `work`, a change to the plan or a Move, with the Deck note cleared
+   * and the plan's other changes waiting until it settles. Answers what it
+   * answers.
+   */
+  private async planningWhile<T>(work: () => Promise<T>): Promise<T> {
     this.planning.set(true);
     this.planNote.set(null);
     try {
-      this.planNote.set(await move(planBoard));
+      return await work();
     } finally {
       this.planning.set(false);
     }
