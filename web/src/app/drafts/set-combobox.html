@@ -36,16 +36,13 @@
     </ul>
     @if (noMatch()) {
       <!-- Said by the live region below, which is on the page before the list opens. -->
-      <p aria-hidden="true">No set matches</p>
+      <p aria-hidden="true">{{ noMatchText }}</p>
     }
   </div>
 </ng-template>
-<!--
-  Outside the list, which typing can open already saying so: a region that
-  arrives holding its text may go unspoken.
--->
+<!-- Outside the list, which typing can open already saying so, unspoken were the region inside it. -->
 <p class="visually-hidden" role="status" aria-label="Set matches">
   @if (noMatch()) {
-    No set matches
+    {{ noMatchText }}
   }
 </p>

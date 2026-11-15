@@ -119,6 +119,8 @@ export class SetCombobox<S extends FindableSet> {
 
   /** Whether the open list has no set to offer for what was typed. */
   protected readonly noMatch = computed(() => this.open() && this.options().length === 0);
+  /** What the list shows, and its live region says, while no set matches. */
+  protected readonly noMatchText = 'No set matches';
 
   private readonly items = viewChildren(SetOption);
   protected readonly keys = new ActiveDescendantKeyManager(this.items, inject(Injector)).withWrap();

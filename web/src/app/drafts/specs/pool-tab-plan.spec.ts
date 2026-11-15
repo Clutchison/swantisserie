@@ -7,6 +7,7 @@ import {
   bob,
   draft,
   http,
+  updates,
   panel,
   openDraft,
   flushPicks,
@@ -19,7 +20,7 @@ import {
   ALL_POWERS,
   statusTexts,
 } from './harness';
-import { emptyStatusIn, openDialog, statusIn, text } from '../../specs-harness';
+import { emptyStatusIn, openDialog, statusIn, text, watchChanges } from '../../specs-harness';
 import { useTallScreen, card, shivan, brightclimb, openDetail } from './pool-tab-harness';
 import { openPlan } from './plan-tab-harness';
 
@@ -270,6 +271,14 @@ describe('pool tab', () => {
       await fixture.whenStable();
       expect(statusIn(detail, { name: 'Deck' })).toBe(region);
       expect(text(region)).toBe('Removed from your deck.');
+      // A re-read of the draft says nothing new.
+      const changes = watchChanges(region);
+      updates.events.next({ type: 'changed', draft: draft({ ...drafting(), version: 1 }) });
+      await flushPicks([]);
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+      expect(text(region)).toBe('Removed from your deck.');
+      expect(changes()).toEqual([]);
       expect(button(detail, 'Add to Deck')!.disabled).toBe(false);
       expect(button(detail, 'Remove from Deck')).toBeUndefined();
 

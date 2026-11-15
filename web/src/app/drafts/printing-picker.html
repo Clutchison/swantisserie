@@ -45,7 +45,7 @@
         <button class="button compact secondary" type="button" (click)="load()">Try again</button>
       </div>
     }
-    <!-- On the page while the load fails, so Try again's text is spoken as it arrives. -->
+    <!-- Always on the page, so "Loading printings…" is spoken when Try again puts it in. -->
     <p class="detail loading" role="status" aria-label="Printings">
       @if (!set() && !loadFailed()) {
         Loading printings…

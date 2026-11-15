@@ -46,6 +46,7 @@ import {
   statusIn,
   text,
   visibleText,
+  watchChanges,
 } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail, tiles, card } from './pool-tab-harness';
 
@@ -663,6 +664,10 @@ describe('pool tab', () => {
           } satisfies QueueRefusal,
           { status: 409, statusText: 'Conflict' },
         );
+        await vi.waitFor(() =>
+          expect(text(region)).toBe('You can’t add to your queue on your turn.'),
+        );
+        const changes = watchChanges(region);
         // The queue is re-read, and again once the draft turns out to have changed.
         await flushQueue(EMPTY_QUEUE);
         (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
@@ -672,9 +677,10 @@ describe('pool tab', () => {
         await flushQueueAndPlan();
         await fixture.whenStable();
 
-        // The note outlives the turn change the re-read reveals.
+        // The note outlives the turn change the re-read reveals, and isn't said again.
         expect(statusIn(detail, { name: 'Queue' })).toBe(region);
         expect(text(region)).toBe('You can’t add to your queue on your turn.');
+        expect(changes()).toEqual([]);
         expect(button(detail, 'Add to queue')).toBeUndefined();
         expect(button(detail, 'Pick')!.disabled).toBe(false);
       });

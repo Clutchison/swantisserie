@@ -10,9 +10,12 @@ p {
   margin: 0;
 }
 
-/* Its live region stays on the page, and while empty takes no room: it takes back the body's gap before it. */
+/*
+ * Its live region stays on the page. While empty it is taken out of the flow, so it takes no room
+ * and no gap, whatever the gap; it stays in the accessibility tree, as a hidden one wouldn't.
+ */
 .loading:empty {
-  margin-top: calc(-1 * var(--space-md));
+  position: absolute;
 }
 
 figure {

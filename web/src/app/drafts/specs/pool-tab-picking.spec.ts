@@ -24,9 +24,11 @@ import {
   text,
   alertIn,
   serverError,
+  queueOf,
+  queued,
   statusTexts,
 } from './harness';
-import { emptyStatusIn, openDialog, statusIn } from '../../specs-harness';
+import { emptyStatusIn, openDialog, statusIn, watchChanges } from '../../specs-harness';
 import {
   useTallScreen,
   hidePicked,
@@ -213,6 +215,17 @@ describe('pool tab', () => {
         expect(statusIn(detail, { name: 'Picks' })).toBe(region);
         expect(text(region)).toBe(picksDidntLoad);
         expect(detail.textContent).not.toContain('You can pick on your turn.');
+
+        // Card detail re-rendering for a queue add says nothing new in it.
+        const changes = watchChanges(region);
+        button(detail, 'Add to queue')!.click();
+        http
+          .expectOne('/api/drafts/draft-1/queue')
+          .flush(queueOf({ cards: [queued(brightclimb)] }));
+        await fixture.whenStable();
+        expect(detail.textContent).toContain('Added to your queue.');
+        expect(text(region)).toBe(picksDidntLoad);
+        expect(changes()).toEqual([]);
       });
 
       it('offers Pick again once a later re-read loads the pick log', async () => {
