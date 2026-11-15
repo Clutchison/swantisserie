@@ -121,7 +121,10 @@ describe('reporting a match', () => {
     ]) {
       const answer = await reportMatch(id, match.id, aliceCookie, body);
       expect(answer.status).toBe(400);
-      expect(answer.body.error).toBe('invalid');
+      expect(answer.body).toEqual({
+        error: 'invalid',
+        message: 'Report each player’s games won, such as 2–1.',
+      });
     }
   });
 

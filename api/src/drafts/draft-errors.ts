@@ -129,14 +129,18 @@ export class NoDraftPowerError extends Error {
   }
 }
 
-/** Thrown when someone who isn't playing in a draft asks to pick, for a queue or plan, or to join its tournament. */
+/**
+ * Thrown when someone who isn't playing in a draft asks to pick, for a queue
+ * or plan, or to join, leave, drop from or change their ready in its
+ * tournament.
+ */
 export class NotAPlayerError extends Error {
   constructor(what: 'queues' | 'plans' | 'picks' | 'tournaments') {
     super(
       what === 'picks'
         ? 'Only the draft’s players can pick.'
         : what === 'tournaments'
-          ? 'Only the draft’s players can join its tournament.'
+          ? 'Only the draft’s players can take part in its tournament.'
           : // A plan is the player's deck (ADR 0018), and players read this.
             `Only the draft’s players have ${what === 'plans' ? 'decks' : what}.`,
     );

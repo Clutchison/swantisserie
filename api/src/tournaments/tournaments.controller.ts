@@ -446,7 +446,7 @@ function parseGames(body: unknown): GameScore {
   ) {
     throw new BadRequestException({
       error: 'invalid',
-      message: 'Report each player’s games won, such as [2, 1].',
+      message: 'Report each player’s games won, such as 2–1.',
     } satisfies RequestProblem);
   }
   return [games[0], games[1]];

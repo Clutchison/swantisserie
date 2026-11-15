@@ -39,8 +39,8 @@ import { offersReopenRound, reopenRoundOf } from './reopen-round.js';
 
 /**
  * What a read selects of a tournament for `decklistsRefusal`: how many of
- * its entries have no decklist kept, as before Start, and in a tournament
- * completed before every deck was kept (ADR 0017).
+ * its entries have no decklist kept, as before Start, and today otherwise
+ * only in a tournament completed before every deck was kept (ADR 0017).
  */
 export const UNKEPT_DECKLISTS = {
   _count: {
@@ -272,9 +272,10 @@ type DecklistsRow = Pick<TournamentRow, 'publicDecklists' | 'state'> &
  * under public decklists once it has started, and for every tournament
  * once it is complete (ADR 0017). Refused during registration
  * (`in-registration`), while playing without public decklists
- * (`decklists-private`), and for a tournament completed before every deck
- * was kept, which kept none without public decklists
- * (`decklists-not-kept`).
+ * (`decklists-private`), and in any later state for a tournament with an
+ * entry whose decklist wasn't kept (`decklists-not-kept`). Today that is
+ * only a tournament completed before every deck was kept, which kept none
+ * without public decklists (ADR 0017).
  */
 export function decklistsRefusal(row: DecklistsRow): TournamentRefusal | null {
   if (row.state === 'Registration') {
@@ -295,7 +296,7 @@ export function decklistsRefusal(row: DecklistsRow): TournamentRefusal | null {
     return {
       error: 'decklists-not-kept',
       message:
-        'This tournament completed before every deck was kept, so it has no decklists.',
+        'Not every deck in this tournament was kept, so it has no decklists.',
     };
   }
   return null;

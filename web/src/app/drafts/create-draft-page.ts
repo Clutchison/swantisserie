@@ -28,6 +28,7 @@ import {
 } from 'contract';
 import { doublePicksProblem, doublePicksRule, MIN_DOUBLE_PICKS, startingDoublePicks } from 'engine';
 import { firstValueFrom } from 'rxjs';
+import { Changes, ChangeStatus, SendsChange } from '../changes';
 import type { DraftProblem } from './drafts';
 import { SetListPicker } from './set-list-picker';
 import { ViewerDrafts } from './viewer-drafts';
@@ -48,7 +49,15 @@ interface PoolSourceFields {
 
 @Component({
   selector: 'app-create-draft-page',
-  imports: [ReactiveFormsModule, RouterLink, SetListPicker, ToggleButton],
+  imports: [
+    ChangeStatus,
+    ReactiveFormsModule,
+    RouterLink,
+    SendsChange,
+    SetListPicker,
+    ToggleButton,
+  ],
+  providers: [Changes],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './create-draft-page.html',
   styleUrls: ['../page.scss', './drafts.scss', './create-draft-page.scss'],
@@ -58,6 +67,7 @@ export class CreateDraftPage {
   private readonly router = inject(Router);
   private readonly viewerDrafts = inject(ViewerDrafts);
   private readonly fb = inject(FormBuilder).nonNullable;
+  private readonly changes = inject(Changes);
 
   // Validated by the API, whose messages say exactly what to fix.
   protected readonly form = this.fb.group({
@@ -116,7 +126,8 @@ export class CreateDraftPage {
   );
   protected readonly webhooksLoading = this.webhookResource.isLoading;
   protected readonly webhooksFailed = computed(() => !!this.webhookResource.error());
-  protected readonly saving = signal(false);
+  /** Create draft is sending, while the api checks the pool. */
+  protected readonly saving = this.changes.changing;
   protected readonly problem = signal<DraftProblem | null>(null);
 
   constructor() {
@@ -157,25 +168,30 @@ export class CreateDraftPage {
     } satisfies NewDraftRequest;
   }
 
-  protected async create() {
+  /**
+   * Creates the draft and goes to its page. A press while it checks the pool
+   * sends nothing, and a failure keeps focus on Create draft.
+   */
+  protected create() {
     // Refused inline already, where the field says why.
     if (this.doublePicksProblem()) return;
-    this.saving.set(true);
-    this.problem.set(null);
-    try {
-      // The API checks the pool with Scryfall, and a cube with CubeCobra too,
-      // which can take a moment.
-      const draft = await firstValueFrom(
-        this.http.post<DraftView>('/api/drafts', this.requestBody()),
-      );
-      // Not pushed to the organizer, who isn't a player yet: the draft list lists it from this.
-      this.viewerDrafts.created(draft);
-      await this.router.navigate(['/drafts', draft.id]);
-    } catch (err) {
-      this.problem.set(problemFrom(err));
-    } finally {
-      this.saving.set(false);
-    }
+    return this.changes.send(async () => {
+      this.problem.set(null);
+      try {
+        // The API checks the pool with Scryfall, and a cube with CubeCobra too,
+        // which can take a moment.
+        const draft = await firstValueFrom(
+          this.http.post<DraftView>('/api/drafts', this.requestBody()),
+        );
+        // Not pushed to the organizer, who isn't a player yet: the draft list lists it from this.
+        this.viewerDrafts.created(draft);
+        await this.router.navigate(['/drafts', draft.id]);
+        return true;
+      } catch (err) {
+        this.problem.set(problemFrom(err));
+        return false;
+      }
+    });
   }
 }
 

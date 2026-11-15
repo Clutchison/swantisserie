@@ -150,7 +150,7 @@ All inference from the findings above, checked against `docs/adr/0001`–`0009`,
 - **Short and one decision each.** Every ADR is well under a page or two, with the decision in the first paragraph: Nygard's length, Fowler's inverted pyramid.
 - **When to write one.** The three-part test in `SKILL.md` (hard to reverse, surprising, a real trade-off) is a stricter version of Azure's "structure, key quality attributes, or are difficult to reverse" (Azure says _or_, we say _and_) and close to JPH's skill. It fits Zimmermann's warning against a 100+ entry log.
 - **Considered Options and Consequences** appear in every ADR, including negatives (0001's "learns that the bot was removed … only when its next call there fails"). That avoids Zimmermann's Fairy Tale, Sprint and Free Lunch Coupon.
-- **Linked from code.** Comments cite ADRs (`contract/src/drafts.ts` "(ADR 0003)", `api/src/tournaments/join-rules.ts` "(ADR 0008)", `contract/src/index.ts` "(ADR 0004)"), and `CLAUDE.md` tells agents to read the ADRs in their area and say when work contradicts one: AWS's "reference during code and architectural reviews".
+- **Linked from code.** Comments cite ADRs (`contract/src/drafts.ts` "(ADR 0003)", `api/src/tournaments/start-rules.ts` "(ADR 0008)", `contract/src/index.ts` "(ADR 0004)"), and `CLAUDE.md` tells agents to read the ADRs in their area and say when work contradicts one: AWS's "reference during code and architectural reviews".
 
 **Gaps**
 
