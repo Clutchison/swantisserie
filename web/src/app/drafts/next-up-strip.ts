@@ -37,10 +37,8 @@ export class NextUpStrip {
   protected readonly queuePaused = this.store.queuePaused;
   /** What the strip says in place of the next card while the queue is queue paused. */
   protected readonly queuePausedName = queueStateName(true);
-  /** The name of the card the queue picks next, its first; null while it is queue paused, empty or unknown. */
-  protected readonly next = computed(() =>
-    this.size() && !this.queuePaused() ? (this.store.queue.value().cards[0]?.name ?? null) : null,
-  );
+  /** The name of the queue's Next-up card, as the Queue pane's arrow marks it; null while it has none. */
+  protected readonly next = computed(() => this.store.nextUpCard()?.name ?? null);
   /** Whether the Queue notice notes a card the player hasn't yet seen in an open pane. */
   protected readonly unseenNotice = this.store.unseenNotice;
 

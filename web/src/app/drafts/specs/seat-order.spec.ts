@@ -10,17 +10,21 @@ import {
   findPlayersBesideTabs,
   startDraft,
   findQueuePane,
+  heading,
+  playersPanel,
   text,
 } from './harness';
-import { disclosure, toggleDisclosure } from './disclosure-harness';
+import { disclosure, plainlyHeaded, toggleDisclosure } from './disclosure-harness';
 import { findSeatStrip, playersButton, playersPopover, playersSheet } from './seat-strip-harness';
 import { clickOn } from '../../specs-harness';
 
 useDraftsApp();
 
 describe('the Players panel', () => {
-  /** The Players panel, by its summary's name, with one player. */
+  /** The Players panel's disclosure, where it can collapse, by its summary's name, with one player. */
   const panel = (page: HTMLElement) => disclosure(page, 'Players · 1')!;
+  /** Whether the Players panel, with one player, is always open under a plain heading, with no disclosure. */
+  const alwaysOpen = (root: HTMLElement) => plainlyHeaded(root, 'Players · 1');
 
   afterEach(() => {
     vi.unstubAllGlobals();
@@ -37,11 +41,11 @@ describe('the Players panel', () => {
     viewOn('mobile');
     const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
-    const heading = panel(page).querySelector('summary h2, summary [role="heading"]');
-    expect(text(heading)).toBe('Players · 1');
+    const summaryHeading = panel(page).querySelector('summary h2, summary [role="heading"]');
+    expect(text(summaryHeading)).toBe('Players · 1');
   });
 
-  it('is still there in a complete draft, with the seat order', async () => {
+  it('is still there in a complete draft, always open, with the seat order', async () => {
     viewOn('desktop');
     const { page } = await openDraft(completeSnapshot, {
       ...drafting({ players: [bob] }),
@@ -49,54 +53,26 @@ describe('the Players panel', () => {
       turn: null,
     });
 
-    expect(panel(page).open).toBe(true);
-    expect(panel(page).textContent).toContain('Bob');
+    expect(alwaysOpen(page)).toBe(true);
+    expect(playersPanel(page).textContent).toContain('Bob');
   });
 
   describe('on a desktop', () => {
     beforeEach(() => viewOn('desktop'));
 
-    it('is open in the lobby, where seats are arranged', async () => {
+    it('is always open beside the tabs in the lobby, where seats are arranged, under a plain heading', async () => {
       const { page } = await openDraft(completeSnapshot, { players: [bob] });
 
-      expect(panel(page).open).toBe(true);
+      expect(alwaysOpen(page)).toBe(true);
     });
 
-    it('stays open beside the tabs in the lobby when its summary is clicked', async () => {
-      const { page } = await openDraft(completeSnapshot, { players: [bob] });
-
-      toggleDisclosure(page, 'Players · 1');
-
-      expect(panel(page).open).toBe(true);
-    });
-
-    it('is open, showing every seat, in the Seat strip’s popover once the draft has started', async () => {
+    it('is always open, showing every seat, in the Seat strip’s popover once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       clickOn(playersButton(page));
 
-      expect(panel(playersPopover(page)!).open).toBe(true);
-    });
-
-    it('stays open in the popover when its summary is clicked, keeping every seat in view', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
-      clickOn(playersButton(page));
-
-      toggleDisclosure(playersPopover(page)!, 'Players · 1');
-
-      expect(panel(page).open).toBe(true);
-    });
-
-    it('stays open in a complete draft when its summary is clicked', async () => {
-      const { page } = await openDraft(completeSnapshot, {
-        ...drafting({ players: [bob] }),
-        state: 'Complete',
-        turn: null,
-      });
-
-      toggleDisclosure(page, 'Players · 1');
-
-      expect(panel(page).open).toBe(true);
+      expect(alwaysOpen(playersPopover(page)!)).toBe(true);
+      expect(playersPanel(playersPopover(page)!).textContent).toContain('Bob');
     });
 
     it('can be collapsed by hand once the window narrows past the desktop', async () => {
@@ -113,7 +89,7 @@ describe('the Players panel', () => {
 
       resizeTo('mobile');
 
-      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(heading(page, 'Players · 1')).toBeUndefined();
       expect(findSeatStrip(page)).not.toBeNull();
     });
   });
@@ -130,7 +106,7 @@ describe('the Players panel', () => {
     it('gives way to the Seat strip once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
-      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(heading(page, 'Players · 1')).toBeUndefined();
       expect(findSeatStrip(page)).not.toBeNull();
     });
 
@@ -139,25 +115,17 @@ describe('the Players panel', () => {
 
       await startDraft(fixture, { players: [bob] });
 
-      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(heading(page, 'Players · 1')).toBeUndefined();
       expect(findSeatStrip(page)).not.toBeNull();
     });
 
-    it('is open, showing every seat, in the Players sheet once the draft has started', async () => {
+    it('is always open, showing every seat, in the Players sheet once the draft has started', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
       clickOn(playersButton(page));
 
-      expect(panel(playersSheet()!).open).toBe(true);
-    });
-
-    it('stays open in the Players sheet when its summary is clicked, keeping every seat in view', async () => {
-      const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
-      clickOn(playersButton(page));
-
-      toggleDisclosure(playersSheet()!, 'Players · 1');
-
-      expect(panel(playersSheet()!).open).toBe(true);
+      expect(alwaysOpen(playersSheet()!)).toBe(true);
+      expect(playersPanel(playersSheet()!).textContent).toContain('Bob');
     });
 
     it('can be expanded and collapsed by hand once the draft is closed', async () => {
@@ -177,7 +145,7 @@ describe('the Players panel', () => {
 
       resizeTo('desktop');
 
-      expect(disclosure(page, 'Players · 1')).toBeNull();
+      expect(heading(page, 'Players · 1')).toBeUndefined();
       expect(findSeatStrip(page)).not.toBeNull();
     });
 
@@ -205,10 +173,10 @@ describe('the Players panel', () => {
         const { page } = await openDraft(completeSnapshot, fields);
 
         const besideTabs = findPlayersBesideTabs(page)!;
-        expect(panel(besideTabs).open).toBe(true);
-        expect(panel(besideTabs).textContent).toContain('Bob');
+        expect(alwaysOpen(besideTabs)).toBe(true);
+        expect(playersPanel(besideTabs).textContent).toContain('Bob');
         // The one Players panel on the page: none above the tabs as well.
-        expect(panel(page)).toBe(panel(besideTabs));
+        expect(playersPanel(page)).toBe(playersPanel(besideTabs));
         expect(findSeatStrip(page)).toBeNull();
       });
 
@@ -262,7 +230,7 @@ describe('the Players panel', () => {
 
           resizeTo(screen);
 
-          expect(panel(findPlayersBesideTabs(page)!).open).toBe(true);
+          expect(alwaysOpen(findPlayersBesideTabs(page)!)).toBe(true);
         },
       );
     });

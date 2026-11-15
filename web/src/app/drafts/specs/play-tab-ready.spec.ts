@@ -1,4 +1,5 @@
 import type { ViewerTournamentView } from 'contract';
+import { EMPTY_QUEUE } from '../drafts';
 import {
   alertIn,
   alice,
@@ -7,6 +8,7 @@ import {
   draft,
   elementWithText,
   flushPicks,
+  flushQueueAndPlan,
   http,
   inLiveRegion,
   namedList,
@@ -178,6 +180,33 @@ describe('marking yourself ready on the Play tab', () => {
       ),
     );
     expect(toggleButton(panel(page), IM_READY)!.disabled).toBe(true);
+  });
+
+  it('enables I’m ready once the player, who filled their deck in another window, comes back to this one', async () => {
+    const { fixture, page } = await openComplete(
+      { ...registration(bob.id, alice.id), canToggleReady: false },
+      { cards, plan: planOf() },
+    );
+    const tab = await openPlayTab(fixture, page);
+
+    window.dispatchEvent(new Event('focus'));
+    await flushQueueAndPlan(
+      EMPTY_QUEUE,
+      planOf({ basics: [{ land: 'Mountain', board: 'Mainboard', count: 37 }] }),
+    );
+    await flushTournament(registration(bob.id, alice.id));
+    await fixture.whenStable();
+
+    expect(toggleButton(tab, IM_READY)!.disabled).toBe(false);
+  });
+
+  it('reads no tournament as a player whose deck doesn’t lock at Start comes back to the window', async () => {
+    const { fixture } = await openComplete(registration(bob.id), { user: dave });
+
+    window.dispatchEvent(new Event('focus'));
+    await fixture.whenStable();
+
+    http.expectNone('/api/drafts/draft-1/tournament');
   });
 
   it('says marking ready failed when the api gives no reason', async () => {
