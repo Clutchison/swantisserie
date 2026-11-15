@@ -70,7 +70,8 @@
   <p class="error">Couldn't load the tournament. Try reloading the page.</p>
 } @else if (tournament(); as tournament) {
   <app-tournament-progress [tournament]="tournament" [ownId]="playsOn() ? ownId() : undefined" />
-  @if (tournament.state === 'Registration') {
+  <!-- Registration until the tab shows the results: the same signal that places failures. -->
+  @if (!showsResults()) {
     <p class="detail registration-note">
       {{ summary() }}.
       @if (tournament.publicDecklists) {
@@ -171,7 +172,7 @@
     } @else if (tournament.state === 'Complete') {
       <p class="detail">Nobody holds the trophy: no player was left in the bracket to win it.</p>
     }
-    @if (showsOwnMatches()) {
+    @if (showsYourMatches()) {
       <app-your-matches
         [tournament]="tournament"
         [ownId]="ownId()!"

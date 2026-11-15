@@ -1,6 +1,7 @@
 import {
   answer,
   clickBackdrop,
+  onlyAlert,
   openDialog,
   pressEscape,
   question,
@@ -67,7 +68,6 @@ import {
   expectAtFoot,
   expectByResults,
   expectByYourMatches,
-  onlyAlert,
   confirmedMatch,
 } from './play-tab-harness';
 
@@ -395,8 +395,10 @@ describe('Play tab while the tournament is played', () => {
       await pushTournament(fixture, completedSwiss, 1, { asPlayer: true });
       await vi.waitFor(() => expect(region(tab, 'Your match')).toBeNull());
 
-      expect(text(onlyAlert(page))).toBe("Couldn't confirm the match. Try again in a moment.");
-      expectAtFoot(page, tab);
+      expect(text(onlyAlert(panel(page)))).toBe(
+        "Couldn't confirm the match. Try again in a moment.",
+      );
+      expectAtFoot(page, namedList(tab, 'Players'));
     });
 
     it('is absent for a viewer who didn’t join', async () => {
@@ -850,8 +852,8 @@ describe('Play tab while the tournament is played', () => {
         await answer(await question(asked), action);
 
         expect(await failChange(fixture, page, url)).toBe(failure);
-        // It stays at the foot of the tab, by the organizer's controls.
-        expectAtFoot(page, tab);
+        // It stays at the foot of the tab, after the control that made it.
+        expectAtFoot(page, button(tab, label)!);
       },
     );
   });

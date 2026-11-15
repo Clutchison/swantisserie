@@ -46,8 +46,8 @@ import {
   type DraftFixture,
 } from './harness';
 import {
-  alertsIn,
   comesBefore,
+  onlyAlert,
   openDialog,
   serverError,
   tableColumns,
@@ -906,22 +906,12 @@ export async function failChange(fixture: AppFixture, page: HTMLElement, url: st
 }
 
 /**
- * The one alert the open tab of `page` shows, failing the spec if it shows
- * none or more than one, so a failure is said in one place only.
- */
-export function onlyAlert(page: HTMLElement) {
-  const alerts = alertsIn(panel(page));
-  expect(alerts).toHaveLength(1);
-  return alerts[0];
-}
-
-/**
  * Expects the open tab of `page` to show its one alert directly after
  * Your matches (or "Your match") in `tab`, before the results grid or the
  * standings.
  */
 export function expectByYourMatches(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(page);
+  const alert = onlyAlert(panel(page));
   const own = region(tab, 'Your matches') ?? region(tab, 'Your match');
   const results = region(tab, 'Results grid') ?? region(tab, 'Standings');
   expect(comesBefore(own!, alert)).toBe(true);
@@ -934,7 +924,7 @@ export function expectByYourMatches(page: HTMLElement, tab: HTMLElement) {
  * the lists of matches), before the Players list.
  */
 export function expectByResults(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(page);
+  const alert = onlyAlert(panel(page));
   const results = [
     region(tab, 'Results grid'),
     region(tab, 'Standings'),
@@ -946,10 +936,12 @@ export function expectByResults(page: HTMLElement, tab: HTMLElement) {
   expect(comesBefore(alert, namedList(tab, 'Players'))).toBe(true);
 }
 
-/** Expects the open tab of `page` to show its one alert at the foot of `tab`, after every control. */
-export function expectAtFoot(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(page);
-  for (const control of tab.querySelectorAll('button')) {
-    expect(comesBefore(control, alert)).toBe(true);
-  }
+/**
+ * Expects the open tab of `page` to show its one alert at the foot of the
+ * tab, after `after`: the control that failed, or, once the section that
+ * made it is gone, the Players list, which follows every other place a
+ * failure shows. It asserts nothing of what comes after the alert.
+ */
+export function expectAtFoot(page: HTMLElement, after: Element) {
+  expect(comesBefore(after, onlyAlert(panel(page)))).toBe(true);
 }

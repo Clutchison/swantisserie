@@ -249,25 +249,36 @@ export class PlayTab {
    * a player who joined, so they can still confirm once it is complete or
    * they have dropped; "Your match" for one who plays on.
    */
-  protected readonly showsOwnMatches = computed(() =>
+  private readonly showsOwnMatches = computed(() =>
     this.roundRobin() ? this.joined() : this.playsOn(),
   );
-  /** Whether the tab shows the tournament played or complete, with its results; not before setup, while loading, or in registration. */
-  private readonly showsResults = computed(
+  /**
+   * Whether the tab shows the tournament played or complete, with its
+   * results; not before setup, while loading, or in registration. The
+   * template shows the results section by it, and `errorPlace` places
+   * failures by it, so the two can't disagree.
+   */
+  protected readonly showsResults = computed(
     () =>
       this.setUp() &&
       !this.read.missing() &&
       !!this.tournament() &&
       this.tournament()!.state !== 'Registration',
   );
+  /** Whether the tab shows Your matches (or "Your match"), in the results section. */
+  protected readonly showsYourMatches = computed(
+    () => this.showsResults() && this.showsOwnMatches(),
+  );
   /** Where the failure shows: its own place while the tab shows that section, else the foot, so it is never lost. */
   private readonly errorPlace = computed((): ErrorPlace | null => {
     const place = this.error()?.place;
     if (!place) return null;
-    const shown =
-      place === 'foot' ||
-      (this.showsResults() && (place === 'results' || this.showsOwnMatches()));
-    return shown ? place : 'foot';
+    const shown: Record<ErrorPlace, boolean> = {
+      yourMatches: this.showsYourMatches(),
+      results: this.showsResults(),
+      foot: true,
+    };
+    return shown[place] ? place : 'foot';
   });
   /** The signed-in player's matches their own matches show: all of them in round robin, else "Your match"'s, if any. */
   protected readonly ownMatches = computed((): OwnMatch[] => {

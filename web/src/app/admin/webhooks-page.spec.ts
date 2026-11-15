@@ -3,10 +3,11 @@ import {
   alertIn,
   alice,
   answer,
-  byAriaLabel,
+  byName,
   carol,
   comesBefore,
   http,
+  onlyAlert,
   openApp,
   question,
   router,
@@ -53,8 +54,7 @@ describe('webhooks page', () => {
     [...page.querySelectorAll('li')].find((li) => nameField(li)?.value === name)!;
   const mainRow = (page: HTMLElement) => row(page, '#roto-main');
   const sideRow = (page: HTMLElement) => row(page, '#roto-side');
-  const alerts = (page: HTMLElement) => [...page.querySelectorAll<HTMLElement>('[role="alert"]')];
-  const addForm = (page: HTMLElement) => byAriaLabel(page, 'form', 'Add a webhook')!;
+  const addForm = (page: HTMLElement) => byName(page, 'form', 'Add a webhook')!;
   const nameMissing = {
     error: 'invalid',
     message: 'Give the webhook a name.',
@@ -84,17 +84,11 @@ describe('webhooks page', () => {
     await fixture.whenStable();
   }
 
-  /** Expects `message` as the page's only alert, and returns it. */
-  function onlyAlert(page: HTMLElement, message: string) {
-    const [alert, ...others] = alerts(page);
-    expect(others).toEqual([]);
-    expect(alert.textContent).toContain(message);
-    return alert;
-  }
-
   /** Expects `message` as the page's only alert, inside `li`. */
-  function onlyAlertIn(page: HTMLElement, li: Element, message: string) {
-    expect(li.contains(onlyAlert(page, message))).toBe(true);
+  function expectAlertIn(page: HTMLElement, li: Element, message: string) {
+    const alert = onlyAlert(page);
+    expect(alert.textContent).toContain(message);
+    expect(li.contains(alert)).toBe(true);
   }
 
   /** Answers the list's reload after a change with `webhooks`. */
@@ -167,7 +161,9 @@ describe('webhooks page', () => {
 
     await refused(fixture, '/api/admin/webhooks', nameMissing);
 
-    expect(comesBefore(onlyAlert(page, nameMissing.message), form)).toBe(true);
+    const alert = onlyAlert(page);
+    expect(alert.textContent).toContain(nameMissing.message);
+    expect(comesBefore(alert, form)).toBe(true);
   });
 
   it('says saving failed when no reason comes back', async () => {
@@ -241,7 +237,8 @@ describe('webhooks page', () => {
     reload.flush([main]);
     await fixture.whenStable();
 
-    const alert = onlyAlert(page, 'Saving failed. Check your connection and try again.');
+    const alert = onlyAlert(page);
+    expect(alert.textContent).toContain('Saving failed. Check your connection and try again.');
     expect(comesBefore(alert, addForm(page))).toBe(true);
   });
 
@@ -282,7 +279,7 @@ describe('webhooks page', () => {
       { status: 409, statusText: 'Conflict' },
     );
 
-    onlyAlertIn(page, li, 'Another webhook is called #roto-main.');
+    expectAlertIn(page, li, 'Another webhook is called #roto-main.');
   });
 
   it('marks gone webhooks', async () => {
@@ -321,7 +318,7 @@ describe('webhooks page', () => {
       message: 'Paste the webhook’s URL from Discord.',
     });
 
-    onlyAlertIn(page, sideRow(page), 'Paste the webhook’s URL from Discord.');
+    expectAlertIn(page, sideRow(page), 'Paste the webhook’s URL from Discord.');
   });
 
   it('removes a webhook once the app admin goes ahead', async () => {
@@ -350,7 +347,7 @@ describe('webhooks page', () => {
 
     await refused(fixture, `/api/admin/webhooks/${side.id}`, removeRefused);
 
-    onlyAlertIn(page, sideRow(page), removeRefused.message);
+    expectAlertIn(page, sideRow(page), removeRefused.message);
   });
 
   it('keeps a webhook the app admin thinks better of removing', async () => {

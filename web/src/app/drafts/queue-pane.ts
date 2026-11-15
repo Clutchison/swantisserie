@@ -180,7 +180,8 @@ export class QueuePane {
   /** Unless queue changes are offered, the queue can only be looked at. */
   protected readonly readOnly = computed(() => !this.store.offerQueue());
   protected readonly changing = this.changes.changing;
-  protected readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
+  /** The latest change's failure, if it failed, and where it is explained; only one shows at a time. */
+  private readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
   /** Whether the primary pointer is touch, which changes how rows drag: see the row menu in the template. */
   protected readonly coarsePointer = matching(COARSE_POINTER_QUERY);
@@ -500,6 +501,12 @@ export class QueuePane {
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
     return this.change(() => this.queueApi.dismissNotice(this.draftId()));
+  }
+
+  /** The failure's message if it shows at `place`, else null. */
+  protected errorAt(place: ErrorPlace) {
+    const error = this.error();
+    return error?.place === place ? error.message : null;
   }
 
   /**

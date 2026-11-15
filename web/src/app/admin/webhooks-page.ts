@@ -20,8 +20,12 @@ import { Questions } from '../question-dialog';
 
 const API = '/api/admin/webhooks';
 
-/** Where a change came from, so its failure shows there: the Add form, or a webhook's id. */
-type ProblemPlace = 'add' | WebhookWithUrlView['id'];
+/** Where a change came from, so its failure shows there: the Add form, or a webhook's row. */
+type ProblemPlace = 'add' | { webhook: WebhookWithUrlView['id'] };
+
+/** Whether `a` and `b` are the same place. */
+const samePlace = (a: ProblemPlace, b: ProblemPlace) =>
+  a === 'add' || b === 'add' ? a === b : a.webhook === b.webhook;
 
 /** A failed change's message, with the place it came from. */
 interface Problem {
@@ -53,25 +57,22 @@ export class WebhooksPage {
   /** The one failure showing, with the place its change came from. */
   private readonly problem = signal<Problem | null>(null);
 
-  /** A row's failure, or null once its webhook is no longer listed. */
-  private readonly rowProblem = computed(() => {
-    const problem = this.problem();
-    if (!problem || problem.place === 'add') return null;
+  /**
+   * Where the failure shows: the place its change came from, or the Add
+   * form's place once a row's webhook is no longer listed, so it is never lost.
+   */
+  private readonly problemPlace = computed((): ProblemPlace | null => {
+    const place = this.problem()?.place;
+    if (!place || place === 'add') return place ?? null;
     const listed =
-      this.webhooks.hasValue() && this.webhooks.value().some((w) => w.id === problem.place);
-    return listed ? problem : null;
+      this.webhooks.hasValue() && this.webhooks.value().some((w) => w.id === place.webhook);
+    return listed ? place : 'add';
   });
 
-  /** The failure shown before the Add form: the Add form's own, or a row's no longer listed. */
-  protected readonly pageProblem = computed(() => {
-    const problem = this.problem();
-    return problem && !this.rowProblem() ? problem.message : null;
-  });
-
-  /** The failure shown in `webhook`'s row. */
-  protected problemFor(webhook: WebhookWithUrlView) {
-    const problem = this.rowProblem();
-    return problem?.place === webhook.id ? problem.message : null;
+  /** The failure's message if it shows at `place`, else null. */
+  protected problemAt(place: ProblemPlace) {
+    const shown = this.problemPlace();
+    return shown && samePlace(shown, place) ? this.problem()!.message : null;
   }
 
   protected async add() {
@@ -86,14 +87,14 @@ export class WebhooksPage {
 
   protected async rename(webhook: WebhookWithUrlView, name: string) {
     await this.save(
-      webhook.id,
+      { webhook: webhook.id },
       this.http.patch(`${API}/${webhook.id}`, { name } satisfies WebhookRenameRequest),
     );
   }
 
   protected async replaceUrl(webhook: WebhookWithUrlView, url: string) {
     await this.save(
-      webhook.id,
+      { webhook: webhook.id },
       this.http.put(`${API}/${webhook.id}/url`, { url } satisfies WebhookUrlReplaceRequest),
     );
   }
@@ -108,7 +109,7 @@ export class WebhooksPage {
       this.injector,
     );
     if (!goAhead) return;
-    await this.save(webhook.id, this.http.delete(`${API}/${webhook.id}`));
+    await this.save({ webhook: webhook.id }, this.http.delete(`${API}/${webhook.id}`));
   }
 
   /**

@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, expect, onTestFinished, vi } from 'vitest';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -41,6 +41,16 @@ export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>(AL
 
 /** Every alert inside `root`, in reading order. */
 export const alertsIn = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>(ALERT)];
+
+/**
+ * The one alert inside `root`, failing the spec if it shows none or more
+ * than one, so a failure is said in one place only.
+ */
+export function onlyAlert(root: HTMLElement) {
+  const alerts = alertsIn(root);
+  expect(alerts).toHaveLength(1);
+  return alerts[0];
+}
 
 export let http: HttpTestingController;
 export let router: Router;
@@ -392,7 +402,8 @@ export const tableColumns = (table: HTMLElement) =>
  * Whether `first` comes before `second` in reading order: the order a
  * keyboard or screen-reader user reaches them. Specs use it only to check
  * that an action row comes before a list that grows, and that a failure's
- * message comes before the content that follows its control.
+ * message shows by the control that made the change: after it and before
+ * what follows it, or before the form a page-level failure belongs to.
  */
 export const comesBefore = (first: Node, second: Node) =>
   Boolean(first.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING);

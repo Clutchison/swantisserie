@@ -5,12 +5,12 @@
     URLs.
   </p>
 
-  @if (pageProblem(); as problem) {
+  @if (problemAt('add'); as problem) {
     <p class="error" role="alert">{{ problem }}</p>
   }
 
-  <h2>Add a webhook</h2>
-  <form class="add" aria-label="Add a webhook" [formGroup]="form" (ngSubmit)="add()">
+  <h2 id="add-webhook">Add a webhook</h2>
+  <form class="add" aria-labelledby="add-webhook" [formGroup]="form" (ngSubmit)="add()">
     <label>
       Name
       <input
@@ -88,7 +88,7 @@
               Replace URL
             </button>
           </div>
-          @if (problemFor(webhook); as problem) {
+          @if (problemAt({ webhook: webhook.id }); as problem) {
             <p class="error" role="alert">{{ problem }}</p>
           }
         </li>
