@@ -54,17 +54,32 @@ function checkQueueChangeable(state: DraftState): void {
   }
 }
 
+/** What a player was doing when `checkStarted` refused it in the lobby. */
+export type LobbyQueueChange = 'queue' | 'queue-paused' | 'steal-behavior';
+
+const notStartedMessages: Record<LobbyQueueChange, string> = {
+  queue: 'You can queue once the draft starts.',
+  'queue-paused':
+    'You can pause your queue or set it picking once the draft starts.',
+  'steal-behavior': 'You can set your steal behavior once the draft starts.',
+};
+
 /**
- * Throws QueueRefusedError in the lobby, where adding to a queue, setting
- * steal behavior and pausing or setting picking a queue wait for the draft
- * to start. A queue already filled in the lobby is kept, and cascades at
- * the start.
+ * Throws QueueRefusedError in the lobby, where adding to a queue (`queue`,
+ * which Queue unpicked does too), pausing a queue or setting it picking
+ * (`queue-paused`) and setting steal behavior (`steal-behavior`) wait for the
+ * draft to start. The refusal is always `not-started`; its message names what
+ * the player was doing. A queue already filled in the lobby is kept, and
+ * cascades at the start.
  */
-export function checkStarted(state: DraftState): void {
+export function checkStarted(
+  state: DraftState,
+  change: LobbyQueueChange,
+): void {
   if (state === 'Lobby') {
     throw new QueueRefusedError({
       error: 'not-started',
-      message: 'You can queue once the draft starts.',
+      message: notStartedMessages[change],
     });
   }
 }

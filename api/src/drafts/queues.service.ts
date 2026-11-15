@@ -55,7 +55,7 @@ export class QueuesService {
     stealBehavior: StealBehavior,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId, state) => {
-      checkStarted(state);
+      checkStarted(state, 'steal-behavior');
       await tx.player.update({
         where: { id: playerId },
         data: { stealBehavior },
@@ -71,7 +71,7 @@ export class QueuesService {
    */
   async pauseQueue(draftId: string, userId: string): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId, state) => {
-      checkStarted(state);
+      checkStarted(state, 'queue-paused');
       await tx.player.update({
         where: { id: playerId },
         data: { queuePaused: true },
@@ -80,8 +80,8 @@ export class QueuesService {
   }
 
   /**
-   * Adds the pool card `poolCardId` to the end of the user's queue, and
-   * off its Queue notice; a no-op if it is already queued. Throws
+   * Adds the pool card `poolCardId` to the end of the user's queue; a no-op
+   * if it is already queued. Throws
    * QueueRefusedError if it can't be queued: in the lobby, on the player's
    * own turn, drafting or frozen, when they make that pick by hand, and once
    * the draft is closed or complete. Throws NotAPlayerError if the user
@@ -237,7 +237,7 @@ export class QueuesService {
     playerId: string,
     state: DraftState,
   ): Promise<void> {
-    checkStarted(state);
+    checkStarted(state, 'queue');
     if (await this.isPlayersTurn(tx, draftId, playerId)) {
       throw new QueueRefusedError({
         error: 'your-turn',
@@ -248,8 +248,7 @@ export class QueuesService {
 
   /**
    * Adds the pool cards `poolCardIds`, which no one has picked, to the end
-   * of the player's queue in order, and off their Queue notice. A card already
-   * queued stays where it is.
+   * of the player's queue in order. A card already queued stays where it is.
    */
   private async append(
     tx: Transaction,
@@ -269,10 +268,6 @@ export class QueuesService {
         poolCardId,
         position: next + offset,
       })),
-    });
-    await tx.takenOutQueuedCard.updateMany({
-      where: { playerId, poolCardId: { in: poolCardIds } },
-      data: { noticeHidden: true },
     });
   }
 
