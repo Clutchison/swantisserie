@@ -265,6 +265,23 @@ describe('creating a draft from a cube', () => {
     await listDrafts().expect(200).expect([]);
   });
 
+  it('refuses a cube whose mainboard is only basic lands, saying so', async () => {
+    cubesAre({
+      basicscube: cube('Basics', 'Plains', 'Island', 'Swamp', 'Plains'),
+    });
+
+    const res = await createDraft({
+      name: 'Basics',
+      poolSource: { kind: 'cube', cubeLink: 'basicscube' },
+    }).expect(422);
+
+    expect(res.body).toEqual({
+      error: 'no-cards',
+      message: 'This cube has no mainboard cards besides basic lands.',
+    });
+    await listDrafts().expect(200).expect([]);
+  });
+
   it('refuses a cube with cards not on the platform, listing each once', async () => {
     cubesAre({
       papercube: cube(

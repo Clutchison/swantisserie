@@ -19,7 +19,7 @@ import {
   EVENT_PLAYER,
   toEventPlayer,
 } from './draft-events.js';
-import { isBasicLand } from './basic-lands.js';
+import { isBasicLand, NO_BASIC_LANDS } from './basic-lands.js';
 import { DraftLock, type LockedDraft, shareLockUser } from './draft-lock.js';
 import {
   type DraftWithOrganizer,
@@ -369,7 +369,10 @@ export class DraftLobbyService {
     if (cube.mainboard.length === 0) {
       throw new CubeLinkError({
         error: 'no-cards',
-        message: 'This cube has no mainboard cards.',
+        message:
+          found.mainboard.length === 0
+            ? 'This cube has no mainboard cards.'
+            : 'This cube has no mainboard cards besides basic lands.',
       });
     }
     // Searches still to come once the deadline passes would only hold up
@@ -396,7 +399,12 @@ export class DraftLobbyService {
     platform: Platform,
     deadline: Deadline,
   ): Promise<void> {
-    const matches = await this.search(poolQuery, deadline);
+    // Like the snapshot, leave the basic lands out: a query that matches only
+    // them would make an empty pool.
+    const matches = await this.search(
+      `(${poolQuery}) ${NO_BASIC_LANDS}`,
+      deadline,
+    );
     if (!matches) {
       throw new PoolQueryError({
         error: 'no-cards',
