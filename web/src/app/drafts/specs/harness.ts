@@ -594,9 +594,9 @@ export const pickImportPreview = (root: HTMLElement) =>
 export const pickImportProblems = (root: HTMLElement) =>
   findNamedList(root, 'Problems with the file') ? items(root, 'Problems with the file') : [];
 
-/** The text of every status message inside `root`, with its whitespace collapsed. */
+/** The text of every status message inside `root`, with its whitespace collapsed; empty regions say nothing. */
 export const statusTexts = (root: HTMLElement) =>
-  [...root.querySelectorAll('[role="status"]')].map((el) => text(el));
+  [...root.querySelectorAll('[role="status"]')].map((el) => text(el)).filter(Boolean);
 
 /** A list inside `root`, by its accessible name, such as "Pick log"; null if there is none. */
 export const findNamedList = (root: HTMLElement, name: string) =>

@@ -1,4 +1,12 @@
-import { answer, menu, menuItem, pressKey, question, statusIn } from '../../specs-harness';
+import {
+  answer,
+  emptyStatusIn,
+  menu,
+  menuItem,
+  pressKey,
+  question,
+  statusIn,
+} from '../../specs-harness';
 import type { CloseRefusal } from 'contract';
 import {
   useDraftsApp,
@@ -236,9 +244,7 @@ describe('close and reopen', () => {
   it('says the draft is closed in its region, there and empty while drafting, so it is announced', async () => {
     const organizer = { id: bob.id, name: bob.name };
     const { fixture, page } = await openDraft(completeSnapshot, { ...underway, organizer });
-    const region = statusIn(page, { name: 'Closed' });
-    expect(region).not.toBeNull();
-    expect(text(region)).toBe('');
+    const region = emptyStatusIn(page, 'Closed');
 
     updates.events.next({ type: 'changed', draft: draft({ ...closed, organizer, version: 1 }) });
     await flushPicks([]);

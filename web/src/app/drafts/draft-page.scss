@@ -41,11 +41,7 @@ main > .seat-strip,
   }
 }
 
-/*
- * The notes under the header, on every tab. Each note's region is always
- * there; an empty one takes no space, and is never hidden, or a screen
- * reader would miss its text arriving.
- */
+/* The notes under the header, on every tab: only notes with text are spaced apart. */
 .status-strip p {
   margin: 0;
 

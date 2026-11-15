@@ -379,7 +379,7 @@ describe('Queue pane list', () => {
       );
       await vi.waitFor(() => expect(document.activeElement).toBe(shivanMenu()));
       expect(names(queue)[1]).toBe('Shivan Dragon');
-      expect(statusTexts(queue)).toEqual(['']);
+      expect(statusTexts(queue)).toEqual([]);
     });
 
     it('says nothing of a change that says nothing, clearing what the last change said', async () => {
@@ -403,14 +403,14 @@ describe('Queue pane list', () => {
 
       chooseInRowMenu(queue, 'Shivan Dragon', 'Remove');
       await fixture.whenStable();
-      expect(statusTexts(queue)).toEqual(['']);
+      expect(statusTexts(queue)).toEqual([]);
       http
         .expectOne('/api/drafts/draft-1/queue/shivan-card')
         .flush(queueOf({ cards: [queued(bolt), queued(brightclimb)] }));
       await vi.waitFor(() => expect(names(queue)).not.toContain('Shivan Dragon'));
       await fixture.whenStable();
 
-      expect(statusTexts(queue)).toEqual(['']);
+      expect(statusTexts(queue)).toEqual([]);
     });
 
     it('moves focus to the nearest control before, in page order, once the moved card is gone', async () => {

@@ -36,7 +36,7 @@ import {
   chooseInRowMenu,
   text,
 } from './harness';
-import { statusIn } from '../../specs-harness';
+import { emptyStatusIn, statusIn } from '../../specs-harness';
 import { board } from './board-tab-harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 import { openPlan } from './plan-tab-harness';
@@ -422,9 +422,7 @@ describe('live updates', () => {
       );
       await flushPicks([]);
       await fixture.whenStable();
-      const region = statusIn(page, { name: 'Connection' });
-      expect(region).not.toBeNull();
-      expect(text(region)).toBe('');
+      const region = emptyStatusIn(page, 'Connection');
 
       updates.events.next({ type: 'disconnected' });
       await fixture.whenStable();

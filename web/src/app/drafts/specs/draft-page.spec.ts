@@ -42,7 +42,7 @@ import {
 import { pushDraft } from './turn-harness';
 import { alicesTurnItem } from './draft-list-harness';
 import { turnLinkShown } from '../../top-bar/specs-harness';
-import { followBack, pressKey, statusIn } from '../../specs-harness';
+import { emptyStatusIn, followBack, pressKey, statusIn, watchChanges } from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
 
@@ -205,9 +205,7 @@ describe('draft page', () => {
       const { fixture, page } = await openDraft(completeSnapshot, {
         webhook: { ...webhook, gone: false },
       });
-      const region = statusIn(page, { name: 'Webhook' });
-      expect(region).not.toBeNull();
-      expect(text(region)).toBe('');
+      const region = emptyStatusIn(page, 'Webhook');
 
       updates.events.next({
         type: 'changed',
@@ -216,6 +214,17 @@ describe('draft page', () => {
       await fixture.whenStable();
 
       expect(statusIn(page, { name: 'Webhook' })).toBe(region);
+      expect(text(region)).toBe(goneNotice);
+
+      // The same note, webhook name and all, re-rendered by a later change isn't put in again.
+      const changes = watchChanges(region);
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ snapshot: completeSnapshot, webhook, version: 2 }),
+      });
+      await fixture.whenStable();
+
+      expect(changes()).toEqual([]);
       expect(text(region)).toBe(goneNotice);
     });
 
@@ -488,9 +497,7 @@ describe('draft page', () => {
 
     it('says it couldn’t refresh in its region, there and empty before the read fails, so it is announced', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { name: 'Friday Cube' });
-      const region = statusIn(page, { name: 'Refresh' });
-      expect(region).not.toBeNull();
-      expect(text(region)).toBe('');
+      const region = emptyStatusIn(page, 'Refresh');
 
       updates.events.next({ type: 'connected' });
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(null, {

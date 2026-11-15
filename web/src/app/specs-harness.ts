@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, onTestFinished, vi } from 'vitest';
+import { afterEach, beforeEach, expect, onTestFinished, vi } from 'vitest';
 import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import {
   HttpTestingController,
@@ -39,25 +39,50 @@ export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[
 /**
  * How `statusIn` finds a status region: by its accessible name (its
  * aria-label, or the text of the element its aria-labelledby names), or by
- * the text it holds: a string the whole text, whitespace collapsed, or a
- * pattern it matches.
+ * its whole text, whitespace collapsed.
  */
-export type StatusQuery = { name: string } | { text: string | RegExp };
+export type StatusQuery = { name: string } | { text: string };
 
 /**
  * The live region with `role="status"` inside `root` that `query` finds; null
- * if there is none. Find a region by name to check it is on the page, empty,
- * before its text arrives, as screen readers only announce a change to a
- * region already there; by text for a message whose region has no name.
+ * if there is none. Find a region by name while it is empty; by text for a
+ * message whose region has no name.
  */
 export function statusIn(root: HTMLElement, query: StatusQuery): HTMLElement | null {
   if ('name' in query) return byName(root, '[role="status"]', query.name);
-  const wanted = query.text;
   return (
-    [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((region) =>
-      typeof wanted === 'string' ? text(region) === wanted : wanted.test(text(region)),
+    [...root.querySelectorAll<HTMLElement>('[role="status"]')].find(
+      (region) => text(region) === query.text,
     ) ?? null
   );
+}
+
+/**
+ * The status region named `name` inside `root`, failing the test unless it is
+ * there and empty: as it must be before its text arrives, since screen
+ * readers only announce a change to a region already on the page.
+ */
+export function emptyStatusIn(root: HTMLElement, name: string): HTMLElement {
+  const region = statusIn(root, { name });
+  expect(region, `the status region named ${name}`).not.toBeNull();
+  expect(text(region)).toBe('');
+  return region!;
+}
+
+/**
+ * Starts recording every change inside `region`, its text included; returns
+ * a function that stops and gives the changes made since. None means a
+ * re-render didn't put its text in again, so it wasn't said twice.
+ */
+export function watchChanges(region: HTMLElement): () => MutationRecord[] {
+  const changes: MutationRecord[] = [];
+  const observer = new MutationObserver((records) => changes.push(...records));
+  observer.observe(region, { childList: true, subtree: true, characterData: true });
+  return () => {
+    changes.push(...observer.takeRecords());
+    observer.disconnect();
+    return changes;
+  };
 }
 
 export let http: HttpTestingController;

@@ -28,9 +28,8 @@
     <app-draft-header (changeStarted)="clearErrors()" (cancelled)="leaveCancelled()">
       <ng-container *ngTemplateOutlet="backLink" />
     </app-draft-header>
-    <!-- The notes a player needs whichever tab is open. Each note's live region
-         is always here, empty while there is nothing to say, as screen readers
-         only announce a change to a region already on the page. -->
+    <!-- The notes a player needs whichever tab is open, each in its own live
+         region, always here (see CODING_STANDARDS.md, live regions). -->
     <div class="status-strip">
       <p role="status" aria-label="Connection">
         @if (reconnecting()) {
