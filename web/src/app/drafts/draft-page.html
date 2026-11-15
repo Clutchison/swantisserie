@@ -38,6 +38,11 @@
           Couldn't refresh this draft. What's shown may be out of date.
         </p>
       }
+      @if (powersFailed()) {
+        <p class="detail" role="status">
+          Couldn't load your controls for this draft. Try reloading the page.
+        </p>
+      }
       @if (draft.state === 'Frozen') {
         <p class="frozen" role="status">The draft is frozen. No picks until it is unfrozen.</p>
       }

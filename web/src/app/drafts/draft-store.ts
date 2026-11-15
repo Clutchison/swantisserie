@@ -158,11 +158,15 @@ export class DraftStore implements TournamentViewer {
   readonly powers = computed(() =>
     this.powersResource.hasValue() ? this.powersResource.value() : NO_POWERS,
   );
+  /**
+   * Whether the read of the viewer's draft powers failed, so the page shows
+   * none of the controls they gate and says why. Nothing reads them again.
+   */
+  readonly powersFailed = computed(() => this.powersResource.status() === 'error');
   /** Whether the viewer's draft powers are known: loaded, or failed to load, so none. */
-  readonly powersKnown = computed(() => {
-    const status = this.powersResource.status();
-    return status === 'resolved' || status === 'error';
-  });
+  readonly powersKnown = computed(
+    () => this.powersResource.status() === 'resolved' || this.powersFailed(),
+  );
   /** Whether the viewer's draft powers let them organize the draft. */
   readonly canOrganize = computed(() => this.powers().organize);
   /** Whether the viewer's draft powers let them add and remove bots, which they do in the lobby. */
