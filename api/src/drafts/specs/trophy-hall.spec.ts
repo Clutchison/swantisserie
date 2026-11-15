@@ -5,10 +5,8 @@ import { Prisma } from '../../generated/prisma/client.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { landPrinting } from '../../testing/scryfall-printings.js';
 import { OTJ_SETS, scryfallSet } from '../../testing/scryfall-sets.js';
-import {
-  holdScryfallSets,
-  readPastSetNamesDeadline,
-} from '../../testing/set-names-deadline.js';
+import { holdScryfallSets } from '../../testing/held-scryfall-sets.js';
+import { readPastSetNamesDeadline } from '../../testing/set-names-deadline.js';
 import {
   alice,
   aliceCookie,

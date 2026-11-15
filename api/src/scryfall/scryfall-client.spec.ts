@@ -1,3 +1,4 @@
+import { held } from '../testing/deadlines.js';
 import { hangOnce } from '../testing/hanging-fetch.js';
 import {
   FetchScryfallClient,
@@ -357,13 +358,8 @@ describe('FetchScryfallClient', () => {
       vi.useFakeTimers();
       try {
         const ids = Array.from({ length: 50 }, (_, n) => oracleId(n));
-        let answer!: () => void;
-        fetch.mockImplementationOnce(
-          () =>
-            new Promise((resolve) => {
-              answer = () => resolve(Response.json(found([])));
-            }),
-        );
+        const underWay = held<Response>();
+        fetch.mockReturnValueOnce(underWay.promise);
         fetch.mockImplementation(async () => Response.json(found([])));
         const searches = new AbortController();
 
@@ -371,7 +367,7 @@ describe('FetchScryfallClient', () => {
         const failed = expect(cards).rejects.toThrow('stop');
         await vi.advanceTimersByTimeAsync(0);
         searches.abort(new Error('stop'));
-        answer();
+        underWay.letGo(Response.json(found([])));
         await vi.advanceTimersByTimeAsync(10_000);
 
         await failed;

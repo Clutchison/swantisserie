@@ -2,10 +2,8 @@ import { Logger } from '@nestjs/common';
 import type { MyStatsView } from 'contract';
 import request from 'supertest';
 import { OTJ_SETS } from '../../testing/scryfall-sets.js';
-import {
-  holdScryfallSets,
-  readPastSetNamesDeadline,
-} from '../../testing/set-names-deadline.js';
+import { holdScryfallSets } from '../../testing/held-scryfall-sets.js';
+import { readPastSetNamesDeadline } from '../../testing/set-names-deadline.js';
 import {
   alice,
   aliceCookie,

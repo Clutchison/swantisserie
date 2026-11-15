@@ -10,6 +10,15 @@ export function held<T>(): { promise: Promise<T>; letGo: (answer: T) => void } {
 }
 
 /**
+ * Gives work let go after its deadline, in real time, long enough to do
+ * whatever it would do late with its answer, such as saving a draft, so a
+ * spec can check that it does nothing.
+ */
+export function lateWorkDone(): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, 100));
+}
+
+/**
  * Fakes the timers a deadline runs on: `setTimeout` and `clearTimeout`, and
  * `Date`, as a deadline reads the time left from it. Real time still moves
  * the clock, so the app keeps answering over HTTP. Undo with

@@ -1,5 +1,5 @@
 import { Deadline, DeadlinePassedError } from './deadline.js';
-import { held } from './testing/deadlines.js';
+import { held, useDeadlineTimers } from './testing/deadlines.js';
 
 describe('Deadline', () => {
   afterEach(() => {
@@ -7,7 +7,7 @@ describe('Deadline', () => {
   });
 
   it('refuses work raced once it has passed, even work already answered', async () => {
-    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    useDeadlineTimers();
     const deadline = new Deadline('test', 1_000);
     vi.advanceTimersByTime(1_000);
 

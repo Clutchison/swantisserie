@@ -3,7 +3,7 @@ import {
   type Cube,
 } from '../../cubecobra/cubecobra-client.js';
 import type { ScryfallCard } from '../../scryfall/scryfall-client.js';
-import { held } from '../../testing/deadlines.js';
+import { held, lateWorkDone } from '../../testing/deadlines.js';
 import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
   aliceCookie,
@@ -221,6 +221,7 @@ describe('creating a draft from a cube', () => {
     expect(res.status).toBe(502);
     expect(res.body).toMatchObject({ error: 'cubecobra-unavailable' });
     fetched.letGo(pauper);
+    await lateWorkDone();
     await listDrafts().expect(200).expect([]);
     expect(scryfall.printingsOn).not.toHaveBeenCalled();
   });
@@ -245,6 +246,7 @@ describe('creating a draft from a cube', () => {
     const [, , searches] = scryfall.printingsOn.mock.calls[0];
     expect(searches?.aborted).toBe(true);
     found.letGo([card('Lightning Bolt'), card('Deftblade Elite')]);
+    await lateWorkDone();
     await listDrafts().expect(200).expect([]);
   });
 

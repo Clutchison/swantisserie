@@ -6,7 +6,7 @@ import {
   ScryfallUnavailableError,
   type ScryfallSearchPage,
 } from '../../scryfall/scryfall-client.js';
-import { held } from '../../testing/deadlines.js';
+import { held, lateWorkDone } from '../../testing/deadlines.js';
 import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
   alice,
@@ -274,6 +274,7 @@ it('answers 502 within the draft creation deadline when Scryfall doesn’t answe
   expect(res.status).toBe(502);
   expect(res.body).toMatchObject({ error: 'scryfall-unavailable' });
   search.letGo(page('Balefire Dragon', 'Shivan Dragon'));
+  await lateWorkDone();
   await listDrafts().expect(200).expect([]);
 });
 
