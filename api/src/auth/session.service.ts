@@ -25,9 +25,10 @@ export class SessionService {
   private readonly endings = new Subject<string>();
 
   /**
-   * The id of each session as it ends, so whatever it kept open, such as
-   * a draft socket, can close. Every way of ending a session announces it
-   * here.
+   * The id of each live session as it ends, so whatever it kept open, such
+   * as a draft socket, can close. Every way of ending a live session
+   * announces it here; one expiring is not, so whatever it kept open
+   * watches for its expiry itself, as each draft socket's own timer does.
    */
   readonly ended: Observable<string> = this.endings.asObservable();
 
@@ -45,11 +46,6 @@ export class SessionService {
       }),
     ]);
     return { token, expiresAt };
-  }
-
-  /** The signed-in user, or null if the token is unknown or expired. */
-  async findUser(token: string): Promise<User | null> {
-    return (await this.find(token))?.user ?? null;
   }
 
   /** The token's session, or null if it is unknown or expired. */

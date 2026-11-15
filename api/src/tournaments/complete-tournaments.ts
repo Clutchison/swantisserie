@@ -22,12 +22,12 @@ export interface CompleteTournament {
 }
 
 /**
- * The complete tournament of every draft in `seen`, in the order they
- * started, as the tournament read sees it, with its draft's name and pool
- * source. Its trophy holders
- * are computed on each read from its standings, the one place the trophy is
- * decided, so the Play tab, the Trophy Hall, My stats, the draft list and the ended
- * announcement can't disagree.
+ * The complete tournament of every draft the viewer sees (`seen`), in the
+ * order they started, as the tournament read sees it, with its draft's name
+ * and pool source. Its trophy holders are computed on each read from its
+ * standings, the one place the trophy is decided, so the Play tab, the
+ * Trophy Hall, My stats, the draft list and the ended announcement can't
+ * disagree.
  */
 export async function readCompleteTournaments(
   prisma: PrismaService,
@@ -54,8 +54,8 @@ export async function readCompleteTournaments(
 }
 
 /**
- * The complete tournaments of the drafts in `seen` that the Trophy Hall and
- * My stats count, newest first: every one but those a bot played in, which
+ * The complete tournaments of the drafts the viewer sees (`seen`) that the
+ * Trophy Hall and My stats count, newest first: every one but those a bot played in, which
  * count nowhere, as bots exist for testing (ADR 0008). Cancelled
  * tournaments are gone, so are never read.
  */

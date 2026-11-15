@@ -61,8 +61,11 @@ const ownRoom = (userId: string) => `user:${userId}`;
 /** The room of every socket one session admitted, closed when it ends. */
 const sessionRoom = (sessionId: string) => `session:${sessionId}`;
 
+/** How a watch's check came out, before it is answered. */
+type WatchCheck = 'ended' | 'unchecked' | 'sees' | 'cannotSee';
+
 /** The longest a Node timer waits, about 24.8 days; a longer wait is 1 ms. */
-const LONGEST_TIMER_MS = 2 ** 31 - 1;
+export const LONGEST_TIMER_MS = 2 ** 31 - 1;
 
 /**
  * Pushes each draft's changes to everyone watching it, over Socket.IO. A
@@ -185,46 +188,74 @@ export class DraftsGateway
    * answer.
    */
   @SubscribeMessage('watch')
-  async watch(
+  watch(
     @ConnectedSocket() socket: DraftServerSocket,
     @MessageBody() draftId: unknown,
+  ): Promise<DraftWatchResult | undefined> {
+    return typeof draftId === 'string'
+      ? this.watchDraft(socket, draftId)
+      : this.refuseWatch(socket);
+  }
+
+  /** Answers a watch of the draft of id `draftId`, as `watch` does. */
+  private async watchDraft(
+    socket: DraftServerSocket,
+    draftId: string,
   ): Promise<DraftWatchResult | undefined> {
     const { pendingWatches } = socket.data;
     const request = Symbol();
     // Noted before anything is awaited, so a stop sent after it cancels it.
-    if (typeof draftId === 'string') pendingWatches.set(draftId, request);
-    const seesDraft = await this.checkWatch(socket.data, draftId).catch(
-      (err: unknown) => {
-        this.logger.error(
-          `Checking a watch of draft ${String(draftId)} failed`,
-          err,
-        );
-        return 'unchecked' as const;
-      },
-    );
-    if (seesDraft === 'ended') {
-      socket.disconnect(true);
-      return undefined;
-    }
-    if (typeof draftId !== 'string') return 'refused';
+    pendingWatches.set(draftId, request);
+    const check = await this.checkWatch(socket.data, draftId);
     const stillWanted = pendingWatches.get(draftId) === request;
     if (stillWanted) pendingWatches.delete(draftId);
-    if (seesDraft === 'unchecked') return seesDraft;
-    if (!stillWanted || !socket.connected || !seesDraft) return 'refused';
-    await socket.join(room(draftId));
-    return 'watching';
+    switch (check) {
+      case 'ended':
+        socket.disconnect(true);
+        return undefined;
+      case 'unchecked':
+        return 'unchecked';
+      case 'cannotSee':
+        return 'refused';
+      case 'sees':
+        if (!stillWanted || !socket.connected) return 'refused';
+        await socket.join(room(draftId));
+        return 'watching';
+    }
   }
 
   /**
-   * Whether the socket's session has `ended`, else whether its viewer may
-   * see the draft `draftId` names. Throws if either couldn't be checked.
+   * Refuses a watch of a draft named by anything but its id, closing the
+   * socket instead if its session has ended.
+   */
+  private async refuseWatch(
+    socket: DraftServerSocket,
+  ): Promise<'refused' | undefined> {
+    if ((await this.checkWatch(socket.data)) !== 'ended') return 'refused';
+    socket.disconnect(true);
+    return undefined;
+  }
+
+  /**
+   * Whether the socket's session has `ended`, else whether its viewer
+   * `sees` the draft of id `draftId` or `cannotSee` it, as they can't one
+   * not named; `unchecked` if either check failed.
    */
   private async checkWatch(
     { sessionId, user }: SocketData,
-    draftId: unknown,
-  ): Promise<'ended' | boolean> {
-    if (!(await this.sessions.isLive(sessionId))) return 'ended';
-    return typeof draftId === 'string' && this.canSee(user, draftId);
+    draftId?: string,
+  ): Promise<WatchCheck> {
+    try {
+      if (!(await this.sessions.isLive(sessionId))) return 'ended';
+      if (draftId === undefined) return 'cannotSee';
+      return (await this.canSee(user, draftId)) ? 'sees' : 'cannotSee';
+    } catch (err) {
+      this.logger.error(
+        `Checking a watch of draft ${draftId ?? 'not named'} failed`,
+        err,
+      );
+      return 'unchecked';
+    }
   }
 
   /** Whether `user` may see the draft of id `draftId`. */

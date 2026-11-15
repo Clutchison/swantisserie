@@ -15,7 +15,7 @@ import { toTournamentMatch } from '../tournaments/tournament-view.js';
 /** A complete tournament as My stats reads it, with the draft its result names. */
 type StatsRead = StatsTournament & { complete: CompleteTournament };
 
-/** My stats, of the tournaments of the drafts their player sees. */
+/** My stats, of the tournaments of the drafts the viewer sees. */
 @Injectable()
 export class MyStatsService {
   constructor(
@@ -25,7 +25,7 @@ export class MyStatsService {
   ) {}
 
   /**
-   * The My stats of the player `viewer`, computed on each read from the
+   * The My stats of the viewer, computed on each read from the
    * standings of every complete tournament they joined that counts, of the
    * drafts they see, newest first, each result's pool source shown as the
    * Trophy Hall shows it.

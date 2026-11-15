@@ -13,7 +13,7 @@ import { TrophyHallService } from './trophy-hall.service.js';
 export class TrophyHallController {
   constructor(private readonly trophyHall: TrophyHallService) {}
 
-  /** The Trophy Hall of the drafts the signed-in user sees, as TrophyHallService.read groups it. */
+  /** The Trophy Hall of the drafts the viewer sees, as TrophyHallService.read groups it. */
   @Get()
   async read(@CurrentUser() user: SessionUser): Promise<TrophyHallView> {
     return this.trophyHall.read(user);

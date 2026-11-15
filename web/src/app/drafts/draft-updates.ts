@@ -84,7 +84,7 @@ export class DraftUpdates {
   watch(draftId: string): Observable<DraftUpdate> {
     return new Observable((subscriber) => {
       let watching = true;
-      /** The wait to ask again for a watch the API couldn't check. */
+      // The wait to ask again for a watch the API couldn't check.
       let retry: ReturnType<typeof setTimeout> | undefined;
       const stopRetrying = () => clearTimeout(retry);
       // Socket.IO drops an unanswered acknowledgement when the socket drops,
