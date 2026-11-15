@@ -21,7 +21,7 @@ import type {
   PreferredPrintings,
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
-import { Changes, FocusKey, SendsChange } from '../changes';
+import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
 import { BasicLandPrintings } from './basic-land-printings';
 import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
@@ -49,7 +49,7 @@ export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
 @Component({
   selector: 'app-printing-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FocusKey, SendsChange, SetCombobox],
+  imports: [ChangeStatus, FocusKey, SendsChange, SetCombobox],
   providers: [Changes],
   templateUrl: './printing-picker.html',
   styleUrls: ['../dialog.scss', './printing-picker.scss'],

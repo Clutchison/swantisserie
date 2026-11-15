@@ -11,7 +11,8 @@ import {
   signal,
   untracked,
 } from '@angular/core';
-import { Changes, FocusKey, SendsChange } from '../changes';
+import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
+import { settled } from '../reread';
 import { DraftStore } from './draft-store';
 import { cardsNoun, changeFailure, QUEUE_CHANGE_FAILED, queueStateChangeName } from './drafts';
 import { QueueApi } from './queue-api';
@@ -42,7 +43,7 @@ export type QueuePickingResult =
 @Component({
   selector: 'app-queue-picking-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FocusKey, SendsChange],
+  imports: [ChangeStatus, FocusKey, SendsChange],
   providers: [Changes],
   templateUrl: './queue-picking-dialog.html',
   styleUrls: ['../dialog.scss', './queue-picking-dialog.scss'],
@@ -69,10 +70,11 @@ export class QueuePickingDialog {
    */
   readonly afterRefusal = input(false);
   /**
-   * Whether setting it queue picking is on its way, or its cards are being
-   * read again: the confirm ignores presses until it settles.
+   * Whether the confirm is busy, ignoring presses: setting it queue picking
+   * is on its way, or its cards are being read again, after a refusal or
+   * otherwise.
    */
-  private readonly sending = this.changes.changing;
+  private readonly busy = this.changes.changing;
   /** Why the cards last confirmed were refused, if they were. */
   protected readonly refused = signal<string | null>(null);
   /** Whether the cards may change before they can be confirmed: they are being read again. */
@@ -90,15 +92,16 @@ export class QueuePickingDialog {
     // busy until they settle, keeping focus.
     effect(() => {
       if (!this.rereading()) return;
+      // Sent as a change, so the confirm is marked busy and keeps focus while the cards are re-read.
       untracked(() => void this.changes.send(() => this.rereadSettled()));
     });
-    // Once the cards settle on none, with no confirm on its way, there is
+    // Once the cards settle on none, with the confirm no longer busy, there is
     // nothing to confirm. Should a refusal's re-read settle on none, the
     // player asked for queue picking already, so it is set queue picking with
     // none. Otherwise, as when the turn passes while it is open, the dialog
     // closes as Cancel does: the player confirmed nothing.
     effect(() => {
-      if (this.sending() || this.rereading()) return;
+      if (this.busy() || this.rereading()) return;
       if (this.picks().length > 0) {
         untracked(() => this.askedBeforeReread.set(false));
         return;
@@ -143,17 +146,8 @@ export class QueuePickingDialog {
     });
   }
 
-  /** Answers once the cards are no longer being read again. */
+  /** Answers once the cards are no longer being read again, or the dialog has closed. */
   private rereadSettled() {
-    return new Promise<void>((settled) => {
-      const watch = effect(
-        () => {
-          if (this.rereading()) return;
-          watch.destroy();
-          settled();
-        },
-        { injector: this.injector },
-      );
-    });
+    return settled(this.rereading, this.injector);
   }
 }

@@ -1,7 +1,7 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { Changes, FocusKey, SendsChange } from '../changes';
 import type { PlannedCardView, PlanView } from 'contract';
+import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
 import { DraftStore } from './draft-store';
 import { cardsNoun, changeFailure } from './drafts';
 import { QueueApi } from './queue-api';
@@ -34,7 +34,7 @@ export function unpickedToQueue(plan: PlanView, queued: ReadonlySet<string>) {
 @Component({
   selector: 'app-queue-unpicked-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FocusKey, SendsChange, ToggleButton],
+  imports: [ChangeStatus, FocusKey, SendsChange, ToggleButton],
   providers: [Changes],
   templateUrl: './queue-unpicked-dialog.html',
   styleUrls: ['../dialog.scss', './queue-unpicked-dialog.scss'],
