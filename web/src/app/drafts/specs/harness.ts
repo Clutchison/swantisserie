@@ -43,6 +43,7 @@ import {
   byAriaLabel,
   byName,
   collapseWhitespace,
+  filledStatusIn,
   opensDraftList,
   panel,
   serverError,
@@ -590,10 +591,8 @@ export const statusMessage = (root: HTMLElement, text: string) =>
   statusIn(root, { text }) ?? undefined;
 
 /** The preview of the file chosen for a pick import inside `root`: its status region while it holds one; undefined while none shows. */
-export function pickImportPreview(root: HTMLElement) {
-  const region = statusIn(root, { name: 'Pick import preview' });
-  return region && text(region) ? region : undefined;
-}
+export const pickImportPreview = (root: HTMLElement) =>
+  filledStatusIn(root, 'Pick import preview') ?? undefined;
 
 /** The problems listed with the file chosen for a pick import inside `root`, in order; none while no list shows. */
 export const pickImportProblems = (root: HTMLElement) =>
