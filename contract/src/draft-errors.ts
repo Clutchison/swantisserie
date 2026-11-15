@@ -211,7 +211,7 @@ export interface TournamentRefusal {
     | 'deck-too-small-for-ready'
     /** While a tournament without public decklists is playing, its decklists aren't shown; they are once it is complete. */
     | 'decklists-private'
-    /** A tournament completed before every deck was kept (ADR 0017) kept no decklists without public decklists, so it never shows them. */
+    /** Once registration is over, a tournament with an entry whose decklist wasn't kept never shows its decklists. Today that is only one completed before every deck was kept (ADR 0017), which kept none without public decklists. */
     | 'decklists-not-kept'
     /** Decklists are never shown during registration: under public decklists from Start, otherwise once complete. */
     | 'in-registration'

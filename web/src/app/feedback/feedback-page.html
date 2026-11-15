@@ -22,10 +22,10 @@
   }
 
   <div id="feedback-panel" role="tabpanel" [attr.aria-label]="selectedTab()">
-    @if (feedback.isLoading() && !feedback.hasValue()) {
-      <p>Loading…</p>
-    } @else if (feedback.error()) {
+    @if (feedback.error()) {
       <p class="error">Couldn't load the feedback. Try reloading the page.</p>
+    } @else if (feedback.isLoading() && !feedback.hasValue()) {
+      <app-loading-animation size="page">Loading…</app-loading-animation>
     } @else if (feedback.hasValue()) {
       <ul>
         @for (item of feedback.value(); track item.id) {

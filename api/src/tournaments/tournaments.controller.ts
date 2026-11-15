@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   SWISS_ROUND_OPTIONS,
+  TOURNAMENT_FORMATS,
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
@@ -353,11 +354,12 @@ function parseSetup(body: unknown): TournamentSetupRequest {
       message: 'Choose whether the tournament has public decklists.',
     } satisfies RequestProblem);
   }
-  if (format === 'RoundRobin' || format === 'SingleElimination') {
-    return { format, publicDecklists };
-  }
-  if (format === 'Swiss' && isSwissRoundOption(swissRoundOption)) {
-    return { format, swissRoundOption, publicDecklists };
+  if (isOneOf(TOURNAMENT_FORMATS, format)) {
+    if (format !== 'Swiss') return { format, publicDecklists };
+    if (isSwissRoundOption(swissRoundOption)) {
+      return { format, swissRoundOption, publicDecklists };
+    }
+    // A Swiss setup without a Swiss round option on offer gets the same refusal.
   }
   throw new BadRequestException({
     error: 'invalid',
@@ -446,7 +448,7 @@ function parseGames(body: unknown): GameScore {
   ) {
     throw new BadRequestException({
       error: 'invalid',
-      message: 'Report each player’s games won, such as [2, 1].',
+      message: 'Report each player’s games won, such as 2–1.',
     } satisfies RequestProblem);
   }
   return [games[0], games[1]];
