@@ -34,6 +34,7 @@ import {
   drafting,
   findPlayersBesideTabs,
   viewOn,
+  accessibleDescription,
 } from './harness';
 import { disclosure } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
@@ -639,6 +640,84 @@ describe('seats and start', () => {
       });
 
       expect(button(page, 'Import picks')).toBeUndefined();
+    });
+  });
+
+  describe('while the draft can’t start', () => {
+    const PLAYER_COUNT = 'A draft needs 2 to 12 players to start.';
+
+    it('holds the start for an organizer alone in the lobby, saying why', async () => {
+      const { page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(true);
+      expect(page.textContent).toContain(PLAYER_COUNT);
+      expect(accessibleDescription(start)).toBe(PLAYER_COUNT);
+    });
+
+    it('holds the start while the pool is smaller than players × picks per player, saying why', async () => {
+      const { page } = await openDraft(completeSnapshot, {
+        players: [alicePlayer, bob],
+        picksPerPlayer: 300,
+      });
+
+      const start = button(page, 'Start draft')!;
+      const reason = '2 players × 300 picks needs 600 cards, but the pool has 540.';
+      expect(start.disabled).toBe(true);
+      expect(page.textContent).toContain(reason);
+      expect(accessibleDescription(start)).toBe(reason);
+    });
+
+    it('offers the start once a second player joins, without a reload', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer] });
+
+      updates.events.next({
+        type: 'changed',
+        draft: draft({ players: [alicePlayer, bob], version: 1 }),
+      });
+      // A newer draft reads the queue and plan again.
+      await flushQueueAndPlan();
+      await fixture.whenStable();
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(false);
+      expect(page.textContent).not.toContain(PLAYER_COUNT);
+      expect(accessibleDescription(start)).toBe('');
+    });
+
+    it('counts bots as players', async () => {
+      const bot = { ...bob, id: 'bot:1', name: 'Bot 1', isBot: true };
+      const { page } = await openDraft(completeSnapshot, { players: [alicePlayer, bot] });
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(false);
+      expect(page.textContent).not.toContain(PLAYER_COUNT);
+      expect(accessibleDescription(start)).toBe('');
+    });
+
+    it('gives no reason from the pool’s partial count while the snapshot runs', async () => {
+      // Not openDraft: the snapshot's poll is due before the page settles.
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(
+        draft({
+          snapshot: { state: 'Running', cards: 50, total: 540 },
+          players: [alicePlayer, bob],
+        }),
+      );
+      await flushQueueAndPlan();
+      TestBed.tick();
+
+      const start = button(page, 'Start draft')!;
+      expect(start.disabled).toBe(true);
+      expect(page.textContent).not.toContain('but the pool has');
+      expect(accessibleDescription(start)).toBe('');
+
+      // The snapshot's poll, answered once it completes.
+      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+        draft({ players: [alicePlayer, bob] }),
+      );
+      await flushPool();
+      await fixture.whenStable();
     });
   });
 
