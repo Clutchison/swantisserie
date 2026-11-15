@@ -22,16 +22,12 @@
       (input)="search.set(searchBox.value)"
     />
   </div>
-  <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
   <button
-    type="button"
-    class="toggle-button labelled hide-picked"
-    [attr.aria-pressed]="hidePicked()"
+    appToggleButton
+    class="hide-picked"
+    [pressed]="hidePicked()"
     (click)="hidePicked.set(!hidePicked())"
   >
-    @if (hidePicked()) {
-      <svg lucideCheck size="16" aria-hidden="true"></svg>
-    }
     Hide picked
   </button>
   <div class="color-filter" role="group" aria-label="Color filter">
