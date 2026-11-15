@@ -46,6 +46,10 @@ _Avoid_: Permissions, rights, capabilities, role (that is the organizer role)
 One rotisserie event in a guild: a pool, its players, and the picks they make in snake order.
 _Avoid_: Game, league, room
 
+**Draft list**:
+The home page, listing every draft: Your turn first (the drafting drafts on the viewer's turn), then Active drafts, Complete drafts and Closed drafts.
+_Avoid_: Home (alone), lobby (that is a draft's state), dashboard
+
 **Pool**:
 The fixed set of cards on the platform that a draft picks from, which no longer changes once its pool snapshot is complete. It never holds a basic land, whatever its pool source names.
 _Avoid_: Card list, cube
