@@ -15,11 +15,14 @@ import {
   openApp,
   openDialog,
   question,
+  expectSignedOut,
   router,
+  updates,
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
 import { buttonOrder, controlsByLabel, namedList } from '../drafts/specs/harness';
+import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 
 const main: WebhookWithUrlView = {
   id: 'webhook-main',
@@ -477,6 +480,17 @@ describe('webhooks page', () => {
 
     http.expectNone(`/api/admin/webhooks/${main.id}`);
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Remove'));
+  });
+
+  it('leaves the webhook in place when the session ends while its Remove question is open', async () => {
+    const { fixture, page } = await openPage([main]);
+    button(mainRow(page), 'Remove').click();
+    await question('Remove #roto-main?');
+
+    pushToOwnRoom(updates, { type: 'unauthorized' });
+
+    await expectSignedOut(fixture, { router, http, user: carol, returnTo: '/admin/webhooks' });
+    http.expectNone(`/api/admin/webhooks/${main.id}`);
   });
 
   it('links app admins to it from the header', async () => {

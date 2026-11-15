@@ -16,8 +16,11 @@ import {
   pressEscape,
   pressTab,
   router,
+  expectSignedOut,
+  updates,
   useApp,
 } from '../specs-harness';
+import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 import { narrowMenuButton } from '../top-bar/specs-harness';
 import { answerDraft42NotFound } from './specs-harness';
 
@@ -194,6 +197,35 @@ describe('sending feedback', () => {
 
     succeed(await submit());
     await expectThanks();
+  });
+
+  describe('when the session ends while it is open', () => {
+    const unauthorized = { status: 401, statusText: 'Unauthorized' };
+
+    /** The sign-in page shows, set to return to the page, with no dialog or anything modal over it. */
+    const expectSignedOutOfStatus = () =>
+      expectSignedOut(fixture, { router, http, user: alice, returnTo: '/status' });
+
+    it('closes and goes to sign-in when sending is refused as unauthorized', async () => {
+      await open();
+      await type('Nice app');
+
+      (await submit()).flush(null, unauthorized);
+
+      await expectSignedOutOfStatus();
+    });
+
+    it('closes and goes to sign-in when another request is refused as unauthorized', async () => {
+      await open();
+      await type('Nice app');
+
+      // A reconnect has the app read the viewer's drafts again.
+      pushToOwnRoom(updates, { type: 'connected' });
+      http.expectOne('/api/drafts').flush(null, unauthorized);
+
+      await expectSignedOutOfStatus();
+      http.expectNone('/api/feedback');
+    });
   });
 
   describe.each<[string, () => Promise<void>]>([

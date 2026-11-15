@@ -22,12 +22,16 @@ import {
   dave,
   openComplete,
   openCompleteRound,
+  dropFrom,
+  winnerOf,
   openPlaying,
   openPlayTab,
   place,
   progressLine,
   pushTournament,
   registration,
+  carolBeatBob,
+  forfeited,
   side,
   singleEliminationFinal as final,
   singleEliminationPlaying,
@@ -146,7 +150,7 @@ describe('single elimination tournaments on the Play tab', () => {
     expect(text(dialog)).toContain(
       'It is the final tournament round, so completing it will complete the tournament and award the trophy.',
     );
-    controlByLabel(group(dialog, 'Winner of Alice vs Carol')!, 'radio', 'Alice')!.click();
+    winnerOf(dialog, 'Alice vs Carol', 'Alice').click();
     await fixture.whenStable();
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(
@@ -186,13 +190,28 @@ describe('dropping players from the single elimination Complete round dialog', (
 
     expect(pressed(drops, 'Drop Bob')).toBe('true');
     expect(text(dialog)).toContain('drop a player who won’t play on');
-    expect(
-      controlByLabel(group(dialog, 'Winner of Bob vs Carol')!, 'radio', 'Carol')!.disabled,
-    ).toBe(true);
+    expect(winnerOf(dialog, 'Bob vs Carol', 'Carol').disabled).toBe(true);
     button(dialog, 'Complete round')!.click();
     const req = await answerChange(fixture, COMPLETE_ROUND_URL, 'POST', final, 1, threePlayers);
 
     expect(req.request.body).toEqual({ round: 1, drops: [{ matchId: 'm1', drop: [bob.id] }] });
+  });
+
+  it('forgets the winner picked for a match reported while the dialog is open, once it is unreported again', async () => {
+    const tournament = singleEliminationPlaying();
+    const { fixture, dialog } = await openCompleteRound(tournament);
+    winnerOf(dialog, 'Bob vs Carol', 'Carol').click();
+    await vi.waitFor(() => expect(button(dialog, 'Complete round')!.disabled).toBe(false));
+    await pushTournament(fixture, { ...tournament, rounds: [carolBeatBob()] }, 1, {
+      asPlayer: true,
+    });
+    await vi.waitFor(() => expect(group(dialog, 'Winner of Bob vs Carol')).toBeNull());
+
+    await pushTournament(fixture, tournament, 2, { asPlayer: true });
+
+    await vi.waitFor(() => expect(group(dialog, 'Winner of Bob vs Carol')).not.toBeNull());
+    expect(winnerOf(dialog, 'Bob vs Carol', 'Carol').checked).toBe(false);
+    expect(button(dialog, 'Complete round')!.disabled).toBe(true);
   });
 
   it('gives back the winner choice once the drop is pressed again', async () => {
@@ -205,7 +224,7 @@ describe('dropping players from the single elimination Complete round dialog', (
     await fixture.whenStable();
 
     expect(pressed(drops, 'Drop Bob')).toBe('false');
-    const carolWins = controlByLabel(group(dialog, 'Winner of Bob vs Carol')!, 'radio', 'Carol')!;
+    const carolWins = winnerOf(dialog, 'Bob vs Carol', 'Carol');
     expect(carolWins.disabled).toBe(false);
     carolWins.click();
     await fixture.whenStable();
@@ -278,7 +297,7 @@ describe('both finalists dropping', () => {
   it('still awards the trophy when one finalist drops', async () => {
     const { fixture, dialog } = await openCompleteRound(final);
 
-    toggleButton(group(dialog, 'Drop from Alice vs Carol')!, 'Drop Alice')!.click();
+    dropFrom(dialog, 'Alice vs Carol', 'Alice').click();
     await fixture.whenStable();
 
     expect(text(dialog)).toContain('award the trophy');
@@ -346,13 +365,60 @@ describe('the single elimination Complete round dialog with more than one match'
   it('stays disabled until every unreported match has a winner picked', async () => {
     const { fixture, dialog } = await openCompleteRound(semifinalOfFour, { fields: fourPlayers });
 
-    controlByLabel(group(dialog, 'Winner of Alice vs Erin')!, 'radio', 'Alice')!.click();
+    winnerOf(dialog, 'Alice vs Erin', 'Alice').click();
     await fixture.whenStable();
     expect(button(dialog, 'Complete round')!.disabled).toBe(true);
 
-    controlByLabel(group(dialog, 'Winner of Bob vs Carol')!, 'radio', 'Carol')!.click();
+    winnerOf(dialog, 'Bob vs Carol', 'Carol').click();
     await fixture.whenStable();
     expect(button(dialog, 'Complete round')!.disabled).toBe(false);
+  });
+
+  it('stops counting a drop chosen on a match that becomes a forfeit while the dialog is open', async () => {
+    const { fixture, dialog } = await openCompleteRound(semifinalOfFour, { fields: fourPlayers });
+    dropFrom(dialog, 'Alice vs Erin', 'Erin').click();
+    dropFrom(dialog, 'Bob vs Carol', 'Bob').click();
+    dropFrom(dialog, 'Bob vs Carol', 'Carol').click();
+    await vi.waitFor(() => expect(button(dialog, 'Complete round')!.disabled).toBe(false));
+
+    await pushTournament(
+      fixture,
+      {
+        ...semifinalOfFour,
+        entries: semifinalOfFour.entries.map((entered) => ({
+          ...entered,
+          dropped: entered.playerId === alice.id,
+        })),
+        rounds: semifinalOfFour.rounds.map((round) => ({
+          ...round,
+          matches: round.matches.map((match) =>
+            match.id === 'm1' ? forfeited(match, alice.id) : match,
+          ),
+        })),
+      },
+      1,
+      { asPlayer: true, fields: fourPlayers },
+    );
+
+    await vi.waitFor(() => expect(group(dialog, 'Drop from Alice vs Erin')).toBeNull());
+    expect(text(dialog)).toContain(
+      'Fewer than 2 players will be left in the bracket, so completing the round will complete the tournament and award the trophy.',
+    );
+    expect(text(dialog)).not.toContain('Nobody will be left in the bracket');
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      COMPLETE_ROUND_URL,
+      'POST',
+      completed({ ...semifinalOfFour, trophyHolders: [erin.id] }),
+      2,
+      fourPlayers,
+    );
+
+    expect(req.request.body).toEqual({
+      round: 1,
+      drops: [{ matchId: 'm2', drop: [bob.id, carol.id] }],
+    });
   });
 
   it('counts a match already decided, beside the unreported one, in what completing the round does', async () => {

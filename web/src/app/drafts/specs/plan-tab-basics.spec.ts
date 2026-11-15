@@ -12,6 +12,9 @@ import {
   namedList,
   viewOn,
   type AppFixture,
+  pickOf,
+  alice,
+  bob,
   drafting,
   serverError,
   image,
@@ -42,10 +45,11 @@ import {
   dropped,
   answerPrintingsRequest,
   detailOpener,
+  exportButton,
   WIDE_STACKS_AREA,
 } from './plan-tab-harness';
 import { measuredAs } from './measure-harness';
-import { playing, withTournament } from './play-tab-harness';
+import { playing, pushTournament, registration, withTournament } from './play-tab-harness';
 import { goToDraftList } from './draft-list-harness';
 
 useDraftsApp();
@@ -698,6 +702,46 @@ describe('basic lands on the plan tab', () => {
 
     expect(openDialog()).toBeNull();
   });
+
+  it.each([
+    ['Export, the next of the Deck tab’s tools', true],
+    ['the tool before Add basics, with no Export to offer', false],
+  ])(
+    'closes once the tournament starts and locks the deck, sending nothing, focus moving to %s, and stays closed once it is cancelled',
+    async (_, withPicks) => {
+      const tournament = registration(bob.id, alice.id);
+      const plan = boltAndShivanWith();
+      // Alice's picks, so the Deck tab offers Export.
+      const picks = withPicks
+        ? [pickOf({ poolCardId: bolt.id }), pickOf({ pick: 2, poolCardId: shivan.id })]
+        : [];
+      const { fixture, page } = await openDraft(completeSnapshot, withTournament(tournament), {
+        cards,
+        picks,
+        plan,
+        tournament,
+      });
+      const deck = await openPlan(fixture, page);
+      button(deck, 'List')!.click();
+      await fixture.whenStable();
+      basicsButton(deck)!.focus();
+      await openBasics(fixture, deck);
+      const asAlice = { asPlayer: true, plan, picks, fields: {} };
+
+      await pushTournament(fixture, playing(), 1, asAlice);
+
+      expect(openDialog()).toBeNull();
+      expect(basicsButton(deck)).toBeUndefined();
+      http.expectNone((request) => request.url.includes('/plan/basics/'));
+      // Add basics went with the lock.
+      expect(document.activeElement).toBe(withPicks ? exportButton(page) : button(deck, 'List'));
+
+      await pushTournament(fixture, null, 2, asAlice);
+
+      expect(basicsButton(deck)).toBeDefined();
+      expect(openDialog()).toBeNull();
+    },
+  );
 
   describe('moving a basic land between plan boards', () => {
     /** The API request that moves one copy of `land` to a plan board. */

@@ -1,3 +1,4 @@
+import type { MatchView } from 'contract';
 import { answer, openDialog, question, table } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
@@ -31,6 +32,7 @@ import {
   grantedDraw,
   openComplete,
   openCompleteRound,
+  dropFrom,
   unreportedMatch,
   openPlaying,
   openPlayTab,
@@ -51,6 +53,9 @@ import {
   completed,
   confirmedMatch,
   COMPLETE_ROUND_URL,
+  entry,
+  erin,
+  fourPlayers,
   listControls,
 } from './play-tab-harness';
 
@@ -301,13 +306,19 @@ describe('Swiss tournaments on the Play tab', () => {
       },
     ],
   });
+  /** `bobDroppedAfterBye` with Alice and Carol's match reported: Carol beat Alice 2–1. */
+  const carolBeatAliceAfterBye: typeof bobDroppedAfterBye = {
+    ...bobDroppedAfterBye,
+    rounds: bobDroppedAfterBye.rounds.map((round) => ({
+      ...round,
+      matches: [reported(round.matches[0], [2, 1], carol.id)],
+    })),
+  };
   const completesEarly =
     'Fewer than 2 undropped players will remain, so completing the round will complete the tournament';
   const pairsRoundTwo = 'Completing the round will pair tournament round 2 and open its matches.';
-  /** Alice and Carol's Drop choices in the Complete round dialog `dialog`. */
-  const aliceVsCarolDrops = (dialog: HTMLElement) => group(dialog, 'Drop from Alice vs Carol')!;
   /** The Drop Carol toggle button in the Complete round dialog `dialog`. */
-  const dropCarol = (dialog: HTMLElement) => toggleButton(aliceVsCarolDrops(dialog), 'Drop Carol')!;
+  const dropCarol = (dialog: HTMLElement) => dropFrom(dialog, 'Alice vs Carol', 'Carol');
 
   it('says the tournament completes once fewer than 2 undropped players would remain, counting the drops chosen', async () => {
     const { dialog } = await openCompleteRound(bobDroppedAfterBye);
@@ -325,7 +336,7 @@ describe('Swiss tournaments on the Play tab', () => {
 
     dropCarol(dialog).click();
     await vi.waitFor(() => expect(text(dialog)).toContain(completesEarly));
-    expect(pressed(aliceVsCarolDrops(dialog), 'Drop Carol')).toBe('true');
+    expect(dropCarol(dialog).getAttribute('aria-pressed')).toBe('true');
 
     dropCarol(dialog).click();
     await vi.waitFor(() => expect(text(dialog)).toContain(pairsRoundTwo));
@@ -340,6 +351,95 @@ describe('Swiss tournaments on the Play tab', () => {
     );
 
     expect(req.request.body).toEqual({ round: 1, grantedDraws: [{ matchId: 'm1', drop: [] }] });
+  });
+
+  it('stops counting a drop chosen on a match once it is reported while the dialog is open', async () => {
+    const { fixture, dialog } = await openCompleteRound(bobDroppedAfterBye);
+    dropCarol(dialog).click();
+    await vi.waitFor(() => expect(text(dialog)).toContain(completesEarly));
+
+    await pushTournament(fixture, carolBeatAliceAfterBye, 1, { asPlayer: true });
+
+    await vi.waitFor(() => expect(text(dialog)).toContain(pairsRoundTwo));
+    expect(text(dialog)).not.toContain(completesEarly);
+    expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull();
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      COMPLETE_ROUND_URL,
+      'POST',
+      swissPlaying(),
+      2,
+      threePlayers,
+    );
+
+    expect(req.request.body).toEqual({ round: 1, grantedDraws: [] });
+  });
+
+  it('forgets a drop chosen on a match reported while the dialog is open, once it is unreported again', async () => {
+    const { fixture, dialog } = await openCompleteRound(bobDroppedAfterBye);
+    dropCarol(dialog).click();
+    await vi.waitFor(() => expect(text(dialog)).toContain(completesEarly));
+    await pushTournament(fixture, carolBeatAliceAfterBye, 1, { asPlayer: true });
+    await vi.waitFor(() => expect(group(dialog, 'Drop from Alice vs Carol')).toBeNull());
+
+    await pushTournament(fixture, bobDroppedAfterBye, 2, { asPlayer: true });
+
+    await vi.waitFor(() => expect(group(dialog, 'Drop from Alice vs Carol')).not.toBeNull());
+    expect(dropCarol(dialog).getAttribute('aria-pressed')).toBe('false');
+    expect(text(dialog)).toContain(pairsRoundTwo);
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      COMPLETE_ROUND_URL,
+      'POST',
+      swissPlaying(),
+      3,
+      threePlayers,
+    );
+
+    expect(req.request.body).toEqual({ round: 1, grantedDraws: [{ matchId: 'm1', drop: [] }] });
+  });
+
+  it('keeps the drops chosen on the other unreported matches once one is reported while the dialog is open', async () => {
+    const aliceVsBob = unreportedMatch('m1', alice.id, bob.id);
+    const carolVsErin = unreportedMatch('m2', carol.id, erin.id);
+    /** Tournament round 1 of Alice, Bob, Carol and Erin, with `m2` as Carol and Erin's match. */
+    const roundOneOfFour = (m2: MatchView) =>
+      swissPlaying({
+        lastCompletedRound: 0,
+        entries: [alice.id, bob.id, carol.id, erin.id].map((playerId) => entry(playerId)),
+        rounds: [{ round: 1, correctable: true, matches: [aliceVsBob, m2], byes: [] }],
+      });
+    const { fixture, dialog } = await openCompleteRound(roundOneOfFour(carolVsErin), {
+      fields: fourPlayers,
+    });
+    dropFrom(dialog, 'Alice vs Bob', 'Bob').click();
+    await vi.waitFor(() =>
+      expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').getAttribute('aria-pressed')).toBe('true'),
+    );
+
+    await pushTournament(fixture, roundOneOfFour(reported(carolVsErin, [2, 0])), 1, {
+      asPlayer: true,
+      fields: fourPlayers,
+    });
+
+    await vi.waitFor(() => expect(group(dialog, 'Drop from Carol vs Erin')).toBeNull());
+    expect(dropFrom(dialog, 'Alice vs Bob', 'Bob').getAttribute('aria-pressed')).toBe('true');
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(
+      fixture,
+      COMPLETE_ROUND_URL,
+      'POST',
+      swissPlaying(),
+      2,
+      fourPlayers,
+    );
+
+    expect(req.request.body).toEqual({
+      round: 1,
+      grantedDraws: [{ matchId: 'm1', drop: [bob.id] }],
+    });
   });
 
   it('completes a fully reported tournament round with no granted draws, in place of completing the tournament', async () => {
