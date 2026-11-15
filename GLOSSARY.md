@@ -677,7 +677,7 @@ A guild's trophies and the decks that won them, grouped by pool source, beside i
 _Avoid_: Leaderboard, hall of fame, standings (that is one tournament's)
 
 **Trophy ranking**:
-On the Trophy Hall, every player who holds a trophy, under their current name, by how many trophies they hold. Players with as many trophies share their place.
+On the Trophy Hall, every player who holds a trophy, under their current name, by how many trophies they hold. Players with as many trophies share their place. It counts only the trophies the Trophy Hall shows, so a player can hold fewer here than on My stats.
 _Avoid_: Leaderboard, rankings, standings (that is one tournament's)
 
 **Tournament summary**:
