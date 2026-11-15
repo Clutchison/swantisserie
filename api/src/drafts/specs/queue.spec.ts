@@ -33,6 +33,9 @@ import {
   queued,
   queueInLobby,
   dave,
+  setQueuePaused,
+  setQueuePicking,
+  pickLogLines,
 } from './harness.js';
 
 useDraftsApp();
@@ -456,6 +459,30 @@ describe('queue', () => {
       expect(added.body.cards).toEqual([
         { poolCardId: second, name: 'Lightning Bolt' },
         { poolCardId: first, name: 'Lightning Bolt' },
+      ]);
+    });
+
+    it('picks no other queued copy of a card its player picked by hand', async () => {
+      const bobCookie = await signIn(bob);
+      // Bob then Alice, two picks each: B A A B.
+      const { id, ids, first, second } = await readyDraftWithCopies(
+        [bobCookie, aliceCookie],
+        2,
+        ['Skewer the Critics'],
+      );
+      await start(id).expect(200);
+      await enqueue(id, second).expect(200);
+      await enqueue(id, ids.Shock).expect(200);
+      await setQueuePaused(id, true).expect(200);
+      await pick(id, ids['Skewer the Critics'], bobCookie).expect(200);
+      await pick(id, first).expect(200);
+
+      await setQueuePicking(id, [ids.Shock]).expect(200);
+
+      expect(await pickLogLines(id)).toEqual([
+        'Bob: Skewer the Critics',
+        'Alice: Lightning Bolt',
+        'Alice: Shock',
       ]);
     });
 

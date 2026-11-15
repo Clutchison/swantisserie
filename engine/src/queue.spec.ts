@@ -44,6 +44,97 @@ describe('queuesAfterPick', () => {
     ]);
   });
 
+  describe('when the picker’s queue holds a copy of the picked card', () => {
+    // Three copies of Lightning Bolt, so a queue can hold two the pick isn’t.
+    const threeBolts = new Map([
+      ['bolt-1', 'Lightning Bolt'],
+      ['bolt-2', 'Lightning Bolt'],
+      ['bolt-3', 'Lightning Bolt'],
+      ['shock', 'Shock'],
+      ['spike', 'Lava Spike'],
+    ]);
+
+    it('takes that copy out, leaving the rest in order, when it doesn’t hold the picked card', () => {
+      expect(
+        queuesAfterPick(
+          { seat: 0, card: 'bolt-1' },
+          seatQueues([['shock', 'bolt-2', 'spike'], []]),
+          { pool, picked: [] },
+        ),
+      ).toEqual([
+        {
+          queue: ['shock', 'spike'],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+        },
+        { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
+      ]);
+    });
+
+    it('takes out only the picked card when it holds that card too', () => {
+      expect(
+        queuesAfterPick(
+          { seat: 0, card: 'bolt-2' },
+          seatQueues([['bolt-1', 'shock', 'bolt-2']]),
+          { pool, picked: [] },
+        ),
+      ).toEqual([
+        {
+          queue: ['bolt-1', 'shock'],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+        },
+      ]);
+    });
+
+    it('takes out only the first of two other copies', () => {
+      expect(
+        queuesAfterPick(
+          { seat: 0, card: 'bolt-1' },
+          seatQueues([['shock', 'bolt-3', 'bolt-2']]),
+          { pool: threeBolts, picked: [] },
+        ),
+      ).toEqual([
+        {
+          queue: ['shock', 'bolt-2'],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+        },
+      ]);
+    });
+
+    it('leaves a copy already picked in the queue', () => {
+      expect(
+        queuesAfterPick(
+          { seat: 0, card: 'bolt-1' },
+          seatQueues([['bolt-2', 'shock']]),
+          { pool, picked: ['bolt-2'] },
+        ),
+      ).toEqual([
+        {
+          queue: ['bolt-2', 'shock'],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+        },
+      ]);
+    });
+
+    it('keeps a queue paused queue queue paused, and its steal behavior', () => {
+      expect(
+        queuesAfterPick(
+          { seat: 0, card: 'bolt-1' },
+          seatQueues(
+            [['bolt-2', 'shock']],
+            [{ queuePaused: true, stealBehavior: 'PickNext' }],
+          ),
+          { pool, picked: [] },
+        ),
+      ).toEqual([
+        { queue: ['shock'], stealBehavior: 'PickNext', queuePaused: true },
+      ]);
+    });
+  });
+
   it('swaps another queue’s copy for an available copy it doesn’t hold, in the same place', () => {
     expect(
       queuesAfterPick(

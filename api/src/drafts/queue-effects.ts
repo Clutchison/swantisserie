@@ -13,9 +13,10 @@ import type { QueuedRow } from './turn-state.js';
  * Persists `after`, what a new pick, already made, does to each queue, as
  * the engine works it out; `playerIds` are the players by seat, as `after`
  * is indexed, and `before` their queues as they were before the pick.
- * The card leaves the picker's queue, and in each other queue holding it,
- * it is swapped for another copy or lost, keeping the rest, and a loss may
- * pause the queue. Lost cards, and the card the picker had queued, are
+ * The card, or else the first queued copy of it, leaves the picker's queue,
+ * and in each other queue holding it, it is swapped for another copy or
+ * lost, keeping the rest, and a loss may pause the queue. Lost cards, and
+ * the card or copy that left the picker's queue, are
  * kept against the pick, in queue order, so that undoing it can put them
  * back, and each records its queue order in the player's plan. A lost card
  * also records what its loss did to the queue, for the Queue notice and the
@@ -81,9 +82,10 @@ export async function recordQueueEffects(
     } else if (playerId === pick.playerId) {
       // Only the picker's own queue loses cards this way. Any other queue,
       // such as a bot's, which the cascade passes to the engine as empty,
-      // is left as it is. The picked card is kept against the pick, so that
-      // undoing it puts the card back in its place, but never on the notice:
-      // it was picked, not lost.
+      // is left as it is. The picked card, or the queued copy of it that
+      // left instead, is kept against the pick, so that undoing it puts the
+      // card back in its place, but never on the notice: it was picked, not
+      // lost.
       await takeOut(
         seat,
         now[seat]
