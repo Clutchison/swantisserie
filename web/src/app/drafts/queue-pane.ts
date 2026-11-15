@@ -486,9 +486,11 @@ export class QueuePane {
 
   /**
    * Opens the Set queue picking dialog, `afterRefusal` when queue picking
-   * with none was just refused. A failure it closes with is said by the
-   * play/pause button, where focus returns; should the queue, read again
-   * after a refusal, pick nothing after all, it is set queue picking with none.
+   * with none was just refused. When its change is made, it clears an
+   * earlier failure, as every change does; closed with no result, it leaves
+   * one showing. A failure it closes with is said by the play/pause button,
+   * where focus returns; should the queue, read again after a refusal, pick
+   * nothing after all, it is set queue picking with none.
    */
   private confirmQueuePicking({ afterRefusal = false }: { afterRefusal?: boolean } = {}) {
     this.dialogShell
@@ -498,7 +500,9 @@ export class QueuePane {
         bindings: [inputBinding('afterRefusal', () => afterRefusal)],
       })
       .closed.subscribe((result) => {
-        if (result?.outcome === 'failed') {
+        if (result?.outcome === 'made') {
+          this.error.set(null);
+        } else if (result?.outcome === 'failed') {
           this.error.set({ message: result.message, place: 'header' });
         } else if (result?.outcome === 'none-to-pick') {
           void this.sendQueuePaused(false);

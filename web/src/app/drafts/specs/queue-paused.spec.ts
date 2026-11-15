@@ -36,6 +36,9 @@ import {
   openQueueHelp,
   flushQueueAndPlan,
   updates,
+  chooseInRowMenu,
+  serverError,
+  draftClosed,
 } from './harness';
 import { comesBefore, openDialog, pressEscape, question } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, card } from './pool-tab-harness';
@@ -177,12 +180,7 @@ describe('queue play/pause button', () => {
     const queue = queuePane(page);
 
     queuePlayPauseButton(queue).click();
-    http
-      .expectOne('/api/drafts/draft-1/queue/paused')
-      .flush(
-        { error: 'draft-closed', message: 'This draft is closed.' },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...draftClosed);
     const reread = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
     await vi.waitFor(() => {
       expect(alertIn(queue)?.textContent).toContain('This draft is closed.');
@@ -202,12 +200,7 @@ describe('queue play/pause button', () => {
     const help = await openQueueHelp(fixture, queue);
 
     queuePlayPauseButton(queue).click();
-    http
-      .expectOne('/api/drafts/draft-1/queue/paused')
-      .flush(
-        { error: 'draft-closed', message: 'This draft is closed.' },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...draftClosed);
     await flushQueue(queueOf({ cards: [queued(shivan)] }));
     await vi.waitFor(() => expect(alertIn(queue)?.textContent).toContain('This draft is closed.'));
 
@@ -359,12 +352,7 @@ describe('setting a queue picking on the player’s own turn', () => {
 
     queuePlayPauseButton(queue).click();
     button(await question(asked), 'Set queue picking').click();
-    http
-      .expectOne('/api/drafts/draft-1/queue/paused')
-      .flush(
-        { error: 'draft-closed', message: 'This draft is closed.' },
-        { status: 409, statusText: 'Conflict' },
-      );
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...draftClosed);
     await flushQueue(queueOf({ cards: [queued(bolt)], queuePaused: true }));
     await vi.waitFor(() => expect(openDialog()).toBeNull());
     await fixture.whenStable();
@@ -373,6 +361,68 @@ describe('setting a queue picking on the player’s own turn', () => {
     expect(comesBefore(queuePlayPauseButton(queue), alertIn(queue)!)).toBe(true);
     expect(comesBefore(alertIn(queue)!, help)).toBe(true);
   });
+
+  /** Each change whose failure the Queue pane shows, made and failed in `queue`, the Queue pane. */
+  const failedChanges: [string, (queue: HTMLElement) => void][] = [
+    [
+      'a row’s Remove',
+      (queue) => {
+        chooseInRowMenu(queue, 'Lava Spike', 'Remove');
+        http.expectOne('/api/drafts/draft-1/queue/spike').flush(null, serverError);
+      },
+    ],
+    [
+      'the steal behavior',
+      (queue) => {
+        button(queue, 'Steal behavior: Pause queue').click();
+        http.expectOne('/api/drafts/draft-1/queue/steal-behavior').flush(...draftClosed);
+      },
+    ],
+  ];
+
+  /**
+   * Alice at the turnaround, her paused queue holding Lightning Bolt and
+   * Lava Spike, once `fail` has failed a change and its alert shows in the
+   * Queue pane, which is given as `queue`.
+   */
+  const afterFailure = async (fail: (queue: HTMLElement) => void) => {
+    const { fixture, page } = await aliceAtTurnaround([bolt, spike]);
+    const queue = queuePane(page);
+    fail(queue);
+    await flushQueue(queueOf({ cards: [queued(bolt), queued(spike)], queuePaused: true }));
+    await vi.waitFor(() => expect(alertIn(queue)).not.toBeNull());
+    return { fixture, queue };
+  };
+
+  it.each(failedChanges)(
+    'clears the failure of %s once the dialog is confirmed and its change is made',
+    async (_change, fail) => {
+      const { fixture, queue } = await afterFailure(fail);
+
+      queuePlayPauseButton(queue).click();
+      button(await question(asked), 'Set queue picking').click();
+      http.expectOne('/api/drafts/draft-1/queue/paused').flush(queueOf());
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      await fixture.whenStable();
+
+      expect(alertIn(queue)).toBeNull();
+    },
+  );
+
+  it.each(failedChanges)(
+    'leaves the failure of %s showing once the dialog is cancelled',
+    async (_change, fail) => {
+      const { fixture, queue } = await afterFailure(fail);
+      const alert = alertIn(queue)!.textContent;
+
+      queuePlayPauseButton(queue).click();
+      button(await question(asked), 'Cancel').click();
+      await vi.waitFor(() => expect(openDialog()).toBeNull());
+      await fixture.whenStable();
+
+      expect(alertIn(queue)?.textContent).toBe(alert);
+    },
+  );
 
   it('sets it queue picking with none, asking nothing, once confirmed cards are refused and the queue picks none', async () => {
     const { fixture, page } = await aliceAtTurnaround([bolt]);
