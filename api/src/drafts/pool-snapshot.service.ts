@@ -19,7 +19,7 @@ import {
 import { NO_BASIC_LANDS } from './basic-lands.js';
 import { SCRYFALL_GAME } from './platform.js';
 import {
-  NoManaValueOrTypeLineError,
+  MissingCardFieldError,
   NoOracleIdError,
   toPoolCard,
 } from './pool-card.js';
@@ -300,7 +300,7 @@ function explain(err: unknown): string {
   if (
     err instanceof PoolSnapshotError ||
     err instanceof NoOracleIdError ||
-    err instanceof NoManaValueOrTypeLineError
+    err instanceof MissingCardFieldError
   ) {
     return err.message;
   }

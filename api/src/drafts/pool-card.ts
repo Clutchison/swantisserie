@@ -24,16 +24,26 @@ export class NoOracleIdError extends Error {
   }
 }
 
-/** Scryfall gave a printing no mana value or type line, on the card or its front face, so it can't be a pool card. */
-export class NoManaValueOrTypeLineError extends Error {
-  constructor(cardName: string) {
-    super(`${cardName} has no mana value or type line.`);
+/** Scryfall gave a printing no mana value, or no type line, on the card or its front face, so it can't be a pool card. */
+export class MissingCardFieldError extends Error {
+  constructor(cardName: string, field: 'mana value' | 'type line') {
+    super(`${cardName} has no ${field}.`);
   }
 }
 
 /** The card's oracle id: a reversible card's faces carry it. Undefined if Scryfall gave none. */
 export function oracleIdOf(card: ScryfallCard): string | undefined {
-  return card.oracle_id ?? card.card_faces?.[0]?.oracle_id;
+  return ofCardOrFrontFace(card, 'oracle_id');
+}
+
+/** The card's field, else its front face's, as a reversible card's faces carry what the card leaves off. */
+function ofCardOrFrontFace<
+  K extends keyof ScryfallCard & keyof ScryfallCardFace,
+>(
+  card: ScryfallCard,
+  field: K,
+): ScryfallCard[K] | ScryfallCardFace[K] | undefined {
+  return card[field] ?? card.card_faces?.[0]?.[field];
 }
 
 /** A pool card for the printing, as a draft's own pool cards are created. */
@@ -43,10 +53,13 @@ export function toPoolCard(
   const faces = card.card_faces ?? [];
   const oracleId = oracleIdOf(card);
   if (!oracleId) throw new NoOracleIdError(card.name);
-  const manaValue = card.cmc ?? faces[0]?.cmc;
-  const typeLine = card.type_line ?? faces[0]?.type_line;
-  if (manaValue === undefined || typeLine === undefined) {
-    throw new NoManaValueOrTypeLineError(card.name);
+  const manaValue = ofCardOrFrontFace(card, 'cmc');
+  if (manaValue === undefined) {
+    throw new MissingCardFieldError(card.name, 'mana value');
+  }
+  const typeLine = ofCardOrFrontFace(card, 'type_line');
+  if (typeLine === undefined) {
+    throw new MissingCardFieldError(card.name, 'type line');
   }
   const images: StoredCardImages[] = (
     card.image_uris ? [card.image_uris] : faces.map((face) => face.image_uris)

@@ -3,6 +3,7 @@ import {
   type Cube,
 } from '../../cubecobra/cubecobra-client.js';
 import type { ScryfallCard } from '../../scryfall/scryfall-client.js';
+import { oracleIdOf } from '../pool-card.js';
 import { held, lateWorkDone } from '../../testing/deadlines.js';
 import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
@@ -17,6 +18,7 @@ import {
   listDrafts,
   pool,
   post,
+  reversibleCard,
   scryfall,
   signIn,
   start,
@@ -47,14 +49,17 @@ function cubesAre(cubes: Record<string, Cube | null | Error>) {
 }
 
 /**
- * Scryfall has a printing on every platform of each card named, in a set of
- * its own (`<game>-set`), and of no other card.
+ * Scryfall has a printing on every platform of each card named or given, in
+ * a set of its own (`<game>-set`), and of no other card.
  */
-function onPlatform(...names: string[]) {
+function onPlatform(...cards: (string | ScryfallCard)[]) {
   scryfall.printingsOn.mockImplementation(async (game, oracleIds) =>
-    names
-      .map((name) => card(name, { set: `${game}-set` }))
-      .filter((printing) => oracleIds.includes(printing.oracle_id!)),
+    cards
+      .map((c) => ({
+        ...(typeof c === 'string' ? card(c) : c),
+        set: `${game}-set`,
+      }))
+      .filter((printing) => oracleIds.includes(oracleIdOf(printing)!)),
   );
 }
 
@@ -112,28 +117,8 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
 });
 
 it('makes a pool card of a reversible card in the cube, in its front face’s mana value and type line', async () => {
-  const face = {
-    name: 'Command Tower',
-    oracle_id: 'command-tower-oracle',
-    cmc: 0,
-    type_line: 'Land',
-  };
-  cubesAre({
-    commander: {
-      name: 'Commander',
-      mainboard: [{ oracleId: 'command-tower-oracle', name: 'Command Tower' }],
-    },
-  });
-  scryfall.printingsOn.mockResolvedValue([
-    {
-      ...card('Command Tower // Command Tower'),
-      layout: 'reversible_card',
-      oracle_id: undefined,
-      cmc: undefined,
-      type_line: undefined,
-      card_faces: [face, face],
-    },
-  ]);
+  cubesAre({ commander: cube('Commander', 'Command Tower') });
+  onPlatform(reversibleCard('Command Tower', { cmc: 0, type_line: 'Land' }));
 
   const created = await createDraft({
     name: 'Commander',
@@ -141,11 +126,7 @@ it('makes a pool card of a reversible card in the cube, in its front face’s ma
   }).expect(201);
 
   expect((await pool(created.body.id).expect(200)).body).toMatchObject([
-    {
-      oracleId: 'command-tower-oracle',
-      manaValue: 0,
-      typeLine: 'Land',
-    },
+    { oracleId: 'command-tower-oracle', manaValue: 0, typeLine: 'Land' },
   ]);
 });
 
