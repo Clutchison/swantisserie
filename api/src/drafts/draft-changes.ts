@@ -15,21 +15,23 @@ export class DraftChanges {
   ) {}
 
   /**
-   * Publishes the change, with its `events`, as DraftPublisher says, and if
-   * it leaves the draft on a bot's turn, has the bot pick. Returns the draft
-   * as published, or null if there is no such draft. The change has
-   * committed, so a failed publish still has the bot pick, as a bot's own
-   * pick does: it is logged, then rethrown for the caller to answer.
+   * Publishes the change, with its `events`, as DraftPublisher says, also
+   * telling each of `alsoTellUserIds`, and if it leaves the draft on a bot's
+   * turn, has the bot pick. Returns the draft as published, or null if there
+   * is no such draft. The change has committed, so a failed publish still
+   * has the bot pick, as a bot's own pick does: it is logged, then rethrown
+   * for the caller to answer.
    */
   async committed(
     draftId: string,
     events: DraftEvent[],
+    alsoTellUserIds: string[] = [],
   ): Promise<DraftView | null> {
     // Undefined if the publish threw: the draft is taken to exist, as the
     // bot's pick does nothing if it has gone or the turn has moved on.
     let draft: DraftView | null | undefined;
     try {
-      draft = await this.publisher.publish(draftId, events);
+      draft = await this.publisher.publish(draftId, events, alsoTellUserIds);
       return draft;
     } catch (err) {
       this.logger.error(`Couldn’t publish a change to draft ${draftId}`, err);

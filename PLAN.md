@@ -92,6 +92,7 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 
 - One Socket.IO connection per signed-in tab, joined to a room of the viewer's own, and to a room per draft it watches. After each change (a pick, a lobby change, a state change or a tournament change) the draft as it now is is pushed to everyone viewing it and to the own room of each of its players, bots excluded, so the draft list, the Turn link and the page title keep up with the drafts a viewer plays in. Viewers re-read the pick log. Each copy carries a version, so a viewer never swaps a newer copy for an older one.
 - On every connect and reconnect (e.g. after the dyno wakes) the client re-reads the draft and its picks, and the draft list, so nothing missed while it was away stays missing.
+- The draft list is also read again each time it opens, unless a read is already on its way, as drafts the viewer doesn't play in aren't pushed. It keeps showing the drafts it knows meanwhile, and keeps them if that read fails; a newer push still wins over it. A draft the organizer creates is listed from the create answer straight away, before that read lands or if it fails.
 - The pushed draft is the only event besides a cancel. Every pick, undo, state change and tournament change bumps the draft's version, and on a version change the client re-reads the pick log, the signed-in player's queue and deck, and the tournament, which is how it learns of an undo or a lost card.
 
 ## Discord (Discord bot and webhooks)
