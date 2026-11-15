@@ -65,10 +65,10 @@ export interface QueueAfterPick extends SeatQueue {
  * makes the same card the pick in the picker's plan. The copies are those
  * in `pool` that are not `picked`. In each other queue holding it, it is
  * swapped for a copy or lost, as `swapOrLose` says; swapped or lost, the
- * rest of the queue stays in order. A loss sets a queue picking queue paused, unless its steal
- * behavior is pick next. Nothing else changes a queue's state.
- * `picked` is the cards picked already, with or without this one. Cards
- * are pool card ids.
+ * rest of the queue stays in order. A loss sets a queue picking queue
+ * paused, unless its steal behavior is pick next. Nothing else changes a
+ * queue's state. `picked` is the cards picked already, with or without
+ * this one. Cards are pool card ids.
  */
 export function queuesAfterPick(
   pick: SeatPick,
