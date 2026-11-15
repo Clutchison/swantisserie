@@ -36,6 +36,7 @@ import {
   router,
   tabLabels,
   updates,
+  pickOf,
   draft,
   viewOn,
   startDraft,
@@ -159,6 +160,46 @@ describe('Queue pane layout', () => {
 
       expect(accessibleName(nextUpStrip(page))).toBe(
         'Queue, 2 cards, 12 picks left, next up Shivan Dragon',
+      );
+    });
+
+    it('names the first card of a queue longer than the picks left, as they still reach it', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 1 }), {
+        cards: [shivan, brightclimb],
+        queue: queueOf({ cards: [queued(shivan), queued(brightclimb)] }),
+      });
+
+      expect(accessibleName(nextUpStrip(page))).toBe(
+        'Queue, 2 cards, 1 pick left, next up Shivan Dragon',
+      );
+    });
+
+    it('names no next card once the player has no picks left', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting({ picksPerPlayer: 1 }), {
+        cards: [shivan],
+        picks: [pickOf({ poolCardId: 'a' })],
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+
+      const strip = nextUpStrip(page);
+      expect(strip.textContent).not.toContain('Next up');
+      expect(accessibleName(strip)).toBe('Queue, 1 card, 0 picks left');
+    });
+
+    it('names no next card until the pick log answers', async () => {
+      const { fixture, page } = await openUrl('/drafts/draft-1');
+      http.expectOne('/api/drafts/draft-1').flush(draft(drafting({ picksPerPlayer: 12 })));
+      await flushPool([shivan]);
+      await flushQueueAndPlan(queueOf({ cards: [queued(shivan)] }));
+      const picks = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/picks'));
+      // Not stable while the pick log is on its way, so rendered by hand.
+      fixture.detectChanges();
+      expect(accessibleName(nextUpStrip(page))).toBe('Queue, 1 card');
+
+      picks.flush([]);
+      await fixture.whenStable();
+      expect(accessibleName(nextUpStrip(page))).toBe(
+        'Queue, 1 card, 12 picks left, next up Shivan Dragon',
       );
     });
 
