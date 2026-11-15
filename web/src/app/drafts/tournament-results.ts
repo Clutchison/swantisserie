@@ -12,7 +12,7 @@ import {
 } from '@angular/core';
 import type { GameScore, MatchView, TournamentView } from 'contract';
 import { percent, record } from '../record';
-import { FocusKey, SendsChange } from './changes';
+import { FocusKey, SendsChange } from '../changes';
 import {
   matchIn,
   matchLine,

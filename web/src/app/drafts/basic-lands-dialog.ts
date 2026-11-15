@@ -2,7 +2,7 @@ import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { BASIC_LANDS, MOST_BASICS, type BasicLand, type PlanView } from 'contract';
 import type { Observable } from 'rxjs';
-import { Changes, ChangeStatus, FocusKey, SendsChange } from './changes';
+import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
 import { DraftStore } from './draft-store';
 import { changeFailure, PLAN_CHANGE_FAILED } from './drafts';
 import { manaSymbol } from './mana-cost';

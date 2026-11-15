@@ -734,12 +734,12 @@ export class DraftStore implements TournamentViewer {
     const document = inject(DOCUMENT);
     const stopped = new AbortController();
     inject(DestroyRef).onDestroy(() => stopped.abort());
-    const reread = () => this.queueResource.reload();
-    document.defaultView?.addEventListener('focus', reread, { signal: stopped.signal });
+    const reloadQueue = () => this.queueResource.reload();
+    document.defaultView?.addEventListener('focus', reloadQueue, { signal: stopped.signal });
     document.addEventListener(
       'visibilitychange',
       () => {
-        if (document.visibilityState === 'visible') reread();
+        if (document.visibilityState === 'visible') reloadQueue();
       },
       { signal: stopped.signal },
     );
