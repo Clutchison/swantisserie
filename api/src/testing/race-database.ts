@@ -1,6 +1,10 @@
 import { randomBytes } from 'node:crypto';
 import pg from 'pg';
-import { type DatabaseProxy, startDatabaseProxy } from './database-proxy.js';
+import {
+  type CommitRelease,
+  type DatabaseProxy,
+  startDatabaseProxy,
+} from './database-proxy.js';
 import { migrations, type TestDatabase, truncate } from './test-database.js';
 
 /**
@@ -18,7 +22,7 @@ export interface RaceDatabase extends TestDatabase {
   /** The database's name: `race_` and random hex. */
   name: string;
   /** See DatabaseProxy's `holdCommits`. */
-  holdCommits(count: number, timeoutMs: number, lastFirstGapMs?: number): void;
+  holdCommits(count: number, timeoutMs: number, release?: CommitRelease): void;
 }
 
 /**
@@ -109,8 +113,8 @@ export async function startRaceDatabase(
     url: url.href,
     slowDown: (ms) => proxy.slowDown(ms),
     replyHeld: () => proxy.replyHeld(),
-    holdCommits: (count, timeoutMs, lastFirstGapMs) =>
-      proxy.holdCommits(count, timeoutMs, lastFirstGapMs),
+    holdCommits: (count, timeoutMs, release) =>
+      proxy.holdCommits(count, timeoutMs, release),
     async reset() {
       proxy.reset();
       const { rows } = await db.query<{ db: string; tablename: string }>(

@@ -59,7 +59,7 @@ const bobIn = (draft: DraftView) =>
   draft.players.find((player) => player.id === bob.id);
 
 describeRaces(
-  'a renamed player’s sign-in against their joining a draft in its Lobby',
+  'Bob’s sign-in under a new name against his joining a draft in its Lobby',
   () => {
     const { watch } = useSockets();
     let id: string;
@@ -116,13 +116,16 @@ describeRaces(
 );
 
 describeRaces(
-  'a renamed player’s sign-in against their creating a draft',
+  'Bob’s sign-in under a new name against his creating a draft',
   () => {
     let signInRenamed: () => PromiseLike<request.Response>;
 
     beforeEach(async () => {
       // A cube's pool is complete once the draft is saved, so no snapshot
-      // changes the draft afterwards.
+      // changes the draft afterwards. Its checks are the fakes' alone, and
+      // write nothing: the creation's one COMMIT is the draft's save, so it
+      // and the sign-in's recording of Bob are the two COMMITs the race
+      // holds. (The sign-in's session is saved after the gate has opened.)
       cubeCobra.cube.mockResolvedValue({
         name: 'The Pauper Cube',
         mainboard: [

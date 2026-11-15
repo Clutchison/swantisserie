@@ -1,6 +1,7 @@
 import type { PlanView, QueueView } from 'contract';
 import type { Response } from 'supertest';
 import type { TestAppOptions } from '../../testing/app.js';
+import type { CommitRelease } from '../../testing/database-proxy.js';
 import {
   raceServer,
   startRaceDatabase,
@@ -66,8 +67,7 @@ export function describeRaces(
 
 /** Sends `requests` at once, holding their commits back as `describeRaces` says. */
 export function race(...requests: (() => PromiseLike<Response>)[]) {
-  database.holdCommits(requests.length, HOLD_MS);
-  return Promise.all(requests.map((send) => send()));
+  return raceReleasing({ order: 'together' }, requests);
 }
 
 /**
@@ -86,7 +86,15 @@ const COMMIT_GAP_MS = 300;
 export function raceLastCommitFirst(
   ...requests: (() => PromiseLike<Response>)[]
 ) {
-  database.holdCommits(requests.length, HOLD_MS, COMMIT_GAP_MS);
+  return raceReleasing({ order: 'last-first', gapMs: COMMIT_GAP_MS }, requests);
+}
+
+/** Sends `requests` at once, holding their commits back until `release`. */
+function raceReleasing(
+  release: CommitRelease,
+  requests: (() => PromiseLike<Response>)[],
+) {
+  database.holdCommits(requests.length, HOLD_MS, release);
   return Promise.all(requests.map((send) => send()));
 }
 

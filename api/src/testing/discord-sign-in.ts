@@ -32,16 +32,19 @@ export async function startSignIn(returnTo?: string) {
   return { agent, callback };
 }
 
+/** How a sign-in goes: as a guild member unless told otherwise, and where it returns to. */
+export interface SignInOptions {
+  isGuildMember?: boolean;
+  returnTo?: string;
+}
+
 /**
  * As `startSignIn`, with the faked Discord client answering as `profile`,
  * a guild member unless `isGuildMember` says otherwise.
  */
 export async function startSignInAs(
   profile: DiscordProfile,
-  {
-    isGuildMember = true,
-    returnTo,
-  }: { isGuildMember?: boolean; returnTo?: string } = {},
+  { isGuildMember = true, returnTo }: SignInOptions = {},
 ) {
   discord.exchangeCode.mockResolvedValue('access-token');
   discord.getCurrentUser.mockResolvedValue(profile);
@@ -52,7 +55,7 @@ export async function startSignInAs(
 /** Runs the redirect → callback round trip in a cookie-keeping agent. */
 export async function signInThroughDiscord(
   profile: DiscordProfile,
-  options: { isGuildMember?: boolean; returnTo?: string } = {},
+  options: SignInOptions = {},
 ) {
   const { agent, callback } = await startSignInAs(profile, options);
   return { agent, callback: await callback() };

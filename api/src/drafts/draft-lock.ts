@@ -99,6 +99,16 @@ export function checkInLobby<T extends { state: DraftState }>(
   if (draft.state !== 'Lobby') throw new DraftStartedError();
 }
 
+/** `change`, run only on a draft in Lobby, as `checkInLobby` says. */
+function onlyInLobby<T>(
+  change: (draft: LockedDraft) => Promise<T>,
+): (draft: LockedDraft | undefined) => Promise<T> {
+  return async (draft) => {
+    checkInLobby(draft);
+    return change(draft);
+  };
+}
+
 /** The draft row lock, which changes to a draft run under one at a time. */
 @Injectable()
 export class DraftLock {
@@ -113,10 +123,7 @@ export class DraftLock {
     draftId: string,
     change: (draft: LockedDraft) => Promise<T>,
   ): Promise<T> {
-    return this.run(draftId, async (draft) => {
-      checkInLobby(draft);
-      return change(draft);
-    });
+    return this.run(draftId, onlyInLobby(change));
   }
 
   /**
@@ -131,10 +138,7 @@ export class DraftLock {
   ): Promise<T> {
     return this.transaction(
       draftId,
-      async (draft) => {
-        checkInLobby(draft);
-        return change(draft);
-      },
+      onlyInLobby(change),
       () => true,
       (tx) => shareLockUser(tx, userId),
     );
