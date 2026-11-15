@@ -15,6 +15,7 @@ import {
   draft,
   drafting,
   flushPicks,
+  group,
   flushPool,
   flushQueue,
   heading,
@@ -25,6 +26,7 @@ import {
   panel,
   panelName,
   powersAnswer,
+  radios,
   router,
   text,
   updates,
@@ -106,6 +108,14 @@ describe('Play tab', () => {
       expect(req.request.body).toEqual({ format: 'RoundRobin', publicDecklists: false });
       expect(button(panel(page), 'Set up tournament')).toBeUndefined();
       expect(panel(page).textContent).toContain('Nobody has joined yet.');
+    });
+
+    it('offers round robin, Swiss and single elimination as the format, in that order', async () => {
+      const { fixture, page } = await openComplete(null, { powers: ORGANIZE_ONLY });
+
+      const tab = await openPlayTab(fixture, page);
+
+      expect(radios(group(tab, 'Format')!)).toEqual(['Round robin', 'Swiss', 'Single elimination']);
     });
 
     it('hides the setup help in a closed "How this works" section until opened', async () => {

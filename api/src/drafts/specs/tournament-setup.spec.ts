@@ -1,4 +1,4 @@
-import type { TournamentView } from 'contract';
+import { TOURNAMENT_FORMATS, type TournamentView } from 'contract';
 import {
   alice,
   aliceCookie,
@@ -21,6 +21,7 @@ import {
   signIn,
   singleElimination,
   start,
+  swiss,
   tournament,
   useDraftsApp,
 } from './tournament-harness.js';
@@ -92,6 +93,22 @@ describe('tournament setup', () => {
     expect((body as TournamentView).entries.map((entry) => entry.seed)).toEqual(
       [null, null, null],
     );
+  });
+
+  it('sets up a tournament in each format it offers', async () => {
+    for (const format of TOURNAMENT_FORMATS) {
+      const id = await completeDraft([aliceCookie, bobCookie]);
+
+      await setUpTournament(
+        id,
+        aliceCookie,
+        format === 'Swiss' ? swiss() : { format },
+      ).expect(201);
+
+      expect((await tournament(id).expect(200)).body).toMatchObject({
+        format,
+      });
+    }
   });
 
   it('joins every human player and every bot of the draft, in seat order, whatever their decks hold', async () => {
@@ -187,10 +204,15 @@ describe('tournament setup', () => {
   it('refuses a format it does not offer', async () => {
     const id = await completeDraft([aliceCookie, bobCookie]);
 
-    await setUpTournament(id, aliceCookie, {
-      format: 'DoubleElimination',
-    }).expect(400);
-    await setUpTournament(id, aliceCookie, {}).expect(400);
+    for (const body of [{ format: 'DoubleElimination' }, {}, { format: 1 }]) {
+      expect(
+        (await setUpTournament(id, aliceCookie, body).expect(400)).body,
+      ).toEqual({
+        error: 'invalid',
+        message:
+          'Choose round robin, single elimination, or Swiss played until there’s a winner or capped at 3 tournament rounds.',
+      });
+    }
     await tournament(id).expect(404);
   });
 

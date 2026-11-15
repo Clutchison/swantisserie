@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import {
   SWISS_ROUND_OPTIONS,
+  TOURNAMENT_FORMATS,
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
@@ -353,11 +354,11 @@ function parseSetup(body: unknown): TournamentSetupRequest {
       message: 'Choose whether the tournament has public decklists.',
     } satisfies RequestProblem);
   }
-  if (format === 'RoundRobin' || format === 'SingleElimination') {
-    return { format, publicDecklists };
-  }
-  if (format === 'Swiss' && isSwissRoundOption(swissRoundOption)) {
-    return { format, swissRoundOption, publicDecklists };
+  if (isOneOf(TOURNAMENT_FORMATS, format)) {
+    if (format !== 'Swiss') return { format, publicDecklists };
+    if (isSwissRoundOption(swissRoundOption)) {
+      return { format, swissRoundOption, publicDecklists };
+    }
   }
   throw new BadRequestException({
     error: 'invalid',
