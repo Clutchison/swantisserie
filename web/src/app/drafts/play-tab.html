@@ -181,10 +181,8 @@
       />
     }
     <!-- Each failure shows by the controls that made it, before what follows them. -->
-    @if (error(); as failure) {
-      @if (failure.place === 'yourMatches') {
-        <p class="error" role="alert">{{ failure.message }}</p>
-      }
+    @if (errorAt('yourMatches'); as message) {
+      <p class="error" role="alert">{{ message }}</p>
     }
     @if (roundRobin()) {
       <app-results-grid
@@ -203,10 +201,8 @@
         (clearGameScore)="clearGameScore($event)"
       />
     }
-    @if (error(); as failure) {
-      @if (failure.place === 'results') {
-        <p class="error" role="alert">{{ failure.message }}</p>
-      }
+    @if (errorAt('results'); as message) {
+      <p class="error" role="alert">{{ message }}</p>
     }
     <h3>Players</h3>
     <ul class="entries" aria-label="Players">
@@ -288,8 +284,6 @@
 } @else {
   <app-loading-animation size="tab">Loading the tournament…</app-loading-animation>
 }
-@if (error(); as failure) {
-  @if (failure.place === 'tab') {
-    <p class="error" role="alert">{{ failure.message }}</p>
-  }
+@if (errorAt('foot'); as message) {
+  <p class="error" role="alert">{{ message }}</p>
 }

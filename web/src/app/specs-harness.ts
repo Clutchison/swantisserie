@@ -33,8 +33,14 @@ export const carol: UserView = {
 /** How the api answers a request it fails without refusing it: a 500, which says nothing of the draft. */
 export const serverError = { status: 500, statusText: 'Server Error' };
 
+/** An alert: an error shown to the viewer. */
+const ALERT = '[role="alert"]';
+
 /** The first alert inside `root`: an error shown to the viewer, if any. */
-export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>('[role="alert"]');
+export const alertIn = (root: HTMLElement) => root.querySelector<HTMLElement>(ALERT);
+
+/** Every alert inside `root`, in reading order. */
+export const alertsIn = (root: HTMLElement) => [...root.querySelectorAll<HTMLElement>(ALERT)];
 
 export let http: HttpTestingController;
 export let router: Router;

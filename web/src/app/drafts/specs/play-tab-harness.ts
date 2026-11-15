@@ -45,7 +45,14 @@ import {
   type AppFixture,
   type DraftFixture,
 } from './harness';
-import { openDialog, serverError, tableColumns, tableRows } from '../../specs-harness';
+import {
+  alertsIn,
+  comesBefore,
+  openDialog,
+  serverError,
+  tableColumns,
+  tableRows,
+} from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -903,7 +910,46 @@ export async function failChange(fixture: AppFixture, page: HTMLElement, url: st
  * none or more than one, so a failure is said in one place only.
  */
 export function onlyAlert(page: HTMLElement) {
-  const alerts = panel(page).querySelectorAll<HTMLElement>('[role="alert"]');
+  const alerts = alertsIn(panel(page));
   expect(alerts).toHaveLength(1);
   return alerts[0];
+}
+
+/**
+ * Expects the open tab of `page` to show its one alert directly after
+ * Your matches (or "Your match") in `tab`, before the results grid or the
+ * standings.
+ */
+export function expectByYourMatches(page: HTMLElement, tab: HTMLElement) {
+  const alert = onlyAlert(page);
+  const own = region(tab, 'Your matches') ?? region(tab, 'Your match');
+  const results = region(tab, 'Results grid') ?? region(tab, 'Standings');
+  expect(comesBefore(own!, alert)).toBe(true);
+  expect(comesBefore(alert, results!)).toBe(true);
+}
+
+/**
+ * Expects the open tab of `page` to show its one alert directly after the
+ * results in `tab` (the results grid, or the standings with the bracket or
+ * the lists of matches), before the Players list.
+ */
+export function expectByResults(page: HTMLElement, tab: HTMLElement) {
+  const alert = onlyAlert(page);
+  const results = [
+    region(tab, 'Results grid'),
+    region(tab, 'Standings'),
+    bracket(tab),
+    ...roundLists(tab),
+  ].filter((part) => !!part);
+  expect(results).not.toHaveLength(0);
+  for (const part of results) expect(comesBefore(part, alert)).toBe(true);
+  expect(comesBefore(alert, namedList(tab, 'Players'))).toBe(true);
+}
+
+/** Expects the open tab of `page` to show its one alert at the foot of `tab`, after every control. */
+export function expectAtFoot(page: HTMLElement, tab: HTMLElement) {
+  const alert = onlyAlert(page);
+  for (const control of tab.querySelectorAll('button')) {
+    expect(comesBefore(control, alert)).toBe(true);
+  }
 }

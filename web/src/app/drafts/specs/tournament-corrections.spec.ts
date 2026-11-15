@@ -1,4 +1,4 @@
-import { answer, comesBefore, openDialog, question } from '../../specs-harness';
+import { answer, openDialog, question } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alertIn,
@@ -7,9 +7,7 @@ import {
   button,
   group,
   http,
-  namedList,
   panel,
-  region,
   text,
   useDraftsApp,
   type AppFixture,
@@ -19,6 +17,7 @@ import {
   carol,
   completed,
   dave,
+  expectByResults,
   failChange,
   forfeited,
   gridCell,
@@ -46,12 +45,6 @@ const BOB_VS_CAROL_GAME_SCORE_URL = '/api/drafts/draft-1/tournament/matches/m1/g
 
 /** What clearing a match against Carol says once she has dropped. */
 const CAROL_FORFEITS = 'It will become a forfeit by Carol, who has dropped.';
-
-/** Expects the open tab of `page` to show its one alert after the results grid in `tab` and before the Players list. */
-function expectByResults(page: HTMLElement, tab: HTMLElement) {
-  expect(comesBefore(region(tab, 'Results grid')!, onlyAlert(page))).toBe(true);
-  expect(comesBefore(onlyAlert(page), namedList(tab, 'Players'))).toBe(true);
-}
 
 describe('organizer reports, corrections and clears', () => {
   /** Opens the match of the results grid's cell of `row` against `column`, and answers with its dialog. */
@@ -227,14 +220,29 @@ describe('organizer reports, corrections and clears', () => {
     expectByResults(page, tab);
   });
 
-  it('clears a failure by the results once a change from Your matches saves', async () => {
+  it.each([
+    [
+      'by the results',
+      async (fixture: AppFixture, page: HTMLElement, tab: HTMLElement) => {
+        const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
+        button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
+        await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL);
+      },
+    ],
+    [
+      'at the foot of the tab',
+      async (fixture: AppFixture, page: HTMLElement, tab: HTMLElement) => {
+        button(tab, 'Complete tournament')!.click();
+        await answer(await question('Complete the tournament?'), 'Complete tournament');
+        await failChange(fixture, page, '/api/drafts/draft-1/tournament/complete');
+      },
+    ],
+  ])('clears a failure %s once a change from Your matches saves', async (_, fail) => {
     const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
     const { fixture, page, tab } = await openPlaying(playing([bobBeatAlice]), {
       powers: ORGANIZE_ONLY,
     });
-    const dialog = await openCell(fixture, tab, 'Bob', 'Carol', 'Bob vs Carol');
-    button(group(dialog, 'Game score of Bob vs Carol')!, 'Bob won 2–0')!.click();
-    await failChange(fixture, page, BOB_VS_CAROL_GAME_SCORE_URL);
+    await fail(fixture, page, tab);
 
     button(tab, 'Confirm your match against Bob')!.click();
     await answerChange(

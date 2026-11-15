@@ -73,9 +73,9 @@ const START_DETAILS: Record<TournamentFormat, string> = {
  * directly after Your matches, for Report and Confirm there; directly
  * after the results (standings and matches, bracket or results grid), for
  * Confirm and game score changes there; or at the foot of the tab, for
- * everything else.
+ * everything else, and for a failure whose section the tab no longer shows.
  */
-type ErrorPlace = 'yourMatches' | 'results' | 'tab';
+type ErrorPlace = 'yourMatches' | 'results' | 'foot';
 
 /**
  * The Play tab of a complete draft: the setup form for organizers
@@ -252,6 +252,23 @@ export class PlayTab {
   protected readonly showsOwnMatches = computed(() =>
     this.roundRobin() ? this.joined() : this.playsOn(),
   );
+  /** Whether the tab shows the tournament played or complete, with its results; not before setup, while loading, or in registration. */
+  private readonly showsResults = computed(
+    () =>
+      this.setUp() &&
+      !this.read.missing() &&
+      !!this.tournament() &&
+      this.tournament()!.state !== 'Registration',
+  );
+  /** Where the failure shows: its own place while the tab shows that section, else the foot, so it is never lost. */
+  private readonly errorPlace = computed((): ErrorPlace | null => {
+    const place = this.error()?.place;
+    if (!place) return null;
+    const shown =
+      place === 'foot' ||
+      (this.showsResults() && (place === 'results' || this.showsOwnMatches()));
+    return shown ? place : 'foot';
+  });
   /** The signed-in player's matches their own matches show: all of them in round robin, else "Your match"'s, if any. */
   protected readonly ownMatches = computed((): OwnMatch[] => {
     if (this.roundRobin()) return this.mine();
@@ -512,6 +529,11 @@ export class PlayTab {
     );
   }
 
+  /** The failure's message if it shows at `place`, else null. */
+  protected errorAt(place: ErrorPlace) {
+    return this.errorPlace() === place ? this.error()!.message : null;
+  }
+
   /** Asks `question` in the question dialog, and answers whether the viewer goes ahead. */
   private ask(question: Question) {
     return this.questions.ask(question, this.injector);
@@ -529,7 +551,7 @@ export class PlayTab {
       failure,
       keep,
       refused,
-      place = 'tab',
+      place = 'foot',
     }: { failure: string; keep?: string[]; refused?: () => void; place?: ErrorPlace },
   ) {
     return this.changes.send(

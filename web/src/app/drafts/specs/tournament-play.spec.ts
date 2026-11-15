@@ -1,7 +1,6 @@
 import {
   answer,
   clickBackdrop,
-  comesBefore,
   openDialog,
   pressEscape,
   question,
@@ -65,6 +64,9 @@ import {
   withTournament,
   yourMatches,
   completed,
+  expectAtFoot,
+  expectByResults,
+  expectByYourMatches,
   onlyAlert,
   confirmedMatch,
 } from './play-tab-harness';
@@ -73,6 +75,14 @@ useDraftsApp();
 
 /** Bob reporting that he beat Alice 2–1 in match m2. */
 const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+
+/** Carol reporting that she beat Alice 2–1 in Swiss match m2. */
+const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+
+/** `swissPlaying` with Carol's report on m2, once the tournament is complete. */
+const completedSwiss = completed(
+  swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) }),
+);
 
 /** Alice's unreported matches against Bob (m2), Carol (m3) and Erin (m4). */
 const [againstBob, againstCarol, againstErin] = [
@@ -337,8 +347,7 @@ describe('Play tab while the tournament is played', () => {
         expect(alertIn(panel(page))?.textContent).toContain('This match has been reported.'),
       );
       // It shows by Your matches, before the results grid, not at the foot of the tab.
-      expect(comesBefore(region(tab, 'Your matches')!, onlyAlert(page))).toBe(true);
-      expect(comesBefore(onlyAlert(page), region(tab, 'Results grid')!)).toBe(true);
+      expectByYourMatches(page, tab);
     });
 
     it('says reporting failed when the api gives no reason', async () => {
@@ -362,8 +371,32 @@ describe('Play tab while the tournament is played', () => {
       expect(
         await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm'),
       ).toBe("Couldn't confirm the match. Try again in a moment.");
-      expect(comesBefore(region(tab, 'Your matches')!, onlyAlert(page))).toBe(true);
-      expect(comesBefore(onlyAlert(page), region(tab, 'Results grid')!)).toBe(true);
+      expectByYourMatches(page, tab);
+    });
+
+    it('says confirming failed in Swiss by Your match, before the standings', async () => {
+      const { fixture, page, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+
+      button(region(tab, 'Your match')!, 'Confirm your match against Carol')!.click();
+      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm');
+
+      expectByYourMatches(page, tab);
+    });
+
+    it('moves a failure to the foot of the tab once Your match is no longer shown', async () => {
+      const { fixture, page, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+      button(region(tab, 'Your match')!, 'Confirm your match against Carol')!.click();
+      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm');
+
+      await pushTournament(fixture, completedSwiss, 1, { asPlayer: true });
+      await vi.waitFor(() => expect(region(tab, 'Your match')).toBeNull());
+
+      expect(text(onlyAlert(page))).toBe("Couldn't confirm the match. Try again in a moment.");
+      expectAtFoot(page, tab);
     });
 
     it('is absent for a viewer who didn’t join', async () => {
@@ -818,7 +851,7 @@ describe('Play tab while the tournament is played', () => {
 
         expect(await failChange(fixture, page, url)).toBe(failure);
         // It stays at the foot of the tab, by the organizer's controls.
-        expect(comesBefore(button(tab, label)!, onlyAlert(page))).toBe(true);
+        expectAtFoot(page, tab);
       },
     );
   });
@@ -854,17 +887,13 @@ describe('Play tab once the tournament is complete', () => {
   });
 
   it('says confirming from the list of matches failed by that list, before the players', async () => {
-    const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
-    const { fixture, page, tab } = await openPlaying(
-      completed(swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) })),
-    );
+    const { fixture, page, tab } = await openPlaying(completedSwiss);
 
     button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol')!.click();
 
     expect(
       await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm'),
     ).toBe("Couldn't confirm the match. Try again in a moment.");
-    expect(comesBefore(namedList(tab, 'Tournament round 2'), onlyAlert(page))).toBe(true);
-    expect(comesBefore(onlyAlert(page), namedList(tab, 'Players'))).toBe(true);
+    expectByResults(page, tab);
   });
 });
