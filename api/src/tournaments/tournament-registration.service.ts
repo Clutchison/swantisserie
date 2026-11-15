@@ -6,12 +6,7 @@ import { DraftLock } from '../drafts/draft-lock.js';
 import type { DraftEvent } from '../drafts/draft-events.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import { snapshotDecklists } from './decklists.service.js';
-import {
-  deckRefusal,
-  joinRefusal,
-  JOINING_PLAYER,
-  STARTING_PLAYER,
-} from './join-rules.js';
+import { joinRefusal, JOINING_PLAYER } from './join-rules.js';
 import { ROUND_STEPS } from './format-steps.js';
 import {
   dismissReadyNotices,
@@ -19,6 +14,7 @@ import {
   readyRefusal,
   setEntryReady,
 } from './ready-rules.js';
+import { deckRefusal, STARTING_PLAYER } from './start-rules.js';
 import { createMatches } from './tournament-matches.js';
 import { tournamentSetUp, tournamentStarted } from './tournament-events.js';
 import {
@@ -92,6 +88,8 @@ export class TournamentRegistrationService {
    * were removed, whatever their deck holds. Throws NotAPlayerError if they
    * aren't one of the draft's players, and TournamentRefusedError if they
    * are a bot, have joined already, or the tournament is past registration.
+   * Their join time is stamped from the api's clock, as setup's is, not
+   * left to the column's default, so join order reads one clock.
    */
   async join(draftId: string, userId: string): Promise<void> {
     await this.tournamentLock.inRegistration(
@@ -105,7 +103,11 @@ export class TournamentRegistrationService {
         const refusal = joinRefusal(player);
         if (refusal) throw new TournamentRefusedError(refusal);
         await tx.tournamentEntry.create({
-          data: { tournamentId: tournament.id, playerId: player.id },
+          data: {
+            tournamentId: tournament.id,
+            playerId: player.id,
+            joinedAt: new Date(),
+          },
         });
       },
     );
