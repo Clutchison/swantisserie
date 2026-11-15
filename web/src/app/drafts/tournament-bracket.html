@@ -2,7 +2,7 @@
   @if (nextMatch(); as next) {
     <p class="next">{{ next }}</p>
   }
-  <div class="rounds" tabindex="0" role="group" aria-label="Tournament rounds">
+  <div class="rounds" tabindex="0" role="region" aria-label="Tournament rounds">
     @for (round of rounds(); track round.round) {
       <div class="round">
         <h4>{{ round.label }}</h4>
