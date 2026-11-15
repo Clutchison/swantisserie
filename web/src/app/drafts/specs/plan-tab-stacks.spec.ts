@@ -130,7 +130,7 @@ describe('plan tab', () => {
       expect(plan.querySelectorAll('section')[1].querySelector('h4')).toBeNull();
 
       for (const grouping of ['Color', 'Type']) {
-        button(plan, grouping)!.click();
+        toggleButton(plan, grouping)!.click();
         await fixture.whenStable();
         expect(stacksOf(plan)[1]).toEqual(sideboard);
       }

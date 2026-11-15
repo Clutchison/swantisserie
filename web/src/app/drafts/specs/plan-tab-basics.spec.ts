@@ -7,6 +7,7 @@ import {
   alertIn,
   button,
   toggleButton,
+  toggleButtons,
   group,
   heading,
   namedImages,
@@ -417,9 +418,8 @@ describe('basic lands on the plan tab', () => {
     expect(openDialog()).toBeNull();
   });
 
-  /** The buttons of the group of controls named `name`, by their text. */
-  const groupButtons = (plan: HTMLElement, name: string) =>
-    [...(group(plan, name)?.querySelectorAll('button') ?? [])].map((b) => b.textContent?.trim());
+  /** The toggles of the group of controls named `name`, each with whether it is pressed. */
+  const groupToggles = (plan: HTMLElement, name: string) => toggleButtons(group(plan, name)!);
 
   it('offers the Add basics button and the mode, in list mode, on mobile', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
@@ -429,7 +429,7 @@ describe('basic lands on the plan tab', () => {
     const plan = await openPlan(fixture, page);
 
     expect(basicsButton(plan)).toBeDefined();
-    expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
+    expect(groupToggles(plan, 'Mode')).toEqual(['☐ Stacks', '☑ List']);
     expect(group(plan, 'Group by')).toBeNull();
   });
 
@@ -475,13 +475,13 @@ describe('basic lands on the plan tab', () => {
       plan: boltAndShivanWith(),
     });
     const plan = await openPlan(fixture, page);
-    expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
-    expect(groupButtons(plan, 'Group by')).toEqual(['Mana value', 'Color', 'Type']);
+    expect(groupToggles(plan, 'Mode')).toEqual(['☑ Stacks', '☐ List']);
+    expect(groupToggles(plan, 'Group by')).toEqual(['☑ Mana value', '☐ Color', '☐ Type']);
     expect(basicsButton(plan)).toBeDefined();
 
     toggleButton(plan, 'List')!.click();
     await fixture.whenStable();
-    expect(groupButtons(plan, 'Mode')).toEqual(['Stacks', 'List']);
+    expect(groupToggles(plan, 'Mode')).toEqual(['☐ Stacks', '☑ List']);
     expect(group(plan, 'Group by')).toBeNull();
     expect(basicsButton(plan)).toBeDefined();
   });
@@ -898,7 +898,7 @@ describe('basic lands on the plan tab', () => {
       const plan = await openPlan(fixture, page);
 
       for (const mode of ['Stacks', 'List']) {
-        button(plan, mode)!.click();
+        toggleButton(plan, mode)!.click();
         await fixture.whenStable();
         expect(button(plan, 'Move Island to the sideboard')).toBeUndefined();
         expect(button(plan, 'Move Island to the mainboard')).toBeUndefined();
