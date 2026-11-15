@@ -363,7 +363,7 @@ describe('webhooks page', () => {
     http.expectNone(`/api/admin/webhooks/${main.id}`);
   });
 
-  it('closes the question unanswered when the session ends, removing nothing', async () => {
+  it('leaves the webhook in place when the session ends while its Remove question is open', async () => {
     const { fixture, page } = await openPage([main]);
     button(mainRow(page), 'Remove').click();
     await question('Remove #roto-main?');

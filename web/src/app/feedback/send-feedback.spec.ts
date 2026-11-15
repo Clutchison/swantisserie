@@ -13,13 +13,14 @@ import {
   pressEscape,
   pressTab,
   router,
+  signInLink,
   updates,
   useApp,
 } from '../specs-harness';
 import { expectSignedOut } from '../drafts/specs/harness';
 import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 import { narrowMenuButton } from '../top-bar/specs-harness';
-import { answerDraft42NotFound, link } from './specs-harness';
+import { answerDraft42NotFound } from './specs-harness';
 
 describe('sending feedback', () => {
   let fixture: ComponentFixture<App>;
@@ -182,16 +183,20 @@ describe('sending feedback', () => {
   describe('when the session ends while it is open', () => {
     const unauthorized = { status: 401, statusText: 'Unauthorized' };
 
+    /** The sign-in page shows, set to return to the page, with no dialog or anything modal over it. */
+    async function expectSignedOutWithNoDialog() {
+      await expectSignedOut(fixture, { router, http, user: alice, returnTo: '/status' });
+      expect(dialog()).toBeNull();
+      expect(hiddenFromAssistiveTech(signInLink(page)!)).toBe(false);
+    }
+
     it('closes and goes to sign-in when sending is refused as unauthorized', async () => {
       await open();
       await type('Nice app');
 
       (await submit()).flush(null, unauthorized);
 
-      await expectSignedOut(fixture, { router, http, user: alice, returnTo: '/status' });
-      expect(dialog()).toBeNull();
-      // Nothing modal is left over the sign-in page.
-      expect(hiddenFromAssistiveTech(link(page, 'Sign in with Discord')!)).toBe(false);
+      await expectSignedOutWithNoDialog();
     });
 
     it('closes and goes to sign-in when another request is refused as unauthorized', async () => {
@@ -202,10 +207,7 @@ describe('sending feedback', () => {
       pushToOwnRoom(updates, { type: 'connected' });
       http.expectOne('/api/drafts').flush(null, unauthorized);
 
-      await expectSignedOut(fixture, { router, http, user: alice, returnTo: '/status' });
-      expect(dialog()).toBeNull();
-      // Nothing modal is left over the sign-in page.
-      expect(hiddenFromAssistiveTech(link(page, 'Sign in with Discord')!)).toBe(false);
+      await expectSignedOutWithNoDialog();
       http.expectNone('/api/feedback');
     });
   });

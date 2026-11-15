@@ -269,6 +269,12 @@ export function clickBackdrop() {
 export const hiddenFromAssistiveTech = (element: Element) =>
   element.closest('[aria-hidden="true"]') !== null;
 
+/** The sign-in page's link that starts signing in with Discord, if it shows. */
+export const signInLink = (page: HTMLElement) =>
+  [...page.querySelectorAll('a')].find(
+    (link) => link.textContent?.trim() === 'Sign in with Discord',
+  );
+
 /** `value` as a viewer reads it: each run of whitespace one space, none at either end. */
 export const collapseWhitespace = (value: string) => value.replace(/\s+/g, ' ').trim();
 

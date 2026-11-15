@@ -60,9 +60,9 @@ export class Auth {
    * Signs the viewer out of this tab once the API has ended their session,
    * closing every open dialog unanswered and sending them to the sign-in
    * page, which returns them to the page they were on unless they logged
-   * out. The session is already gone, so the
-   * API isn't told. Only the first call does anything, so a logout refused
-   * as unauthorized, or several refusals at once, leave just once.
+   * out. The session is already gone, so the API isn't told. Only the first
+   * call does anything, so a logout refused as unauthorized, or several
+   * refusals at once, leave just once.
    */
   signedOut(): Promise<void> {
     this.signingOut ??= this.leave();
