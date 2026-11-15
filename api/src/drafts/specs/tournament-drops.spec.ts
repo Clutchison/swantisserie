@@ -107,7 +107,12 @@ describe('dropping from a tournament', () => {
     const daveCookie = await signIn(dave);
 
     await dropPlayer(id, carol.id, bobCookie).expect(403);
-    await dropPlayer(id, dave.id, daveCookie).expect(409);
+    expect(
+      (await dropPlayer(id, dave.id, daveCookie).expect(403)).body,
+    ).toEqual({
+      error: 'not-a-player',
+      message: 'Only the draft’s players can take part in its tournament.',
+    });
 
     expect((await tournamentView(id)).entries.some((e) => e.dropped)).toBe(
       false,
@@ -256,6 +261,17 @@ describe('reinstating a dropped player', () => {
     expect((await reinstate(id, alice.id).expect(409)).body).toEqual({
       error: 'not-dropped',
       message: 'You haven’t dropped.',
+    });
+  });
+
+  it('refuses an organizer who isn’t one of the draft’s players as not a player, reinstating themselves', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie]);
+
+    expect(
+      (await reinstate(id, carol.id, carolCookie).expect(403)).body,
+    ).toEqual({
+      error: 'not-a-player',
+      message: 'Only the draft’s players can take part in its tournament.',
     });
   });
 });

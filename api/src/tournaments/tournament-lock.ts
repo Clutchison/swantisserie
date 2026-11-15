@@ -5,7 +5,7 @@ import type {
   TournamentFormat,
   TournamentState,
 } from '../generated/prisma/client.js';
-import { DraftGoneError } from '../drafts/draft-errors.js';
+import { DraftGoneError, NotAPlayerError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import type { TournamentProgress } from './round-steps.js';
@@ -147,8 +147,11 @@ export async function findMatch(
 
 /**
  * The tournament entry of the draft's player `userId`, to take them out of
- * the tournament or put them back in. Throws TournamentRefusedError if they
- * haven't joined it, worded for `actor` (see notJoined), or are a bot,
+ * the tournament or put them back in. If there is none, throws
+ * NotAPlayerError when `userId` acts on themselves and isn't one of the
+ * draft's players, and TournamentRefusedError (notJoined, worded for
+ * `actor`) otherwise: for a player who hasn't joined, and for any user an
+ * organizer acts on. Throws TournamentRefusedError too if they are a bot,
  * which stays in.
  */
 export async function entryOf(
@@ -166,7 +169,24 @@ export async function entryOf(
       player: { select: { user: { select: { isBot: true } } } },
     },
   });
-  if (!entry) throw new TournamentRefusedError(notJoined(actor));
+  if (!entry) {
+    if (actor === 'self' && !(await isPlayer(tx, draftId, userId)))
+      throw new NotAPlayerError('tournaments');
+    throw new TournamentRefusedError(notJoined(actor));
+  }
   if (!droppable(entry)) throw new TournamentRefusedError(BOT_ENTRY);
   return entry;
+}
+
+/** Whether `userId` is one of the draft's players. */
+async function isPlayer(
+  tx: Transaction,
+  draftId: string,
+  userId: string,
+): Promise<boolean> {
+  const player = await tx.player.findUnique({
+    where: { draftId_userId: { draftId, userId } },
+    select: { id: true },
+  });
+  return player !== null;
 }
