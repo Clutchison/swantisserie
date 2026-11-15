@@ -1,6 +1,6 @@
 import { type PlanAfterPick, plansAfterPick } from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
-import { readTurnState } from './turn-state.js';
+import { readTurn } from './turn-read.js';
 
 /**
  * Persists `after`, what a new pick, already made, does to each plan, as
@@ -71,7 +71,7 @@ export async function planPicks(
   draftId: string,
   picks: readonly MadePick[],
 ): Promise<void> {
-  const { players, plans, pool } = await readTurnState(tx, draftId);
+  const { players, plans, pool } = await readTurn(tx, draftId);
   const playerIds = players.map((player) => player.id);
   let planned = plans;
   // Stryker disable next-line ArrayDeclaration: a pool card id that doesn't exist, in the copy rule's picked list, excludes no copy.

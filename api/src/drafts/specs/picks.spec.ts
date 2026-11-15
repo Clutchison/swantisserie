@@ -1,5 +1,5 @@
 import { PrismaService } from '../../prisma/prisma.service.js';
-import { readTurnState } from '../turn-state.js';
+import { readTurn } from '../turn-read.js';
 import {
   alice,
   app,
@@ -324,7 +324,7 @@ describe('picks', () => {
 
     const state = await app
       .get(PrismaService)
-      .$transaction((tx) => readTurnState(tx, id));
+      .$transaction((tx) => readTurn(tx, id));
 
     expect(state.picked).toEqual([first, second]);
   });

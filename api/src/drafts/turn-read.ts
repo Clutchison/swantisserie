@@ -28,7 +28,7 @@ export type TurnPlayer = Prisma.PlayerGetPayload<{
  * players, pool and names stay as read; the queues, plans and picked cards
  * change with each pick.
  */
-export interface TurnState {
+export interface TurnRead {
   /** The players by seat; seats are 0..n-1 once started, so indexes are the engine's seats. */
   readonly players: readonly TurnPlayer[];
   /**
@@ -55,7 +55,7 @@ export interface PickContext {
 }
 
 /** The engine's view of the turn: each seat's queue state, with its queued pool card ids, and what it needs besides. */
-export function engineView({ queues, pool, picked }: TurnState): {
+export function engineView({ queues, pool, picked }: TurnRead): {
   queues: SeatQueue[];
   context: PickContext;
 } {
@@ -68,11 +68,11 @@ export function engineView({ queues, pool, picked }: TurnState): {
   };
 }
 
-/** Reads the draft's turn state; the caller holds the draft row lock. */
-export async function readTurnState(
+/** Reads the draft for a turn; the caller holds the draft row lock. */
+export async function readTurn(
   tx: Transaction,
   draftId: string,
-): Promise<TurnState> {
+): Promise<TurnRead> {
   const players = await tx.player.findMany({
     where: { draftId },
     orderBy: SEAT_ORDER,
@@ -84,7 +84,7 @@ export async function readTurnState(
         orderBy: { position: 'asc' },
         select: { poolCardId: true, position: true },
       },
-      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the turn state's plans read only `poolCardId`.
+      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the turn read's plans read only `poolCardId`.
       plan: {
         select: { poolCardId: true },
       },
@@ -97,7 +97,7 @@ export async function readTurnState(
       id: true,
       oracleId: true,
       name: true,
-      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `number` included, and the turn state's picked list reads only `number`.
+      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `number` included, and the turn read's picked list reads only `number`.
       pick: {
         select: { number: true },
       },

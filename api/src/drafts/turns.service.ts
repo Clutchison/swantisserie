@@ -34,7 +34,7 @@ import {
   lockQueue,
   QueueRefusedError,
 } from './queue-refusals.js';
-import { engineView, readTurnState, type TurnState } from './turn-state.js';
+import { engineView, readTurn, type TurnRead } from './turn-read.js';
 
 const PICK_LOG = {
   // Stryker disable next-line ObjectLiteral: a behaviour change the specs can't reach, not an equivalent mutant: picks are inserted in number order, imports included, and never updated while this read returns them, so the specs' database returns them in that order without it, but a real Postgres's vacuum can reorder rows.
@@ -102,7 +102,7 @@ export class TurnsService {
       async (draft) =>
         this.takeTurn(
           draft,
-          await readTurnState(draft.tx, draftId),
+          await readTurn(draft.tx, draftId),
           userId,
           poolCardId,
         ),
@@ -122,7 +122,7 @@ export class TurnsService {
         // Stryker disable next-line OptionalChaining: dead code that DraftLock.runSeenIf's callback type (`LockedDraft | undefined`) forces: no real path schedules a bot turn for a draft with no row.
         if (draft?.state !== 'Drafting') return [];
         const { tx } = draft;
-        const state = await readTurnState(tx, draftId);
+        const state = await readTurn(tx, draftId);
         if (state.picked.length !== pick - 1) return [];
         // Read again, rather than taken from the state's pool, to keep the
         // database's name order (its collation), which the random pick and
@@ -204,7 +204,7 @@ export class TurnsService {
           data: { queuePaused: false },
         });
         if (draft.state !== 'Drafting') return [];
-        const state = await readTurnState(draft.tx, draftId);
+        const state = await readTurn(draft.tx, draftId);
         const seat = state.players.findIndex(
           (player) => player.userId === userId,
         );
@@ -246,7 +246,7 @@ export class TurnsService {
    * queue is queue paused.
    */
   async cascade(draft: LockedDraft): Promise<DraftEvent[]> {
-    return this.cascadeFrom(draft, await readTurnState(draft.tx, draft.id));
+    return this.cascadeFrom(draft, await readTurn(draft.tx, draft.id));
   }
 
   /**
@@ -255,7 +255,7 @@ export class TurnsService {
    */
   private async cascadeFrom(
     draft: LockedDraft,
-    state: TurnState,
+    state: TurnRead,
   ): Promise<DraftEvent[]> {
     const { players } = state;
     const { queues, context } = engineView(state);
@@ -289,7 +289,7 @@ export class TurnsService {
    */
   private async takeTurn(
     draft: LockedDraft,
-    state: TurnState,
+    state: TurnRead,
     userId: string,
     poolCardId: string,
   ): Promise<DraftEvent[]> {
@@ -314,7 +314,7 @@ export class TurnsService {
    */
   private async pickCard(
     draft: LockedDraft,
-    state: TurnState,
+    state: TurnRead,
     userId: string,
     poolCardId: string,
     {
@@ -436,7 +436,7 @@ export class TurnsService {
  * plan, from `state`, the draft as the turn holds it before the pick.
  */
 function effectsOf(
-  state: TurnState,
+  state: TurnRead,
   seat: number,
   poolCardId: string,
 ): PickEffects {
