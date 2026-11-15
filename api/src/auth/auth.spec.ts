@@ -12,6 +12,8 @@ import {
 import { AppAdminConfig } from './app-admin-config.js';
 import { AppAdminGuard } from './app-admin.guard.js';
 import { AuthModule } from './auth.module.js';
+import { SIGN_IN_DEADLINE_MS } from './auth.service.js';
+import { useDeadlineTimers } from '../testing/deadlines.js';
 
 const config = new DiscordConfig({
   DISCORD_CLIENT_ID: 'client-123',
@@ -69,6 +71,23 @@ describe('Discord sign-in', () => {
     );
   });
 
+  /**
+   * Starts sign-in in a cookie-keeping agent, and gives the callback Discord
+   * would send back to it, not yet sent.
+   */
+  async function startSignIn(returnTo?: string) {
+    const agent = request.agent(app.getHttpServer());
+    const start = await agent
+      .get('/api/auth/discord')
+      .query(returnTo === undefined ? {} : { returnTo });
+    const state = new URL(start.headers.location).searchParams.get('state');
+    const callback = () =>
+      agent
+        .get('/api/auth/discord/callback')
+        .query({ code: 'auth-code', state, iss: 'https://discord.com' });
+    return { agent, callback };
+  }
+
   /** Runs the redirect → callback round trip in a cookie-keeping agent. */
   async function signInThroughDiscord(
     profile: DiscordProfile,
@@ -80,15 +99,8 @@ describe('Discord sign-in', () => {
     discord.exchangeCode.mockResolvedValue('access-token');
     discord.getCurrentUser.mockResolvedValue(profile);
     discord.isGuildMember.mockResolvedValue(isGuildMember);
-    const agent = request.agent(app.getHttpServer());
-    const start = await agent
-      .get('/api/auth/discord')
-      .query(returnTo === undefined ? {} : { returnTo });
-    const state = new URL(start.headers.location).searchParams.get('state');
-    const callback = await agent
-      .get('/api/auth/discord/callback')
-      .query({ code: 'auth-code', state, iss: 'https://discord.com' });
-    return { agent, callback };
+    const { agent, callback } = await startSignIn(returnTo);
+    return { agent, callback: await callback() };
   }
 
   /** `session=<token>`, ready for a Cookie header. */
@@ -322,17 +334,15 @@ describe('Discord sign-in', () => {
   });
 
   describe('when Discord is slow', () => {
-    /** Just within the Discord client's own 10 s timeout for each call. */
-    const SLOW_CALL_MS = 9_000;
-    /** Three of these fit in the sign-in budget between them. */
-    const FAIRLY_SLOW_CALL_MS = 8_000;
+    /**
+     * Three of these run a second past the sign-in budget, though each is
+     * within the Discord client's own 10 s timeout.
+     */
+    const SLOW_CALL_MS = SIGN_IN_DEADLINE_MS / 3 + 1_000;
+    /** Three of these fit in the sign-in budget with a call's time to spare. */
+    const FAIRLY_SLOW_CALL_MS = SIGN_IN_DEADLINE_MS / 4;
 
-    beforeEach(() => {
-      vi.useFakeTimers({
-        toFake: ['setTimeout', 'clearTimeout', 'Date'],
-        shouldAdvanceTime: true,
-      });
-    });
+    beforeEach(useDeadlineTimers);
     afterEach(() => vi.useRealTimers());
 
     /** Signs in, letting each Discord call take `callMs` in turn. */
@@ -350,13 +360,9 @@ describe('Discord sign-in', () => {
       discord.exchangeCode.mockImplementation(slowly('access-token'));
       discord.getCurrentUser.mockImplementation(slowly(aliceProfile));
       discord.isGuildMember.mockImplementation(slowly(isGuildMember));
-      const agent = request.agent(app.getHttpServer());
-      const start = await agent.get('/api/auth/discord').query({ returnTo });
-      const state = new URL(start.headers.location).searchParams.get('state');
-      const callback = agent
-        .get('/api/auth/discord/callback')
-        .query({ code: 'auth-code', state })
-        .then((res) => res);
+      const { agent, callback: sendCallback } = await startSignIn(returnTo);
+      // then() sends the callback now, while the clock is moved on below.
+      const callback = sendCallback().then((res) => res);
       for (const call of [
         discord.exchangeCode,
         discord.getCurrentUser,
