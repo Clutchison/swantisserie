@@ -468,6 +468,12 @@ export function expectBusy(control: HTMLButtonElement) {
   expect(control.getAttribute('aria-disabled')).toBe('true');
 }
 
+/** Expects `control` no longer busy: neither marked `aria-disabled` nor disabled. */
+export function expectNotBusy(control: HTMLButtonElement) {
+  expect(control.disabled).toBe(false);
+  expect(control.getAttribute('aria-disabled')).toBeNull();
+}
+
 /** The buttons in the tab bar inside `root`, in order. */
 export const tabs = (root: HTMLElement) => [
   ...root.querySelectorAll<HTMLButtonElement>('[role="tab"]'),

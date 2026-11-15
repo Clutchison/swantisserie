@@ -25,6 +25,7 @@ import {
   emptyStatusIn,
   expectBusy,
   expectFocusOn,
+  expectNotBusy,
   focusAndClick,
   openDialog,
   statusIn,
@@ -265,7 +266,7 @@ describe('pool tab', () => {
         mainboard: [{ poolCardId: shivan.id, name: shivan.name, picked: false }],
       });
       await vi.waitFor(() => expectFocusOn(detail, 'Remove from Deck'));
-      expect(button(detail, 'Remove from Deck')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Remove from Deck')!);
     });
 
     it('keeps focus on itself when an add fails', async () => {
@@ -282,7 +283,7 @@ describe('pool tab', () => {
       await fixture.whenStable();
       expect(statusTexts(detail).join(' ')).toContain("Couldn't add the card to your deck.");
       expectFocusOn(detail, 'Add to Deck');
-      expect(button(detail, 'Add to Deck')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Add to Deck')!);
     });
   });
 
@@ -357,7 +358,7 @@ describe('pool tab', () => {
 
       req.flush(EMPTY_PLAN);
       await vi.waitFor(() => expectFocusOn(detail, 'Add to Deck'));
-      expect(button(detail, 'Add to Deck')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Add to Deck')!);
     });
 
     it('is busy in a Card detail opened while an add of another copy is on its way, and a press sends nothing', async () => {
@@ -382,7 +383,7 @@ describe('pool tab', () => {
       });
       await vi.waitFor(() => {
         TestBed.tick();
-        expect(button(detail, 'Remove from Deck')!.getAttribute('aria-disabled')).toBeNull();
+        expectNotBusy(button(detail, 'Remove from Deck')!);
       });
 
       // The add's note belongs to the other copy's Card detail, now closed.
@@ -466,7 +467,7 @@ describe('pool tab', () => {
 
       expect(statusTexts(detail).join(' ')).toContain("Couldn't remove the card from your deck.");
       expectFocusOn(detail, 'Remove from Deck');
-      expect(button(detail, 'Remove from Deck')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Remove from Deck')!);
     });
 
     it('is never offered for a picked card in the plan', async () => {

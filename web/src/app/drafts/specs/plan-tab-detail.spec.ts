@@ -30,7 +30,14 @@ import {
   accessibleName,
   group,
 } from './harness';
-import { clickOn, expectBusy, expectFocusOn, focusAndClick, openDialog } from '../../specs-harness';
+import {
+  clickOn,
+  expectBusy,
+  expectFocusOn,
+  expectNotBusy,
+  focusAndClick,
+  openDialog,
+} from '../../specs-harness';
 import { playing, withTournament } from './play-tab-harness';
 import {
   useTallScreen,
@@ -590,7 +597,7 @@ describe('plan tab', () => {
       await vi.waitFor(() => expectFocusOn(detail, 'Move to mainboard'));
       await fixture.whenStable();
       expectFocusOn(detail, 'Move to mainboard');
-      expect(button(detail, 'Move to mainboard')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Move to mainboard')!);
     });
 
     it('keeps focus on Move when a move fails', async () => {
@@ -606,7 +613,7 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expectFocusOn(detail, 'Move to sideboard');
-      expect(button(detail, 'Move to sideboard')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Move to sideboard')!);
     });
 
     it('offers to move an unpicked card on the sideboard to the mainboard', async () => {
@@ -661,9 +668,7 @@ describe('plan tab', () => {
           sideboard: [planned(bolt)],
         }),
       );
-      await vi.waitFor(() =>
-        expect(button(detail, 'Move to sideboard')!.getAttribute('aria-disabled')).toBeNull(),
-      );
+      await vi.waitFor(() => expectNotBusy(button(detail, 'Move to sideboard')!));
     });
 
     it('offers no Move on a locked deck', async () => {

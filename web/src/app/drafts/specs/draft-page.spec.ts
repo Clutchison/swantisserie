@@ -35,7 +35,14 @@ import {
 import { pushDraft } from './turn-harness';
 import { alicesTurnItem, goToDraftList, landOnDraftList } from './draft-list-harness';
 import { turnLinkShown } from '../../top-bar/specs-harness';
-import { emptyStatusIn, expectSignedOut, statusIn, watchChanges } from '../../specs-harness';
+import {
+  emptyStatusIn,
+  expectBusy,
+  expectNotBusy,
+  expectSignedOut,
+  statusIn,
+  watchChanges,
+} from '../../specs-harness';
 
 useDraftsApp();
 
@@ -149,8 +156,7 @@ describe('draft page', () => {
     button(page, 'Retry')!.click();
     await fixture.whenStable();
     const retrying = button(page, 'Retrying…')!;
-    expect(retrying.disabled).toBe(false);
-    expect(retrying.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(retrying);
     expect(document.activeElement).toBe(retrying);
     const req = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/snapshot'));
     retrying.click();
@@ -159,7 +165,7 @@ describe('draft page', () => {
     req.flush(null, serverError);
     await vi.waitFor(() => expect(page.textContent).toContain(RETRY_FAILED));
     await fixture.whenStable();
-    expect(button(page, 'Retry')!.getAttribute('aria-disabled')).toBeNull();
+    expectNotBusy(button(page, 'Retry')!);
     expect(document.activeElement).toBe(button(page, 'Retry'));
 
     button(page, 'Retry')!.click();

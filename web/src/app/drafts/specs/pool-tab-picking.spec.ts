@@ -33,6 +33,7 @@ import {
   emptyStatusIn,
   expectBusy,
   expectFocusOn,
+  expectNotBusy,
   focusAndClick,
   openDialog,
   statusIn,
@@ -375,7 +376,7 @@ describe('pool tab', () => {
       await vi.waitFor(() => expect(text(alertIn(detail))).toContain(pickFailed));
       await fixture.whenStable();
       expectFocusOn(detail, 'Pick');
-      expect(button(detail, 'Pick')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Pick')!);
 
       button(detail, 'Pick')!.click();
       TestBed.tick();

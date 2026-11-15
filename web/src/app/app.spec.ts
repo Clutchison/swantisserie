@@ -7,6 +7,7 @@ import {
   alice,
   answerViewerDrafts,
   banner,
+  expectBusy,
   expectSignedOut,
   http,
   openApp,
@@ -532,7 +533,7 @@ describe('App', () => {
     const logout = await vi.waitFor(() => http.expectOne('/api/auth/logout'));
     userMenuButton(page)!.click();
     TestBed.tick();
-    expect(button(page, 'Log out')!.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(button(page, 'Log out')!);
     button(page, 'Log out')!.click();
     TestBed.tick();
     http.expectNone('/api/auth/logout');

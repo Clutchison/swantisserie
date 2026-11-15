@@ -28,6 +28,7 @@ import {
 import {
   clickBackdrop,
   dialogBackdrop,
+  expectBusy,
   expectFocusOn,
   hiddenFromAssistiveTech,
   openDialog,
@@ -362,8 +363,7 @@ describe('queueing the unpicked cards on the plan tab', () => {
     confirm.focus();
     confirm.click();
     TestBed.tick();
-    expect(confirm.disabled).toBe(false);
-    expect(confirm.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(confirm);
     expectFocusOn(dialog()!, 'Queue 2 cards');
     confirm.click();
     const req = http.expectOne('/api/drafts/draft-1/queue/unpicked');

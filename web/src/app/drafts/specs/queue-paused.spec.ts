@@ -40,7 +40,15 @@ import {
   serverError,
   draftClosed,
 } from './harness';
-import { comesBefore, expectFocusOn, openDialog, pressEscape, question } from '../../specs-harness';
+import {
+  comesBefore,
+  expectBusy,
+  expectFocusOn,
+  expectNotBusy,
+  openDialog,
+  pressEscape,
+  question,
+} from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, card } from './pool-tab-harness';
 
 useDraftsApp();
@@ -564,8 +572,7 @@ describe('setting a queue picking on the player’s own turn', () => {
     confirm.focus();
     confirm.click();
     TestBed.tick();
-    expect(confirm.disabled).toBe(false);
-    expect(confirm.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(confirm);
     expectFocusOn(dialog, 'Set queue picking');
     confirm.click();
     http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
@@ -579,8 +586,7 @@ describe('setting a queue picking on the player’s own turn', () => {
       ),
     );
     TestBed.tick();
-    expect(button(dialog, 'Set queue picking').disabled).toBe(false);
-    expect(button(dialog, 'Set queue picking').getAttribute('aria-disabled')).toBe('true');
+    expectBusy(button(dialog, 'Set queue picking'));
     expectFocusOn(dialog, 'Set queue picking');
     button(dialog, 'Set queue picking').click();
     http.expectNone('/api/drafts/draft-1/queue/paused');
@@ -589,9 +595,7 @@ describe('setting a queue picking on the player’s own turn', () => {
     await flushQueue(queueOf({ cards: [queued(skewer), queued(bolt)], queuePaused: true }));
     await fixture.whenStable();
     expect(items(dialog, picksList)).toEqual(['Skewer the Critics', 'Lightning Bolt']);
-    await vi.waitFor(() =>
-      expect(button(dialog, 'Set queue picking').getAttribute('aria-disabled')).toBeNull(),
-    );
+    await vi.waitFor(() => expectNotBusy(button(dialog, 'Set queue picking')));
     expectFocusOn(dialog, 'Set queue picking');
   });
 
@@ -604,8 +608,7 @@ describe('setting a queue picking on the player’s own turn', () => {
     confirm.focus();
     undoReturnsTurnToBob();
     TestBed.tick();
-    expect(confirm.disabled).toBe(false);
-    expect(confirm.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(confirm);
     confirm.click();
     TestBed.tick();
     expectFocusOn(dialog, 'Set queue picking');

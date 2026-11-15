@@ -70,11 +70,11 @@ export class QueuePickingDialog {
    */
   readonly afterRefusal = input(false);
   /**
-   * Whether the confirm is busy, ignoring presses: setting it queue picking
-   * is on its way, or its cards are being read again, after a refusal or
-   * otherwise.
+   * Whether a change is in flight under the dialog's `Changes`: setting it
+   * queue picking, or reading its cards again, which is sent as one. While it
+   * is, the confirm is marked busy and ignores presses.
    */
-  private readonly busy = this.changes.changing;
+  private readonly confirming = this.changes.changing;
   /** Why the cards last confirmed were refused, if they were. */
   protected readonly refused = signal<string | null>(null);
   /** Whether the cards may change before they can be confirmed: they are being read again. */
@@ -101,7 +101,7 @@ export class QueuePickingDialog {
     // none. Otherwise, as when the turn passes while it is open, the dialog
     // closes as Cancel does: the player confirmed nothing.
     effect(() => {
-      if (this.busy() || this.rereading()) return;
+      if (this.confirming() || this.rereading()) return;
       if (this.picks().length > 0) {
         untracked(() => this.askedBeforeReread.set(false));
         return;

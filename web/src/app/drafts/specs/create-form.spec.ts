@@ -26,7 +26,13 @@ import {
   toggleButton,
   webhooksAnswer,
 } from './harness';
-import { expectFocusOn, focusAndClick, listItemTextsIn } from '../../specs-harness';
+import {
+  expectBusy,
+  expectFocusOn,
+  expectNotBusy,
+  focusAndClick,
+  listItemTextsIn,
+} from '../../specs-harness';
 import { landOnDraftList, listedDrafts, listItem, listItemOf, settle } from './draft-list-harness';
 
 useDraftsApp();
@@ -695,15 +701,14 @@ describe('create form', () => {
     fail(await create(form), 400, problem);
     await fixture.whenStable();
     await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(problem.message));
-    expect(button(page, 'Create draft')!.getAttribute('aria-disabled')).toBeNull();
+    expectNotBusy(button(page, 'Create draft')!);
 
     focusAndClick(button(page, 'Create draft')!);
     const again = await vi.waitFor(() => http.expectOne('/api/drafts'));
     await fixture.whenStable();
     expect(button(page, 'Create draft')).toBeUndefined();
     const checking = button(page, 'Checking the pool…')!;
-    expect(checking.disabled).toBe(false);
-    expect(checking.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(checking);
     expectFocusOn(page, 'Checking the pool…');
     expect(alertIn(page)).toBeNull();
 
@@ -711,7 +716,7 @@ describe('create form', () => {
     await fixture.whenStable();
     await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(problem.message));
     await vi.waitFor(() => expectFocusOn(page, 'Create draft'));
-    expect(button(page, 'Create draft')!.getAttribute('aria-disabled')).toBeNull();
+    expectNotBusy(button(page, 'Create draft')!);
   });
 
   it('sends nothing more for a press, or a submit by Enter, while it checks the pool', async () => {

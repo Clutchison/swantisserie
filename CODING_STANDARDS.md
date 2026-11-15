@@ -137,6 +137,8 @@ Origin: #780.
 
 _Judgement._ A control that sends a change is marked with `appSendsChange` and a focus key, under the component's own `Changes` (`web/src/app/changes.ts`). While the change is in flight the control is marked busy and ignores presses, but keeps focus: it is never `[disabled]` by a sending or saving flag. Once the change settles, focus goes back to the pressed control, or to its nearest neighbour if the change took it away. A control the change always takes away, such as a notice's Dismiss, needs no key.
 
+A child component may share its parent's `Changes`, as the draft page's header, Players panel and Retry do, so focus finds a neighbour across them. `appSendsChangeBusy` marks a control busy for a change in flight that its own `Changes` doesn't know of, such as another Card detail's request; it only marks it, so the press handler must ignore the press itself. A `<select>` can't ignore a change: mark it `aria-busy`, keep it focusable, and once the save settles, save the latest choice made meanwhile, as the Announcements dialog does.
+
 Why: a disabled button drops keyboard focus to the page, so every save sent a keyboard or screen-reader user back to the top.
 
 ```html

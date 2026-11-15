@@ -18,7 +18,14 @@ import {
   statusTexts,
   serverError,
 } from './harness';
-import { clickOn, expectBusy, expectFocusOn, focusAndClick, openDialog } from '../../specs-harness';
+import {
+  clickOn,
+  expectBusy,
+  expectFocusOn,
+  expectNotBusy,
+  focusAndClick,
+  openDialog,
+} from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, openDetail } from './pool-tab-harness';
 
 useDraftsApp();
@@ -41,7 +48,7 @@ describe('pool tab', () => {
 
       req.flush(queueOf({ cards: [queued(shivan)] }));
       await vi.waitFor(() => expectFocusOn(detail, 'Remove from queue'));
-      expect(button(detail, 'Remove from queue')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Remove from queue')!);
     });
 
     it('keeps Remove from queue focused and busy while a removal is on its way, sending it once, and hands focus to Add to queue once it is made', async () => {
@@ -60,7 +67,7 @@ describe('pool tab', () => {
 
       req.flush(EMPTY_QUEUE);
       await vi.waitFor(() => expectFocusOn(detail, 'Add to queue'));
-      expect(button(detail, 'Add to queue')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Add to queue')!);
     });
 
     it('says when an add fails, keeping focus on Add to queue, until it is tried again', async () => {
@@ -78,7 +85,7 @@ describe('pool tab', () => {
         "Couldn't add the card to your queue. Try again in a moment.",
       );
       expectFocusOn(detail, 'Add to queue');
-      expect(button(detail, 'Add to queue')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Add to queue')!);
 
       button(detail, 'Add to queue')!.click();
       TestBed.tick();
@@ -101,7 +108,7 @@ describe('pool tab', () => {
 
       expect(statusTexts(detail).join(' ')).toContain("Couldn't remove the card from your queue.");
       expectFocusOn(detail, 'Remove from queue');
-      expect(button(detail, 'Remove from queue')!.getAttribute('aria-disabled')).toBeNull();
+      expectNotBusy(button(detail, 'Remove from queue')!);
     });
 
     it('marks a Card detail’s queue buttons busy while another’s queue change is on its way, and a press sends nothing', async () => {
@@ -122,7 +129,7 @@ describe('pool tab', () => {
       sent[0].flush(queueOf({ cards: [queued(shivan)] }));
       await vi.waitFor(() => {
         TestBed.tick();
-        expect(button(other, 'Add to queue')!.getAttribute('aria-disabled')).toBeNull();
+        expectNotBusy(button(other, 'Add to queue')!);
       });
       expectFocusOn(other, 'Add to queue');
     });
@@ -158,9 +165,7 @@ describe('pool tab', () => {
         const { fixture, page, other } = await requestThenOpenAnother('Add to queue');
 
         http.expectOne('/api/drafts/draft-1/queue').flush(queueOf({ cards: [queued(shivan)] }));
-        await until(() =>
-          expect(button(other, 'Add to queue')!.getAttribute('aria-disabled')).toBeNull(),
-        );
+        await until(() => expectNotBusy(button(other, 'Add to queue')!));
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
         expect(statusTexts(other)).toEqual([]);
@@ -199,9 +204,7 @@ describe('pool tab', () => {
         );
 
         http.expectOne('/api/drafts/draft-1/queue/shivan-card').flush(EMPTY_QUEUE);
-        await until(() =>
-          expect(button(other, 'Add to queue')!.getAttribute('aria-disabled')).toBeNull(),
-        );
+        await until(() => expectNotBusy(button(other, 'Add to queue')!));
 
         expect(openDialog()?.getAttribute('aria-label')).toBe(brightclimb.name);
         expect(statusTexts(other)).toEqual([]);

@@ -33,7 +33,9 @@ import {
 import {
   clickBackdrop,
   emptyStatusIn,
+  expectBusy,
   expectFocusOn,
+  expectNotBusy,
   openDialog,
   pressEscape,
   pressKey,
@@ -647,8 +649,7 @@ describe('the Printing picker', () => {
     use.focus();
     use.click();
     TestBed.tick();
-    expect(use.disabled).toBe(false);
-    expect(use.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(use);
     expectFocusOn(dialog, 'Use this printing');
     use.click();
     button(dialog, 'Use default')!.click();
@@ -661,7 +662,7 @@ describe('the Printing picker', () => {
     );
     await fixture.whenStable();
     expectFocusOn(dialog, 'Use this printing');
-    expect(use.getAttribute('aria-disabled')).toBeNull();
+    expectNotBusy(use);
 
     use.click();
     TestBed.tick();
@@ -679,8 +680,7 @@ describe('the Printing picker', () => {
     remove.focus();
     remove.click();
     TestBed.tick();
-    expect(remove.disabled).toBe(false);
-    expect(remove.getAttribute('aria-disabled')).toBe('true');
+    expectBusy(remove);
     remove.click();
     http.expectOne('/api/drafts/draft-1/plan/basics/Island/Mainboard').flush(null, serverError);
     await flushPlan(withIslands());
