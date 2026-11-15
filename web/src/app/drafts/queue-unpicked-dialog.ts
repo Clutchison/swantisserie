@@ -1,5 +1,6 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { LucideCheck } from '@lucide/angular';
 import type { PlannedCardView, PlanView } from 'contract';
 import { DraftStore } from './draft-store';
 import { cardsNoun, changeFailure } from './drafts';
@@ -32,6 +33,7 @@ export function unpickedToQueue(plan: PlanView, queued: ReadonlySet<string>) {
 @Component({
   selector: 'app-queue-unpicked-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [LucideCheck],
   templateUrl: './queue-unpicked-dialog.html',
   styleUrls: ['../dialog.scss', './queue-unpicked-dialog.scss'],
 })
