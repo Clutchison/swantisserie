@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { CardImages, Rarity } from 'contract';
 import {
+  cancelBody,
   fetchWithTimeout,
   UnreachableError,
   USER_AGENT,
@@ -267,8 +268,9 @@ export class FetchScryfallClient extends ScryfallClient {
       );
       if (res.status !== 429) return res;
       if (rateLimited === MAX_RATE_LIMITED_RETRIES) await failWith(res);
-      await cancelBody(res);
+      // Lock out first: a search waiting for its slot mustn't slip through while the cancel settles.
       this.backOff();
+      await cancelBody(res);
     }
   }
 
@@ -327,15 +329,6 @@ async function sleepUntil(time: number): Promise<void> {
 async function failWith(res: Response): Promise<never> {
   await cancelBody(res);
   throw new ScryfallUnavailableError(res.status);
-}
-
-/**
- * Cancels a body the client won't read, so its connection is let go at once,
- * not held until the timeout aborts it.
- */
-async function cancelBody(res: Response): Promise<void> {
-  // Nothing more to do if it fails: the timeout aborts it anyway.
-  await res.body?.cancel().catch(() => undefined);
 }
 
 /**
