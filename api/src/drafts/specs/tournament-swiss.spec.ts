@@ -13,7 +13,7 @@ import {
   getDraft,
   playingTournament,
   reinstate,
-  reinstateRefusalOf,
+  readReinstateRefusal,
   reportCurrentRound,
   reportMatch,
   reportWin,
@@ -630,7 +630,7 @@ describe('reinstating a player in a Swiss tournament', () => {
     const [match] = (await tournamentView(id)).rounds[0].matches;
     const gone = match.players[1];
     await dropPlayer(id, gone, cookieOf[gone]).expect(200);
-    expect(reinstateRefusalOf(await tournamentView(id), gone)).toBeNull();
+    expect(readReinstateRefusal(await tournamentView(id), gone)).toBeNull();
 
     await reinstate(id, gone).expect(200);
 
@@ -649,7 +649,7 @@ describe('reinstating a player in a Swiss tournament', () => {
     await dropPlayer(id, gone, cookieOf[gone]).expect(200);
     await reportCurrentRound(id, cookieOf);
     await completeRound(id).expect(200);
-    const refusal = reinstateRefusalOf(await tournamentView(id), gone);
+    const refusal = readReinstateRefusal(await tournamentView(id), gone);
 
     const answer = await reinstate(id, gone).expect(409);
 
@@ -680,7 +680,7 @@ describe('reinstating a player in a Swiss tournament', () => {
         drop: i === 0 ? [gone] : [],
       })),
     }).expect(200);
-    const refusal = reinstateRefusalOf(await tournamentView(id), gone);
+    const refusal = readReinstateRefusal(await tournamentView(id), gone);
 
     const answer = await reinstate(id, gone).expect(409);
 

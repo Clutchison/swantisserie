@@ -360,7 +360,7 @@ export async function tournamentView(id: string): Promise<TournamentView> {
 }
 
 /** The refusal Reinstate of `playerId` would get now, as the tournament read `view` gives it. */
-export function reinstateRefusalOf(view: TournamentView, playerId: string) {
+export function readReinstateRefusal(view: TournamentView, playerId: string) {
   return view.entries.find((entry) => entry.playerId === playerId)!
     .reinstateRefusal;
 }

@@ -170,7 +170,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
     droppable: droppable(entry),
     ready: entry.ready,
     seed: entry.seed,
-    reinstateRefusal: reinstateRefusalOf(row, entry),
+    reinstateRefusal: reinstateRefusalOf(row, entry.id),
   }));
   const humans = row.entries.filter((entry) => !entry.player.user.isBot);
   const dropped = droppedPlayers(entries);

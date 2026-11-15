@@ -1,6 +1,11 @@
 import type { TournamentRefusal } from 'contract';
 import { dependentBracketPlaces, singleEliminationRoundCount } from 'engine';
-import type { ChangeSteps, ReinstateRow } from './change-steps.js';
+import type {
+  ChangeSteps,
+  ReinstateMatch,
+  ReinstateRow,
+} from './change-steps.js';
+import { hasEntry } from './tournament-matches.js';
 
 /**
  * Single elimination's change steps: a player can't be reinstated once a
@@ -24,11 +29,8 @@ function bracketReinstateRefusal(
   entryId: string,
 ): TournamentRefusal | null {
   const last = row.matches
-    .filter(
-      (match) =>
-        match.firstEntryId === entryId || match.secondEntryId === entryId,
-    )
-    .reduce<ReinstateRow['matches'][number] | null>(
+    .filter((match) => hasEntry(match, entryId))
+    .reduce<ReinstateMatch | null>(
       (latest, match) =>
         latest === null || match.round > latest.round ? match : latest,
       null,
