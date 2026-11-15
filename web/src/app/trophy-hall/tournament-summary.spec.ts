@@ -9,8 +9,6 @@ import {
   openDialog,
   pressEscape,
   serverError,
-  table,
-  tableRows,
   useApp,
 } from '../specs-harness';
 import { draft, heading, link, text } from '../drafts/specs/harness';
@@ -24,6 +22,8 @@ import {
   roundLabels,
   singleEliminationFinal,
   standing,
+  standingsRows,
+  standingsTable,
   swissPlaying,
   threePlayers,
   withDrops,
@@ -160,7 +160,7 @@ describe('the Tournament summary', () => {
     const { fixture } = await openSummary();
     const dialog = await flushReads(fixture, SWISS);
 
-    expect(tableRows(table(dialog, 'Standings')!)).toEqual([
+    expect(standingsRows(dialog)).toEqual([
       ['1st', 'Alice 🏆', '6', '2–0–0', '50%', '100%', '45%'],
       ['=2nd', 'Carol', '3', '1–1–0', '60%', '50%', '55%'],
       ['=2nd', 'Bob (dropped)', '3', '1–1–0', '60%', '50%', '55%'],
@@ -211,7 +211,7 @@ describe('the Tournament summary', () => {
       ['=1st', 'Carol 🏆'],
       ['3rd', 'Bob (dropped)'],
     ]);
-    expect(table(dialog, 'Standings')).toBeNull();
+    expect(standingsTable(dialog)).toBeNull();
     expect(buttonNames(dialog)).toEqual(['Close']);
   });
 

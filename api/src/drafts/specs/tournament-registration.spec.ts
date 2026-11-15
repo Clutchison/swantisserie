@@ -53,9 +53,9 @@ describe('leaving and joining again', () => {
       'already-joined',
     );
     await removeEntry(id, bob.id, bobCookie).expect(200);
-    expect(
-      (await removeEntry(id, bob.id, bobCookie).expect(409)).body.error,
-    ).toBe('not-joined');
+    expect((await removeEntry(id, bob.id, bobCookie).expect(409)).body).toEqual(
+      { error: 'not-joined', message: 'You haven’t joined this tournament.' },
+    );
   });
 
   it('refuses someone who isn’t one of the draft’s players, an organizer included', async () => {
@@ -152,7 +152,10 @@ describe('removing an entry', () => {
     await removeEntry(id, bob.id, bobCookie).expect(200);
 
     expect(
-      (await removeEntry(id, bob.id, aliceCookie).expect(409)).body.error,
-    ).toBe('not-joined');
+      (await removeEntry(id, bob.id, aliceCookie).expect(409)).body,
+    ).toEqual({
+      error: 'not-joined',
+      message: 'That player hasn’t joined this tournament.',
+    });
   });
 });

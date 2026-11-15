@@ -1,4 +1,4 @@
-import { answer, openDialog, question } from '../../specs-harness';
+import { answer, openDialog, question, table } from '../../specs-harness';
 import {
   ORGANIZE_ONLY,
   alertIn,
@@ -41,6 +41,7 @@ import {
   standingsAsOf,
   standingsColumns,
   standingsRows,
+  standingsTable,
   swissPlaying,
   swissRoundsWith,
   threePlayers,
@@ -481,6 +482,15 @@ describe('Swiss tournaments on the Play tab', () => {
       ['1', 'Alice', '3', '1–0–0', '33%', '100%', '33%'],
       ['3', 'Bob', '0', '0–1–0', '100%', '33%', '67%'],
     ]);
+  });
+
+  it('scrolls the standings sideways in their own region, which a keyboard can reach and which alone names them', async () => {
+    const { tab } = await openPlaying(swissPlaying({ lastCompletedRound: 1 }), { user: dave });
+
+    const scroller = region(tab, 'Standings')!;
+    expect(scroller.contains(standingsTable(tab))).toBe(true);
+    expect(scroller.tabIndex).toBe(0);
+    expect(table(tab, 'Standings')).toBeNull();
   });
 
   describe('your match', () => {
