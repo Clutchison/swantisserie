@@ -71,6 +71,7 @@ import { DraftPublisher } from './draft-publisher.js';
 import { toDraftView, toPickView, toPoolCardView } from './draft-view.js';
 import { DraftChanges } from './draft-changes.js';
 import { isPlatform, PLATFORMS } from './platform.js';
+import { MissingCardFieldError } from './pool-card.js';
 import { PoolSnapshotService } from './pool-snapshot.service.js';
 import { isPoolSourceKind } from './pool-source.js';
 import { TournamentBadges } from '../tournaments/tournament-badge.js';
@@ -445,6 +446,14 @@ export class DraftsController {
       }
       if (err instanceof PoolQueryError || err instanceof CubeLinkError) {
         throw new UnprocessableEntityException(err.problem);
+      }
+      // A cube's card whose printing can't be a pool card: a pool query's or
+      // set list's fails its snapshot instead, with the same message.
+      if (err instanceof MissingCardFieldError) {
+        throw new UnprocessableEntityException({
+          error: 'invalid',
+          message: err.message,
+        } satisfies DraftCreationProblem);
       }
       if (err instanceof SetNotOfferedError) {
         throw new UnprocessableEntityException({
