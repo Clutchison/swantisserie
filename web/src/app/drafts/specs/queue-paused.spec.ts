@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
@@ -33,6 +34,8 @@ import {
   queuePaneToggle,
   pickChangesQueue,
   openQueueHelp,
+  flushQueueAndPlan,
+  updates,
 } from './harness';
 import { comesBefore, openDialog, pressEscape, question } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, card } from './pool-tab-harness';
@@ -388,6 +391,102 @@ describe('setting a queue picking on the player’s own turn', () => {
     expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue paused');
   });
 
+  /**
+   * An undo reaches the page while Alice's turn is open: the turn returns
+   * to Bob, and Shivan Dragon is unpicked. The draft comes with the change;
+   * its picks, the queue and the plan are then read again, and left unanswered.
+   */
+  const undoReturnsTurnToBob = () =>
+    updates.events.next({
+      type: 'changed',
+      draft: draft(
+        drafting({
+          players: [bob, alicePlayer],
+          turn: { pick: 1, round: 1, playerId: bob.id },
+          version: 1,
+        }),
+      ),
+    });
+  /** Answers the re-reads the undo brings: no picks, and the queue and plan as they were. */
+  const flushUndoRereads = async (queue: (typeof cards)[number][]) => {
+    await flushPicks([]);
+    await flushQueueAndPlan(queueOf({ cards: queue.map(queued), queuePaused: true }), EMPTY_PLAN);
+  };
+
+  it('closes, sending nothing and leaving the queue paused, once an undo returns the turn to another player while it is open', async () => {
+    const { fixture, page } = await aliceAtTurnaround([bolt, spike]);
+    const queue = queuePane(page);
+    const playPause = queuePlayPauseButton(queue);
+
+    playPause.focus();
+    playPause.click();
+    await question(asked);
+    undoReturnsTurnToBob();
+    await flushUndoRereads([bolt, spike]);
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue picking');
+    expect(accessibleDescription(queuePlayPauseButton(queue))).toBe('Queue paused');
+    expect(document.activeElement).toBe(queuePlayPauseButton(queue));
+  });
+
+  it('stays open while its cards are read again, and closes once the read settles on none', async () => {
+    const { fixture, page } = await aliceAtTurnaround([bolt]);
+
+    queuePlayPauseButton(queuePane(page)).click();
+    const dialog = await question(asked);
+    undoReturnsTurnToBob();
+    await flushPicks([]);
+    // The queue isn't read yet: it may still hold a card the turn would pick.
+    TestBed.tick();
+    expect(openDialog()).toBe(dialog);
+
+    await flushQueueAndPlan(queueOf({ cards: [queued(bolt)], queuePaused: true }), EMPTY_PLAN);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+  });
+
+  it('stays open while a confirm is on its way, though the queue now picks none, and closes once it is made', async () => {
+    const { fixture, page } = await aliceAtTurnaround([bolt]);
+    const queue = queuePane(page);
+
+    queuePlayPauseButton(queue).click();
+    const dialog = await question(asked);
+    button(dialog, 'Set queue picking').click();
+    const req = http.expectOne('/api/drafts/draft-1/queue/paused');
+    undoReturnsTurnToBob();
+    await flushUndoRereads([bolt]);
+    await fixture.whenStable();
+    expect(openDialog()).toBe(dialog);
+
+    req.flush(queueOf({ cards: [queued(bolt)] }));
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    // The answer predates the undo, so the queue is read again to show it.
+    await flushQueue(queueOf({ cards: [queued(bolt)] }));
+    await fixture.whenStable();
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+  });
+
+  it('sets it queue picking with none, asking nothing, once queue picking with none is refused and the re-read picks none', async () => {
+    const { fixture, page } = await aliceAtTurnaround([]);
+
+    queuePlayPauseButton(queuePane(page)).click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+    // The card queued elsewhere was taken out again.
+    await flushRereads(fixture, []);
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    const req = http.expectOne('/api/drafts/draft-1/queue/paused');
+    expect(req.request.body).toEqual({ queuePaused: false, poolCardIds: [] });
+    req.flush(queueOf());
+    await fixture.whenStable();
+    expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue paused');
+  });
+
   it('names the cards to confirm once setting it queue picking with none is refused', async () => {
     const { fixture, page } = await aliceAtTurnaround([]);
 
@@ -398,6 +497,25 @@ describe('setting a queue picking on the player’s own turn', () => {
 
     expect(items(await question(asked), picksList)).toEqual(['Lightning Bolt']);
     expect(accessibleName(queuePlayPauseButton(queuePane(page)))).toBe('Set queue picking');
+  });
+
+  it('closes, sending nothing and leaving the queue paused, once an undo returns the turn to another player after a refusal named the cards', async () => {
+    const { fixture, page } = await aliceAtTurnaround([]);
+    const queue = queuePane(page);
+
+    queuePlayPauseButton(queue).click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+    // A card was queued elsewhere.
+    await flushRereads(fixture, ['bolt']);
+    await question(asked);
+    undoReturnsTurnToBob();
+    await flushUndoRereads([bolt]);
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+    expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue picking');
+    expect(accessibleDescription(queuePlayPauseButton(queue))).toBe('Queue paused');
   });
 });
 

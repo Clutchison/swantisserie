@@ -7,7 +7,6 @@ import {
   completeSnapshot,
   draft,
   expectLoadingAnimation,
-  expectSignedOut,
   heading,
   flushPool,
   http,
@@ -42,7 +41,14 @@ import {
 import { pushDraft } from './turn-harness';
 import { alicesTurnItem, goToDraftList, landOnDraftList } from './draft-list-harness';
 import { turnLinkShown } from '../../top-bar/specs-harness';
-import { emptyStatusIn, followBack, pressKey, statusIn, watchChanges } from '../../specs-harness';
+import {
+  emptyStatusIn,
+  expectSignedOut,
+  followBack,
+  pressKey,
+  statusIn,
+  watchChanges,
+} from '../../specs-harness';
 import { openComplete, playing, threePlayers } from './play-tab-harness';
 import { openPlan } from './plan-tab-harness';
 

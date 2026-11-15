@@ -16,7 +16,6 @@ import {
   flushPicks,
   completeSnapshot,
   statusMessage,
-  expectSignedOut,
   pickOf,
   drafting,
   accessibleName,
@@ -36,7 +35,7 @@ import {
   chooseInRowMenu,
   text,
 } from './harness';
-import { emptyStatusIn, statusIn, watchChanges } from '../../specs-harness';
+import { emptyStatusIn, expectSignedOut, statusIn, watchChanges } from '../../specs-harness';
 import { board } from './board-tab-harness';
 import { brightclimb, tiles, useTallScreen } from './pool-tab-harness';
 import { openPlan } from './plan-tab-harness';

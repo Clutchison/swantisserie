@@ -254,6 +254,8 @@ export class PlanTab {
   protected readonly onDesktop = matching(DESKTOP_QUERY);
   /** The stacks area, the deck boards' row and stack headers, whose width stacks mode lays out by. */
   private readonly stacksArea = viewChild.required<ElementRef<HTMLElement>>('stacksArea');
+  /** The Deck tab's tools row: Queue unpicked, the modes and groupings, Add basics and Export. */
+  private readonly tools = viewChild.required<ElementRef<HTMLElement>>('tools');
   /**
    * Whether stacks mode has room for the wide layout, by the stacks area's
    * width as it is measured: else the mainboard's stacks are a strip that
@@ -413,6 +415,8 @@ export class PlanTab {
 
   /** The Queue unpicked dialog, while it's open. */
   private queueing: DialogRef<QueueUnpickedResult, QueueUnpickedDialog> | null = null;
+  /** The Basic lands dialog, while it's open. */
+  private addingBasics: DialogRef<unknown, BasicLandsDialog> | null = null;
   /** Whether Queue unpicked has anything to add, from either plan board. */
   protected readonly anythingToQueue = computed(() =>
     Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
@@ -443,9 +447,15 @@ export class PlanTab {
       ({ width }) => this.measured(width),
     );
     // Queue unpicked stops being offered as the player's turn comes: close its
-    // dialog then, so it can't come back by itself once the turn passes.
+    // dialog then, as Cancel does, so it can't come back by itself once the
+    // turn passes.
     effect(() => {
       if (!this.offerQueueUnpicked()) untracked(() => this.queueing?.close());
+    });
+    // A locked deck takes no basics: close the Basic lands dialog as it locks,
+    // as Cancel does, so it can't come back by itself once the deck unlocks.
+    effect(() => {
+      if (this.deckLocked()) untracked(() => this.addingBasics?.close());
     });
   }
 
@@ -728,22 +738,29 @@ export class PlanTab {
       ],
       returnFocus: (opener) => {
         if (!opener || opener.isConnected) return opener;
-        const at = openers.indexOf(opener);
-        const still = (element: HTMLElement) => element.isConnected;
-        return (
-          openers.slice(at + 1).find(still) ??
-          openers.slice(0, Math.max(at, 0)).reverse().find(still)
-        );
+        return besideIn(openers, opener, (element) => element.isConnected);
       },
     });
   }
 
-  /** Opens the Basic lands dialog; focus returns to the button that opened it. */
+  /**
+   * Opens the Basic lands dialog. Focus returns to Add basics. If the deck
+   * has locked, which removes Add basics, it moves to the next of the Deck
+   * tab's tools, or the one before if there is none after.
+   */
   protected openBasics() {
-    this.dialogs.open(BasicLandsDialog, {
+    const addingBasics = this.dialogs.open(BasicLandsDialog, {
       labelledBy: BASIC_LANDS_HEADING,
       injector: this.injector,
+      returnFocus: (opener) => {
+        if (!this.deckLocked()) return opener;
+        // The dialog closes as the deck locks, before Add basics leaves the page.
+        const tools = [...this.tools().nativeElement.querySelectorAll<HTMLElement>('button')];
+        return besideIn(tools, opener, () => true);
+      },
     });
+    this.addingBasics = addingBasics;
+    addingBasics.closed.subscribe(() => (this.addingBasics = null));
   }
 
   /**
@@ -871,6 +888,21 @@ function lines(cards: PlanBoardCard[]): PlanLine[] {
 /** The cards `planBoard` holds: its planned pool cards, then a card per copy of each of its basic lands. */
 function heldOn(plan: PlanView, planBoard: PlanBoard): PlanBoardCard[] {
   return [...cardsOn(plan, planBoard), ...basicsOn(plan.basics, planBoard).flatMap(basicCopies)];
+}
+
+/**
+ * The first of `elements` after `element` that `fits`, or else the last
+ * before it that does: where focus goes once `element` has gone.
+ */
+function besideIn(
+  elements: HTMLElement[],
+  element: HTMLElement | null,
+  fits: (element: HTMLElement) => boolean,
+) {
+  const at = element ? elements.indexOf(element) : -1;
+  return (
+    elements.slice(at + 1).find(fits) ?? elements.slice(0, Math.max(at, 0)).reverse().find(fits)
+  );
 }
 
 /** One card per copy of a basic land on its plan board, each with an id of its own to track and drag it by. */
