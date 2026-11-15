@@ -3,6 +3,7 @@ import {
   type Cube,
 } from '../../cubecobra/cubecobra-client.js';
 import type { ScryfallCard } from '../../scryfall/scryfall-client.js';
+import { oracleIdOf } from '../pool-card.js';
 import { held, lateWorkDone } from '../../testing/deadlines.js';
 import { createPastDeadline } from '../../testing/draft-creation-deadline.js';
 import {
@@ -17,6 +18,7 @@ import {
   listDrafts,
   pool,
   post,
+  reversibleCard,
   scryfall,
   signIn,
   start,
@@ -47,14 +49,17 @@ function cubesAre(cubes: Record<string, Cube | null | Error>) {
 }
 
 /**
- * Scryfall has a printing on every platform of each card named, in a set of
- * its own (`<game>-set`), and of no other card.
+ * Scryfall has a printing on every platform of each card named or given, in
+ * a set of its own (`<game>-set`), and of no other card.
  */
-function onPlatform(...names: string[]) {
+function onPlatform(...cards: (string | ScryfallCard)[]) {
   scryfall.printingsOn.mockImplementation(async (game, oracleIds) =>
-    names
-      .map((name) => card(name, { set: `${game}-set` }))
-      .filter((printing) => oracleIds.includes(printing.oracle_id!)),
+    cards
+      .map((c) => ({
+        ...(typeof c === 'string' ? card(c) : c),
+        set: `${game}-set`,
+      }))
+      .filter((printing) => oracleIds.includes(oracleIdOf(printing)!)),
   );
 }
 
@@ -109,6 +114,20 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
     'arena-set',
   ]);
   expect(scryfall.search).not.toHaveBeenCalled();
+});
+
+it('makes a pool card of a reversible card in the cube, in its front face’s mana value and type line', async () => {
+  cubesAre({ commander: cube('Commander', 'Command Tower') });
+  onPlatform(reversibleCard('Command Tower', { cmc: 0, type_line: 'Land' }));
+
+  const created = await createDraft({
+    name: 'Commander',
+    poolSource: { kind: 'cube', cubeLink: 'commander' },
+  }).expect(201);
+
+  expect((await pool(created.body.id).expect(200)).body).toMatchObject([
+    { oracleId: 'command-tower-oracle', manaValue: 0, typeLine: 'Land' },
+  ]);
 });
 
 describe('cube links', () => {
@@ -261,6 +280,23 @@ describe('creating a draft from a cube', () => {
     expect(res.body).toEqual({
       error: 'no-cards',
       message: 'This cube has no mainboard cards.',
+    });
+    await listDrafts().expect(200).expect([]);
+  });
+
+  it('refuses a cube whose mainboard is only basic lands, saying so', async () => {
+    cubesAre({
+      basicscube: cube('Basics', 'Plains', 'Island', 'Swamp', 'Plains'),
+    });
+
+    const res = await createDraft({
+      name: 'Basics',
+      poolSource: { kind: 'cube', cubeLink: 'basicscube' },
+    }).expect(422);
+
+    expect(res.body).toEqual({
+      error: 'no-cards',
+      message: 'This cube has no mainboard cards besides basic lands.',
     });
     await listDrafts().expect(200).expect([]);
   });

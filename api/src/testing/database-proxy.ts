@@ -23,6 +23,12 @@ export interface DatabaseProxy {
    * otherwise.
    */
   holdCommits(count: number, timeoutMs: number, release?: CommitRelease): void;
+  /**
+   * Resolves once a COMMIT is next held back by `holdCommits`: a
+   * transaction has done its reads and writes and holds its locks. Hold
+   * commits first, or it may never resolve.
+   */
+  commitHeld(): Promise<void>;
   /** Takes away any slowness, and lets any held COMMITs through. */
   reset(): void;
 }
@@ -128,6 +134,8 @@ export async function startDatabaseProxy(
   /** Waiting on `replyHeld`, until the next reply is held. */
   let replyHeldWaiters: (() => void)[] = [];
   let gate: CommitGate | undefined;
+  /** Waiting on `commitHeld`, until the next COMMIT is held. */
+  let commitHeldWaiters: (() => void)[] = [];
 
   const server = createServer((client) => {
     const upstream = createConnection({ host, port: Number(port) });
@@ -151,6 +159,9 @@ export async function startDatabaseProxy(
           send(batch);
           batch = [];
           send([message], gate.arrive());
+          const waiters = commitHeldWaiters;
+          commitHeldWaiters = [];
+          for (const resolve of waiters) resolve();
         } else {
           batch.push(message);
         }
@@ -206,6 +217,9 @@ export async function startDatabaseProxy(
         release,
       );
       gate = opened;
+    },
+    commitHeld() {
+      return new Promise((resolve) => commitHeldWaiters.push(resolve));
     },
     reset() {
       delay.ms = 0;

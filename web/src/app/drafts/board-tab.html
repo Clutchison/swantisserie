@@ -8,8 +8,14 @@
   }
   <!-- The seat hint's anchor, outside the scroller so the name under a seat isn't clipped. -->
   <div class="board">
-    <div class="scroller" (scroll)="hint.follow()">
-      <table aria-label="Picks by round" [style.--seats]="players().length">
+    <div
+      class="scroller"
+      role="region"
+      aria-label="Picks by round"
+      tabindex="0"
+      (scroll)="hint.follow()"
+    >
+      <table [style.--seats]="players().length">
         <thead>
           <tr>
             <td class="corner"></td>

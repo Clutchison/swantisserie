@@ -20,7 +20,7 @@ import {
   EVENT_PLAYER,
   toEventPlayer,
 } from './draft-events.js';
-import { isBasicLand } from './basic-lands.js';
+import { isBasicLand, withoutBasicLands } from './basic-lands.js';
 import { DraftLock, type LockedDraft, shareLockUser } from './draft-lock.js';
 import {
   type DraftWithOrganizer,
@@ -93,7 +93,9 @@ export class DraftLobbyService {
    * Saves a new draft in Lobby, organized by `organizerId`, with its pool
    * snapshot: complete straight away for a cube link, which the check has
    * already looked up every card of, and started in the background for a
-   * pool query or a set list. Throws UnknownWebhookError if its webhook
+   * pool query or a set list. Once the draft is saved, a snapshot that fails
+   * to start doesn't fail creation: the draft is answered with its snapshot
+   * Failed, for the organizer to retry. Throws UnknownWebhookError if its webhook
    * doesn't exist, GoneWebhookChosenError if it is gone, PoolQueryError,
    * CubeLinkError or SetNotOfferedError if its pool source can't make a pool,
    * and ScryfallUnavailableError or CubeCobraUnavailableError if that can't
@@ -117,14 +119,12 @@ export class DraftLobbyService {
           draft.platform,
           deadline,
         );
-        const created = await this.saveDraft({
+        return this.saveDraftAndStartSnapshot({
           ...fields,
           poolSourceKind,
           poolQuery: poolSource.poolQuery,
           organizerId,
         });
-        await this.snapshots.start(created.id);
-        return created;
       }
       case 'cube': {
         const { cubeId, cubeName, printings } = await this.checkCubeLink(
@@ -149,20 +149,32 @@ export class DraftLobbyService {
           this.sets.check(draft.platform, poolSource.setList),
           () => scryfallTooSlow(deadline),
         );
-        const created = await this.saveDraft({
+        return this.saveDraftAndStartSnapshot({
           ...fields,
           poolSourceKind,
           setList: setList.map(({ code, sublists }) => ({ code, sublists })),
           organizerId,
         });
-        await this.snapshots.start(created.id);
-        return created;
       }
       default: {
         const unhandled: never = poolSource;
         throw new Error(`Unknown pool source ${JSON.stringify(unhandled)}.`);
       }
     }
+  }
+
+  /**
+   * Saves the draft, as saveDraft does, and starts its pool snapshot in the
+   * background. Answers the draft with its snapshot as the start left it.
+   */
+  private async saveDraftAndStartSnapshot(
+    data: Prisma.DraftUncheckedCreateInput,
+  ): Promise<DraftWithOrganizer> {
+    const created = await this.saveDraft(data);
+    return {
+      ...created,
+      ...(await this.snapshots.startOrRecordFailure(created.id)),
+    };
   }
 
   /** Saves the draft, showing its organizer as a sign-in in progress leaves them. */
@@ -374,7 +386,10 @@ export class DraftLobbyService {
     if (identified.length === 0 && unidentified.size === 0) {
       throw new CubeLinkError({
         error: 'no-cards',
-        message: 'This cube has no mainboard cards.',
+        message:
+          found.mainboard.length === 0
+            ? 'This cube has no mainboard cards.'
+            : 'This cube has no mainboard cards besides basic lands.',
       });
     }
     if (unidentified.size > 0) {
@@ -410,7 +425,9 @@ export class DraftLobbyService {
     platform: Platform,
     deadline: Deadline,
   ): Promise<void> {
-    const matches = await this.search(poolQuery, deadline);
+    // Like the snapshot, leave the basic lands out: a query that matches only
+    // them would make an empty pool.
+    const matches = await this.search(withoutBasicLands(poolQuery), deadline);
     if (!matches) {
       throw new PoolQueryError({
         error: 'no-cards',

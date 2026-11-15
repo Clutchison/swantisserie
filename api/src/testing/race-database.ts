@@ -23,6 +23,8 @@ export interface RaceDatabase extends TestDatabase {
   name: string;
   /** See DatabaseProxy's `holdCommits`. */
   holdCommits(count: number, timeoutMs: number, release?: CommitRelease): void;
+  /** See DatabaseProxy's `commitHeld`. */
+  commitHeld(): Promise<void>;
 }
 
 /**
@@ -115,6 +117,7 @@ export async function startRaceDatabase(
     replyHeld: () => proxy.replyHeld(),
     holdCommits: (count, timeoutMs, release) =>
       proxy.holdCommits(count, timeoutMs, release),
+    commitHeld: () => proxy.commitHeld(),
     async reset() {
       proxy.reset();
       const { rows } = await db.query<{ db: string; tablename: string }>(
