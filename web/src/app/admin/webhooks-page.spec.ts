@@ -17,11 +17,18 @@ import {
   question,
   expectSignedOut,
   router,
+  serverError,
   updates,
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
-import { buttonOrder, controlsByLabel, namedList } from '../drafts/specs/harness';
+import {
+  buttonOrder,
+  controlsByLabel,
+  expectLoadingAnimation,
+  loadingAnimation,
+  namedList,
+} from '../drafts/specs/harness';
 import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 
 const main: WebhookWithUrlView = {
@@ -40,11 +47,17 @@ const side: WebhookWithUrlView = {
 describe('webhooks page', () => {
   useApp();
 
-  /** Opens the page as Carol, an app admin, with `webhooks` registered. */
-  async function openPage(webhooks: WebhookWithUrlView[]) {
+  /** Opens the page as Carol, an app admin, with its read of the webhooks still pending as `req`. */
+  async function openLoading() {
     const opened = await openApp('/admin/webhooks', carol);
     answerTopBar(http);
-    http.expectOne('/api/admin/webhooks').flush(webhooks);
+    return { ...opened, req: http.expectOne('/api/admin/webhooks') };
+  }
+
+  /** Opens the page as Carol, an app admin, with `webhooks` registered. */
+  async function openPage(webhooks: WebhookWithUrlView[]) {
+    const { req, ...opened } = await openLoading();
+    req.flush(webhooks);
     await opened.fixture.whenStable();
     return opened;
   }
@@ -118,6 +131,24 @@ describe('webhooks page', () => {
     ]);
   });
 
+  it('says so with the loading animation while the webhooks load', async () => {
+    const { fixture, page, req } = await openLoading();
+    await expectLoadingAnimation(() => page, 'Loading…', 288);
+
+    req.flush([main]);
+    await fixture.whenStable();
+    expect(loadingAnimation(page)).toBeNull();
+  });
+
+  it('says when the webhooks cannot be loaded', async () => {
+    const { fixture, page, req } = await openLoading();
+    req.flush(null, serverError);
+    await fixture.whenStable();
+
+    expect(page.querySelector('main')?.textContent).toContain("Couldn't load the webhooks");
+    expect(loadingAnimation(page)).toBeNull();
+  });
+
   it('says when there are no webhooks yet', async () => {
     const { page } = await openPage([]);
 
@@ -184,9 +215,7 @@ describe('webhooks page', () => {
   });
 
   it('reads the list afresh once a load sent before the change settles', async () => {
-    const { page } = await openApp('/admin/webhooks', carol);
-    answerTopBar(http);
-    const early = http.expectOne('/api/admin/webhooks');
+    const { page, req: early } = await openLoading();
     const form = addForm(page);
     fill(addField(form, 'Name'), '#roto-side');
     fill(addField(form, 'URL'), side.url);
@@ -357,7 +386,7 @@ describe('webhooks page', () => {
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Rename'));
   });
 
-  it('says why a rename was refused, in its webhook’s row', async () => {
+  it('says why a rename was refused, in its webhook’s row, showing the stored name again', async () => {
     const { fixture, page } = await openPage([main, side]);
     const li = sideRow(page);
     fill(nameField(li)!, '#roto-main');
@@ -371,6 +400,36 @@ describe('webhooks page', () => {
     );
 
     expectAlertIn(page, li, 'Another webhook is called #roto-main.');
+    expect(nameField(li)!.value).toBe('#roto-side');
+  });
+
+  it('shows the stored name again when a rename is lost to the connection', async () => {
+    const { page } = await openPage([main]);
+    const li = mainRow(page);
+    fill(nameField(li)!, '#roto-league');
+    button(li, 'Rename').click();
+
+    (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).error(
+      new ProgressEvent('error'),
+    );
+    await vi.waitFor(() => expect(alertIn(li)).not.toBeNull());
+
+    expect(nameField(li)!.value).toBe('#roto-main');
+  });
+
+  it('keeps a name typed while another change saves', async () => {
+    const { fixture, page } = await openPage([main, side]);
+    button(mainRow(page), 'Rename').click();
+    const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`));
+    const li = sideRow(page);
+    fill(nameField(li)!, '#roto-league');
+    button(li, 'Rename').click();
+    await fixture.whenStable();
+
+    req.flush(main);
+    await answerReread(fixture, [main, side]);
+
+    expect(nameField(li)!.value).toBe('#roto-league');
   });
 
   it('marks gone webhooks', async () => {
@@ -380,7 +439,7 @@ describe('webhooks page', () => {
     expect(row(page, '#roto-side').textContent).not.toContain('Gone');
   });
 
-  it('replaces a gone webhook’s URL', async () => {
+  it('replaces a gone webhook’s URL, emptying New URL', async () => {
     const newUrl = 'https://discord.com/api/webhooks/1234567890/new-token';
     const { fixture, page } = await openPage([{ ...main, gone: true }]);
     const li = mainRow(page);
@@ -396,6 +455,7 @@ describe('webhooks page', () => {
 
     expect(rows(page)).toEqual([['#roto-main', newUrl]]);
     expect(mainRow(page).textContent).not.toContain('Gone');
+    expect(newUrlField(mainRow(page)).value).toBe('');
   });
 
   it('keeps focus on Replace URL once a URL is replaced', async () => {
@@ -412,7 +472,7 @@ describe('webhooks page', () => {
     await vi.waitFor(() => expectFocusOn(mainRow(page), 'Replace URL'));
   });
 
-  it('says why a replacement URL was refused, in its webhook’s row', async () => {
+  it('says why a replacement URL was refused, in its webhook’s row, keeping what was typed', async () => {
     const { fixture, page } = await openPage([main, side]);
     const li = sideRow(page);
     fill(newUrlField(li), 'https://example.com/x');
@@ -424,6 +484,7 @@ describe('webhooks page', () => {
     });
 
     expectAlertIn(page, sideRow(page), 'Paste the webhook’s URL from Discord.');
+    expect(newUrlField(sideRow(page)).value).toBe('https://example.com/x');
   });
 
   it('removes a webhook once the app admin goes ahead', async () => {
