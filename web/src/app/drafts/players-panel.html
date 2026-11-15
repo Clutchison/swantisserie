@@ -48,6 +48,13 @@
       }
     </div>
   }
+  <!-- After the seating tools, before the preview and the seats, a failure from them, or one whose seat has gone. -->
+  @if (errorAt('tools'); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+  @if (open()) {
+    <ng-container *ngTemplateOutlet="problems" />
+  }
   <!-- The preview's live region is there before a file is chosen, so the preview is announced. -->
   @if (canImportPicks()) {
     <div class="pick-import-preview" role="status" aria-label="Pick import preview">
@@ -137,24 +144,35 @@
             }
           </div>
         }
+        @if (errorInSeat(player.id); as message) {
+          <p class="error" role="alert">{{ message }}</p>
+        }
       </li>
     } @empty {
       <li class="empty">Nobody has joined yet.</li>
     }
   </ol>
 </details>
-<!-- Outside the panel's disclosure, so they are announced even while it is closed. -->
+<!--
+  Outside the panel's disclosure, so they are announced even while it is closed: its status,
+  and a failure that settles once it has closed, which shows by its control while it is open.
+-->
 <app-change-status />
-@if (error(); as message) {
+@if (errorAfterPanel(); as message) {
   <p class="error" role="alert">{{ message }}</p>
 }
-@if (pickImportProblems().length > 0) {
-  <div class="pick-import-problems error" role="alert">
-    <p>This file can't be imported:</p>
-    <ul aria-label="Problems with the file">
-      @for (problem of pickImportProblems(); track $index) {
-        <li>{{ problem }}</li>
-      }
-    </ul>
-  </div>
+@if (!open()) {
+  <ng-container *ngTemplateOutlet="problems" />
 }
+<ng-template #problems>
+  @if (pickImportProblems().length > 0) {
+    <div class="pick-import-problems error" role="alert">
+      <p>This file can't be imported:</p>
+      <ul aria-label="Problems with the file">
+        @for (problem of pickImportProblems(); track $index) {
+          <li>{{ problem }}</li>
+        }
+      </ul>
+    </div>
+  }
+</ng-template>

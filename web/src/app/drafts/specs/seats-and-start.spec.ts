@@ -40,11 +40,17 @@ import {
 import { disclosure } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
+import {
+  expectAfterPanel,
+  expectBySeatingTools,
+  expectProblemsBySeatingTools,
+} from './players-panel-harness';
 import { clickOn, emptyStatusIn, watchChanges } from '../../specs-harness';
 
 useDraftsApp();
 
 const START_FAILED = "Couldn't start the draft.";
+const PLAYERS_FAILED = "Couldn't update the players.";
 
 describe('seats and start', () => {
   beforeEach(() => powersAnswer(ORGANIZE_ONLY));
@@ -213,6 +219,44 @@ describe('seats and start', () => {
     await fixture.whenStable();
 
     await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(START_FAILED));
+  });
+
+  it('says a failed Randomize seats just after the seating tools, before the seat order', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+    button(page, 'Randomize seats')!.click();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'))).flush(
+      null,
+      serverError,
+    );
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+    expectBySeatingTools(page);
+  });
+
+  it('says a failure that settles once the Players panel has closed after the panel, still as an alert', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+    button(page, 'Randomize seats')!.click();
+    const randomize = await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/seats/randomize'));
+    updates.events.next({
+      type: 'changed',
+      draft: draft({ state: 'Closed', players: [alicePlayer, bob], version: 1 }),
+    });
+    // Not stable while Randomize seats is in flight, so ticked instead.
+    await vi.waitFor(() => {
+      TestBed.tick();
+      expect(disclosure(page, 'Players · 2')!.open).toBe(false);
+    });
+    randomize.flush(null, serverError);
+    // A closed draft has picks to show, and Alice is a player, so her queue is re-read too.
+    await flushPicks([]);
+    await flushQueueAndPlan();
+    await fixture.whenStable();
+
+    await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(PLAYERS_FAILED));
+    expectAfterPanel(page);
   });
 
   describe('pick import', () => {
@@ -470,6 +514,16 @@ describe('seats and start', () => {
         await vi.waitFor(() => expect(button(page, 'Import picks')).toBeUndefined());
         expect(page.textContent).not.toContain(importFailed);
       });
+
+      it('says a failed import just after the seating tools, before its preview and the seat order', async () => {
+        const { fixture, page } = await previewed();
+
+        await confirmImport(page, { message: 'Internal server error' }, 500);
+        await fixture.whenStable();
+
+        await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(importFailed));
+        expectBySeatingTools(page);
+      });
     });
 
     it('lists every problem with an invalid file', async () => {
@@ -495,6 +549,33 @@ describe('seats and start', () => {
           'Ash Golem appears more than once.',
         ]),
       );
+    });
+
+    it('lists a file’s problems just after the seating tools, before the seat order', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+      await chooseFile(
+        fixture,
+        page,
+        {
+          error: 'invalid-pick-import',
+          message: 'This file can’t be imported.',
+          problems: ['Ash Golem appears more than once.'],
+        } satisfies PickImportRefusal,
+        422,
+      );
+
+      await vi.waitFor(() => expect(pickImportProblems(page)).toHaveLength(1));
+      expectProblemsBySeatingTools(page);
+    });
+
+    it('says a file couldn’t be read just after the seating tools', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
+
+      await chooseFile(fixture, page, { message: 'Internal server error' }, 500);
+
+      await vi.waitFor(() => expect(alertIn(page)?.textContent).toContain(readFailed));
+      expectBySeatingTools(page);
     });
 
     it('drops the problems with a file once a valid one is chosen', async () => {
