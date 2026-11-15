@@ -24,10 +24,11 @@ import { isTurnOf } from './drafts';
  * but before the socket joined the viewer's own room is pushed to no one,
  * and pushes may be missed while the socket is down. A connect while the
  * first read is on its way reads again once it lands, as a resource can't
- * be reloaded before its first load. Read again, the same way, on a push
- * that moves a listed draft's tournament to a state other than its read
- * badge's, as only a read says whether the viewer can join and who holds
- * the trophy (ADR 0003).
+ * be reloaded before its first load. Read again, the same way, once each
+ * push leaves a listed draft's tournament in a state other than its read
+ * badge's, whether the push lands before the read or after: only a read
+ * says whether the viewer can join (ADR 0003), and pushes carry no trophy
+ * holders.
  */
 @Injectable({ providedIn: 'root' })
 export class ViewerDrafts {
@@ -57,6 +58,12 @@ export class ViewerDrafts {
   /** Whether the drafts are to be read again once the read on its way lands. */
   private readonly readAgain = signal(false);
   /**
+   * The pushes, as `id@version`, that have had the drafts read again for
+   * their tournament: once each, so a read that still lags a push can't
+   * have them read again without end.
+   */
+  private readonly readAgainFor = new Set<string>();
+  /**
    * The drafts as last read, each as its newest version read or pushed, the
    * cancelled ones dropped: undefined until the first read lands, or if it
    * fails. A failed read again keeps those already listed, rather than leave
@@ -83,6 +90,7 @@ export class ViewerDrafts {
     effect((onCleanup) => {
       // Another viewer's pushes aren't this one's.
       this.pushed.set(new Map());
+      this.readAgainFor.clear();
       const user = this.user();
       // Signed out, the tab mustn't stay in the viewer's own room.
       if (user === null) updates.close();
@@ -92,14 +100,9 @@ export class ViewerDrafts {
           case 'connected':
             this.readAgain.set(true);
             break;
-          case 'changed': {
-            const { draft } = update;
-            this.keepNewest(draft.id, draft);
-            // Join and the trophy holders for the new state come only from a read.
-            const read = untracked(this.lastRead)?.find((each) => each.id === draft.id);
-            if (tournamentMoved(draft, read)) this.readAgain.set(true);
+          case 'changed':
+            this.keepNewest(update.draft.id, update.draft);
             break;
-          }
           case 'cancelled':
             this.keepNewest(update.draftId, null);
             break;
@@ -110,6 +113,17 @@ export class ViewerDrafts {
         }
       });
       onCleanup(() => pushes.unsubscribe());
+    });
+    effect(() => {
+      const pushed = this.pushed();
+      for (const draft of this.lastRead() ?? []) {
+        const push = pushOver(draft, pushed);
+        if (!push || badgeStands(push, draft.tournamentBadge)) continue;
+        const key = `${push.id}@${push.version}`;
+        if (this.readAgainFor.has(key)) continue;
+        this.readAgainFor.add(key);
+        this.readAgain.set(true);
+      }
     });
     effect(() => {
       if (!this.readAgain() || this.read.status() === 'loading') return;
@@ -138,12 +152,10 @@ function withPushes(
   pushed: Map<string, DraftView | null>,
 ): DraftListItemView[] {
   const listed = read.flatMap((draft): DraftListItemView[] => {
-    if (!pushed.has(draft.id)) return [draft];
-    const push = pushed.get(draft.id);
-    if (!push) return [];
-    return push.version < draft.version
-      ? [draft]
-      : [{ ...push, tournamentBadge: badgeOf(push, draft.tournamentBadge) }];
+    const push = pushOver(draft, pushed);
+    if (push === undefined) return [draft];
+    if (push === null) return [];
+    return [{ ...push, tournamentBadge: badgeOf(push, draft.tournamentBadge) }];
   });
   const readIds = new Set(read.map((draft) => draft.id));
   const added = [...pushed.values()].filter(
@@ -153,22 +165,30 @@ function withPushes(
 }
 
 /**
- * Draft `push`'s tournament badge, its state from the push: the badge `read`
- * while its state is the pushed one, as only a read says whether the viewer
- * can join and who holds the trophy (ADR 0003); otherwise neither, until
- * a read says. None for a draft pushed without a tournament.
+ * Draft `read`'s push in `pushed` that lists in its place: null once
+ * cancelled; undefined when it hasn't been pushed, or only older than read.
  */
-function badgeOf(push: DraftView, read: TournamentBadgeView | null): TournamentBadgeView | null {
-  if (!push.tournament) return null;
-  if (read?.state === push.tournament.state) return read;
-  return { state: push.tournament.state, canJoin: false, trophyHolders: [] };
+function pushOver(
+  read: DraftListItemView,
+  pushed: Map<string, DraftView | null>,
+): DraftView | null | undefined {
+  const push = pushed.get(read.id);
+  return push && push.version < read.version ? undefined : push;
+}
+
+/** Whether tournament badge `badge`, as read, still stands for draft `push`: its tournament's state, or none, is the same. */
+function badgeStands(push: DraftView, badge: TournamentBadgeView | null): boolean {
+  return (push.tournament?.state ?? null) === (badge?.state ?? null);
 }
 
 /**
- * Whether draft `push`, as read `read`, is pushed no older than read with a
- * tournament state other than its read badge's. False for a draft not read.
+ * Draft `push`'s tournament badge, read as `read`: that badge while it still
+ * stands. Otherwise one with the pushed state, without Join or trophy
+ * holders until a read says them, as only the api decides whether the
+ * viewer can join (ADR 0003) and pushes carry no trophy holders; none for
+ * a draft pushed without a tournament.
  */
-function tournamentMoved(push: DraftView, read: DraftListItemView | undefined): boolean {
-  if (!read || push.version < read.version) return false;
-  return (push.tournament?.state ?? null) !== (read.tournamentBadge?.state ?? null);
+function badgeOf(push: DraftView, read: TournamentBadgeView | null): TournamentBadgeView | null {
+  if (badgeStands(push, read)) return read;
+  return push.tournament && { state: push.tournament.state, canJoin: false, trophyHolders: [] };
 }
