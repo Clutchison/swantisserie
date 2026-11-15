@@ -50,14 +50,7 @@ import {
   type DraftFixture,
 } from './harness';
 import { pressed, toggleButton } from './toggle-harness';
-import {
-  comesBefore,
-  onlyAlert,
-  openDialog,
-  serverError,
-  tableColumns,
-  tableRows,
-} from '../../specs-harness';
+import { openDialog, serverError, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -343,6 +336,17 @@ export function swissRoundsWith(m2: MatchView, m1?: MatchView): TournamentRoundV
   const [first, second] = swissPlaying().rounds;
   return [m1 ? { ...first, matches: [m1] } : first, { ...second, matches: [m2] }];
 }
+
+/** Bob reporting that he beat Alice 2–1 in match m2. */
+export const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+
+/** Carol reporting that she beat Alice 2–1 in Swiss match m2. */
+export const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+
+/** `swissPlaying` with Carol's report on m2, once the tournament is complete. */
+export const completedSwiss = completed(
+  swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) }),
+);
 
 /** A side of a bracket place that is the player `playerId`. */
 export const side = (playerId: string): BracketSideView => ({ kind: 'Player', playerId });
@@ -761,7 +765,7 @@ export const yourMatches = (root: HTMLElement) =>
   itemTexts(region(root, 'Your matches')!.querySelector('ul')!);
 
 /** The lists of matches or bracket places inside `root`, one per tournament round named by its label, in round order. */
-const roundLists = (root: HTMLElement) =>
+export const roundLists = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('ol, ul, [role="list"]')].filter((list) =>
     /^(Tournament round \d+|Final|Semifinal|Quarterfinal)$/.test(accessibleName(list)),
   );
@@ -956,45 +960,4 @@ export async function failChange(fixture: AppFixture, page: HTMLElement, url: st
     if (!alert) throw new Error('The Play tab alerts nothing');
     return text(alert);
   });
-}
-
-/**
- * Expects the open tab of `page` to show its one alert directly after
- * Your matches (or "Your match") in `tab`, before the results grid or the
- * standings.
- */
-export function expectByYourMatches(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(panel(page));
-  const own = region(tab, 'Your matches') ?? region(tab, 'Your match');
-  const results = region(tab, 'Results grid') ?? region(tab, 'Standings');
-  expect(comesBefore(own!, alert)).toBe(true);
-  expect(comesBefore(alert, results!)).toBe(true);
-}
-
-/**
- * Expects the open tab of `page` to show its one alert directly after the
- * results in `tab` (the results grid, or the standings with the bracket or
- * the lists of matches), before the Players list.
- */
-export function expectByResults(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(panel(page));
-  const results = [
-    region(tab, 'Results grid'),
-    region(tab, 'Standings'),
-    bracket(tab),
-    ...roundLists(tab),
-  ].filter((part) => !!part);
-  expect(results).not.toHaveLength(0);
-  for (const part of results) expect(comesBefore(part, alert)).toBe(true);
-  expect(comesBefore(alert, namedList(tab, 'Players'))).toBe(true);
-}
-
-/**
- * Expects the open tab of `page` to show its one alert at the foot of the
- * tab, after `after`: the control that failed, or, once the section that
- * made it is gone, the Players list, which follows every other place a
- * failure shows. It asserts nothing of what comes after the alert.
- */
-export function expectAtFoot(page: HTMLElement, after: Element) {
-  expect(comesBefore(after, onlyAlert(panel(page)))).toBe(true);
 }
