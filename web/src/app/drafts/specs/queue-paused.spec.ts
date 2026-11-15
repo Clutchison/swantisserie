@@ -40,7 +40,7 @@ import {
   serverError,
   draftClosed,
 } from './harness';
-import { comesBefore, openDialog, pressEscape, question } from '../../specs-harness';
+import { comesBefore, expectFocusOn, openDialog, pressEscape, question } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb, card } from './pool-tab-harness';
 
 useDraftsApp();
@@ -552,6 +552,67 @@ describe('setting a queue picking on the player’s own turn', () => {
     await flushQueue(queueOf({ cards: [queued(bolt)] }));
     await fixture.whenStable();
     expect(accessibleName(queuePlayPauseButton(queue))).toBe('Set queue paused');
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+  });
+
+  it('keeps focus on the confirm, busy, while it is on its way and while its refused cards are read again, still on it once the cards are named', async () => {
+    const { fixture, page } = await aliceAtTurnaround([bolt, spike]);
+
+    queuePlayPauseButton(queuePane(page)).click();
+    const dialog = await question(asked);
+    const confirm = button(dialog, 'Set queue picking');
+    confirm.focus();
+    confirm.click();
+    TestBed.tick();
+    expect(confirm.disabled).toBe(false);
+    expect(confirm.getAttribute('aria-disabled')).toBe('true');
+    expectFocusOn(dialog, 'Set queue picking');
+    confirm.click();
+    http.expectOne('/api/drafts/draft-1/queue/paused').flush(...picksChanged);
+
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(
+      draft(
+        drafting({
+          players: [bob, alicePlayer],
+          turn: { pick: 2, round: 1, playerId: alicePlayer.id },
+        }),
+      ),
+    );
+    TestBed.tick();
+    expect(button(dialog, 'Set queue picking').disabled).toBe(false);
+    expect(button(dialog, 'Set queue picking').getAttribute('aria-disabled')).toBe('true');
+    expectFocusOn(dialog, 'Set queue picking');
+    button(dialog, 'Set queue picking').click();
+    http.expectNone('/api/drafts/draft-1/queue/paused');
+
+    await flushPicks([pickOf({ playerId: bob.id, poolCardId: shivan.id })]);
+    await flushQueue(queueOf({ cards: [queued(skewer), queued(bolt)], queuePaused: true }));
+    await fixture.whenStable();
+    expect(items(dialog, picksList)).toEqual(['Skewer the Critics', 'Lightning Bolt']);
+    await vi.waitFor(() =>
+      expect(button(dialog, 'Set queue picking').getAttribute('aria-disabled')).toBeNull(),
+    );
+    expectFocusOn(dialog, 'Set queue picking');
+  });
+
+  it('marks the confirm busy while its cards are read again, sending nothing when it is pressed', async () => {
+    const { fixture, page } = await aliceAtTurnaround([bolt, spike]);
+
+    queuePlayPauseButton(queuePane(page)).click();
+    const dialog = await question(asked);
+    const confirm = button(dialog, 'Set queue picking');
+    confirm.focus();
+    undoReturnsTurnToBob();
+    TestBed.tick();
+    expect(confirm.disabled).toBe(false);
+    expect(confirm.getAttribute('aria-disabled')).toBe('true');
+    confirm.click();
+    TestBed.tick();
+    expectFocusOn(dialog, 'Set queue picking');
+
+    await flushUndoRereads([bolt, spike]);
+    await fixture.whenStable();
+    await vi.waitFor(() => expect(openDialog()).toBeNull());
     http.expectNone('/api/drafts/draft-1/queue/paused');
   });
 

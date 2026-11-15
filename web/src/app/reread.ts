@@ -53,13 +53,21 @@ export async function saveThenReread<Problem>(
 
 /** Settles once no load of `resource` is in flight, or the component is gone. */
 function loaded(resource: Rereadable, injector: Injector) {
+  return settled(resource.isLoading, injector);
+}
+
+/**
+ * Settles once `loading` is false, or the component `injector` belongs to
+ * is gone.
+ */
+export function settled(loading: Signal<boolean>, injector: Injector) {
   return new Promise<void>((resolve) => {
     const destroyRef = injector.get(DestroyRef);
     if (destroyRef.destroyed) return resolve();
     const unlisten = destroyRef.onDestroy(resolve);
     const watch = effect(
       () => {
-        if (resource.isLoading()) return;
+        if (loading()) return;
         watch.destroy();
         unlisten();
         resolve();

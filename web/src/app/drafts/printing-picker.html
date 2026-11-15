@@ -1,4 +1,5 @@
 <div class="dialog">
+  <app-change-status />
   <h3 [id]="headingId">{{ land() }} printing</h3>
   <div class="dialog-body">
     <figure>
@@ -56,11 +57,17 @@
     }
   </div>
   <div class="dialog-actions">
-    <button class="button secondary" type="button" cdkFocusInitial (click)="cancel()">
+    <button
+      class="button secondary"
+      type="button"
+      cdkFocusInitial
+      appFocusKey="cancel"
+      (click)="cancel()"
+    >
       Cancel
     </button>
     @if (offerRemove()) {
-      <button class="button secondary" type="button" (click)="remove()" [disabled]="saving()">
+      <button class="button secondary" type="button" (click)="remove()" appSendsChange="remove">
         Remove
       </button>
     }
@@ -68,11 +75,12 @@
       class="button secondary"
       type="button"
       (click)="useDefault()"
-      [disabled]="!hasPreferred() || saving()"
+      [disabled]="!hasPreferred()"
+      appSendsChange="use default"
     >
       Use default
     </button>
-    <button class="button" type="button" (click)="use()" [disabled]="!set() || saving()">
+    <button class="button" type="button" (click)="use()" [disabled]="!set()" appSendsChange="use">
       Use this printing
     </button>
   </div>
