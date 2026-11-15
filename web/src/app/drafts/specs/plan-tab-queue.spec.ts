@@ -28,13 +28,22 @@ import {
   clickBackdrop,
   dialogBackdrop,
   hiddenFromAssistiveTech,
+  onlyAlert,
   openDialog,
   pressEscape,
   pressTab,
   question,
 } from '../../specs-harness';
 import { card, shivan } from './pool-tab-harness';
-import { bolt, boltAgain, openPlan, planOf, planned, unpicked } from './plan-tab-harness';
+import {
+  bolt,
+  boltAgain,
+  expectByTools,
+  openPlan,
+  planOf,
+  planned,
+  unpicked,
+} from './plan-tab-harness';
 import { EMPTY_QUEUE } from '../drafts';
 
 useDraftsApp();
@@ -255,6 +264,29 @@ describe('queueing the unpicked cards on the plan tab', () => {
     );
     expect(dialog()).toBeNull();
     await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'));
+  });
+
+  it('says a refusal after the tools row, before the plan boards', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      { cards, plan },
+    );
+    const tab = await openQueueUnpicked(fixture, page);
+
+    button(dialog()!, 'Queue 2 cards')!.click();
+    http.expectOne('/api/drafts/draft-1/queue/unpicked').flush(
+      {
+        error: 'your-turn',
+        message: 'You can’t add to your queue on your turn.',
+      } satisfies QueueRefusal,
+      { status: 409, statusText: 'Conflict' },
+    );
+    await vi.waitFor(() => expect(alertIn(tab)).not.toBeNull());
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(EMPTY_QUEUE);
+    await fixture.whenStable();
+
+    expectByTools(tab, onlyAlert(tab));
   });
 
   it('closes when the player’s turn comes, and stays closed once it passes', async () => {

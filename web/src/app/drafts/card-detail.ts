@@ -56,8 +56,11 @@ export class CardDetailRequests {
   readonly planning = signal(false);
 }
 
-/** How a host moves a Card detail's card to a plan board, settling once the move has been made or has failed. */
-export type MoveToPlanBoard = (planBoard: PlanBoard) => Promise<unknown>;
+/**
+ * How a host moves a Card detail's card to a plan board, settling once the
+ * move has been made, on null, or has failed, on the failure's message.
+ */
+export type MoveToPlanBoard = (planBoard: PlanBoard) => Promise<string | null>;
 
 /** What a Card detail closes with: `picked` once its card has been picked, else nothing. */
 export type CardDetailResult = 'picked';
@@ -191,8 +194,9 @@ export class CardDetail {
   readonly closesOnPick = input(true);
   /**
    * How its host moves the card to a plan board; Move is offered only while
-   * it's given. The host says how a move went, so a refused one shows where
-   * the host's other moves' refusals do, not in this Card detail's plan note.
+   * it's given. The host hands back a failed move's message, which shows in
+   * this Card detail's plan note, as its other plan changes' failures do,
+   * not behind it on the host.
    */
   readonly move = input<MoveToPlanBoard | null>(null);
   /**
@@ -387,14 +391,15 @@ export class CardDetail {
   }
 
   /**
-   * Moves the card to `planBoard` through the host's `move`, which says how
-   * that went. It stays open, offering to move the card back once the plan
+   * Moves the card to `planBoard` through the host's `move`, noting why if
+   * it failed. It stays open, offering to move the card back once the plan
    * shows it moved.
    */
   protected async sendMove(move: MoveToPlanBoard, planBoard: PlanBoard) {
     this.planning.set(true);
+    this.planNote.set(null);
     try {
-      await move(planBoard);
+      this.planNote.set(await move(planBoard));
     } finally {
       this.planning.set(false);
     }

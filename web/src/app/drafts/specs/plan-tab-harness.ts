@@ -6,6 +6,7 @@ import type { BasicLandPrintingsView, BasicLandPrintingView, PlanView } from 'co
 import {
   byAriaLabel,
   collapseWhitespace,
+  comesBefore,
   filledStatusIn,
   focusAndClick,
   openDialog,
@@ -103,6 +104,23 @@ export const exportButton = (page: HTMLElement) =>
   [...planPanel(page).querySelectorAll('button')].find((candidate) =>
     ['Export', 'Copied'].includes(accessibleName(candidate)),
   );
+
+/**
+ * Expects `alert` directly after the Deck tab's tools row, outside it, and
+ * before the plan boards, which the mainboard's heading starts.
+ */
+export function expectByTools(plan: HTMLElement, alert: HTMLElement) {
+  const tools = byAriaLabel(plan, '[role="group"]', 'Deck tools')!;
+  const mainboard = [...plan.querySelectorAll<HTMLElement>('h3')].find((candidate) =>
+    accessibleName(candidate).startsWith('Mainboard'),
+  )!;
+  expect(comesBefore(tools, alert) && !tools.contains(alert)).toBe(true);
+  expect(comesBefore(alert, mainboard)).toBe(true);
+}
+
+/** The list item of the line or stacked card inside `plan` whose button is named `name`. */
+export const itemOf = (plan: HTMLElement, name: string) =>
+  button(plan, name)!.closest<HTMLElement>('li')!;
 
 /** Opens the Deck tab and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');

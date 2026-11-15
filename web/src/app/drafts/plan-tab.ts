@@ -122,6 +122,17 @@ const PLAN_BOARD_DISPLAY: Record<
   },
 };
 
+/** What a move or remove button is found by: its row's or stacked card's, as `moveKey` and `removeKey` give it. */
+type RowKey = `move ${string}` | `remove ${string}`;
+
+/**
+ * Where a failed change's message shows, by where the change came from: after
+ * the Deck notice or the Ready notice whose Dismiss failed, inside the list
+ * item of the row or stacked card whose button is found by the key, or after
+ * the tools row, for the Queue unpicked dialog's result and a drag and drop.
+ */
+type ErrorPlace = 'deckNotice' | 'readyNotice' | 'tools' | RowKey;
+
 /**
  * The draft view's Deck tab: the signed-in player's plan, as its mainboard
  * and sideboard, between which they move cards, and from which they remove
@@ -207,7 +218,8 @@ export class PlanTab {
   );
 
   protected readonly changing = this.changes.changing;
-  protected readonly error = signal<string | null>(null);
+  /** The latest change's failure, with where it came from; the next change clears it. */
+  private readonly error = signal<{ message: string; place: ErrorPlace } | null>(null);
 
   /** Whether the page is at the desktop layout, as it is resized. No `matchMedia` counts as mobile. */
   protected readonly onDesktop = matching(DESKTOP_QUERY);
@@ -243,7 +255,7 @@ export class PlanTab {
   protected readonly drag = planDrag({
     plan: this.plan,
     deckLocked: this.deckLocked,
-    move: (card, planBoard) => this.move(card, planBoard),
+    move: (card, planBoard) => this.move(card, planBoard, 'tools'),
     stackMove: (poolCardId, into) => this.stackMoves.move(poolCardId, into),
     started: () => this.previews.dragStarted(),
   });
@@ -398,6 +410,40 @@ export class PlanTab {
     Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
   );
 
+  /** The keys of the rows and stacked cards on the plan boards, which a failure from one shows inside. */
+  private readonly rowKeys = computed(() => {
+    const keys = new Set<string>();
+    for (const { name, count, lines, stacks } of this.planBoards()) {
+      if (this.showingStacks() && count > 0) {
+        for (const card of stacks.flatMap((each) => each.cards)) keys.add(this.moveKey(name, card));
+      } else {
+        for (const line of lines) {
+          keys.add(this.moveKey(name, line));
+          keys.add(this.removeKey(name, line));
+        }
+      }
+    }
+    return keys;
+  });
+  /** Where the failure shows: where its change came from, or the tools for a row that has left its plan board. */
+  private readonly errorPlace = computed((): ErrorPlace | null => {
+    const place = this.error()?.place ?? null;
+    if (place === null || place === 'deckNotice' || place === 'readyNotice') return place;
+    return place === 'tools' || this.rowKeys().has(place) ? place : 'tools';
+  });
+
+  /** The failure's message, if it shows at `place`. */
+  protected errorAt(place: ErrorPlace) {
+    return this.errorPlace() === place ? this.error()!.message : null;
+  }
+
+  /** The failure's message, if it shows inside the list item of `card` on `planBoard`: its move's or its remove's. */
+  protected rowError(planBoard: PlanBoard, card: PlanBoardCard | PlanLine) {
+    return (
+      this.errorAt(this.moveKey(planBoard, card)) ?? this.errorAt(this.removeKey(planBoard, card))
+    );
+  }
+
   /** Whether there are lost cards to note. */
   protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
   /** How many cards the exported sideboard holds, and Arena keeps, when Arena's import may cut it short. */
@@ -488,12 +534,12 @@ export class PlanTab {
   }
 
   /** What a move button is found by, focus-wise: the plan board it's on, and its line's key or, in stacks mode, its card's. */
-  protected moveKey(planBoard: PlanBoard, card: MovedCard) {
+  protected moveKey(planBoard: PlanBoard, card: MovedCard): RowKey {
     return `move ${planBoard} ${'key' in card ? card.key : card.poolCardId}`;
   }
 
   /** What a remove button is found by, focus-wise, as `moveKey`. */
-  protected removeKey(planBoard: PlanBoard, card: PlanBoardCard | PlanLine) {
+  protected removeKey(planBoard: PlanBoard, card: PlanBoardCard | PlanLine): RowKey {
     return `remove ${planBoard} ${'key' in card ? card.key : card.poolCardId}`;
   }
 
@@ -501,25 +547,41 @@ export class PlanTab {
    * Moves one copy of a card, a line's first, one in stacks mode or one in
    * its Card detail, to `planBoard`, and shows the plan as it then is; for
    * a basic land, one of its copies. If the card's line is gone from the
-   * plan board it left, focus follows the card to `planBoard`. Answers the
-   * card as it is there, or null if it didn't move.
+   * plan board it left, focus follows the card to `planBoard`. A failure
+   * shows at `place`. Answers the card as it is there, or null if it didn't
+   * move.
    */
-  protected async move(card: MovedCard, planBoard: PlanBoard): Promise<MovedCard | null> {
+  protected async move(
+    card: MovedCard,
+    planBoard: PlanBoard,
+    place: ErrorPlace,
+  ): Promise<MovedCard | null> {
+    const { made, after } = await this.sendMove(card, planBoard, place);
+    return made ? after : null;
+  }
+
+  /**
+   * Moves `card` to `planBoard` as `move` does, its failure shown at
+   * `place`, or by the caller for none. Answers whether it moved, the card
+   * as it is there, and the failure's message, if any.
+   */
+  private async sendMove(card: MovedCard, planBoard: PlanBoard, place: ErrorPlace | null) {
     const { basic } = card;
     const after = this.cardAfterMove(card, planBoard);
     const stays = this.leaving(card, PLAN_BOARD_DISPLAY[planBoard].other);
-    const moved = await this.tryChange(
+    const { made, failure } = await this.tryChange(
       () =>
         basic
           ? this.planApi.moveBasic(this.draftId(), basic, planBoard)
           : this.planApi.move(this.draftId(), card.poolCardId, planBoard),
+      place,
       {
         keep: [this.moveKey(planBoard, after)],
         status: `${card.name} moved to the ${planBoard.toLowerCase()}`,
       },
     );
-    if (!moved) stays();
-    return moved ? after : null;
+    if (!made) stays();
+    return { made, after, failure };
   }
 
   /**
@@ -591,7 +653,8 @@ export class PlanTab {
    * Opens a pool card's Card detail, in place of any other. It offers what
    * the Pool tab's does, but never Add to Deck, and its queue actions only
    * while the card is unpicked in the plan; and Move, unless the deck is
-   * locked, which moves the card as this tab's move buttons do. It stays
+   * locked, which moves the card as this tab's move buttons do, its failure
+   * shown in the Card detail, not here. It stays
    * open once the card is picked, by the player or another, and closes once
    * it's removed from the plan. Focus then goes back to what opened it, or
    * else to the first card that opens one.
@@ -616,7 +679,8 @@ export class PlanTab {
       move: computed(() =>
         this.deckLocked()
           ? null
-          : (planBoard: PlanBoard) => this.move({ poolCardId, name: card.name }, planBoard),
+          : async (planBoard: PlanBoard) =>
+              (await this.sendMove({ poolCardId, name: card.name }, planBoard, null)).failure,
       ),
       moveWaits: this.changing,
       returnFocus: (_, opener) =>
@@ -669,18 +733,21 @@ export class PlanTab {
 
   /**
    * Takes one copy of a line out of the plan: an unpicked card's, or a basic
-   * land's off `planBoard`. Should its line go, focus goes to the next.
+   * land's off `planBoard`. Should its line go, focus goes to the next. A
+   * failure shows inside the line's list item.
    */
   protected async removeLine(line: PlanLine, planBoard: PlanBoard) {
     const { basic, poolCardId } = line;
     const stays = this.leaving(line, planBoard);
-    const removed = await this.tryChange(() =>
-      basic
-        ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
-        : this.planApi.remove(this.draftId(), poolCardId),
+    const { made } = await this.tryChange(
+      () =>
+        basic
+          ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
+          : this.planApi.remove(this.draftId(), poolCardId),
+      this.removeKey(planBoard, line),
     );
-    if (!removed) stays();
-    return removed;
+    if (!made) stays();
+    return made;
   }
 
   /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
@@ -695,18 +762,18 @@ export class PlanTab {
 
   /** Stops the notice listing the lost cards. */
   protected dismissNotice() {
-    return this.tryChange(() => this.planApi.dismissNotice(this.draftId()));
+    return this.tryChange(() => this.planApi.dismissNotice(this.draftId()), 'deckNotice');
   }
 
   /** Takes down the Ready notice. */
   protected dismissReadyNotice() {
-    return this.tryChange(() => this.planApi.dismissReadyNotice(this.draftId()));
+    return this.tryChange(() => this.planApi.dismissReadyNotice(this.draftId()), 'readyNotice');
   }
 
   /**
    * Opens the Queue unpicked dialog, leaving the sideboard out. Once it has
-   * sent, a refusal is said here, where focus returns: to the button that
-   * opened it.
+   * sent, a refusal is said after the tools row, by where focus returns: to
+   * the button that opened it.
    */
   protected openQueueing() {
     const queueing = this.dialogs.open<QueueUnpickedDialog, QueueUnpickedResult>(
@@ -716,30 +783,35 @@ export class PlanTab {
     this.queueing = queueing;
     queueing.closed.subscribe((result) => {
       this.queueing = null;
-      if (result) this.error.set(result.error);
+      if (result) this.error.set(result.error ? { message: result.error, place: 'tools' } : null);
     });
   }
 
   /**
    * Sends the change `send` makes to the plan and shows the plan it answers
    * with, unless another change is in flight. A refused change means the
-   * plan has moved on, e.g. a card was lost: say why; the store re-reads it.
-   * Answers whether the change was made. Focus is kept as `Changes.send`
-   * keeps it, and a change made says `status`.
+   * plan has moved on, e.g. a card was lost: say why at `place`, or leave
+   * that to the caller for none; the store re-reads it. Answers whether the
+   * change was made, and the failure's message if it failed. Focus is kept
+   * as `Changes.send` keeps it, and a change made says `status`.
    */
-  private tryChange(
+  private async tryChange(
     send: () => Observable<PlanView>,
+    place: ErrorPlace | null,
     kept: { keep?: string[]; status?: string } = {},
-  ): Promise<boolean> {
-    return this.changes.send(async () => {
+  ): Promise<{ made: boolean; failure: string | null }> {
+    let failure: string | null = null;
+    const made = await this.changes.send(async () => {
       this.error.set(null);
       try {
         await this.store.changePlan(send());
         return true;
       } catch (err) {
-        this.error.set(changeFailure(err, PLAN_CHANGE_FAILED));
+        failure = changeFailure(err, PLAN_CHANGE_FAILED);
+        if (place) this.error.set({ message: failure, place });
         return false;
       }
     }, kept);
+    return { made, failure };
   }
 }
