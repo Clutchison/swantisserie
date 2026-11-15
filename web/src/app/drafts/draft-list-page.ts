@@ -58,6 +58,8 @@ export class DraftListPage {
   );
 
   constructor() {
+    // Drafts the viewer doesn't play in aren't pushed, so they're read on each visit.
+    this.viewerDrafts.refresh();
     // The tab says so while any draft is on the viewer's turn.
     titleWithTurn((appTitle) => ({ name: appTitle, yourTurn: this.draftsOnYourTurn().length > 0 }));
   }

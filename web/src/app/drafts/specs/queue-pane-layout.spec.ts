@@ -61,6 +61,7 @@ import {
   planned,
   stackHeaders,
 } from './plan-tab-harness';
+import { goToDraftList } from './draft-list-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -529,8 +530,7 @@ describe('Queue pane layout', () => {
       await fixture.whenStable();
 
       // Away to the draft list, and back.
-      await router.navigateByUrl('/');
-      await fixture.whenStable();
+      await goToDraftList();
       expect(findQueuePane(page)).toBeNull();
       await router.navigateByUrl('/drafts/draft-1');
       (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1'))).flush(draft(drafting()));
