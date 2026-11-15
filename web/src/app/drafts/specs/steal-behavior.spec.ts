@@ -6,7 +6,6 @@ import {
   http,
   openDraft,
   completeSnapshot,
-  button,
   draft,
   openUrl,
   flushPool,
@@ -26,6 +25,7 @@ import {
   accessibleDescription,
   alertIn,
   openQueueHelp,
+  flushQueue,
 } from './harness';
 import { comesBefore } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
@@ -226,9 +226,7 @@ describe('steal behavior', () => {
         { error: 'draft-closed', message: 'This draft is closed.' },
         { status: 409, statusText: 'Conflict' },
       );
-    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(
-      queueOf({ cards: [queued(shivan)] }),
-    );
+    await flushQueue(queueOf({ cards: [queued(shivan)] }));
     await vi.waitFor(() => expect(alertIn(queue)?.textContent).toContain('This draft is closed.'));
 
     expect(comesBefore(pill(queue), alertIn(queue)!)).toBe(true);
@@ -242,12 +240,7 @@ describe('steal behavior', () => {
     });
     const queue = queuePane(page);
 
-    button(queue, 'How this works')!.click();
-    await fixture.whenStable();
-
-    const help = document.getElementById(
-      button(queue, 'How this works')!.getAttribute('aria-controls')!,
-    )!;
+    const help = await openQueueHelp(fixture, queue);
     expect(help.textContent?.replace(/\s+/g, ' ')).toContain(
       'If another player picks a queued card first and no copy is left, it is lost. ' +
         'Under Pause queue, your queue is set to queue paused, for you to pick by hand; ' +
