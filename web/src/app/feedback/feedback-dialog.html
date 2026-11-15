@@ -1,5 +1,6 @@
 <div class="dialog">
   <h3 [id]="headingId">Send feedback</h3>
+  <app-change-status />
   @if (status() === 'Sent') {
     <div class="dialog-body">
       <p [id]="thanksId">Thanks, your feedback was sent</p>
@@ -35,7 +36,13 @@
     </form>
     <div class="dialog-actions">
       <button class="button secondary" type="button" (click)="close()">Cancel</button>
-      <button class="button" type="submit" [attr.form]="formId" [disabled]="!canSubmit()">
+      <button
+        class="button"
+        type="submit"
+        appSendsChange="submit"
+        [attr.form]="formId"
+        [disabled]="!canSubmit()"
+      >
         Submit
       </button>
     </div>

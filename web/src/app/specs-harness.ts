@@ -285,6 +285,32 @@ export function accessibleName(element: Element): string {
   return collapseWhitespace(nameOf(element));
 }
 
+/** The roles HTML gives the controls specs focus, when they set no `role` of their own. */
+const IMPLICIT_ROLES: Record<string, string> = {
+  A: 'link',
+  BUTTON: 'button',
+  INPUT: 'textbox',
+  SELECT: 'combobox',
+  TEXTAREA: 'textbox',
+};
+
+/**
+ * The control with focus, by its role and accessible name, as a screen
+ * reader announces it: null while focus is on nothing or the page body.
+ */
+export function focusedControl(): { role: string; name: string } | null {
+  const focused = document.activeElement;
+  if (!focused || focused === document.body) return null;
+  const role = focused.getAttribute('role') ?? IMPLICIT_ROLES[focused.tagName] ?? 'generic';
+  return { role, name: accessibleName(focused) };
+}
+
+/** Focuses `control` and clicks it, as a keyboard user presses it, and renders what came of it. */
+export function focusAndClick(control: HTMLElement) {
+  control.focus();
+  clickOn(control);
+}
+
 /**
  * The open menu named `name`, such as Copy or More; null while it's closed.
  * The CDK puts a menu outside the page, so this looks in the whole document.
