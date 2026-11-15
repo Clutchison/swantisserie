@@ -9,12 +9,15 @@ import {
   http,
   onlyAlert,
   openApp,
+  openDialog,
   question,
   router,
+  updates,
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerTopBar } from '../top-bar/specs-harness';
-import { buttonOrder, namedList } from '../drafts/specs/harness';
+import { buttonOrder, expectSignedOut, namedList } from '../drafts/specs/harness';
+import { pushToOwnRoom } from '../drafts/specs/updates-harness';
 
 const main: WebhookWithUrlView = {
   id: 'webhook-main',
@@ -357,6 +360,18 @@ describe('webhooks page', () => {
     await answer(await question('Remove #roto-main?'), 'Cancel');
     await fixture.whenStable();
 
+    http.expectNone(`/api/admin/webhooks/${main.id}`);
+  });
+
+  it('closes the question unanswered when the session ends, removing nothing', async () => {
+    const { fixture, page } = await openPage([main]);
+    button(mainRow(page), 'Remove').click();
+    await question('Remove #roto-main?');
+
+    pushToOwnRoom(updates, { type: 'unauthorized' });
+
+    await expectSignedOut(fixture, { router, http, user: carol, returnTo: '/admin/webhooks' });
+    expect(openDialog()).toBeNull();
     http.expectNone(`/api/admin/webhooks/${main.id}`);
   });
 

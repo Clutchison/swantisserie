@@ -3,6 +3,7 @@ import { inject, Injectable, signal } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import type { UserView } from 'contract';
 import { firstValueFrom } from 'rxjs';
+import { DialogShell } from '../dialog-shell';
 
 export const SIGN_IN_PATH = 'sign-in';
 
@@ -23,6 +24,7 @@ export const CURRENT_USER_URL = '/api/auth/me';
 export class Auth {
   private readonly http = inject(HttpClient);
   private readonly router = inject(Router);
+  private readonly dialogs = inject(DialogShell);
 
   /** undefined until first checked; null when signed out. */
   readonly user = signal<UserView | null | undefined>(undefined);
@@ -56,8 +58,9 @@ export class Auth {
 
   /**
    * Signs the viewer out of this tab once the API has ended their session,
-   * sending them to the sign-in page, which returns them to the page they
-   * were on unless they logged out. The session is already gone, so the
+   * closing every open dialog unanswered and sending them to the sign-in
+   * page, which returns them to the page they were on unless they logged
+   * out. The session is already gone, so the
    * API isn't told. Only the first call does anything, so a logout refused
    * as unauthorized, or several refusals at once, leave just once.
    */
@@ -68,6 +71,8 @@ export class Auth {
 
   private async leave(): Promise<void> {
     const returnTo = this.loggedOutOnPurpose ? '/' : this.router.url;
+    // Before the header goes, so a dialog's focus can still return into it.
+    this.dialogs.closeAll();
     this.user.set(null);
     await this.router.navigateByUrl(signInPage(this.router, returnTo));
   }
