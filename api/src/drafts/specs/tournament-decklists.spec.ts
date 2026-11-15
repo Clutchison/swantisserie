@@ -46,7 +46,7 @@ function withPublicDecklists(
   return { ...base, publicDecklists: true };
 }
 
-/** A player's locked deck as the plan read gives it, without its plan notice. */
+/** A player's locked deck as the plan read gives it, without its Deck notice. */
 async function deckOf(id: string, cookie: string) {
   const { mainboard, sideboard, basics } = (await plan(id, cookie).expect(200))
     .body as PlanView;
