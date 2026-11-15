@@ -12,6 +12,7 @@ import {
   completeSnapshot,
   alertIn,
   button,
+  toggleButton,
   buttonOrder,
   comboboxOptions,
   comboboxNote,
@@ -181,7 +182,7 @@ describe('the Printing picker', () => {
     await fixture.whenStable();
     expect(openDialog()).toBeNull();
 
-    button(plan, 'List')!.click();
+    toggleButton(plan, 'List')!.click();
     await fixture.whenStable();
     const name = [...plan.querySelectorAll<HTMLElement>('li .name')].find(
       (n) => text(n) === 'Island',
@@ -248,7 +249,7 @@ describe('the Printing picker', () => {
     const { fixture, plan } = await openWith(
       withIslands({ basics: [{ land: 'Island', board: 'Sideboard', count: 2 }] }),
     );
-    button(plan, 'List')!.click();
+    toggleButton(plan, 'List')!.click();
     await fixture.whenStable();
     [...plan.querySelectorAll<HTMLElement>('li .name')].find((n) => text(n) === 'Island')!.click();
     (await vi.waitFor(() => http.expectOne(islandRequest))).flush(islands);

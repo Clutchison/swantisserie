@@ -14,6 +14,9 @@ import {
   pickOf,
   accessibleName,
   serverError,
+  pressed,
+  toggleButton,
+  toggleButtons,
 } from './harness';
 import {
   useTallScreen,
@@ -22,6 +25,7 @@ import {
   brightclimb,
   tiles,
   hidePicked,
+  colorFilter,
   searchBox,
 } from './pool-tab-harness';
 
@@ -52,28 +56,24 @@ describe('pool tab', () => {
       const golem = colored('Colorless Golem', [], 'Artifact Creature — Golem');
       const pool = [white, blue, azorius, orzhov, golem];
 
-      const button = (page: HTMLElement, name: string) =>
-        page.querySelector<HTMLButtonElement>(`.color-filter button[aria-label="${name}"]`)!;
-
-      async function press(fixture: AppFixture, page: HTMLElement, ...buttons: string[]) {
-        for (const name of buttons) button(page, name).click();
+      async function press(fixture: AppFixture, page: HTMLElement, ...colors: string[]) {
+        for (const name of colors) toggleButton(colorFilter(page), name)!.click();
         await fixture.whenStable();
       }
 
       it('offers six named toggle buttons with stored mana symbols, none pressed', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, {}, { cards: pool });
-        const buttons = [...page.querySelectorAll('.color-filter button')];
+        const filter = colorFilter(page);
 
-        expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([
-          'White',
-          'Blue',
-          'Black',
-          'Red',
-          'Green',
-          'Colorless',
+        expect(toggleButtons(filter)).toEqual([
+          '☐ White',
+          '☐ Blue',
+          '☐ Black',
+          '☐ Red',
+          '☐ Green',
+          '☐ Colorless',
         ]);
-        expect(buttons.map((b) => b.getAttribute('aria-pressed'))).toEqual(Array(6).fill('false'));
-        expect(buttons.map((b) => b.querySelector('img')?.getAttribute('src'))).toEqual([
+        expect([...filter.querySelectorAll('img')].map((img) => img.getAttribute('src'))).toEqual([
           'mana/W.svg',
           'mana/U.svg',
           'mana/B.svg',
@@ -83,10 +83,10 @@ describe('pool tab', () => {
         ]);
 
         await press(fixture, page, 'White');
-        expect(button(page, 'White').getAttribute('aria-pressed')).toBe('true');
+        expect(pressed(colorFilter(page), 'White')).toBe('true');
 
         await press(fixture, page, 'White');
-        expect(button(page, 'White').getAttribute('aria-pressed')).toBe('false');
+        expect(pressed(colorFilter(page), 'White')).toBe('false');
         expect(names(page)).toHaveLength(5);
       });
 
@@ -168,7 +168,7 @@ describe('pool tab', () => {
         tab('Pool').click();
         await fixture.whenStable();
 
-        expect(button(page, 'Blue').getAttribute('aria-pressed')).toBe('true');
+        expect(pressed(colorFilter(page), 'Blue')).toBe('true');
         expect(names(page)).toEqual(['Blue Bear']);
       });
     });
@@ -305,7 +305,7 @@ describe('pool tab', () => {
       );
       const toggle = hidePicked(page);
       expect(accessibleName(toggle)).toBe('Hide picked');
-      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+      expect(pressed(page, 'Hide picked')).toBe('false');
 
       await search(fixture, page, 't:dragon');
       expect(names(page)).toEqual(['Shivan Dragon', 'Thundermaw Hellkite']);
@@ -313,7 +313,7 @@ describe('pool tab', () => {
 
       toggle.click();
       await fixture.whenStable();
-      expect(toggle.getAttribute('aria-pressed')).toBe('true');
+      expect(pressed(page, 'Hide picked')).toBe('true');
       expect(accessibleName(toggle)).toBe('Hide picked');
       expect(names(page)).toEqual(['Thundermaw Hellkite']);
 
@@ -325,7 +325,7 @@ describe('pool tab', () => {
 
       toggle.click();
       await fixture.whenStable();
-      expect(toggle.getAttribute('aria-pressed')).toBe('false');
+      expect(pressed(page, 'Hide picked')).toBe('false');
       expect(names(page)).toHaveLength(3);
     });
   });

@@ -12,6 +12,7 @@ import {
   wait,
   pickOf,
   button,
+  toggleButton,
 } from './harness';
 import {
   brightclimb,
@@ -24,6 +25,7 @@ import {
   searchFor,
   useTallScreen,
   hidePicked,
+  colorFilter,
 } from './pool-tab-harness';
 import { goToDraftList } from './draft-list-harness';
 
@@ -320,7 +322,7 @@ describe('preloading the first results', () => {
     const { page } = await openPool([reds[0], blue, ...reds.slice(1)]);
 
     wait(300);
-    button(page, 'Red')!.click();
+    toggleButton(colorFilter(page), 'Red')!.click();
     TestBed.tick();
     wait(500);
 

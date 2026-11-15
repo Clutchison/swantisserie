@@ -1,7 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import type { PoolCardView } from 'contract';
 import { openDialog } from '../../specs-harness';
-import { type AppFixture, faceImages, poolCardOf, toggleButton } from './harness';
+import { type AppFixture, faceImages, group, poolCardOf, toggleButton } from './harness';
 
 export { image } from './harness';
 
@@ -73,6 +73,12 @@ export async function openDetail(fixture: AppFixture, page: HTMLElement, index: 
 
 /** The Hide picked toggle button, by its role and name. */
 export const hidePicked = (page: HTMLElement) => toggleButton(page, 'Hide picked')!;
+
+/**
+ * The Color filter group, by its role and name: read its toggle buttons, one
+ * per color, through `toggleButton`, `pressed` and `toggleButtons`.
+ */
+export const colorFilter = (page: HTMLElement) => group(page, 'Color filter')!;
 
 /** The pool search box. */
 export const searchBox = (page: HTMLElement) =>

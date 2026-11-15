@@ -37,7 +37,7 @@ import {
   queueList,
   queueNotice,
   startDrag,
-  button,
+  toggleButton,
   chooseInOpenRowMenu,
   openRowMenu,
 } from './harness';
@@ -491,7 +491,7 @@ describe('card previews', () => {
         },
       });
       await openPlan(opened.fixture, opened.page);
-      button(panel(opened.page), 'List')?.click();
+      toggleButton(panel(opened.page), 'List')!.click();
       await opened.fixture.whenStable();
       vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
       return opened;

@@ -4,6 +4,7 @@ import {
   alicePlayer,
   bob,
   button,
+  toggleButton,
   completeSnapshot,
   drafting,
   findQueuePane,
@@ -579,7 +580,7 @@ describe('Queue pane layout', () => {
         },
       );
       const plan = await openPlan(fixture, page);
-      button(plan, 'Stacks').click();
+      toggleButton(plan, 'Stacks')!.click();
       await fixture.whenStable();
       expect(stackHeaders(plan)).not.toBeNull();
 
