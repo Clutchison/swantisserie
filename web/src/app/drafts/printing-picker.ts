@@ -21,6 +21,7 @@ import type {
   PreferredPrintings,
 } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
+import { Changes, FocusKey, SendsChange } from '../changes';
 import { BasicLandPrintings } from './basic-land-printings';
 import { basicCard } from './basic-lands';
 import { LARGE_IMAGE } from './card-sizes';
@@ -48,7 +49,8 @@ export const PRINTING_PICKER_HEADING = 'printing-picker-heading';
 @Component({
   selector: 'app-printing-picker',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [SetCombobox],
+  imports: [FocusKey, SendsChange, SetCombobox],
+  providers: [Changes],
   templateUrl: './printing-picker.html',
   styleUrls: ['../dialog.scss', './printing-picker.scss'],
 })
@@ -60,6 +62,7 @@ export class PrintingPicker implements OnInit {
   private readonly dialogRef = inject(DialogRef);
   private readonly pendingTasks = inject(PendingTasks);
   private readonly injector = inject(Injector);
+  private readonly changes = inject(Changes);
 
   /** The basic land whose printings it shows. */
   readonly land = input.required<BasicLand>();
@@ -115,7 +118,6 @@ export class PrintingPicker implements OnInit {
       : images.large;
   });
 
-  protected readonly saving = signal(false);
   protected readonly saveError = signal<string | null>(null);
 
   ngOnInit() {
@@ -217,23 +219,23 @@ export class PrintingPicker implements OnInit {
   }
 
   /**
-   * Runs `change`, the choices disabled meanwhile, then closes; a failure
-   * stays open, saying what `failure` makes of it. The page isn't stable
-   * until it has done one or the other.
+   * Runs `change`, the choices ignoring presses meanwhile, then closes; a
+   * failure stays open, saying what `failure` makes of it, with focus kept
+   * on the choice pressed. The page isn't stable until it has done one or
+   * the other.
    */
   private send(change: () => Promise<unknown>, failure: (err: unknown) => string) {
-    this.saving.set(true);
-    this.saveError.set(null);
-    return this.pendingTasks.run(async () => {
-      try {
-        await change();
-        this.dialogRef.close();
-      } catch (err) {
-        this.saveError.set(failure(err));
-      } finally {
-        this.saving.set(false);
-      }
-    });
+    return this.pendingTasks.run(() =>
+      this.changes.send(async () => {
+        this.saveError.set(null);
+        try {
+          await change();
+          this.dialogRef.close();
+        } catch (err) {
+          this.saveError.set(failure(err));
+        }
+      }),
+    );
   }
 }
 

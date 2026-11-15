@@ -16,8 +16,16 @@
     }
   </div>
   <div class="dialog-actions">
-    <button class="button secondary" type="button" cdkFocusInitial (click)="close()">Cancel</button>
-    <button class="button" type="button" (click)="confirm()" [disabled]="sending() || rereading()">
+    <button
+      class="button secondary"
+      type="button"
+      cdkFocusInitial
+      appFocusKey="cancel"
+      (click)="close()"
+    >
+      Cancel
+    </button>
+    <button class="button" type="button" (click)="confirm()" appSendsChange="confirm">
       {{ confirmName }}
     </button>
   </div>

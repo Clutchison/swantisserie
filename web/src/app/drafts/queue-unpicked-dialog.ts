@@ -1,5 +1,6 @@
 import { DialogRef } from '@angular/cdk/dialog';
 import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { Changes, FocusKey, SendsChange } from '../changes';
 import type { PlannedCardView, PlanView } from 'contract';
 import { DraftStore } from './draft-store';
 import { cardsNoun, changeFailure } from './drafts';
@@ -33,7 +34,8 @@ export function unpickedToQueue(plan: PlanView, queued: ReadonlySet<string>) {
 @Component({
   selector: 'app-queue-unpicked-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [ToggleButton],
+  imports: [FocusKey, SendsChange, ToggleButton],
+  providers: [Changes],
   templateUrl: './queue-unpicked-dialog.html',
   styleUrls: ['../dialog.scss', './queue-unpicked-dialog.scss'],
 })
@@ -41,11 +43,10 @@ export class QueueUnpickedDialog {
   private readonly queueApi = inject(QueueApi);
   private readonly store = inject(DraftStore);
   private readonly dialogRef = inject<DialogRef<QueueUnpickedResult>>(DialogRef);
+  private readonly changes = inject(Changes);
 
   protected readonly headingId = QUEUE_UNPICKED_HEADING;
   protected readonly includeSideboard = signal(false);
-  /** Whether Queue unpicked is on its way. */
-  protected readonly sending = signal(false);
 
   private readonly toQueue = computed(() =>
     unpickedToQueue(this.store.plan.value(), this.store.queued()),
@@ -70,17 +71,17 @@ export class QueueUnpickedDialog {
    * refusal means the queue or turn has moved on: the result says why; the
    * store re-reads the queue.
    */
-  protected async queueUnpicked() {
-    this.sending.set(true);
-    let error: string | null = null;
-    try {
-      await this.store.changeQueue(
-        this.queueApi.addUnpicked(this.store.id(), this.includeSideboard()),
-      );
-    } catch (err) {
-      error = changeFailure(err, QUEUE_FAILED);
-    }
-    // Sending is never seen again: the dialog closes, however the request went.
-    this.dialogRef.close({ error });
+  protected queueUnpicked() {
+    return this.changes.send(async () => {
+      let error: string | null = null;
+      try {
+        await this.store.changeQueue(
+          this.queueApi.addUnpicked(this.store.id(), this.includeSideboard()),
+        );
+      } catch (err) {
+        error = changeFailure(err, QUEUE_FAILED);
+      }
+      this.dialogRef.close({ error });
+    });
   }
 }

@@ -1,3 +1,4 @@
+import { TestBed } from '@angular/core/testing';
 import type { QueueRefusal } from 'contract';
 import {
   useDraftsApp,
@@ -27,6 +28,7 @@ import {
 import {
   clickBackdrop,
   dialogBackdrop,
+  expectFocusOn,
   hiddenFromAssistiveTech,
   openDialog,
   pressEscape,
@@ -125,8 +127,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
 
     button(dialog()!, 'Queue 2 cards')!.click();
     const sent = http.expectOne('/api/drafts/draft-1/queue/unpicked');
-    await fixture.whenStable();
-    expect(button(dialog()!, 'Queue 2 cards')!.disabled).toBe(true);
     expect(sent.request.method).toBe('POST');
     expect(sent.request.body).toEqual({ includeSideboard: false });
     sent.flush(queueOf({ cards: [queued(bolt), queued(boltAgain)] }));
@@ -344,6 +344,36 @@ describe('queueing the unpicked cards on the plan tab', () => {
     await fixture.whenStable();
 
     expect(dialog()).toBeNull();
+    expect(document.activeElement).toBe(button(tab, 'Queue unpicked'));
+  });
+
+  it('keeps focus on its confirm, busy, while the request is on its way, sending nothing on a second press', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ turn: bobsSecondPick }),
+      { cards, plan },
+    );
+    const tab = await openPlan(fixture, page);
+    button(tab, 'Queue unpicked')!.focus();
+    button(tab, 'Queue unpicked')!.click();
+    await fixture.whenStable();
+    const confirm = button(dialog()!, 'Queue 2 cards')!;
+
+    confirm.focus();
+    confirm.click();
+    TestBed.tick();
+    expect(confirm.disabled).toBe(false);
+    expect(confirm.getAttribute('aria-disabled')).toBe('true');
+    expectFocusOn(dialog()!, 'Queue 2 cards');
+    confirm.click();
+    const req = http.expectOne('/api/drafts/draft-1/queue/unpicked');
+
+    // A failure closes the dialog, as a made change does, saying why by Queue unpicked.
+    req.flush(null, serverError);
+    await vi.waitFor(() => expect(alertIn(tab)).not.toBeNull());
+    expect(dialog()).toBeNull();
+    (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/queue'))).flush(EMPTY_QUEUE);
+    await fixture.whenStable();
     expect(document.activeElement).toBe(button(tab, 'Queue unpicked'));
   });
 

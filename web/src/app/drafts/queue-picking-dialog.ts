@@ -5,11 +5,13 @@ import {
   computed,
   effect,
   inject,
+  Injector,
   input,
   linkedSignal,
   signal,
   untracked,
 } from '@angular/core';
+import { Changes, FocusKey, SendsChange } from '../changes';
 import { DraftStore } from './draft-store';
 import { cardsNoun, changeFailure, QUEUE_CHANGE_FAILED, queueStateChangeName } from './drafts';
 import { QueueApi } from './queue-api';
@@ -40,6 +42,8 @@ export type QueuePickingResult =
 @Component({
   selector: 'app-queue-picking-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [FocusKey, SendsChange],
+  providers: [Changes],
   templateUrl: './queue-picking-dialog.html',
   styleUrls: ['../dialog.scss', './queue-picking-dialog.scss'],
 })
@@ -47,6 +51,8 @@ export class QueuePickingDialog {
   private readonly queueApi = inject(QueueApi);
   private readonly store = inject(DraftStore);
   private readonly dialogRef = inject<DialogRef<QueuePickingResult>>(DialogRef);
+  private readonly changes = inject(Changes);
+  private readonly injector = inject(Injector);
 
   protected readonly headingId = QUEUE_PICKING_HEADING;
   /** The confirm button's text, the name the play/pause button gives the same change. */
@@ -62,8 +68,11 @@ export class QueuePickingDialog {
    * would pick cards after all: the player asked for queue picking already.
    */
   readonly afterRefusal = input(false);
-  /** Whether setting it queue picking is on its way. */
-  protected readonly sending = signal(false);
+  /**
+   * Whether setting it queue picking is on its way, or its cards are being
+   * read again: the confirm ignores presses until it settles.
+   */
+  private readonly sending = this.changes.changing;
   /** Why the cards last confirmed were refused, if they were. */
   protected readonly refused = signal<string | null>(null);
   /** Whether the cards may change before they can be confirmed: they are being read again. */
@@ -77,6 +86,12 @@ export class QueuePickingDialog {
   private readonly askedBeforeReread = linkedSignal(() => this.afterRefusal());
 
   constructor() {
+    // While the cards are read again they may change, so the confirm is
+    // busy until they settle, keeping focus.
+    effect(() => {
+      if (!this.rereading()) return;
+      untracked(() => void this.changes.send(() => this.rereadSettled()));
+    });
     // Once the cards settle on none, with no confirm on its way, there is
     // nothing to confirm. Should a refusal's re-read settle on none, the
     // player asked for queue picking already, so it is set queue picking with
@@ -97,29 +112,48 @@ export class QueuePickingDialog {
     this.dialogRef.close();
   }
 
-  /** Sets the queue queue picking with the cards named, and closes, unless they were refused. */
-  protected async confirm() {
-    this.sending.set(true);
-    this.refused.set(null);
-    try {
-      await this.store.changeQueue(
-        this.queueApi.setQueuePicking(
-          this.store.id(),
-          this.picks().map((card) => card.poolCardId),
-        ),
-      );
-      this.dialogRef.close({ outcome: 'made' });
-    } catch (err) {
-      if (!this.store.caughtUpOnQueuePicks(err)) {
-        this.dialogRef.close({
-          outcome: 'failed',
-          message: changeFailure(err, QUEUE_CHANGE_FAILED),
-        });
-        return;
+  /**
+   * Sets the queue queue picking with the cards named, and closes, unless
+   * they were refused: then the confirm stays busy, keeping focus, until the
+   * cards are read again.
+   */
+  protected confirm() {
+    return this.changes.send(async () => {
+      this.refused.set(null);
+      try {
+        await this.store.changeQueue(
+          this.queueApi.setQueuePicking(
+            this.store.id(),
+            this.picks().map((card) => card.poolCardId),
+          ),
+        );
+        this.dialogRef.close({ outcome: 'made' });
+      } catch (err) {
+        if (!this.store.caughtUpOnQueuePicks(err)) {
+          this.dialogRef.close({
+            outcome: 'failed',
+            message: changeFailure(err, QUEUE_CHANGE_FAILED),
+          });
+          return;
+        }
+        this.refused.set(changeFailure(err, QUEUE_CHANGE_FAILED));
+        this.askedBeforeReread.set(true);
+        await this.rereadSettled();
       }
-      this.refused.set(changeFailure(err, QUEUE_CHANGE_FAILED));
-      this.askedBeforeReread.set(true);
-      this.sending.set(false);
-    }
+    });
+  }
+
+  /** Answers once the cards are no longer being read again. */
+  private rereadSettled() {
+    return new Promise<void>((settled) => {
+      const watch = effect(
+        () => {
+          if (this.rereading()) return;
+          watch.destroy();
+          settled();
+        },
+        { injector: this.injector },
+      );
+    });
   }
 }
