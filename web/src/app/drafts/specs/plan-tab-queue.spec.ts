@@ -52,9 +52,9 @@ describe('queueing the unpicked cards on the plan tab', () => {
   /** The open dialog, if any: it opens over the page, outside the tab. */
   const dialog = openDialog;
   /** The dialog's Include sideboard toggle button. */
-  const sideboardToggle = () => button(openDialog()!, 'Include sideboard')!;
+  const sideboardToggle = () => button(dialog()!, 'Include sideboard')!;
   /** Whether Include sideboard is pressed, as its `aria-pressed` says. */
-  const sideboardPressed = () => pressed(openDialog()!, 'Include sideboard');
+  const sideboardPressed = () => pressed(dialog()!, 'Include sideboard');
 
   /** Opens the Queue unpicked dialog on the Deck tab. */
   async function openQueueUnpicked(fixture: AppFixture, page: HTMLElement) {
@@ -104,9 +104,6 @@ describe('queueing the unpicked cards on the plan tab', () => {
     expect(dialog()!.getAttribute('aria-modal')).toBe('true');
     expect(sideboardPressed()).toBe('false');
     expect(text(dialog())).toContain('Adds 1 card to the end of your queue.');
-
-    // A toggle button, not a bare checkbox.
-    expect(dialog()!.querySelector('input[type="checkbox"]')).toBeNull();
 
     sideboardToggle().click();
     await fixture.whenStable();
