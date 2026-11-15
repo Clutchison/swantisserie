@@ -16,7 +16,7 @@ import type { DraftView, PickView } from 'contract';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideChevronDown } from '@lucide/angular';
 import { hasTurn, isRefusal, pickAndRound, PLAYERS_CHANGE_FAILED, sendDraftChange } from './drafts';
-import { Changes, FocusKey, SendsChange } from './changes';
+import { Changes, FocusKey, SendsChange } from '../changes';
 import { DraftStore } from './draft-store';
 import { Questions } from '../question-dialog';
 import { DialogShell } from '../dialog-shell';

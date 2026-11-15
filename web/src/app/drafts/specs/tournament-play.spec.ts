@@ -1,6 +1,7 @@
 import {
   answer,
   clickBackdrop,
+  onlyAlert,
   openDialog,
   pressEscape,
   question,
@@ -21,6 +22,7 @@ import {
   http,
   items,
   link,
+  namedList,
   panel,
   panelName,
   region,
@@ -56,11 +58,16 @@ import {
   roundLabels,
   standing,
   standingsTable,
+  swissPlaying,
+  swissRoundsWith,
   threePlayers,
   withDrops,
   withTournament,
   yourMatches,
   completed,
+  expectAtFoot,
+  expectByResults,
+  expectByYourMatches,
   confirmedMatch,
 } from './play-tab-harness';
 
@@ -68,6 +75,14 @@ useDraftsApp();
 
 /** Bob reporting that he beat Alice 2–1 in match m2. */
 const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
+
+/** Carol reporting that she beat Alice 2–1 in Swiss match m2. */
+const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
+
+/** `swissPlaying` with Carol's report on m2, once the tournament is complete. */
+const completedSwiss = completed(
+  swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) }),
+);
 
 /** Alice's unreported matches against Bob (m2), Carol (m3) and Erin (m4). */
 const [againstBob, againstCarol, againstErin] = [
@@ -331,6 +346,8 @@ describe('Play tab while the tournament is played', () => {
       await vi.waitFor(() =>
         expect(alertIn(panel(page))?.textContent).toContain('This match has been reported.'),
       );
+      // It shows by Your matches, before the results grid, not at the foot of the tab.
+      expectByYourMatches(page, tab);
     });
 
     it('says reporting failed when the api gives no reason', async () => {
@@ -354,6 +371,34 @@ describe('Play tab while the tournament is played', () => {
       expect(
         await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm'),
       ).toBe("Couldn't confirm the match. Try again in a moment.");
+      expectByYourMatches(page, tab);
+    });
+
+    it('says confirming failed in Swiss by Your match, before the standings', async () => {
+      const { fixture, page, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+
+      button(region(tab, 'Your match')!, 'Confirm your match against Carol')!.click();
+      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm');
+
+      expectByYourMatches(page, tab);
+    });
+
+    it('moves a failure to the foot of the tab once Your match is no longer shown', async () => {
+      const { fixture, page, tab } = await openPlaying(
+        swissPlaying({ rounds: swissRoundsWith(carolBeatAlice) }),
+      );
+      button(region(tab, 'Your match')!, 'Confirm your match against Carol')!.click();
+      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm');
+
+      await pushTournament(fixture, completedSwiss, 1, { asPlayer: true });
+      await vi.waitFor(() => expect(region(tab, 'Your match')).toBeNull());
+
+      expect(text(onlyAlert(panel(page)))).toBe(
+        "Couldn't confirm the match. Try again in a moment.",
+      );
+      expectAtFoot(page, namedList(tab, 'Players'));
     });
 
     it('is absent for a viewer who didn’t join', async () => {
@@ -807,6 +852,8 @@ describe('Play tab while the tournament is played', () => {
         await answer(await question(asked), action);
 
         expect(await failChange(fixture, page, url)).toBe(failure);
+        // It stays at the foot of the tab, after the control that made it.
+        expectAtFoot(page, button(tab, label)!);
       },
     );
   });
@@ -839,5 +886,16 @@ describe('Play tab once the tournament is complete', () => {
 
     expect(yourMatches(tab)).toContain('vs Bob · Lost 1–2 · Confirmed');
     expect(text(gridCell(tab, 'Bob', 'Alice'))).toBe('2–1');
+  });
+
+  it('says confirming from the list of matches failed by that list, before the players', async () => {
+    const { fixture, page, tab } = await openPlaying(completedSwiss);
+
+    button(namedList(tab, 'Tournament round 2'), 'Confirm your match against Carol')!.click();
+
+    expect(
+      await failChange(fixture, page, '/api/drafts/draft-1/tournament/matches/m2/confirm'),
+    ).toBe("Couldn't confirm the match. Try again in a moment.");
+    expectByResults(page, tab);
   });
 });

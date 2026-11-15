@@ -1,5 +1,7 @@
+import { ApplicationRef } from '@angular/core';
+import { TestBed } from '@angular/core/testing';
 import type { DraftListItemView, DraftView } from 'contract';
-import { alice, draft, drafting, type DraftFixture, http, openUrl } from './harness';
+import { alice, draft, drafting, type DraftFixture, http, openUrl, router } from './harness';
 
 /**
  * Opens the draft list with GET /api/drafts answered by `drafts`, each
@@ -12,6 +14,31 @@ export async function openList(drafts: (DraftView & Partial<DraftListItemView>)[
     .flush(drafts.map((each): DraftListItemView => ({ tournamentBadge: null, ...each })));
   await fixture.whenStable();
   return page;
+}
+
+/** Waits for the app to settle: the requests answered, the effects run and the page rendered. */
+export const settle = () => TestBed.inject(ApplicationRef).whenStable();
+
+/**
+ * Answers with `drafts` the read again of the viewer's drafts, such as the
+ * draft list makes each time it opens after another page, once it is made,
+ * and settles.
+ */
+export async function answerListReadAgain(drafts: DraftListItemView[] = []) {
+  (await vi.waitFor(() => http.expectOne('/api/drafts'))).flush(drafts);
+  await settle();
+}
+
+/** Waits for the app to land on the draft list from another page, answers its read again, and settles. */
+export async function landOnDraftList() {
+  await vi.waitFor(() => expect(router.url).toBe('/'));
+  await answerListReadAgain();
+}
+
+/** Goes to the draft list from another page, answers its read again, and settles. */
+export async function goToDraftList() {
+  await router.navigateByUrl('/');
+  await answerListReadAgain();
 }
 
 /** The draft list's item for the draft named `name`, by its accessible name. */
