@@ -29,6 +29,7 @@ import {
   type MatchResultChoices,
 } from './match-result-dialog';
 import { PlayerAvatar } from './player-avatar';
+import { roundName } from './round-names';
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
 export interface OwnGameScore {
@@ -80,7 +81,7 @@ export interface OwnMatch {
 interface OwnMatchLine {
   match: MatchView;
   opponent: PlayerView;
-  /** What "Your match" says before the opponent's avatar, such as "Tournament round 2: against"; empty in Your matches. */
+  /** What "Your match" says before the opponent's avatar, such as "Tournament round 2: against" or "Final: against"; empty in Your matches. */
   before: string;
   /** How it stands after the avatar, such as "vs Carol", "Carol reported you lost 1–2" or "Forfeit: Carol dropped". */
   says: string;
@@ -92,7 +93,9 @@ interface OwnMatchLine {
 
 /**
  * The signed-in player's own matches, at the top of the Play tab, given as
- * a list, with Confirm on a game score someone else reported and a link
+ * a list, with Confirm on a game score someone else reported, while the
+ * api lists them as able to confirm it (not once its results are final:
+ * its tournament round completed, or the tournament complete), and a link
  * to their deck.
  *
  * In Swiss and single elimination, "Your match": the one match the Play
@@ -103,9 +106,9 @@ interface OwnMatchLine {
  * then the rest, each in join order. A match the api says they may report
  * offers Report, which opens the match result dialog on its four game
  * scores, asking before it reports one; it closes itself once the match is
- * no longer reportable. A game score someone else reported offers Confirm, dropped
- * or not. Round robin has no tournament rounds, so any match can be
- * reported in any order.
+ * no longer reportable. Confirm is offered whether they have dropped or
+ * not. Round robin has no tournament rounds, so any match can be reported
+ * in any order.
  */
 @Component({
   selector: 'app-your-matches',
@@ -200,9 +203,11 @@ export class YourMatches {
       const before = '';
       return { before, says: this.says(match, own, opponent, confirmable) };
     }
+    const { format, roundCount } = this.tournament();
+    const named = roundName(format, round, roundCount);
     return confirmable
-      ? { before: `Tournament round ${round}:`, says: reportedLine(match, own, opponent) }
-      : { before: `Tournament round ${round}: against`, says: opponent.name };
+      ? { before: `${named}:`, says: reportedLine(match, own, opponent) }
+      : { before: `${named}: against`, says: opponent.name };
   }
 
   /** How the player's `match` against `opponent` reads on its line in Your matches. */

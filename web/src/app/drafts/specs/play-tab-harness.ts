@@ -1,7 +1,4 @@
 import type {
-  BracketPlaceView,
-  BracketRoundView,
-  BracketSideView,
   DecklistView,
   DraftPowersView,
   MatchView,
@@ -50,14 +47,7 @@ import {
   type DraftFixture,
 } from './harness';
 import { pressed, toggleButton } from './toggle-harness';
-import {
-  comesBefore,
-  onlyAlert,
-  openDialog,
-  serverError,
-  tableColumns,
-  tableRows,
-} from '../../specs-harness';
+import { openDialog, serverError, tableColumns, tableRows } from '../../specs-harness';
 
 /** A complete draft of Alice and Bob, organized by Alice. */
 export const complete = drafting({ state: 'Complete', turn: null });
@@ -182,6 +172,9 @@ export const grantedDraw = (match: MatchView): MatchView => ({
   clearLeaves: { kind: 'Unreported' },
 });
 
+/** `match` as the api reads it once nobody may confirm it, as once its results are final. */
+export const unconfirmable = (match: MatchView): MatchView => ({ ...match, confirmableBy: [] });
+
 /** `match`, reported, as the api reads it once it is confirmed: nobody may confirm it again. */
 export const confirmedMatch = (match: MatchView): MatchView => ({
   ...match,
@@ -280,7 +273,9 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
       {
         round: 1,
         correctable: false,
-        matches: [reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)],
+        matches: [
+          unconfirmable(reported(unreportedMatch('m1', carol.id, bob.id), [2, 0], carol.id)),
+        ],
         byes: [alice.id],
       },
       {
@@ -310,9 +305,10 @@ export function swissPlaying(fields: Partial<ViewerTournamentView> = {}): Viewer
 
 /**
  * The tournament `view` once it is complete: none of its rounds
- * correctable any more, nobody able to report its matches, its decklists
- * shown, and Reinstate of each dropped player refused, as no change is made
- * outside play, as the api reads it.
+ * correctable any more, nobody able to report or confirm its matches, as
+ * its results are final, its decklists shown, and Reinstate of each
+ * dropped player refused, as no change is made outside play, as the api
+ * reads it.
  */
 export function completed(view: ViewerTournamentView): ViewerTournamentView {
   return {
@@ -327,7 +323,7 @@ export function completed(view: ViewerTournamentView): ViewerTournamentView {
     rounds: view.rounds.map((round) => ({
       ...round,
       correctable: false,
-      matches: round.matches.map((match) => ({ ...match, reportableBy: [] })),
+      matches: round.matches.map((match) => ({ ...unconfirmable(match), reportableBy: [] })),
     })),
   };
 }
@@ -344,142 +340,16 @@ export function swissRoundsWith(m2: MatchView, m1?: MatchView): TournamentRoundV
   return [m1 ? { ...first, matches: [m1] } : first, { ...second, matches: [m2] }];
 }
 
-/** A side of a bracket place that is the player `playerId`. */
-export const side = (playerId: string): BracketSideView => ({ kind: 'Player', playerId });
+/** Bob reporting that he beat Alice 2–1 in match m2. */
+export const bobBeatAlice = reported(unreportedMatch('m2', alice.id, bob.id), [1, 2], bob.id);
 
-/** A side of a bracket place that is the winner to come of bracket place `bracketPlace` of the round before. */
-export const winnerToCome = (bracketPlace: number): BracketSideView => ({
-  kind: 'WinnerToCome',
-  bracketPlace,
-});
+/** Carol reporting that she beat Alice 2–1 in Swiss match m2. */
+export const carolBeatAlice = reported(unreportedMatch('m2', alice.id, carol.id), [1, 2], carol.id);
 
-/** Bracket place `bracketPlace` with its match `matchId`, if paired, its `sides` and the player `advancing` from it, if agreed. */
-export const place = (
-  bracketPlace: number,
-  matchId: string | null,
-  sides: [BracketSideView, BracketSideView],
-  advancing: string | null = null,
-): BracketPlaceView => ({ bracketPlace, matchId, sides, advancing });
-
-/** Round 1 of the bracket of Alice, Bob and Carol: Alice's bye, and Bob v Carol (m1), won by `winner` if decided. */
-export const firstBracketRound = (winner: string | null = null): BracketRoundView => ({
-  round: 1,
-  places: [
-    place(0, null, [side(alice.id), { kind: 'Bye' }], alice.id),
-    place(1, 'm1', [side(bob.id), side(carol.id)], winner),
-  ],
-});
-
-/**
- * A single elimination tournament of Alice, Bob and Carol being played,
- * seeded in that order, over 2 tournament rounds: in round 1 Alice, the top
- * seed, has a bye at bracket place 0, and Bob plays Carol (m1) at bracket
- * place 1; the final waits for its winner. `fields` changes any of it.
- */
-export function singleEliminationPlaying(
-  fields: Partial<ViewerTournamentView> = {},
-): ViewerTournamentView {
-  return {
-    format: 'SingleElimination',
-    swissRoundOption: null,
-    publicDecklists: false,
-    showsDecklists: false,
-    state: 'Playing',
-    roundCount: 2,
-    lastCompletedRound: 0,
-    completedAt: null,
-    entries: [alice.id, bob.id, carol.id].map((playerId, i) => entry(playerId, { seed: i + 1 })),
-    rounds: [
-      {
-        round: 1,
-        correctable: true,
-        matches: [{ ...unreportedMatch('m1', bob.id, carol.id), bracketPlace: 1 }],
-        byes: [alice.id],
-      },
-    ],
-    bracket: [
-      firstBracketRound(),
-      { round: 2, places: [place(0, null, [side(alice.id), winnerToCome(1)])] },
-    ],
-    standings: [standing(alice.id, 1), standing(bob.id, 1), standing(carol.id, 1)],
-    trophyHolders: [],
-    completeRoundGrants: 'GrantedWins',
-    standingsAwaitCompletedRounds: true,
-    reopenRound: null,
-    canJoin: false,
-    joinRefusal: null,
-    canToggleReady: false,
-    readyCount: { ready: 0, of: 3 },
-    ...fields,
-  };
-}
-
-/**
- * Round 1 of the single elimination tournament of Alice, Bob and Carol,
- * Carol having beaten Bob 2–1 (m1) as she reported it, `confirmed` by Bob
- * or not, open unless `completed`.
- */
-export const carolBeatBob = ({
-  confirmed = false,
-  completed = false,
-}: { confirmed?: boolean; completed?: boolean } = {}): TournamentRoundView => {
-  const m1 = reported(unreportedMatch('m1', bob.id, carol.id), [1, 2], carol.id);
-  return {
-    round: 1,
-    correctable: !completed,
-    matches: [
-      {
-        ...(confirmed ? confirmedMatch(m1) : m1),
-        bracketPlace: 1,
-      },
-    ],
-    byes: [alice.id],
-  };
-};
-
-/**
- * The single elimination tournament of Alice, Bob and Carol with round 1
- * completed, Carol having beaten Bob 2–1, and the final of Alice and Carol
- * (m2) unreported.
- */
-export const singleEliminationFinal = singleEliminationPlaying({
-  lastCompletedRound: 1,
-  rounds: [
-    carolBeatBob({ completed: true }),
-    {
-      round: 2,
-      correctable: true,
-      matches: [{ ...unreportedMatch('m2', alice.id, carol.id), bracketPlace: 0 }],
-      byes: [],
-    },
-  ],
-  bracket: [
-    firstBracketRound(carol.id),
-    { round: 2, places: [place(0, 'm2', [side(alice.id), side(carol.id)])] },
-  ],
-});
-
-/**
- * The single elimination tournament of Alice, Bob and Carol in round 1, Bob
- * having reported beating Carol 2–1 (m1), unconfirmed, and Carol, an
- * organizer in the drafts that use it, having dropped since: she can still
- * correct or confirm the match.
- */
-export const singleEliminationCarolDropped = singleEliminationPlaying({
-  entries: [alice.id, bob.id, carol.id].map((playerId, i) =>
-    entry(playerId, { seed: i + 1, dropped: playerId === carol.id }),
-  ),
-  rounds: [
-    {
-      round: 1,
-      correctable: true,
-      matches: [
-        { ...reported(unreportedMatch('m1', bob.id, carol.id), [2, 1], bob.id), bracketPlace: 1 },
-      ],
-      byes: [alice.id],
-    },
-  ],
-});
+/** `swissPlaying` with Carol's report on m2, once the tournament is complete. */
+export const completedSwiss = completed(
+  swissPlaying({ lastCompletedRound: 2, rounds: swissRoundsWith(carolBeatAlice) }),
+);
 
 /**
  * `match` forfeited by the player `forfeitedBy`, who dropped, as the api
@@ -588,7 +458,7 @@ export async function openComplete(
  * The decklists of `tournament`'s joined players, in join order, each with
  * empty boards: what a spec that doesn't look at them answers their read with.
  */
-export const emptyDecklists = (tournament: ViewerTournamentView): DecklistView[] =>
+const emptyDecklists = (tournament: ViewerTournamentView): DecklistView[] =>
   tournament.entries.map(({ playerId }) => ({
     playerId,
     mainboard: [],
@@ -761,7 +631,7 @@ export const yourMatches = (root: HTMLElement) =>
   itemTexts(region(root, 'Your matches')!.querySelector('ul')!);
 
 /** The lists of matches or bracket places inside `root`, one per tournament round named by its label, in round order. */
-const roundLists = (root: HTMLElement) =>
+export const roundLists = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('ol, ul, [role="list"]')].filter((list) =>
     /^(Tournament round \d+|Final|Semifinal|Quarterfinal)$/.test(accessibleName(list)),
   );
@@ -956,45 +826,4 @@ export async function failChange(fixture: AppFixture, page: HTMLElement, url: st
     if (!alert) throw new Error('The Play tab alerts nothing');
     return text(alert);
   });
-}
-
-/**
- * Expects the open tab of `page` to show its one alert directly after
- * Your matches (or "Your match") in `tab`, before the results grid or the
- * standings.
- */
-export function expectByYourMatches(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(panel(page));
-  const own = region(tab, 'Your matches') ?? region(tab, 'Your match');
-  const results = region(tab, 'Results grid') ?? region(tab, 'Standings');
-  expect(comesBefore(own!, alert)).toBe(true);
-  expect(comesBefore(alert, results!)).toBe(true);
-}
-
-/**
- * Expects the open tab of `page` to show its one alert directly after the
- * results in `tab` (the results grid, or the standings with the bracket or
- * the lists of matches), before the Players list.
- */
-export function expectByResults(page: HTMLElement, tab: HTMLElement) {
-  const alert = onlyAlert(panel(page));
-  const results = [
-    region(tab, 'Results grid'),
-    region(tab, 'Standings'),
-    bracket(tab),
-    ...roundLists(tab),
-  ].filter((part) => !!part);
-  expect(results).not.toHaveLength(0);
-  for (const part of results) expect(comesBefore(part, alert)).toBe(true);
-  expect(comesBefore(alert, namedList(tab, 'Players'))).toBe(true);
-}
-
-/**
- * Expects the open tab of `page` to show its one alert at the foot of the
- * tab, after `after`: the control that failed, or, once the section that
- * made it is gone, the Players list, which follows every other place a
- * failure shows. It asserts nothing of what comes after the alert.
- */
-export function expectAtFoot(page: HTMLElement, after: Element) {
-  expect(comesBefore(after, onlyAlert(panel(page)))).toBe(true);
 }

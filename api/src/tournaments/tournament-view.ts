@@ -25,9 +25,9 @@ import {
   type RoundAndBracketPlace,
   type TournamentMatch,
 } from 'engine';
-import { Prisma, type TournamentState } from '../generated/prisma/client.js';
+import { Prisma } from '../generated/prisma/client.js';
 import { reinstateRefusalOf } from './change-steps.js';
-import { correctionRefusal } from './correction-refusal.js';
+import { type RoundStateRow, correctionRefusal } from './final-results.js';
 import {
   clearing,
   confirmRefusal,
@@ -133,7 +133,7 @@ export function toTournamentView(row: TournamentRow): TournamentView {
   const entryById = new Map(row.entries.map((entry) => [entry.id, entry]));
   const entryOf = (entryId: string) => entryById.get(entryId)!;
   const user = (entryId: string) => entryOf(entryId).player.userId;
-  const toMatch = (match: MatchRow) => toMatchView(match, entryOf, row.state);
+  const toMatch = (match: MatchRow) => toMatchView(match, entryOf, row);
 
   const rounds: TournamentRoundView[] = [];
   const sorted = [...row.matches].sort(
@@ -404,14 +404,14 @@ export function roundCount(
 
 /**
  * `match` as the read shows it, `entryOf` giving the tournament entry of
- * an entry id, in a tournament in `state`: with who may report and confirm
+ * an entry id, in the tournament `row`: with who may report and confirm
  * it, as reporting and confirming decide, and what clearing it would
  * leave, as clearing does.
  */
 function toMatchView(
   match: MatchRow,
   entryOf: (entryId: string) => TournamentRow['entries'][number],
-  state: TournamentState,
+  row: RoundStateRow,
 ): MatchView {
   const matchPlayers = [match.firstEntryId, match.secondEntryId!]
     .map(entryOf)
@@ -435,11 +435,13 @@ function toMatchView(
     reportedBy: match.reportedById,
     confirmed: match.confirmed,
     reportableBy: players.filter(
-      (player) => reportRefusal(state, ofRules, player) === null,
+      (player) => reportRefusal(row.state, ofRules, player) === null,
     ),
     confirmableBy: match.confirmed
       ? []
-      : players.filter((player) => confirmRefusal(ofRules, player) === null),
+      : players.filter(
+          (player) => confirmRefusal(row, ofRules, player) === null,
+        ),
     clearLeaves: sameOutcome(cleared, outcome) ? null : cleared,
   };
 }

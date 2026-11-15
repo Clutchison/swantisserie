@@ -18,10 +18,10 @@ import {
   openPlaying,
   playing,
   registration,
-  singleEliminationPlaying,
   swissPlaying,
   withDrops,
 } from './play-tab-harness';
+import { singleEliminationPlaying } from './play-tab-single-elimination-harness';
 
 useDraftsApp();
 
