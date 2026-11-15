@@ -29,7 +29,7 @@ import {
 } from './harness';
 import { clickBackdrop, clickOn, pressEscape, pressKey, pressPointerOn } from '../../specs-harness';
 import { EMPTY_QUEUE } from '../drafts';
-import { disclosure } from './disclosure-harness';
+import { plainlyHeaded } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import {
   findSeatStrip,
@@ -38,6 +38,7 @@ import {
   playersSheet,
   seatListName,
   seatPulse,
+  stripNameHint,
   stripSeatNames,
   stripSeats,
 } from './seat-strip-harness';
@@ -53,8 +54,8 @@ const bot = {
   isBot: true,
 };
 
-/** The Players panel's disclosure inside `root`, summarised by its player count. */
-const playersDisclosure = (root: HTMLElement) => disclosure(root, /^Players · \d+$/);
+/** The Players panel's heading, which names its player count. */
+const PLAYERS = /^Players · \d+$/;
 
 /** The draft's name, heading the page: somewhere to press that takes no focus. */
 const draftName = (page: HTMLElement) => heading(page, 'Red dragons')!;
@@ -78,7 +79,7 @@ describe('the Seat strip', () => {
         const { page } = await openDraft(completeSnapshot, fields);
 
         expect(stripSeatNames(page)).toEqual(names);
-        expect(playersDisclosure(page)).toBeNull();
+        expect(heading(page, PLAYERS)).toBeUndefined();
       },
     );
 
@@ -115,6 +116,23 @@ describe('the Seat strip', () => {
       expect(stripSeats(page).map((seat) => seat.tabIndex)).toEqual([0, 0]);
     });
 
+    it('hides the focused seat’s name on Escape, focus staying there, and shows the next seat’s', async () => {
+      const { page } = await openDraft(completeSnapshot, drafting());
+      const [first, second] = stripSeats(page);
+      first!.focus();
+      TestBed.tick();
+      expect(stripNameHint(page)).toBe('Alice');
+
+      pressEscape();
+      TestBed.tick();
+
+      expect(stripNameHint(page)).toBeNull();
+      expect(document.activeElement).toBe(first);
+      second!.focus();
+      TestBed.tick();
+      expect(stripNameHint(page)).toBe('Bob');
+    });
+
     it('shows a spectator the Seat strip and no Queue pane', async () => {
       const { page } = await openDraft(completeSnapshot, drafting({ players: [bob] }));
 
@@ -139,7 +157,7 @@ describe('the Seat strip', () => {
         const { page } = await openDraft(completeSnapshot, fields);
 
         expect(findSeatStrip(page)).toBeNull();
-        expect(playersDisclosure(findPlayersBesideTabs(page)!)!.open).toBe(true);
+        expect(plainlyHeaded(findPlayersBesideTabs(page)!, PLAYERS)).toBe(true);
         expect(findQueuePane(page)).toBeNull();
       },
     );
@@ -150,7 +168,7 @@ describe('the Seat strip', () => {
       await startDraft(fixture);
 
       expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
-      expect(playersDisclosure(page)).toBeNull();
+      expect(heading(page, PLAYERS)).toBeUndefined();
     });
 
     it('leaves the organizer’s draft controls in the header working beside it', async () => {
@@ -175,7 +193,7 @@ describe('the Seat strip', () => {
 
         const popover = playersPopover(page)!;
         expect(playersButton(page).getAttribute('aria-expanded')).toBe('true');
-        expect(playersDisclosure(popover)!.open).toBe(true);
+        expect(plainlyHeaded(popover, PLAYERS)).toBe(true);
         expect(playersPanel(page).textContent).toContain('Bot 1');
         expect(popover.contains(document.activeElement)).toBe(true);
       });
@@ -245,7 +263,7 @@ describe('the Seat strip', () => {
       it('shows an organizer the Players panel, and leaves their draft controls in the header working with it open', async () => {
         const { page } = await openDraft(completeSnapshot, drafting(), { powers: ORGANIZE_ONLY });
         clickOn(playersButton(page));
-        expect(playersDisclosure(playersPopover(page)!)!.open).toBe(true);
+        expect(plainlyHeaded(playersPopover(page)!, PLAYERS)).toBe(true);
 
         const freeze = button(page, 'Freeze draft')!;
         pressPointerOn(freeze);
@@ -603,7 +621,7 @@ describe('the Seat strip', () => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
-      expect(playersDisclosure(page)).toBeNull();
+      expect(heading(page, PLAYERS)).toBeUndefined();
     });
 
     it.each([
@@ -626,7 +644,7 @@ describe('the Seat strip', () => {
       const { page } = await openDraft(completeSnapshot, fields);
 
       expect(findSeatStrip(page)).toBeNull();
-      expect(playersDisclosure(page)).not.toBeNull();
+      expect(heading(page, PLAYERS)).toBeDefined();
       expect(findPlayersBesideTabs(page)).toBeNull();
     });
 
@@ -636,7 +654,7 @@ describe('the Seat strip', () => {
       await startDraft(fixture);
 
       expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
-      expect(playersDisclosure(page)).toBeNull();
+      expect(heading(page, PLAYERS)).toBeUndefined();
     });
 
     describe('its Players button', () => {
@@ -650,7 +668,7 @@ describe('the Seat strip', () => {
 
         const sheet = playersSheet()!;
         expect(playersButton(page).getAttribute('aria-expanded')).toBe('true');
-        expect(playersDisclosure(sheet)!.open).toBe(true);
+        expect(plainlyHeaded(sheet, PLAYERS)).toBe(true);
         expect(sheet.textContent).toContain('Bot 1');
         expect(document.activeElement).toBe(button(sheet, 'Close'));
         expect(playersPopover(page)).toBeNull();
@@ -674,7 +692,7 @@ describe('the Seat strip', () => {
       it('shows an organizer the Players panel, and leaves their draft controls in the header working once it closes', async () => {
         const { page } = await openDraft(completeSnapshot, drafting(), { powers: ORGANIZE_ONLY });
         clickOn(playersButton(page));
-        expect(playersDisclosure(playersSheet()!)!.open).toBe(true);
+        expect(plainlyHeaded(playersSheet()!, PLAYERS)).toBe(true);
 
         clickOn(button(playersSheet()!, 'Close')!);
         clickOn(button(page, 'Freeze draft')!);
@@ -714,7 +732,7 @@ describe('the Seat strip', () => {
         resizeTo('desktop');
 
         expect(stripSeatNames(page)).toEqual(['Alice, you', 'Bob, picking']);
-        expect(playersDisclosure(page)).toBeNull();
+        expect(heading(page, PLAYERS)).toBeUndefined();
       });
 
       it('carries the Players sheet over to the popover, with focus in it', async () => {
@@ -729,7 +747,7 @@ describe('the Seat strip', () => {
 
         const popover = playersPopover(page)!;
         expect(playersSheet()).toBeNull();
-        expect(playersDisclosure(popover)!.open).toBe(true);
+        expect(plainlyHeaded(popover, PLAYERS)).toBe(true);
         expect(popover.textContent).toContain('Bot 1');
         expect(playersButton(page).getAttribute('aria-expanded')).toBe('true');
         expect(popover.contains(document.activeElement)).toBe(true);
@@ -744,7 +762,7 @@ describe('the Seat strip', () => {
         await fixture.whenStable();
 
         expect(playersPopover(page)).toBeNull();
-        expect(playersDisclosure(playersSheet()!)!.open).toBe(true);
+        expect(plainlyHeaded(playersSheet()!, PLAYERS)).toBe(true);
       });
 
       it('leaves the panel closed as the window widens with the sheet closed', async () => {

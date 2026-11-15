@@ -25,9 +25,17 @@ summary {
   /* The panel's heading, in line with the summary's marker. */
   h2 {
     display: inline;
-    margin: 0;
-    font-size: var(--font-size-lg);
   }
+}
+
+/* The panel's heading: its summary's, or a plain heading where it always stays open. */
+h2 {
+  margin: 0;
+  font-size: var(--font-size-lg);
+}
+
+:host > h2 {
+  padding: var(--space-sm) 0;
 }
 
 .name {
@@ -41,13 +49,13 @@ summary {
   text-align: right;
 }
 
-/* In line with the name on a narrow screen, with Remove before the arrows. */
+/* In line with the name on a narrow screen. Remove comes before the arrows in the markup, so it shows first at every width. */
 .seat-controls {
   display: contents;
 }
 
+/* The arrows sit at the row's end. */
 .move {
-  order: 1;
   margin-left: auto;
 }
 
@@ -94,15 +102,6 @@ summary {
     display: flex;
     grid-column: 3 / -1;
   }
-
-  .move {
-    order: 0;
-    margin-left: 0;
-  }
-
-  .remove {
-    margin-left: auto;
-  }
 }
 
 /* Where the seats run across: on a desktop, unless the panel always stays open, as it does beside the tabs, in the Seat strip's popover or in the Players sheet. */
@@ -118,20 +117,9 @@ summary {
   }
 }
 
-/* Beside the tabs, in the Seat strip's popover or in the Players sheet, the seats stack again, and the panel stays open. */
-:host(.always-open) {
-  ol {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  summary {
-    list-style: none;
-    cursor: default;
-
-    &::-webkit-details-marker {
-      display: none;
-    }
-  }
+/* Beside the tabs, in the Seat strip's popover or in the Players sheet, the seats stack again. */
+:host(.always-open) ol {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .pick-import-warning {

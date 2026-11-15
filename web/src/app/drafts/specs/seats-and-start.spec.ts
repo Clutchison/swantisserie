@@ -37,7 +37,7 @@ import {
   viewOn,
   accessibleDescription,
 } from './harness';
-import { disclosure } from './disclosure-harness';
+import { disclosure, plainlyHeaded } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
 import { clickOn, emptyStatusIn, watchChanges } from '../../specs-harness';
@@ -144,7 +144,7 @@ describe('seats and start', () => {
         drafting({ players: [bob, alicePlayer], state: 'Closed', turn: null }),
       );
 
-      expect(disclosure(findPlayersBesideTabs(page)!, 'Players · 2')!.open).toBe(true);
+      expect(plainlyHeaded(findPlayersBesideTabs(page)!, 'Players · 2')).toBe(true);
       expect(panelSeatNames(page)).toEqual(['Bob', 'Alice']);
     });
   });

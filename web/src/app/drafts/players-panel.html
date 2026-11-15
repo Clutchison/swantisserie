@@ -1,8 +1,16 @@
-<details [open]="open()">
-  <!-- Where it always stays open, its summary is only a heading. -->
-  <summary (click)="keepOpen($event)">
-    <h2>Players · {{ playerCount() }}</h2>
-  </summary>
+<!-- Where it always stays open, a plain heading; where it can collapse, above the tabs, a disclosure. -->
+@if (alwaysOpen()) {
+  <h2>Players · {{ playerCount() }}</h2>
+  <ng-container *ngTemplateOutlet="content" />
+} @else {
+  <details [open]="inLobby()">
+    <summary>
+      <h2>Players · {{ playerCount() }}</h2>
+    </summary>
+    <ng-container *ngTemplateOutlet="content" />
+  </details>
+}
+<ng-template #content>
   <!-- The seating tools: randomizing seats, bots and pick import. -->
   @if (inLobby() && (canOrganize() || canAddBots())) {
     <div class="controls">
@@ -94,6 +102,17 @@
         }
         @if (inLobby() && (canOrganize() || (canAddBots() && player.isBot))) {
           <div class="seat-controls">
+            @if (canAddBots() && player.isBot) {
+              <button
+                class="icon remove"
+                type="button"
+                [attr.aria-label]="'Remove ' + player.name"
+                (click)="removeBot(player.id)"
+                [appSendsChange]="'remove ' + player.id"
+              >
+                Remove
+              </button>
+            }
             @if (canOrganize()) {
               <span class="move">
                 @let earlierName = 'Move ' + player.name + ' earlier';
@@ -124,17 +143,6 @@
                 </button>
               </span>
             }
-            @if (canAddBots() && player.isBot) {
-              <button
-                class="icon remove"
-                type="button"
-                [attr.aria-label]="'Remove ' + player.name"
-                (click)="removeBot(player.id)"
-                [appSendsChange]="'remove ' + player.id"
-              >
-                Remove
-              </button>
-            }
           </div>
         }
       </li>
@@ -142,8 +150,8 @@
       <li class="empty">Nobody has joined yet.</li>
     }
   </ol>
-</details>
-<!-- Outside the panel's disclosure, so they are announced even while it is closed. -->
+</ng-template>
+<!-- Outside the panel's disclosure, where it has one, so they are announced even while it is closed. -->
 <app-change-status />
 @if (error(); as message) {
   <p class="error" role="alert">{{ message }}</p>

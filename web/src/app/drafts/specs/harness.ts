@@ -298,11 +298,12 @@ export async function expectLoadingAnimation(
 }
 
 /**
- * The Players panel: the section that opens on click, summarised "Players · N",
- * with the status and alerts it shows beside that section.
+ * The Players panel, headed "Players · N": the section that opens on click,
+ * summarised so, or where it always stays open the content under its plain
+ * heading; with the status and alerts it shows beside them.
  */
 export const playersPanel = (page: HTMLElement) =>
-  disclosure(page, /^Players · \d+$/)!.parentElement!;
+  (disclosure(page, /^Players · \d+$/) ?? heading(page, /^Players · \d+$/))!.parentElement!;
 
 /** The seats in the Players panel inside `root`, in seat order: the items of its list "Seat order". */
 export const panelSeats = (root: HTMLElement) => [
@@ -523,10 +524,13 @@ export const accessibleDescription = (element: Element) =>
 export const link = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll<HTMLAnchorElement>('a[href]')].find((a) => accessibleName(a) === name);
 
-/** A heading inside `root`, by its accessible name. */
-export const heading = (root: HTMLElement, name: string) =>
+/** A heading inside `root`, by its accessible name, or a pattern it matches. */
+export const heading = (root: HTMLElement, name: string | RegExp) =>
   [...root.querySelectorAll<HTMLElement>('h1, h2, h3, h4, h5, h6, [role="heading"]')].find(
-    (element) => accessibleName(element) === name,
+    (element) => {
+      const named = accessibleName(element);
+      return typeof name === 'string' ? named === name : name.test(named);
+    },
   );
 
 /** The images inside `root` that a screen reader names, in page order. */

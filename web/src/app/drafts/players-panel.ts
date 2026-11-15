@@ -19,6 +19,7 @@ import type {
   PickImportRequest,
   SeatOrderRequest,
 } from 'contract';
+import { NgTemplateOutlet } from '@angular/common';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { LucideArrowDown, LucideArrowLeft, LucideArrowRight, LucideArrowUp } from '@lucide/angular';
 import {
@@ -45,6 +46,7 @@ import { PlayerAvatar } from './player-avatar';
     LucideArrowLeft,
     LucideArrowRight,
     LucideArrowUp,
+    NgTemplateOutlet,
     PlayerAvatar,
     SendsChange,
   ],
@@ -76,24 +78,15 @@ export class PlayersPanel {
   /** Only the organizer imports picks, and only in Lobby. */
   protected readonly canImportPicks = computed(() => this.inLobby() && this.canOrganize());
   /**
-   * Whether the panel always stays open, its seats stacked: where it has a
-   * place of its own, beside the tabs or in the Seat strip's popover or the
-   * Players sheet; the draft page says.
+   * Whether the panel always stays open, its seats stacked, under a plain
+   * heading with no disclosure: where it has a place of its own, beside the
+   * tabs or in the Seat strip's popover or the Players sheet; the draft page
+   * says. Elsewhere, above the tabs, it is a disclosure, open in the lobby
+   * and collapsed once the draft is closed or complete, out of their way;
+   * while drafting or frozen the Seat strip takes its place.
    */
   readonly alwaysOpen = input(false);
-  /**
-   * The panel is open in the lobby, wherever it is, and always open where
-   * `alwaysOpen` says. Above the tabs it collapses once the draft is closed
-   * or complete, out of their way; while drafting or frozen the Seat strip
-   * takes its place.
-   */
-  protected readonly open = computed(() => this.alwaysOpen() || this.inLobby());
   protected readonly playerCount = computed(() => this.draft().players.length);
-
-  /** Where it always stays open, a click on its summary doesn't close it. */
-  protected keepOpen(click: Event) {
-    if (this.alwaysOpen()) click.preventDefault();
-  }
   /** The start needs the pool's size, so waits for the snapshot. */
   protected readonly poolReady = computed(() => this.draft().snapshot.state === 'Complete');
   protected readonly error = signal<string | null>(null);
