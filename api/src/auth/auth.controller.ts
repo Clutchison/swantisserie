@@ -13,6 +13,7 @@ import type { SignInError, UserView } from 'contract';
 import type { CookieOptions, Request, Response } from 'express';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { DiscordConfig } from '../discord/discord-config.js';
+import { isInAppPath } from '../in-app-path.js';
 import { AuthService, NotAllowedError } from './auth.service.js';
 import { avatarUrl } from './avatar-url.js';
 import { NewSession, SessionService } from './session.service.js';
@@ -30,10 +31,6 @@ const RETURN_TO_COOKIE = 'oauth_return_to';
 const SCOPES = 'identify guilds.members.read';
 /** Discord names itself in ?iss= on the callback (RFC 9207). */
 const DISCORD_ISSUER = 'https://discord.com';
-
-/** A single leading `/`, then no backslash, space or control character. */
-// oxlint-disable-next-line no-control-regex -- control characters are what it rejects
-const IN_APP_PATH = /^\/(?![/\\])[^\\\x00-\x20\x7f]*$/;
 
 @Controller('auth')
 export class AuthController {
@@ -150,9 +147,8 @@ function signInErrorPath(error: SignInError, returnTo: string): string {
 
 /**
  * `path` if it is a path within this app, else `/`: the sign-in must not
- * send anyone off-site. Rejects `//host` and `/\host`, which browsers read as
- * another host, and control characters, which browsers strip before reading.
+ * send anyone off-site.
  */
 function inAppPath(path: unknown): string {
-  return typeof path === 'string' && IN_APP_PATH.test(path) ? path : '/';
+  return isInAppPath(path) ? path : '/';
 }
