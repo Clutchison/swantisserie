@@ -1,8 +1,10 @@
 import { DialogRef } from '@angular/cdk/dialog';
+import { NgTemplateOutlet } from '@angular/common';
 import { ChangeDetectionStrategy, Component, computed, inject, input, signal } from '@angular/core';
 import type { CompleteRoundRequest } from 'contract';
 import { MIN_PLAYERS_LEFT, roundCompletion, type BracketResult } from 'engine';
 import { DraftStore } from './draft-store';
+import { ToggleButton } from '../toggle-button';
 
 /** The Complete round dialog's heading's id, which names the dialog. */
 export const COMPLETE_ROUND_HEADING = 'complete-round-heading';
@@ -30,6 +32,7 @@ const SINGLE_ELIMINATION = 'SingleElimination';
 @Component({
   selector: 'app-complete-round-dialog',
   changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [NgTemplateOutlet, ToggleButton],
   templateUrl: './complete-round-dialog.html',
   styleUrls: ['../dialog.scss', './complete-round-dialog.scss'],
 })
@@ -141,9 +144,8 @@ export class CompleteRoundDialog {
     return [...matches, ...byes];
   });
 
-  // Stryker disable next-line BlockStatement: the checkbox keeps the state the organizer clicked; the binding shows only if a re-read re-creates it.
+  /** Whether the player `playerId` of the match `matchId` is chosen to drop: their Drop shows pressed. */
   protected isDropping(matchId: string, playerId: string) {
-    // Stryker disable next-line LogicalOperator: the checkbox keeps the state the organizer clicked; the binding shows only if a re-read re-creates it.
     return this.dropping()[matchId]?.includes(playerId) ?? false;
   }
 

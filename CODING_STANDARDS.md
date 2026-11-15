@@ -23,8 +23,10 @@ Why: a browser-default control looks broken next to styled ones, and looks diffe
 <!-- BAD: a bare checkbox, only tinted by accent-color -->
 <label><input type="checkbox" formControlName="doublePicks" /> Double picks</label>
 <!-- GOOD: an on/off setting as a toggle button, like the Pool tab's Hide picked, with a fixed label -->
-<button type="button" [attr.aria-pressed]="doublePicks()" (click)="toggleDoublePicks()">Double picks</button>
+<button appToggleButton [pressed]="doublePicks()" (click)="toggleDoublePicks()">Double picks</button>
 ```
+
+An on/off setting labelled in words is always the `appToggleButton` component (`web/src/app/toggle-button.ts`): it sets the button's type, the `toggle-button labelled` style, `aria-pressed` and the check, so a template gives only its label, `[pressed]`, `(click)` and any `disabled`.
 
 Origin: the double-picks grilling (`docs/double-picks`), 2026-11-13.
 
