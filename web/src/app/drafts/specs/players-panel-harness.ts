@@ -2,6 +2,9 @@ import { button, comesBefore, onlyAlert } from '../../specs-harness';
 import { disclosure } from './disclosure-harness';
 import { findNamedList, namedList, panelSeats, pickImportPreview, playersPanel } from './harness';
 
+/** What a failed change to the players or seats says when the api gives no reason. */
+export const PLAYERS_FAILED = "Couldn't update the players.";
+
 /** The seating tools of the Players panel, by accessible name. */
 const SEATING_TOOLS = ['Randomize seats', 'Add bot', 'Import picks'];
 
@@ -39,11 +42,12 @@ export function expectInSeat(page: HTMLElement, name: string) {
 
 /**
  * Expects the Players panel inside `page` to show its one alert after the
- * panel's disclosure, outside it, so it is announced while the panel is closed.
+ * panel's disclosure, after the last of its content, so it is announced while
+ * the panel is closed.
  */
 export function expectAfterPanel(page: HTMLElement) {
   const alert = onlyAlert(playersPanel(page));
-  const panel = disclosure(page, /^Players · \d+$/)!;
-  expect(panel.contains(alert)).toBe(false);
-  expect(comesBefore(panel, alert)).toBe(true);
+  let last: Element = disclosure(page, /^Players · \d+$/)!;
+  while (last.lastElementChild) last = last.lastElementChild;
+  expect(comesBefore(last, alert)).toBe(true);
 }

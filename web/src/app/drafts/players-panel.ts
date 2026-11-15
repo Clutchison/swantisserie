@@ -28,11 +28,16 @@ import { DraftStore } from './draft-store';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { PlayerAvatar } from './player-avatar';
 
+/** A player's seat in the seat order, where a failure from that seat's buttons shows. */
+interface SeatPlace {
+  seat: string;
+}
+
 /**
  * Where a failed change shows while the panel is open: just after the
  * seating tools, or in a seat, by its player's id.
  */
-type ErrorPlace = 'tools' | `seat ${string}`;
+type ErrorPlace = 'tools' | SeatPlace;
 
 /**
  * The Players panel: the players in seat order, at every state, and the
@@ -105,20 +110,22 @@ export class PlayersPanel {
    * Where the failure shows while the panel is open: by its place, or just
    * after the seating tools once its seat is no longer listed.
    */
-  private readonly errorPlace = computed((): ErrorPlace => {
+  private readonly errorPlace = computed((): ErrorPlace | null => {
     const place = this.error()?.place;
-    const listed = this.draft().players.some((player) => place === `seat ${player.id}`);
-    return listed ? place! : 'tools';
+    if (!place || place === 'tools') return place ?? null;
+    return this.draft().players.some((player) => player.id === place.seat) ? place : 'tools';
   });
 
   /** The failure to show at `place` inside the panel, while it is open; null if none shows there. */
   protected errorAt(place: ErrorPlace) {
     const error = this.error();
-    return error && this.open() && this.errorPlace() === place ? error.message : null;
-  }
-  /** The failure to show in the seat of the player `playerId`, while the panel is open; null if none shows there. */
-  protected errorInSeat(playerId: string) {
-    return this.errorAt(`seat ${playerId}`);
+    const shown = this.errorPlace();
+    if (!error || !shown || !this.open()) return null;
+    const here =
+      typeof place === 'string'
+        ? shown === place
+        : typeof shown === 'object' && shown.seat === place.seat;
+    return here ? error.message : null;
   }
   /**
    * The failure to show after the panel, while it is closed: a change that
@@ -160,9 +167,10 @@ export class PlayersPanel {
     });
   }
 
-  /** Forgets the latest change's failure, as another change to the draft is being sent. */
+  /** Forgets the latest change's failure, and any problems with a file, as another change to the draft is being sent. */
   clearError() {
     this.error.set(null);
+    this.pickImportProblems.set([]);
   }
 
   protected randomizeSeats() {
@@ -189,7 +197,7 @@ export class PlayersPanel {
       this.http.delete<DraftView>(
         `/api/drafts/${this.draft().id}/bots/${encodeURIComponent(userId)}`,
       ),
-      `seat ${userId}`,
+      { seat: userId },
       { keep: neighbours.map((bot) => `remove ${bot.id}`) },
     );
   }
@@ -208,7 +216,7 @@ export class PlayersPanel {
       this.http.put<DraftView>(`/api/drafts/${this.draft().id}/seats`, {
         playerIds,
       } satisfies SeatOrderRequest),
-      `seat ${id}`,
+      { seat: id },
       {
         // A player moved to the last seat keeps focus on their Move earlier. One moved
         // to the first seat needs no key: the control after their Move earlier, which
@@ -317,7 +325,7 @@ export class PlayersPanel {
     return sendDraftChange(this.changes, () => () => this.store.changeDraft(request), {
       failure: PLAYERS_CHANGE_FAILED,
       started: () => {
-        this.error.set(null);
+        this.clearError();
         this.changeStarted.emit();
       },
       failed: (message) => this.error.set({ message, place }),

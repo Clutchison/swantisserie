@@ -144,7 +144,7 @@
             }
           </div>
         }
-        @if (errorInSeat(player.id); as message) {
+        @if (errorAt({ seat: player.id }); as message) {
           <p class="error" role="alert">{{ message }}</p>
         }
       </li>

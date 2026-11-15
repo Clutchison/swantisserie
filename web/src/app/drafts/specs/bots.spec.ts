@@ -22,15 +22,13 @@ import {
   updates,
   flushQueueAndPlan,
 } from './harness';
-import { expectBySeatingTools, expectInSeat } from './players-panel-harness';
+import { expectBySeatingTools, expectInSeat, PLAYERS_FAILED } from './players-panel-harness';
 import { disclosure } from './disclosure-harness';
 import { playersButton, playersSheet } from './seat-strip-harness';
 import { boardColumns } from './board-tab-harness';
 import { alertIn, clickOn, pressEscape, text } from '../../specs-harness';
 
 useDraftsApp();
-
-const PLAYERS_FAILED = "Couldn't update the players.";
 
 describe('bots', () => {
   const bot = {

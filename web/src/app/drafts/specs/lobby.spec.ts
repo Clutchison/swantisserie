@@ -30,11 +30,9 @@ import { moreButton, openMore } from './draft-header-harness';
 import { disclosure } from './disclosure-harness';
 import { goToOtherDraft } from './another-draft-harness';
 import { comesBefore, onlyAlert } from '../../specs-harness';
-import { expectBySeatingTools, expectInSeat } from './players-panel-harness';
+import { expectBySeatingTools, expectInSeat, PLAYERS_FAILED } from './players-panel-harness';
 
 useDraftsApp();
-
-const PLAYERS_FAILED = "Couldn't update the players.";
 
 describe('lobby', () => {
   it('lists the players with their avatars', async () => {
@@ -194,7 +192,7 @@ describe('lobby', () => {
     await flushPicks([]);
     await fixture.whenStable();
 
-    expect(page.querySelector('.error')?.textContent).toContain('This draft has started.');
+    expect(onlyAlert(page).textContent).toContain('This draft has started.');
     expect(page.textContent).toContain('Drafting');
     expect(button(page, 'Join')).toBeUndefined();
   });

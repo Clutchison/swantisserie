@@ -44,13 +44,13 @@ import {
   expectAfterPanel,
   expectBySeatingTools,
   expectProblemsBySeatingTools,
+  PLAYERS_FAILED,
 } from './players-panel-harness';
-import { clickOn, emptyStatusIn, watchChanges } from '../../specs-harness';
+import { clickOn, emptyStatusIn, onlyAlert, watchChanges } from '../../specs-harness';
 
 useDraftsApp();
 
 const START_FAILED = "Couldn't start the draft.";
-const PLAYERS_FAILED = "Couldn't update the players.";
 
 describe('seats and start', () => {
   beforeEach(() => powersAnswer(ORGANIZE_ONLY));
@@ -597,6 +597,36 @@ describe('seats and start', () => {
 
       expect(pickImportProblems(page)).toEqual([]);
     });
+
+    it.each([
+      ['Randomize seats', '/api/drafts/draft-1/seats/randomize', PLAYERS_FAILED],
+      ['Start draft', '/api/drafts/draft-1/start', START_FAILED],
+    ])(
+      'drops the problems with a file once %s is sent, showing only its failure',
+      async (control, url, failed) => {
+        const { fixture, page } = await openDraft(completeSnapshot, {
+          players: [alicePlayer, bob],
+        });
+        await chooseFile(
+          fixture,
+          page,
+          {
+            error: 'invalid-pick-import',
+            message: 'This file can’t be imported.',
+            problems: ['Ash Golem appears more than once.'],
+          } satisfies PickImportRefusal,
+          422,
+        );
+        await vi.waitFor(() => expect(pickImportProblems(page)).toHaveLength(1));
+
+        button(page, control)!.click();
+        (await vi.waitFor(() => http.expectOne(url))).flush(null, serverError);
+        await fixture.whenStable();
+
+        await vi.waitFor(() => expect(onlyAlert(page).textContent).toContain(failed));
+        expect(pickImportProblems(page)).toEqual([]);
+      },
+    );
 
     it('opens the file picker on Import picks, unless another change is in flight', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, { players: [alicePlayer, bob] });
