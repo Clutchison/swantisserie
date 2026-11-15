@@ -54,11 +54,14 @@ export interface QueueAfterPick extends SeatQueue {
 
 /**
  * What a pick does to `queues`, each seat's queue state, indexed by seat.
- * The picked card leaves the picker's queue. In each other queue holding
- * it, it is swapped for a copy or lost, as `swapOrLose` says, with the
- * copies in `pool` that are not `picked`; either way the rest of the queue
- * stays in order. A loss sets a queue picking queue paused, unless its
- * steal behavior is pick next. Nothing else changes a queue's state.
+ * The picked card leaves the picker's queue, if it holds it; if it instead
+ * holds an available copy of it, the first such copy leaves, as
+ * `plansAfterPick` makes the picker's planned copy the pick, so the queue
+ * doesn't pick a second copy. The copies are those in `pool` that are not
+ * `picked`. In each other queue holding it, it is swapped for a copy or
+ * lost, as `swapOrLose` says; swapped or lost, the rest of the queue stays
+ * in order. A loss sets a queue picking queue paused, unless its steal
+ * behavior is pick next. Nothing else changes a queue's state.
  * `picked` is the cards picked already, with or without this one. Cards
  * are pool card ids.
  */
@@ -70,8 +73,11 @@ export function queuesAfterPick(
   const copies = availableCopies(pick.card, pool, picked);
   return queues.map(({ queue, stealBehavior, queuePaused }, seat) => {
     if (seat === pick.seat) {
+      const queued = queue.includes(pick.card)
+        ? pick.card
+        : queue.find((card) => copies.includes(card));
       return {
-        queue: queue.filter((queued) => queued !== pick.card),
+        queue: queue.filter((card) => card !== queued),
         stealBehavior,
         queuePaused,
       };
@@ -144,10 +150,10 @@ export interface QueuedCardAt {
  * `restKept` is whether the rest of the queue stayed when they were taken
  * out: for a lost card, whether anything else stayed queued, so false for
  * the last card left in a queue; always true for the picker's own picked
- * card; and false for a queue cleared under clear queue, which picks no
- * longer do but an undo of a pick made before then still puts back. Cards
- * taken out while the rest was kept go
- * back in their old place among the cards queued now: after those whose
+ * card, or the queued copy of it that left instead; and false for a queue
+ * cleared under clear queue, which picks no longer do but an undo of a pick
+ * made before then still puts back. Cards taken out while the rest was kept
+ * go back in their old place among the cards queued now: after those whose
  * positions come before them, so after as many as were ahead of them,
  * unless since reordered. Otherwise they come back at the front, in their
  * original order, ahead of anything queued since. A card both put back and

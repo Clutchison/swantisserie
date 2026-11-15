@@ -16,3 +16,4 @@ This reverses the first tournament spec (#416), which let an organizer correct a
 
 - The trophy is still derived from the final standings, not stored, but no longer for Spec A's reason ("so a correction moves it"): a complete tournament's standings can no longer change. It stays derived so that there is one source of truth (ADR 0007).
 - A mistake in a complete tournament stands. A complete tournament can't be corrected or cancelled.
+- A result can't be confirmed once it is final either, so a result its opponent never confirmed stays unconfirmed; a reopened round's results can be confirmed again. This reverses #479's acceptance of Confirm in a completed round (#764).

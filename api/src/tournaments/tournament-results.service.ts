@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { GameScore } from 'contract';
 import { reportProblem } from 'engine';
 import type { MatchChange } from './change-steps.js';
-import { correctionRefusal } from './correction-refusal.js';
+import { correctionRefusal } from './final-results.js';
 import { clearing, confirmRefusal, reportRefusal } from './match-rules.js';
 import { TournamentRefusedError } from './tournament-errors.js';
 import {
@@ -49,9 +49,9 @@ export class TournamentResultsService {
    * Confirms the match `matchId`'s game score as the draft's user `userId`:
    * a player of it who didn't report it. Throws NoMatchError if the
    * tournament has no such match, and TournamentRefusedError if the user
-   * isn't one of its players, reported it, or it has no reported game
-   * score. A match can be confirmed while the tournament is playing or once
-   * it is complete.
+   * isn't one of its players, reported it, it has no reported game score,
+   * or its results are final: its tournament round is completed, or the
+   * tournament is complete.
    */
   async confirm(
     draftId: string,
@@ -60,7 +60,7 @@ export class TournamentResultsService {
   ): Promise<void> {
     await this.lock.withTournament(draftId, async (tx, tournament) => {
       const match = await findMatch(tx, tournament.id, matchId);
-      const refusal = confirmRefusal(match, userId);
+      const refusal = confirmRefusal(tournament, match, userId);
       if (refusal) throw new TournamentRefusedError(refusal);
       await tx.match.update({
         where: { id: matchId },

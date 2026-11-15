@@ -338,20 +338,3 @@ export type DraftRefusal =
   | QueueRefusal
   | PlanRefusal
   | TournamentRefusal;
-
-/** Every error body a pick request can get, besides a 404 for a draft that is gone. */
-export type PickFailure = PickRefusal | NotAPlayerProblem | RequestProblem;
-
-/** Every error body a queue request can get, besides a 404 for a draft that is gone. */
-export type QueueFailure = QueueRefusal | NotAPlayerProblem | RequestProblem;
-
-/** Every error body a plan request can get, besides a 404 for a draft that is gone. */
-export type PlanFailure = PlanRefusal | NotAPlayerProblem | RequestProblem;
-
-/** Every error body a tournament request can get, besides a 404 for a draft that is gone or a 403 for a power the viewer lacks. */
-export type TournamentFailure =
-  | TournamentRefusal
-  | NoTournamentProblem
-  | NoMatchProblem
-  | NotAPlayerProblem
-  | RequestProblem;

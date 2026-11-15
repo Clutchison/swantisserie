@@ -363,7 +363,7 @@ model QueuedCard {
   @@index([poolCardId])
 }
 
-/// A taken-out queued card: one a pick took out of a player's queue, the card the player picked from their own queue, or, after another player's pick, the lost card, or a card it cleared under clear queue before pause queue replaced it. Kept until that pick is undone, which puts it back.
+/// A taken-out queued card: one a pick took out of a player's queue, the card the player picked from their own queue or the queued copy of it that left instead, or, after another player's pick, the lost card, or a card it cleared under clear queue before pause queue replaced it. Kept until that pick is undone, which puts it back.
 model TakenOutQueuedCard {
   id           String   @id @default(uuid())
   pickId       String
@@ -374,9 +374,9 @@ model TakenOutQueuedCard {
   poolCard     PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Where it was in the queue, lowest first.
   position     Int
-  /// Whether the Queue notice has stopped listing it: it was dismissed, or the card was queued again. Always true for a player's own picked card, which the notice never lists: it was picked, not lost.
+  /// Whether the Queue notice has stopped listing it: it was dismissed, or the card was queued again. Always true for a player's own picked card, or its queued copy, which the notice never lists: it was picked, not lost.
   noticeHidden Boolean  @default(false)
-  /// Whether the rest of the queue stayed when this card was taken out, so an undo puts it back in its old place rather than at the front: for a lost card, whether anything else stayed queued, so false for the last card left in a queue; always true for a player's own picked card; and false for a lost or cleared card under clear queue, before pause queue replaced it.
+  /// Whether the rest of the queue stayed when this card was taken out, so an undo puts it back in its old place rather than at the front: for a lost card, whether anything else stayed queued, so false for the last card left in a queue; always true for a player's own picked card, or its queued copy; and false for a lost or cleared card under clear queue, before pause queue replaced it.
   restKept     Boolean  @default(false)
   /// For a lost card, what losing it did to the queue; an undo of a pick that paused the queue sets it queue picking again. Null for any other card, and for a card lost before pause queue replaced clear queue.
   queueLoss    QueueLoss?
