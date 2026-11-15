@@ -1,17 +1,11 @@
 import { DatePipe } from '@angular/common';
 import { HttpClient, httpResource } from '@angular/common/http';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  effect,
-  inject,
-  Injector,
-  signal,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, Injector, signal } from '@angular/core';
 import type { FeedbackView, ReviewedFeedbackView } from 'contract';
 import { Router, RouterLink, type UrlTree } from '@angular/router';
 import { firstValueFrom, type Observable } from 'rxjs';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
+import { reread } from '../reread';
 import { tabInUrl } from '../tab-in-url';
 import { Tab, TabList } from '../tab-list';
 
@@ -83,33 +77,8 @@ export class FeedbackPage {
         this.problem.set(failure);
         return false;
       }
-      await this.reread();
+      await reread(this.feedback, this.injector);
       return true;
-    });
-  }
-
-  /**
-   * Reads the feedback afresh and settles once it has loaded, or failed. A
-   * load in flight, as on changing tab, may have been sent before the change,
-   * and `reload` does nothing while one is: so it waits that out, then reads.
-   */
-  private async reread() {
-    await this.loaded();
-    this.feedback.reload();
-    await this.loaded();
-  }
-
-  /** Settles once no feedback load is in flight. */
-  private loaded() {
-    return new Promise<void>((resolve) => {
-      const watch = effect(
-        () => {
-          if (this.feedback.isLoading()) return;
-          watch.destroy();
-          resolve();
-        },
-        { injector: this.injector },
-      );
     });
   }
 }

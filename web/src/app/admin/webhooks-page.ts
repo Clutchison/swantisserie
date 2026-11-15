@@ -1,6 +1,5 @@
 import { HttpClient, HttpErrorResponse, httpResource } from '@angular/common/http';
 import { ChangeDetectionStrategy, Component, inject, Injector, signal } from '@angular/core';
-import { toObservable } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import {
   MAX_WEBHOOK_NAME_LENGTH,
@@ -9,9 +8,10 @@ import {
   type WebhookRenameRequest,
   type WebhookUrlReplaceRequest,
 } from 'contract';
-import { filter, firstValueFrom, type Observable } from 'rxjs';
+import { firstValueFrom, type Observable } from 'rxjs';
 import { Changes, ChangeStatus, SendsChange } from '../changes';
 import { Questions } from '../question-dialog';
+import { reread } from '../reread';
 
 const API = '/api/admin/webhooks';
 
@@ -97,21 +97,8 @@ export class WebhooksPage {
         );
         return false;
       }
-      await this.reload();
+      await reread(this.webhooks, this.injector);
       return true;
     });
-  }
-
-  /**
-   * Re-reads the list, resolving once it has: focus goes back once the rows
-   * are as they now are, so a removed webhook's row is gone by then.
-   */
-  private reload() {
-    this.webhooks.reload();
-    return firstValueFrom(
-      toObservable(this.webhooks.isLoading, { injector: this.injector }).pipe(
-        filter((loading) => !loading),
-      ),
-    );
   }
 }

@@ -3,8 +3,11 @@ import {
   alertIn,
   alice,
   answer,
+  button,
   carol,
   comesBefore,
+  focusAndClick,
+  focusedControl,
   http,
   openApp,
   openDialog,
@@ -60,14 +63,15 @@ describe('webhooks page', () => {
   const newUrlField = (li: Element) =>
     li.querySelector<HTMLInputElement>('input[aria-label="New URL"]')!;
 
-  const button = (root: Element, label: string) =>
-    [...root.querySelectorAll<HTMLButtonElement>('button')].find(
-      (b) => b.textContent?.trim() === label,
-    )!;
-
   function fill(input: HTMLInputElement, value: string) {
     input.value = value;
     input.dispatchEvent(new Event('input'));
+  }
+
+  /** Expects focus on the button `name` in `root`, as a screen reader names it. */
+  function expectFocusOn(root: Element, name: string) {
+    expect(focusedControl()).toEqual({ role: 'button', name });
+    expect(root.contains(document.activeElement)).toBe(true);
   }
 
   /** Answers the list's reload after a change with `webhooks`. */
@@ -96,7 +100,7 @@ describe('webhooks page', () => {
 
   it('adds a webhook', async () => {
     const { fixture, page } = await openPage([main]);
-    const form = page.querySelector('form.add')!;
+    const form = page.querySelector<HTMLElement>('form.add')!;
     fill(form.querySelector('[name="name"]')!, '#roto-side');
     fill(form.querySelector('[name="url"]')!, side.url);
     button(form, 'Add').click();
@@ -117,12 +121,11 @@ describe('webhooks page', () => {
 
   it('keeps focus on Add once a webhook is added', async () => {
     const { fixture, page } = await openPage([main]);
-    const form = page.querySelector('form.add')!;
+    const form = page.querySelector<HTMLElement>('form.add')!;
     fill(form.querySelector('[name="name"]')!, '#roto-side');
     fill(form.querySelector('[name="url"]')!, side.url);
     const add = button(form, 'Add');
-    add.focus();
-    add.click();
+    focusAndClick(add);
 
     (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(side, {
       status: 201,
@@ -130,7 +133,57 @@ describe('webhooks page', () => {
     });
     await reloaded(fixture, [main, side]);
 
-    await vi.waitFor(() => expect(document.activeElement).toBe(button(form, 'Add')));
+    await vi.waitFor(() => expectFocusOn(form, 'Add'));
+  });
+
+  it('leaves focus in the field Add was submitted from with Enter', async () => {
+    const { fixture, page } = await openPage([main]);
+    const form = page.querySelector<HTMLFormElement>('form.add')!;
+    const name = form.querySelector<HTMLInputElement>('[name="name"]')!;
+    fill(name, '#roto-side');
+    fill(form.querySelector('[name="url"]')!, side.url);
+    name.focus();
+    // Enter in a field submits its form.
+    form.requestSubmit();
+
+    (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush(side, {
+      status: 201,
+      statusText: 'Created',
+    });
+    await reloaded(fixture, [main, side]);
+
+    await vi.waitFor(() => expect(rows(page)).toHaveLength(2));
+    expect(focusedControl()?.role).toBe('textbox');
+    expect(document.activeElement).toBe(name);
+  });
+
+  it('reads the list afresh once a load sent before the change settles', async () => {
+    const { page } = await openApp('/admin/webhooks', carol);
+    answerTopBar(http);
+    const early = http.expectOne('/api/admin/webhooks');
+    const form = page.querySelector<HTMLElement>('form.add')!;
+    fill(form.querySelector('[name="name"]')!, '#roto-side');
+    fill(form.querySelector('[name="url"]')!, side.url);
+    focusAndClick(button(form, 'Add'));
+
+    const post = await vi.waitFor(() => {
+      const [sent] = http.match(
+        (req) => req.method === 'POST' && req.url === '/api/admin/webhooks',
+      );
+      expect(sent).toBeDefined();
+      return sent;
+    });
+    post.flush(side, { status: 201, statusText: 'Created' });
+    await Promise.resolve();
+    early.flush([main]);
+
+    (await vi.waitFor(() => http.expectOne('/api/admin/webhooks'))).flush([main, side]);
+    await vi.waitFor(() =>
+      expect(rows(page)).toEqual([
+        ['#roto-main', main.url],
+        ['#roto-side', side.url],
+      ]),
+    );
   });
 
   it('offers Add before the webhooks, so a long list doesn’t push it out of view', async () => {
@@ -141,7 +194,7 @@ describe('webhooks page', () => {
 
   it('says why a webhook could not be added, keeping what was typed', async () => {
     const { page } = await openPage([]);
-    const form = page.querySelector('form.add')!;
+    const form = page.querySelector<HTMLElement>('form.add')!;
     fill(form.querySelector('[name="url"]')!, side.url);
     button(form, 'Add').click();
 
@@ -177,15 +230,15 @@ describe('webhooks page', () => {
       button(mainRow(page), 'Rename'),
       button(mainRow(page), 'Remove'),
       button(mainRow(page), 'Replace URL'),
-      button(page.querySelector('form.add')!, 'Add'),
+      button(page.querySelector<HTMLElement>('form.add')!, 'Add'),
     ];
 
-    const busy = () => controls().map((b) => b.getAttribute('aria-disabled'));
+    const changing = () => controls().map((b) => b.getAttribute('aria-disabled'));
 
     button(mainRow(page), 'Rename').click();
     const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`));
     await fixture.whenStable();
-    expect(busy()).toEqual(['true', 'true', 'true', 'true']);
+    expect(changing()).toEqual(['true', 'true', 'true', 'true']);
     expect(controls().some((b) => b.disabled)).toBe(false);
 
     for (const control of controls()) control.click();
@@ -197,7 +250,7 @@ describe('webhooks page', () => {
 
     req.flush(main);
     await reloaded(fixture, [main]);
-    await vi.waitFor(() => expect(busy()).toEqual([null, null, null, null]));
+    await vi.waitFor(() => expect(changing()).toEqual([null, null, null, null]));
   });
 
   it('clears the reason a change was refused once one saves', async () => {
@@ -243,13 +296,12 @@ describe('webhooks page', () => {
   it('keeps focus on Rename once a rename settles', async () => {
     const { fixture, page } = await openPage([main, side]);
     const rename = button(mainRow(page), 'Rename');
-    rename.focus();
-    rename.click();
+    focusAndClick(rename);
 
     (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`))).flush(main);
     await reloaded(fixture, [main, side]);
 
-    await vi.waitFor(() => expect(document.activeElement).toBe(button(mainRow(page), 'Rename')));
+    await vi.waitFor(() => expectFocusOn(mainRow(page), 'Rename'));
   });
 
   it('says why a rename was refused', async () => {
@@ -300,16 +352,13 @@ describe('webhooks page', () => {
     const { fixture, page } = await openPage([main, side]);
     fill(newUrlField(mainRow(page)), newUrl);
     const replace = button(mainRow(page), 'Replace URL');
-    replace.focus();
-    replace.click();
+    focusAndClick(replace);
 
     const replaced = { ...main, url: newUrl };
     (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}/url`))).flush(replaced);
     await reloaded(fixture, [replaced, side]);
 
-    await vi.waitFor(() =>
-      expect(document.activeElement).toBe(button(mainRow(page), 'Replace URL')),
-    );
+    await vi.waitFor(() => expectFocusOn(mainRow(page), 'Replace URL'));
   });
 
   it('says why a replacement URL was refused', async () => {
@@ -333,29 +382,25 @@ describe('webhooks page', () => {
   it('removes a webhook once the app admin goes ahead', async () => {
     const { fixture, page } = await openPage([main, side]);
     const opener = button(mainRow(page), 'Remove');
-    opener.focus();
-    opener.click();
+    focusAndClick(opener);
 
     const dialog = await question('Remove #roto-main?');
     expect(dialog.textContent).toContain('Drafts that announce there will announce nowhere.');
     await answer(dialog, 'Remove');
-    expect(document.activeElement).toBe(opener);
+    expectFocusOn(mainRow(page), 'Remove');
     const req = await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${main.id}`));
     expect(req.request.method).toBe('DELETE');
     req.flush(null, { status: 204, statusText: 'No Content' });
     await reloaded(fixture, [side]);
 
     expect(rows(page)).toEqual([['#roto-side', side.url]]);
-    await vi.waitFor(() =>
-      expect(document.activeElement).toBe(button(row(page, '#roto-side'), 'Remove')),
-    );
+    await vi.waitFor(() => expectFocusOn(row(page, '#roto-side'), 'Remove'));
   });
 
   it('moves focus to the nearest control before the last webhook once it is removed', async () => {
     const { fixture, page } = await openPage([main, side]);
     const opener = button(row(page, '#roto-side'), 'Remove');
-    opener.focus();
-    opener.click();
+    focusAndClick(opener);
 
     await answer(await question('Remove #roto-side?'), 'Remove');
     (await vi.waitFor(() => http.expectOne(`/api/admin/webhooks/${side.id}`))).flush(null, {
@@ -364,22 +409,19 @@ describe('webhooks page', () => {
     });
     await reloaded(fixture, [main]);
 
-    await vi.waitFor(() =>
-      expect(document.activeElement).toBe(button(mainRow(page), 'Replace URL')),
-    );
+    await vi.waitFor(() => expectFocusOn(mainRow(page), 'Replace URL'));
   });
 
   it('keeps a webhook the app admin thinks better of removing, and focus on Remove', async () => {
     const { fixture, page } = await openPage([main, side]);
     const opener = button(mainRow(page), 'Remove');
-    opener.focus();
-    opener.click();
+    focusAndClick(opener);
 
     await answer(await question('Remove #roto-main?'), 'Cancel');
     await fixture.whenStable();
 
     http.expectNone(`/api/admin/webhooks/${main.id}`);
-    await vi.waitFor(() => expect(document.activeElement).toBe(button(mainRow(page), 'Remove')));
+    await vi.waitFor(() => expectFocusOn(mainRow(page), 'Remove'));
   });
 
   it('links app admins to it from the header', async () => {
