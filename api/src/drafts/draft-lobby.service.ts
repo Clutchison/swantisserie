@@ -123,7 +123,10 @@ export class DraftLobbyService {
           poolQuery: poolSource.poolQuery,
           organizerId,
         });
-        return { ...created, ...(await this.snapshots.startNew(created.id)) };
+        return {
+          ...created,
+          ...(await this.snapshots.startOrRecordFailure(created.id)),
+        };
       }
       case 'cube': {
         const { cubeId, cubeName, printings } = await this.checkCubeLink(
@@ -154,7 +157,10 @@ export class DraftLobbyService {
           setList: setList.map(({ code, sublists }) => ({ code, sublists })),
           organizerId,
         });
-        return { ...created, ...(await this.snapshots.startNew(created.id)) };
+        return {
+          ...created,
+          ...(await this.snapshots.startOrRecordFailure(created.id)),
+        };
       }
       default: {
         const unhandled: never = poolSource;

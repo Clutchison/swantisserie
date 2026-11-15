@@ -38,7 +38,7 @@ interface SnapshotSource {
   platform: Platform;
 }
 
-/** A draft's snapshot state and error, as startNew leaves them. */
+/** A draft's snapshot state and error, as startOrRecordFailure leaves them. */
 export type SnapshotOutcome = Pick<Draft, 'snapshotState' | 'snapshotError'>;
 
 /** The pool snapshot is complete, so the pool can't change any more. */
@@ -136,23 +136,30 @@ export class PoolSnapshotService
    * the draft stays Running for the next boot to resume. Resolves to the
    * snapshot's state and error as it leaves them.
    */
-  async startNew(draftId: string): Promise<SnapshotOutcome> {
+  async startOrRecordFailure(draftId: string): Promise<SnapshotOutcome> {
+    const running = { snapshotState: 'Running', snapshotError: null } as const;
+    const failed = {
+      snapshotState: 'Failed',
+      snapshotError: UNEXPECTED_SNAPSHOT_FAILURE,
+    } as const;
     try {
       await this.start(draftId);
-      return { snapshotState: 'Running', snapshotError: null };
+      return running;
     } catch (err) {
       this.logger.error(
         `Could not start the pool snapshot for new draft ${draftId}`,
         err,
       );
-      const failed = {
-        snapshotState: 'Failed',
-        snapshotError: UNEXPECTED_SNAPSHOT_FAILURE,
-      } as const;
-      return (await this.recordFailure(draftId, failed.snapshotError)) ===
-        'not-recorded'
-        ? { snapshotState: 'Running', snapshotError: null }
-        : failed;
+      switch (await this.recordFailure(draftId, failed.snapshotError)) {
+        case 'recorded':
+          return failed;
+        case 'not-recorded':
+          return running;
+        case 'cancelled':
+          // Not reached: nothing can cancel the draft before its creation
+          // answers, so no one sees what this returns.
+          return failed;
+      }
     }
   }
 

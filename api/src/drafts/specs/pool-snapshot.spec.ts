@@ -529,7 +529,7 @@ describe('pool snapshot', () => {
     });
   });
 
-  it('leaves a snapshot Running for the next boot when it can’t record its failure', async () => {
+  it('leaves a snapshot Running for the next boot when it can’t record its failure, and logs both the failure and the write', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
       [creationMatchQuery('t:dragon c:r')]: page('Balefire Dragon'),
@@ -550,11 +550,15 @@ describe('pool snapshot', () => {
 
     await vi.waitFor(() =>
       expect(errors).toHaveBeenCalledWith(
-        expect.stringContaining(id),
+        `Could not record the failed pool snapshot for draft ${id}; it stays Running until the next boot resumes it`,
         expect.objectContaining({
           message: 'Connection terminated unexpectedly',
         }),
       ),
+    );
+    expect(errors).toHaveBeenCalledWith(
+      `Pool snapshot for draft ${id} failed`,
+      expect.any(ScryfallUnavailableError),
     );
     expect((await getDraft(id).expect(200)).body.snapshot.state).toBe(
       'Running',
