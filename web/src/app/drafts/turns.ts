@@ -1,17 +1,22 @@
 import { DestroyRef, effect, inject } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import type { DraftView } from 'contract';
-import { draftSize, picksPerTurn } from 'engine';
+import type { DraftView, TurnView } from 'contract';
+import { draftSize, picksPerTurn, type DraftSize } from 'engine';
 
 /** Whether it is the turn of the player `playerId` in `draft`; false with no turn or no player. */
 export function isTurnOf(draft: DraftView, playerId: string | undefined): boolean {
   return !!draft.turn && draft.turn.playerId === playerId;
 }
 
+/** Whether the turns of round `round`, in a draft of size `size`, are double turns. */
+export function isDoubleTurnRound(size: DraftSize, round: number): boolean {
+  return picksPerTurn(size, round) === 2;
+}
+
 /** Whether `draft`'s turn is a double turn, on either of its picks; false with no turn. */
 export function isDoubleTurn(draft: DraftView): boolean {
   return (
-    !!draft.turn && picksPerTurn(draftSize(draft, draft.players.length), draft.turn.round) === 2
+    !!draft.turn && isDoubleTurnRound(draftSize(draft, draft.players.length), draft.turn.round)
   );
 }
 
@@ -29,8 +34,18 @@ export function doubleTurnSuffix(picksBeforeTurnPasses: 1 | 2) {
  * picks". It starts lower case, for the middle of a sentence.
  */
 export function pickAndRound(draft: DraftView): string {
-  const turn = draft.turn!;
-  const suffix = isDoubleTurn(draft) ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
+  return turnWords(draft.turn!, isDoubleTurn(draft));
+}
+
+/**
+ * A turn's pick and round, worded as `pickAndRound` words a draft's, for a
+ * turn that isn't the draft's own, such as a pick import preview's next one.
+ */
+export function turnWords(
+  turn: Pick<TurnView, 'pick' | 'round' | 'picksBeforeTurnPasses'>,
+  doubleTurn: boolean,
+): string {
+  const suffix = doubleTurn ? doubleTurnSuffix(turn.picksBeforeTurnPasses) : '';
   return `pick ${turn.pick}, round ${turn.round}${suffix}`;
 }
 
