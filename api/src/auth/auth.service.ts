@@ -36,19 +36,24 @@ export class AuthService {
    * Completes Discord OAuth: checks the user may sign in, records them and
    * opens a session for them. Throws NotAllowedError for anyone else, and
    * DeadlinePassedError if Discord hasn't answered all three calls within
-   * `SIGN_IN_DEADLINE_MS`. When their name or avatar has changed, bumps and
-   * pushes every draft they play in or organize, all of which show it,
-   * announcing nothing.
+   * `SIGN_IN_DEADLINE_MS`, or RateLimitedPastDeadlineError, at once, if a
+   * Discord 429's lockout would outlast it. When their name or avatar has
+   * changed, bumps and pushes every draft they play in or organize, all of
+   * which show it, announcing nothing.
    */
   async signIn(code: string): Promise<NewSession> {
     const deadline = new Deadline('sign-in', SIGN_IN_DEADLINE_MS);
-    const accessToken = await deadline.race(this.discord.exchangeCode(code));
+    // The calls take the deadline too, to fail at once when a Discord rate
+    // limit would outlast it.
+    const accessToken = await deadline.race(
+      this.discord.exchangeCode(code, deadline),
+    );
     const profile = await deadline.race(
-      this.discord.getCurrentUser(accessToken),
+      this.discord.getCurrentUser(accessToken, deadline),
     );
     // Checked on every sign-in, so leaving the guild locks the user out next time.
     const isGuildMember = await deadline.race(
-      this.discord.isGuildMember(accessToken, this.config.guildId),
+      this.discord.isGuildMember(accessToken, this.config.guildId, deadline),
     );
     if (!isGuildMember) {
       throw new NotAllowedError(profile.id);

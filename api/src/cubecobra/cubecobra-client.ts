@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { isRecord } from '../http/json-guards.js';
 import {
+  cancelBody,
   fetchWithTimeout,
   UnreachableError,
   USER_AGENT,
@@ -79,8 +80,12 @@ export class FetchCubeCobraClient extends CubeCobraClient {
     } catch (err) {
       throw unreachable(err);
     }
-    if (res.status === 404) return null;
+    if (res.status === 404) {
+      await cancelBody(res);
+      return null;
+    }
     if (!res.ok) {
+      await cancelBody(res);
       throw new CubeCobraUnavailableError(`CubeCobra answered ${res.status}.`);
     }
     let body: unknown;
