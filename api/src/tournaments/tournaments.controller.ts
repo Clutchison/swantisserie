@@ -15,6 +15,7 @@ import {
 import {
   SWISS_ROUND_OPTIONS,
   TOURNAMENT_FORMATS,
+  TOURNAMENT_FORMAT_NAMES,
   type CompleteRoundRequest,
   type DraftView,
   type GameScore,
@@ -363,9 +364,23 @@ function parseSetup(body: unknown): TournamentSetupRequest {
   }
   throw new BadRequestException({
     error: 'invalid',
-    message: `Choose round robin, single elimination, or Swiss played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds.`,
+    message: FORMAT_REFUSAL,
   } satisfies RequestProblem);
 }
+
+/**
+ * Tournament setup's refusal of a format it doesn't offer: each tournament
+ * format in the order setup offers them, Swiss with its Swiss round options.
+ */
+const FORMAT_REFUSAL = `Choose ${new Intl.ListFormat('en', {
+  type: 'disjunction',
+}).format(
+  TOURNAMENT_FORMATS.map((format) =>
+    format === 'Swiss'
+      ? `${TOURNAMENT_FORMAT_NAMES[format]} played until there’s a winner or capped at ${SWISS_ROUND_CAP} tournament rounds`
+      : TOURNAMENT_FORMAT_NAMES[format],
+  ),
+)}.`;
 
 /**
  * The tournament round Complete round's body names, and the granted draws,
