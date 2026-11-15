@@ -36,13 +36,19 @@ function stored(land: string): Promise<BasicLandPrintingsView> {
   });
 }
 
+/** Searches a refresh makes: one page for each basic land but Wastes. */
+const SEARCHES_PER_REFRESH = 5;
+
 /**
- * Waits out the refresh under way, asks for a land's printings, then waits
- * out any refresh that ask starts, for checks that none starts: a refresh
- * not started gives no signal. Fake timers can't stand in, as the app,
- * PGlite and supertest run on the real ones.
+ * Waits 100 ms, asks for Island's printings, then waits 100 ms more, for
+ * checks that the ask starts no refresh: a refresh not started gives no
+ * signal. The spoiler-season case's signal, a fresh ask for Scryfall's list
+ * of sets, isn't one here: that list is cached for a day, so a check later
+ * on the same day doesn't ask for it. The first wait lets the refresh under
+ * way note when it started. Fake timers can't stand in, as the app, PGlite
+ * and supertest run on the real ones.
  */
-async function askOnceSettled(): Promise<void> {
+async function askForIslandAndWaitOut(): Promise<void> {
   const settle = () => new Promise((resolve) => setTimeout(resolve, 100));
   await settle();
   await printingsRequest('Island').expect(200);
@@ -286,7 +292,9 @@ it('refreshes once more on a later day after a refresh that started on a set’s
     // Early on the release day, Scryfall doesn't list the set's basic lands yet.
     scryfallAnswers(printingsAnswers([khm394]));
     await stored('Island');
-    const searches = scryfall.search.mock.calls.length;
+    await vi.waitFor(() =>
+      expect(scryfall.search).toHaveBeenCalledTimes(SEARCHES_PER_REFRESH),
+    );
 
     // Later that day, once Scryfall lists them: not refreshed again.
     vi.setSystemTime(new Date('2026-02-06T20:00:00Z'));
@@ -297,8 +305,8 @@ it('refreshes once more on a later day after a refresh that started on a set’s
       '1',
     );
     scryfallAnswers(printingsAnswers([nxt1]));
-    await askOnceSettled();
-    expect(scryfall.search).toHaveBeenCalledTimes(searches);
+    await askForIslandAndWaitOut();
+    expect(scryfall.search).toHaveBeenCalledTimes(SEARCHES_PER_REFRESH);
 
     // The next day: one refresh, which stores the set's basic lands.
     vi.setSystemTime(new Date('2026-02-07T06:00:00Z'));
@@ -307,13 +315,13 @@ it('refreshes once more on a later day after a refresh that started on a set’s
       expect(sets.map((set) => set.code)).toEqual(['nxt', 'khm']);
     });
     await vi.waitFor(() =>
-      expect(scryfall.search).toHaveBeenCalledTimes(searches * 2),
+      expect(scryfall.search).toHaveBeenCalledTimes(2 * SEARCHES_PER_REFRESH),
     );
 
     // That refresh started after the release day, so none is due again.
     vi.setSystemTime(new Date('2026-02-08T06:00:00Z'));
-    await askOnceSettled();
-    expect(scryfall.search).toHaveBeenCalledTimes(searches * 2);
+    await askForIslandAndWaitOut();
+    expect(scryfall.search).toHaveBeenCalledTimes(2 * SEARCHES_PER_REFRESH);
   } finally {
     vi.useRealTimers();
   }

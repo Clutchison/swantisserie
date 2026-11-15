@@ -26,8 +26,8 @@ const UNKNOWN_RELEASE = '1993-08-05';
  * neither asks Scryfall (ADR 0015). Asking for a land's printings answers at
  * once from what is stored, and starts a refresh from Scryfall in the
  * background when there is none yet or a set has been released since the
- * day the last refresh started (see `releasedSince`). A refresh upserts and never deletes, so a preferred
- * printing never loses its printing.
+ * day the last refresh started (see `releasedSince`). A refresh upserts and
+ * never deletes, so a preferred printing never loses its printing.
  */
 @Injectable()
 export class BasicLandPrintings implements OnApplicationShutdown {
