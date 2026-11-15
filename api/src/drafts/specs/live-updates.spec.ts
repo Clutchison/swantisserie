@@ -26,6 +26,7 @@ import {
   changeWebhook,
 } from './harness.js';
 import request from 'supertest';
+import { SessionService } from '../../auth/session.service.js';
 import { PrismaService } from '../../prisma/prisma.service.js';
 import { app } from '../../testing/app.js';
 import { type DraftSocket, useSockets } from './socket-harness.js';
@@ -436,6 +437,142 @@ describe('live updates', () => {
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    describe('by expiring', () => {
+      /** Socket.IO's and the database's own timers wait less than this. */
+      const LONG_MS = 60 * 1000;
+      let longTimers: Set<{ due: number; run: () => void }>;
+
+      /**
+       * Holds every timer waiting longer than a minute, to be run by
+       * `jumpTo` instead, and fakes the clock from `now`.
+       */
+      function holdLongTimers(now: Date) {
+        vi.useFakeTimers({ toFake: ['Date'], now });
+        longTimers = new Set();
+        const { setTimeout: realSet, clearTimeout: realClear } = globalThis;
+        vi.spyOn(globalThis, 'setTimeout').mockImplementation(((
+          run: () => void,
+          ms = 0,
+          ...args: unknown[]
+        ) => {
+          // As Node does a wait longer than a timer can: at once.
+          if (ms > 2 ** 31 - 1) return realSet(run, 1, ...args);
+          if (ms <= LONG_MS) return realSet(run, ms, ...args);
+          const timer = { due: Date.now() + ms, run };
+          longTimers.add(timer);
+          return timer;
+        }) as typeof setTimeout);
+        vi.spyOn(globalThis, 'clearTimeout').mockImplementation(((
+          timer: never,
+        ) => {
+          if (!longTimers.delete(timer)) realClear(timer);
+        }) as typeof clearTimeout);
+      }
+
+      /** Moves the clock to `time` and runs each long timer then due. */
+      function jumpTo(time: Date) {
+        vi.setSystemTime(time);
+        for (const timer of longTimers) {
+          if (timer.due > time.getTime()) continue;
+          longTimers.delete(timer);
+          timer.run();
+        }
+      }
+
+      afterEach(() => vi.useRealTimers());
+
+      it('closes a watching socket when its session expires, pushing it nothing more, and leaves later sessions’ sockets open', async () => {
+        const id = await readyDraft([]);
+        holdLongTimers(new Date('2026-11-01T12:00:00Z'));
+        const expiring = await watching(id, await signIn(bob));
+        const closed = vi.fn();
+        expiring.socket.on('disconnect', closed);
+        jumpTo(new Date('2026-11-15T12:00:00Z'));
+        const later = await watching(id, await signIn(carol));
+
+        jumpTo(new Date('2026-12-01T11:00:00Z'));
+        await join(id).expect(201);
+        await vi.waitFor(() => expect(expiring.changes).toHaveLength(1));
+        expect(closed).not.toHaveBeenCalled();
+
+        jumpTo(new Date('2026-12-01T12:01:00Z'));
+        await vi.waitFor(() =>
+          expect(closed).toHaveBeenCalledWith(
+            'io server disconnect',
+            undefined,
+          ),
+        );
+        await leave(id).expect(200);
+        await vi.waitFor(() => expect(later.changes).toHaveLength(2));
+        expect(later.socket.connected).toBe(true);
+        expect(expiring.changes).toHaveLength(1);
+      });
+
+      it('waits out a session longer than a timer can, closing the socket at its expiry, not before', async () => {
+        holdLongTimers(new Date('2026-11-01T12:00:00Z'));
+        const socket = await connected(await signIn(bob));
+        const closed = vi.fn();
+        socket.on('disconnect', closed);
+        // Node's timers wait at most about 24.8 days.
+        expect(longTimers.size).toBe(1);
+
+        jumpTo(new Date('2026-11-26T12:00:00Z'));
+        expect(longTimers.size).toBe(1);
+        jumpTo(new Date('2026-12-01T11:00:00Z'));
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        expect(closed).not.toHaveBeenCalled();
+        expect(longTimers.size).toBe(1);
+
+        jumpTo(new Date('2026-12-01T12:01:00Z'));
+        await vi.waitFor(() => expect(closed).toHaveBeenCalled());
+      });
+
+      it('leaves no timer behind for a socket that disconnects before its session expires', async () => {
+        holdLongTimers(new Date('2026-11-01T12:00:00Z'));
+        const socket = await connected(await signIn(bob));
+        expect(longTimers.size).toBe(1);
+
+        socket.disconnect();
+
+        await vi.waitFor(() => expect(longTimers.size).toBe(0));
+      });
+    });
+
+    it('closes a socket whose session is logged out while it is being admitted', async () => {
+      const cookie = await signIn(bob);
+      const sessions = app.get(SessionService);
+      const find = sessions.find.bind(sessions);
+      vi.spyOn(sessions, 'find').mockImplementationOnce(async (token) => {
+        const session = await find(token);
+        await logOut(cookie);
+        return session;
+      });
+      const socket = await socketFor(cookie);
+      const closed = closedByTheApi(socket);
+
+      expect(await closed).toBe('io server disconnect');
+    });
+
+    it('answers a watch whose session it couldn’t check as unchecked, and accepts the watch asked again', async () => {
+      const id = await readyDraft([aliceCookie]);
+      const sessions = app.get(SessionService);
+      const failure = new Error('connection refused');
+      const isLive = vi.spyOn(sessions, 'isLive').mockRejectedValue(failure);
+      const errors = vi.spyOn(Logger.prototype, 'error');
+      const socket = await connected(await signIn(bob));
+      const changes: DraftView[] = [];
+      socket.on('changed', (draft) => changes.push(draft));
+
+      expect(await socket.emitWithAck('watch', id)).toBe('unchecked');
+      expect(errors).toHaveBeenCalledWith(expect.any(String), failure);
+      expect(socket.connected).toBe(true);
+
+      isLive.mockRestore();
+      expect(await socket.emitWithAck('watch', id)).toBe('watching');
+      await join(id).expect(201);
+      await vi.waitFor(() => expect(changes).toHaveLength(1));
     });
   });
 
