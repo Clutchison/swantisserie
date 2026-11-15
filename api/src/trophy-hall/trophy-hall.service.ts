@@ -5,6 +5,7 @@ import {
   type GroupedPoolSource,
   type TrophyHallTournament,
 } from 'engine';
+import { DraftAccess, type DraftViewer } from '../drafts/draft-access.js';
 import { toPoolCardView } from '../drafts/draft-view.js';
 import {
   toNamedPoolSource,
@@ -31,7 +32,7 @@ type TournamentWithDecklists = TrophyHallTournament & {
   decklists: Map<string, PlanBoards>;
 };
 
-/** The Trophy Hall. Until drafts belong to guilds (#208), it covers every draft's tournament. */
+/** The Trophy Hall, of the tournaments of the drafts its viewer sees. */
 @Injectable()
 export class TrophyHallService {
   private readonly logger = new Logger(TrophyHallService.name);
@@ -39,17 +40,22 @@ export class TrophyHallService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly sets: SetCatalog,
+    private readonly access: DraftAccess,
   ) {}
 
   /**
-   * The Trophy Hall of the complete tournaments that count, worked out on
-   * each read from their standings. A tournament with no trophy holder
-   * doesn't appear, nor does one with a trophy holder whose decklist wasn't
-   * kept at Start (ADR 0017), as the engine's `onTrophyHall` decides. A
-   * kept decklist that can't be decoded counts as not kept.
+   * The Trophy Hall of the complete tournaments that count of the drafts
+   * `viewer` sees, worked out on each read from their standings. A
+   * tournament with no trophy holder doesn't appear, nor does one with a
+   * trophy holder whose decklist wasn't kept at Start (ADR 0017), as the
+   * engine's `onTrophyHall` decides. A kept decklist that can't be decoded
+   * counts as not kept.
    */
-  async read(): Promise<TrophyHallView> {
-    const complete = await readTournamentsThatCount(this.prisma);
+  async read(viewer: DraftViewer): Promise<TrophyHallView> {
+    const complete = await readTournamentsThatCount(
+      this.prisma,
+      this.access.seenBy(viewer),
+    );
     const kept = await this.keptDecklists(complete);
     const hall = trophyHall(
       complete.map((tournament): TournamentWithDecklists => {
