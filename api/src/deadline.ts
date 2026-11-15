@@ -13,13 +13,21 @@ export class DeadlinePassedError extends Error {
  */
 export class Deadline {
   private readonly endsAt: number;
+  private readonly holdsProcess: boolean;
 
-  /** `name` says what the deadline is for, as its error and logs name it. */
+  /**
+   * `name` says what the deadline is for, as its error and logs name it.
+   * A race against it doesn't keep the process alive, unless `holdsProcess`:
+   * then the process lives until the deadline passes, so whatever follows it
+   * still runs, as a shutdown's does when nothing else holds the process.
+   */
   constructor(
     readonly name: string,
     ms: number,
+    { holdsProcess = false }: { holdsProcess?: boolean } = {},
   ) {
     this.endsAt = Date.now() + ms;
+    this.holdsProcess = holdsProcess;
   }
 
   /** Whether the deadline has passed. */
@@ -41,8 +49,8 @@ export class Deadline {
         () => reject(passedError()),
         Math.max(0, this.endsAt - Date.now()),
       );
-      // A deadline nobody waits on any more shouldn't hold the process open.
-      timer.unref?.();
+      // A request's deadline shouldn't hold the process open by itself.
+      if (!this.holdsProcess) timer.unref?.();
     });
     return Promise.race([work, passed]).finally(() => clearTimeout(timer));
   }
