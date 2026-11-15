@@ -20,15 +20,13 @@ li {
   border-bottom: 1px solid var(--color-divider);
 }
 
+/* The winner's segments, or the Drop toggle buttons, wrapping on a narrow screen. */
 .drops,
-.winners {
-  display: flex;
+.segmented {
   flex-wrap: wrap;
-  gap: var(--space-md);
 }
 
-label {
+.drops {
   display: flex;
-  align-items: center;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }

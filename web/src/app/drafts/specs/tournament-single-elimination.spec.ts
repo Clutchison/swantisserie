@@ -10,6 +10,7 @@ import {
   http,
   items,
   panel,
+  pressed,
   text,
   useDraftsApp,
 } from './harness';
@@ -177,9 +178,12 @@ describe('dropping players from the single elimination Complete round dialog', (
   it('drops a player from an unreported match instead of picking its winner', async () => {
     const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
 
-    controlByLabel(group(dialog, 'Drop from Bob vs Carol')!, 'checkbox', 'Drop Bob')!.click();
+    const drops = group(dialog, 'Drop from Bob vs Carol')!;
+    expect(pressed(drops, 'Drop Bob')).toBe('false');
+    button(drops, 'Drop Bob')!.click();
     await fixture.whenStable();
 
+    expect(pressed(drops, 'Drop Bob')).toBe('true');
     expect(text(dialog)).toContain('drop a player who won’t play on');
     expect(
       controlByLabel(group(dialog, 'Winner of Bob vs Carol')!, 'radio', 'Carol')!.disabled,
@@ -190,12 +194,35 @@ describe('dropping players from the single elimination Complete round dialog', (
     expect(req.request.body).toEqual({ round: 1, drops: [{ matchId: 'm1', drop: [bob.id] }] });
   });
 
+  it('gives back the winner choice once the drop is pressed again', async () => {
+    const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
+    const drops = group(dialog, 'Drop from Bob vs Carol')!;
+
+    button(drops, 'Drop Bob')!.click();
+    await fixture.whenStable();
+    button(drops, 'Drop Bob')!.click();
+    await fixture.whenStable();
+
+    expect(pressed(drops, 'Drop Bob')).toBe('false');
+    const carolWins = controlByLabel(group(dialog, 'Winner of Bob vs Carol')!, 'radio', 'Carol')!;
+    expect(carolWins.disabled).toBe(false);
+    carolWins.click();
+    await fixture.whenStable();
+    button(dialog, 'Complete round')!.click();
+    const req = await answerChange(fixture, COMPLETE_ROUND_URL, 'POST', final, 1, threePlayers);
+
+    expect(req.request.body).toEqual({
+      round: 1,
+      grantedWins: [{ matchId: 'm1', winner: carol.id }],
+    });
+  });
+
   it('says the tournament completes when dropping both players leaves one player in the bracket', async () => {
     const { fixture, dialog } = await openCompleteRound(singleEliminationPlaying());
     const drops = group(dialog, 'Drop from Bob vs Carol')!;
 
-    controlByLabel(drops, 'checkbox', 'Drop Bob')!.click();
-    controlByLabel(drops, 'checkbox', 'Drop Carol')!.click();
+    button(drops, 'Drop Bob')!.click();
+    button(drops, 'Drop Carol')!.click();
     await fixture.whenStable();
 
     expect(text(dialog)).toContain(
@@ -222,8 +249,8 @@ describe('both finalists dropping', () => {
     const { fixture, page, dialog } = await openCompleteRound(final);
     const drops = group(dialog, 'Drop from Alice vs Carol')!;
 
-    controlByLabel(drops, 'checkbox', 'Drop Alice')!.click();
-    controlByLabel(drops, 'checkbox', 'Drop Carol')!.click();
+    button(drops, 'Drop Alice')!.click();
+    button(drops, 'Drop Carol')!.click();
     await fixture.whenStable();
 
     expect(text(dialog)).toContain(
@@ -250,7 +277,7 @@ describe('both finalists dropping', () => {
   it('still awards the trophy when one finalist drops', async () => {
     const { fixture, dialog } = await openCompleteRound(final);
 
-    controlByLabel(group(dialog, 'Drop from Alice vs Carol')!, 'checkbox', 'Drop Alice')!.click();
+    button(group(dialog, 'Drop from Alice vs Carol')!, 'Drop Alice')!.click();
     await fixture.whenStable();
 
     expect(text(dialog)).toContain('award the trophy');

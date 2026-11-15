@@ -236,6 +236,16 @@ button {
     background: var(--color-raised);
     font-weight: 600;
   }
+
+  /*
+   * A segment whose radio is disabled looks like a disabled button. Its
+   * radio takes no clicks, so neither does it, which keeps the hover off.
+   */
+  label:has(:disabled) {
+    opacity: 0.6;
+    cursor: default;
+    pointer-events: none;
+  }
 }
 
 /*

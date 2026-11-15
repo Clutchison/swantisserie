@@ -32,10 +32,12 @@
         @for (match of unreported(); track match.id) {
           <li>
             <span>{{ match.label }}</span>
-            <div class="winners" role="group" [attr.aria-label]="'Winner of ' + match.label">
+            <!-- Each choice is a native radio, hidden, in a label styled as a segment. -->
+            <div class="segmented" role="group" [attr.aria-label]="'Winner of ' + match.label">
               @for (player of match.players; track player.id) {
-                <label>
+                <label class="button compact quiet">
                   <input
+                    class="visually-hidden"
                     type="radio"
                     [name]="'winner-' + match.id"
                     [checked]="isWinner(match.id, player.id)"
@@ -49,14 +51,18 @@
             @if (match.droppable.length > 0) {
               <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
                 @for (player of match.droppable; track player.id) {
-                  <label>
-                    <input
-                      type="checkbox"
-                      [checked]="isDropping(match.id, player.id)"
-                      (change)="setDropping(match.id, player.id, $any($event.target).checked)"
-                    />
+                  <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
+                  <button
+                    type="button"
+                    class="toggle-button labelled"
+                    [attr.aria-pressed]="isDropping(match.id, player.id)"
+                    (click)="setDropping(match.id, player.id, !isDropping(match.id, player.id))"
+                  >
+                    @if (isDropping(match.id, player.id)) {
+                      <svg lucideCheck size="16" aria-hidden="true"></svg>
+                    }
                     Drop {{ player.name }}
-                  </label>
+                  </button>
                 }
               </div>
             }
@@ -77,14 +83,18 @@
             @if (!finalRound() && match.droppable.length > 0) {
               <div class="drops" role="group" [attr.aria-label]="'Drop from ' + match.label">
                 @for (player of match.droppable; track player.id) {
-                  <label>
-                    <input
-                      type="checkbox"
-                      [checked]="isDropping(match.id, player.id)"
-                      (change)="setDropping(match.id, player.id, $any($event.target).checked)"
-                    />
+                  <!-- A toggle, so its label stays the same either way; pressed shows the check. -->
+                  <button
+                    type="button"
+                    class="toggle-button labelled"
+                    [attr.aria-pressed]="isDropping(match.id, player.id)"
+                    (click)="setDropping(match.id, player.id, !isDropping(match.id, player.id))"
+                  >
+                    @if (isDropping(match.id, player.id)) {
+                      <svg lucideCheck size="16" aria-hidden="true"></svg>
+                    }
                     Drop {{ player.name }}
-                  </label>
+                  </button>
                 }
               </div>
             }
