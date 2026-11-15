@@ -27,6 +27,7 @@ import {
   statusMessage,
   alertIn,
 } from './harness';
+import { emptyStatusIn, statusIn } from '../../specs-harness';
 import {
   disclosure,
   elementContaining,
@@ -39,6 +40,7 @@ import {
   bolt,
   boltAgain,
   cards,
+  deckNotice,
   planned,
   unpicked,
   planOf,
@@ -353,8 +355,7 @@ describe('plan tab', () => {
     );
     const plan = await openPlan(fixture, page);
 
-    const note = plan.querySelector<HTMLElement>('.notice')!;
-    expect(note.getAttribute('role')).toBe('status');
+    const note = deckNotice(plan)!;
     expect(note.textContent?.replace(/\s+/g, ' ').trim()).toBe(
       'Lost to other players: Shivan Dragon (picked by Bob), Lightning Bolt (picked by Carol). Dismiss',
     );
@@ -363,7 +364,33 @@ describe('plan tab', () => {
     const req = http.expectOne('/api/drafts/draft-1/plan/notice');
     expect(req.request.method).toBe('DELETE');
     req.flush(planOf({ mainboard: [planned(brightclimb)] }));
-    await vi.waitFor(() => expect(plan.querySelector('.notice')).toBeNull());
+    await vi.waitFor(() => expect(deckNotice(plan)).toBeUndefined());
+  });
+
+  it('puts the Deck notice into its region, there and empty before an unpicked card in the deck is lost', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+    });
+    const plan = await openPlan(fixture, page);
+    const region = emptyStatusIn(plan, 'Deck notice');
+
+    updates.events.next({
+      type: 'changed',
+      draft: draft(drafting({ turn: bobsTurn, version: 1 })),
+    });
+    await flushPicks([]);
+    await flushQueueAndPlan(
+      EMPTY_QUEUE,
+      planOf({
+        mainboard: [planned(brightclimb)],
+        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
+      }),
+    );
+    await fixture.whenStable();
+
+    expect(statusIn(plan, { name: 'Deck notice' })).toBe(region);
+    expect(text(region)).toBe('Lost to other players: Shivan Dragon (picked by Bob). Dismiss');
   });
 
   it('hides its help in a closed "How this works" section until opened', async () => {
@@ -408,7 +435,7 @@ describe('plan tab', () => {
     });
     const plan = await openPlan(fixture, page);
 
-    expect(plan.querySelector('.notice')!.textContent?.replace(/\s+/g, ' ').trim()).toBe(
+    expect(deckNotice(plan)!.textContent?.replace(/\s+/g, ' ').trim()).toBe(
       'Lost to other players: Shivan Dragon (picked by another player). Dismiss',
     );
   });

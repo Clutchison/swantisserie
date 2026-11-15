@@ -7,6 +7,7 @@ import {
   byAriaLabel,
   collapseWhitespace,
   openDialog,
+  statusIn,
   stubScrollIntoView,
 } from '../../specs-harness';
 import {
@@ -62,6 +63,12 @@ export const readyNotice = (root: HTMLElement) =>
   [...root.querySelectorAll<HTMLElement>('[role="status"]')].find((status) =>
     text(status).startsWith('You’re no longer ready'),
   );
+
+/** The Deck notice inside `root`: the status naming cards lost to other players; undefined if none shows. */
+export const deckNotice = (root: HTMLElement) => {
+  const region = statusIn(root, { name: 'Deck notice' });
+  return region && text(region) ? region : undefined;
+};
 
 /** The Deck tab's panel, even while it's hidden behind another tab. */
 export const planPanel = (page: HTMLElement) => tabPanel(page, 'Deck');

@@ -2,12 +2,14 @@ import { TestBed } from '@angular/core/testing';
 import type { PickView, PlanView, PoolCardView } from 'contract';
 import {
   collapseWhitespace,
+  emptyStatusIn,
   menu,
   menuItem,
   menuItems,
   openMenu,
   pressEscape,
   pressKey,
+  statusIn,
 } from '../../specs-harness';
 import type { PickedCard } from '../draft-store';
 import type { ExportTarget } from '../export-buttons';
@@ -500,6 +502,26 @@ describe('Deck tab exports', () => {
           ).toBeTruthy();
           const copied = (await copyFor(opened))!.split('\n');
           expect(copied.slice(copied.indexOf('Sideboard') + 1)).toHaveLength(16);
+        });
+
+        it('puts the warning into its region, there and empty under the cap', async () => {
+          const { sideboardPicks, yours } = sideboardOf(16);
+          const underCap: PlanView = {
+            ...yours,
+            mainboard: yours.sideboard.slice(15),
+            sideboard: yours.sideboard.slice(0, 15),
+          };
+          const { fixture, page } = await openPlanWith(sideboardPicks, {}, { plan: underCap });
+          const region = emptyStatusIn(planPanel(page), 'Sideboard over Arena’s cap');
+
+          button(planPanel(page), 'Move Card 15 to the sideboard')!.click();
+          http.expectOne('/api/drafts/draft-1/plan/card-15').flush(yours);
+          await fixture.whenStable();
+
+          expect(statusIn(planPanel(page), { name: 'Sideboard over Arena’s cap' })).toBe(region);
+          expect(text(region)).toBe(
+            "Your sideboard has 16 cards. Arena's import may keep only 15 of them, though your export has them all.",
+          );
         });
 
         it('counts the sideboard’s basics toward Arena’s 15', async () => {

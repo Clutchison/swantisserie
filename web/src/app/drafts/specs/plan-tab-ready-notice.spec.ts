@@ -1,3 +1,4 @@
+import { emptyStatusIn, statusIn } from '../../specs-harness';
 import { alice, bob, button, http, text, useDraftsApp } from './harness';
 import { flushTournament, openComplete, registration } from './play-tab-harness';
 import { cards, openPlan, planOf, readyNotice } from './plan-tab-harness';
@@ -39,6 +40,21 @@ describe('the Ready notice on the Deck tab', () => {
     await fixture.whenStable();
 
     expect(readyNotice(deck)).toBeDefined();
+  });
+
+  it('puts the notice into its region, there and empty while the player is ready', async () => {
+    const { fixture, deck } = await openPlanOf();
+    const region = emptyStatusIn(deck, 'Ready notice');
+
+    button(deck, 'Move Lightning Bolt to the sideboard')!.click();
+    http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(planOf({ readyNotice: true }));
+    await flushTournament(aliceJoined);
+    await fixture.whenStable();
+
+    expect(statusIn(deck, { name: 'Ready notice' })).toBe(region);
+    expect(text(region)).toBe(
+      'You’re no longer ready: your mainboard dropped below 40 cards. Fill your deck, then mark yourself ready again on the Play tab. Dismiss',
+    );
   });
 
   it('sends the dismiss and goes once it is answered', async () => {
