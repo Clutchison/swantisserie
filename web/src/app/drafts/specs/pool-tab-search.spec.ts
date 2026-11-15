@@ -57,7 +57,7 @@ describe('pool tab', () => {
       const pool = [white, blue, azorius, orzhov, golem];
 
       async function press(fixture: AppFixture, page: HTMLElement, ...colors: string[]) {
-        for (const name of colors) toggleButton(colorFilter(page), name)!.click();
+        for (const color of colors) toggleButton(colorFilter(page), color)!.click();
         await fixture.whenStable();
       }
 
@@ -73,7 +73,11 @@ describe('pool tab', () => {
           '☐ Green',
           '☐ Colorless',
         ]);
-        expect([...filter.querySelectorAll('img')].map((img) => img.getAttribute('src'))).toEqual([
+        expect(
+          ['White', 'Blue', 'Black', 'Red', 'Green', 'Colorless'].map((color) =>
+            toggleButton(filter, color)!.querySelector('img')?.getAttribute('src'),
+          ),
+        ).toEqual([
           'mana/W.svg',
           'mana/U.svg',
           'mana/B.svg',
