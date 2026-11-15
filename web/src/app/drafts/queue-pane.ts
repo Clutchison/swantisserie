@@ -89,10 +89,12 @@ const STEAL_BEHAVIOR_HELP =
   `under ${STEAL_BEHAVIOR_TEXT.PickNext.name}, it stays queue picking.`;
 
 /**
- * Where a failed change is explained: under the header, for the queue's
- * play/pause button or the steal behavior pill, or under the queue.
+ * Where a failed change is explained, of two places: `header`, directly
+ * under the header's controls and before the help, for the queue's
+ * play/pause button, the steal behavior pill and the Set queue picking
+ * dialog; or `queue`, under the queue, for a change from a row.
  */
-type ErrorPlace = 'queuePaused' | 'stealBehavior' | 'queue';
+type ErrorPlace = 'header' | 'queue';
 
 /** Tells each Queue pane's ids apart, should two ever be on the page. */
 let panes = 0;
@@ -430,7 +432,7 @@ export class QueuePane {
         return this.queueApi.setStealBehavior(this.draftId(), stealBehavior);
       },
       {
-        place: 'stealBehavior',
+        place: 'header',
         rollBack: () => this.store.showQueue({ ...this.queue(), stealBehavior: previous }),
       },
     );
@@ -463,7 +465,7 @@ export class QueuePane {
           : this.queueApi.setQueuePicking(this.draftId(), []);
       },
       {
-        place: 'queuePaused',
+        place: 'header',
         rollBack: () => this.store.showQueue({ ...this.queue(), queuePaused: !queuePaused }),
         status: queueStateName(queuePaused),
         refused: (err) => {
@@ -488,7 +490,7 @@ export class QueuePane {
       })
       .closed.subscribe((result) => {
         if (result?.outcome === 'failed') {
-          this.error.set({ message: result.message, place: 'queuePaused' });
+          this.error.set({ message: result.message, place: 'header' });
         } else if (result?.outcome === 'none-to-pick') {
           void this.sendQueuePaused(false);
         }
