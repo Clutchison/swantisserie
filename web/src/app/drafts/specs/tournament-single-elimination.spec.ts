@@ -11,6 +11,7 @@ import {
   items,
   panel,
   pressed,
+  region,
   text,
   toggleButton,
   useDraftsApp,
@@ -137,6 +138,18 @@ describe('single elimination tournaments on the Play tab', () => {
 
     expect(announcements(tab)).toEqual(['Final']);
   });
+
+  it.each([
+    ['the semifinal', () => semifinalOfFour, fourPlayers, 'Semifinal: against Erin'],
+    ['the final', () => final, threePlayers, 'Final: against Carol'],
+  ])(
+    'names %s in Your match, as the rest of the tab does',
+    async (_, tournament, fields, reads) => {
+      const { tab } = await openPlaying(tournament(), { fields });
+
+      expect(text(region(tab, 'Your match')!)).toContain(reads);
+    },
+  );
 
   it('names no tournament round once it is complete', async () => {
     const { tab } = await openPlaying(completed(final));
@@ -291,7 +304,7 @@ describe('both finalists dropping', () => {
       round: 2,
       drops: [{ matchId: 'm2', drop: [alice.id, carol.id] }],
     });
-    expect(text(panel(page))).toContain('Nobody holds the trophy');
+    expect(text(panel(page))).toContain('Nobody holds the trophy: no player was left to win it.');
   });
 
   it('still awards the trophy when one finalist drops', async () => {

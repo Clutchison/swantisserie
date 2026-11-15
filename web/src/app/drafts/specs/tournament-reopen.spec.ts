@@ -1,5 +1,14 @@
 import { answer, question } from '../../specs-harness';
-import { ORGANIZE_ONLY, bob, button, findNamedList, http, panel, useDraftsApp } from './harness';
+import {
+  ORGANIZE_ONLY,
+  bob,
+  button,
+  buttonOrder,
+  findNamedList,
+  http,
+  panel,
+  useDraftsApp,
+} from './harness';
 import {
   answerChange,
   carol,
@@ -72,6 +81,16 @@ describe('reopening a tournament round', () => {
 
     expect(questionDetail(dialog)).toBe(`${REOPEN_DETAIL} ${back}`);
     await answer(dialog, 'Cancel');
+  });
+
+  it('sits between Cancel tournament and Complete round in the organizer’s row', async () => {
+    const { tab } = await openPlaying(swissPlaying(), { powers: ORGANIZE_ONLY });
+
+    expect(buttonOrder(tab, 'Reopen round 1')).toEqual([
+      'Cancel tournament',
+      'Reopen round 1',
+      'Complete round',
+    ]);
   });
 
   it('sends nothing when the organizer thinks better of it', async () => {

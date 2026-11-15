@@ -71,7 +71,7 @@ const START_DETAILS: Record<TournamentFormat, string> = {
 /**
  * Where a failed change is explained, by the controls that made it:
  * directly after the action rows during play, for Drop from tournament
- * and the organizer's Reopen round, Cancel tournament, Complete round and
+ * and the organizer's Cancel tournament, Reopen round, Complete round and
  * Complete tournament; directly after Your matches, for Report and Confirm
  * there; directly after the results (standings and matches, bracket or
  * results grid), for Confirm and game score changes there; or at the foot
@@ -87,8 +87,8 @@ type ErrorPlace = 'actions' | 'yourMatches' | 'results' | 'foot';
  * players join and leave and organizers remove them, start it or cancel
  * it, then play. Play shows the summary and the trophy, then the action
  * rows, before every list that grows: Drop from tournament, and for
- * organizers Reopen round of the last completed tournament round, Cancel
- * tournament, and Complete tournament (round robin) or Complete round
+ * organizers Cancel tournament, Reopen round of the last completed
+ * tournament round, and Complete tournament (round robin) or Complete round
  * (Swiss, whose dialog grants draws in unreported matches, and single
  * elimination, whose dialog picks their winners). In Swiss and single
  * elimination it then shows the signed-in player's match to report or

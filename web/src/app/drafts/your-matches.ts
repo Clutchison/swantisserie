@@ -29,6 +29,7 @@ import {
   type MatchResultChoices,
 } from './match-result-dialog';
 import { PlayerAvatar } from './player-avatar';
+import { roundName } from './round-names';
 
 /** A game score as a player reports it, from their side: their games won, then their opponent's. */
 export interface OwnGameScore {
@@ -80,7 +81,7 @@ export interface OwnMatch {
 interface OwnMatchLine {
   match: MatchView;
   opponent: PlayerView;
-  /** What "Your match" says before the opponent's avatar, such as "Tournament round 2: against"; empty in Your matches. */
+  /** What "Your match" says before the opponent's avatar, such as "Tournament round 2: against" or "Final: against"; empty in Your matches. */
   before: string;
   /** How it stands after the avatar, such as "vs Carol", "Carol reported you lost 1–2" or "Forfeit: Carol dropped". */
   says: string;
@@ -200,9 +201,11 @@ export class YourMatches {
       const before = '';
       return { before, says: this.says(match, own, opponent, confirmable) };
     }
+    const { format, roundCount } = this.tournament();
+    const named = roundName(format, round, roundCount);
     return confirmable
-      ? { before: `Tournament round ${round}:`, says: reportedLine(match, own, opponent) }
-      : { before: `Tournament round ${round}: against`, says: opponent.name };
+      ? { before: `${named}:`, says: reportedLine(match, own, opponent) }
+      : { before: `${named}: against`, says: opponent.name };
   }
 
   /** How the player's `match` against `opponent` reads on its line in Your matches. */
