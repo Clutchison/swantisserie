@@ -24,6 +24,13 @@ export class NoOracleIdError extends Error {
   }
 }
 
+/** Scryfall gave a printing no mana value or type line, on the card or its front face, so it can't be a pool card. */
+export class NoManaValueOrTypeLineError extends Error {
+  constructor(cardName: string) {
+    super(`${cardName} has no mana value or type line.`);
+  }
+}
+
 /** The card's oracle id: a reversible card's faces carry it. Undefined if Scryfall gave none. */
 export function oracleIdOf(card: ScryfallCard): string | undefined {
   return card.oracle_id ?? card.card_faces?.[0]?.oracle_id;
@@ -36,6 +43,11 @@ export function toPoolCard(
   const faces = card.card_faces ?? [];
   const oracleId = oracleIdOf(card);
   if (!oracleId) throw new NoOracleIdError(card.name);
+  const manaValue = card.cmc ?? faces[0]?.cmc;
+  const typeLine = card.type_line ?? faces[0]?.type_line;
+  if (manaValue === undefined || typeLine === undefined) {
+    throw new NoManaValueOrTypeLineError(card.name);
+  }
   const images: StoredCardImages[] = (
     card.image_uris ? [card.image_uris] : faces.map((face) => face.image_uris)
   )
@@ -47,11 +59,11 @@ export function toPoolCard(
     name: card.name,
     set: card.set,
     collectorNumber: card.collector_number,
-    typeLine: card.type_line,
+    typeLine,
     colors: card.colors ?? [
       ...new Set(faces.flatMap((face) => face.colors ?? [])),
     ],
-    manaValue: card.cmc,
+    manaValue,
     ...searchFields(card),
     images,
   };

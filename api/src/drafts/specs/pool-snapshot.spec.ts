@@ -172,6 +172,48 @@ describe('pool snapshot', () => {
     expect(res.body[0].images[0]).not.toHaveProperty('png');
   });
 
+  it('makes a pool card of a reversible card’s printing, in its front face’s mana value and type line', async () => {
+    const query = snapshotQuery('c:c');
+    const face = {
+      name: 'Ugin, Eye of the Storms',
+      oracle_id: 'ugin-oracle',
+      cmc: 7,
+      type_line: 'Legendary Planeswalker — Ugin',
+    };
+    scryfallAnswers({
+      'c:c': page('Ugin, Eye of the Storms'),
+      '(c:c) -in:arena': null,
+      [query]: {
+        ...page(),
+        totalCards: 1,
+        cards: [
+          {
+            ...card('Ugin, Eye of the Storms // Ugin, Eye of the Storms'),
+            layout: 'reversible_card',
+            oracle_id: undefined,
+            cmc: undefined,
+            type_line: undefined,
+            card_faces: [face, face],
+          },
+        ],
+      },
+    });
+
+    const created = await createDraft({
+      name: 'Colorless',
+      poolSource: { kind: 'pool-query', poolQuery: 'c:c' },
+    }).expect(201);
+    const draft = await snapshotted(created.body.id);
+    expect(draft.snapshot).toEqual({ state: 'Complete', cards: 1, total: 1 });
+
+    const res = await pool(created.body.id).expect(200);
+    expect(res.body[0]).toMatchObject({
+      oracleId: 'ugin-oracle',
+      manaValue: 7,
+      typeLine: 'Legendary Planeswalker — Ugin',
+    });
+  });
+
   it('stores each face’s text, cost, colors and stats, so a search can match either face', async () => {
     const query = snapshotQuery('t:giant');
     scryfallAnswers({
@@ -343,6 +385,33 @@ describe('pool snapshot', () => {
     expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
       state: 'Failed',
       error: 'Shock has no oracle id.',
+    });
+  });
+
+  it('fails on a card with no mana value or type line, on the card or its front face, rather than inventing them', async () => {
+    const query = snapshotQuery('c:r');
+    scryfallAnswers({
+      'c:r': page('Shock'),
+      '(c:r) -in:arena': null,
+      [query]: {
+        ...page(),
+        totalCards: 1,
+        cards: [
+          card('Shock', {
+            cmc: undefined,
+            type_line: undefined,
+            card_faces: [{ name: 'Shock' }],
+          }),
+        ],
+      },
+    });
+    const created = await createDraft({
+      name: 'Red',
+    });
+
+    expect((await snapshotted(created.body.id)).snapshot).toMatchObject({
+      state: 'Failed',
+      error: 'Shock has no mana value or type line.',
     });
   });
 

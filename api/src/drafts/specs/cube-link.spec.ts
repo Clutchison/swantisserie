@@ -111,6 +111,44 @@ it('makes the pool from the cube’s mainboard, a pool card per copy, each in a 
   expect(scryfall.search).not.toHaveBeenCalled();
 });
 
+it('makes a pool card of a reversible card in the cube, in its front face’s mana value and type line', async () => {
+  const face = {
+    name: 'Command Tower',
+    oracle_id: 'command-tower-oracle',
+    cmc: 0,
+    type_line: 'Land',
+  };
+  cubesAre({
+    commander: {
+      name: 'Commander',
+      mainboard: [{ oracleId: 'command-tower-oracle', name: 'Command Tower' }],
+    },
+  });
+  scryfall.printingsOn.mockResolvedValue([
+    {
+      ...card('Command Tower // Command Tower'),
+      layout: 'reversible_card',
+      oracle_id: undefined,
+      cmc: undefined,
+      type_line: undefined,
+      card_faces: [face, face],
+    },
+  ]);
+
+  const created = await createDraft({
+    name: 'Commander',
+    poolSource: { kind: 'cube', cubeLink: 'commander' },
+  }).expect(201);
+
+  expect((await pool(created.body.id).expect(200)).body).toMatchObject([
+    {
+      oracleId: 'command-tower-oracle',
+      manaValue: 0,
+      typeLine: 'Land',
+    },
+  ]);
+});
+
 describe('cube links', () => {
   it.each([
     'thepaupercube',
