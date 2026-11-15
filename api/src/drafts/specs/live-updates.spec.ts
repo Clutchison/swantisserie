@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import type { DraftView } from 'contract';
 import {
   alice,
@@ -25,6 +26,7 @@ import {
   changeWebhook,
 } from './harness.js';
 import request from 'supertest';
+import { PrismaService } from '../../prisma/prisma.service.js';
 import { app } from '../../testing/app.js';
 import { type DraftSocket, useSockets } from './socket-harness.js';
 
@@ -107,6 +109,31 @@ describe('live updates', () => {
     expect(
       await socket.emitWithAck('watch', { id: 'draft' } as unknown as string),
     ).toBe('refused');
+  });
+
+  it('answers a watch it couldn’t check as unchecked, pushes nothing, and accepts the watch asked again', async () => {
+    const id = await readyDraft([]);
+    const bobCookie = await signIn(bob);
+    const socket = await connected(bobCookie);
+    const bobSees: DraftView[] = [];
+    socket.on('changed', (draft) => bobSees.push(draft));
+    const failure = new Error('connection refused');
+    vi.spyOn(app.get(PrismaService).draft, 'findUnique').mockRejectedValueOnce(
+      failure,
+    );
+    const errors = vi.spyOn(Logger.prototype, 'error');
+
+    expect(await socket.emitWithAck('watch', id)).toBe('unchecked');
+    expect(errors).toHaveBeenCalledWith(expect.any(String), failure);
+
+    const carolSees = await watch(id, await signIn(carol));
+    await join(id).expect(201);
+    await vi.waitFor(() => expect(carolSees).toHaveLength(1));
+    expect(bobSees).toEqual([]);
+
+    expect(await socket.emitWithAck('watch', id)).toBe('watching');
+    await leave(id).expect(200);
+    await vi.waitFor(() => expect(bobSees).toHaveLength(1));
   });
 
   it('pushes nothing more of a draft once its viewer stops watching it', async () => {

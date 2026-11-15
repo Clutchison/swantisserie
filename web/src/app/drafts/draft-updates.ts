@@ -3,7 +3,10 @@ import type { DraftSocketEvents, DraftSocketRequests, DraftView } from 'contract
 import { Observable, Subject } from 'rxjs';
 import { io, type Socket } from 'socket.io-client';
 
-/** How long to wait before retrying a handshake the API refused for its own reasons. */
+/**
+ * How long to wait before retrying a handshake the API refused for its own
+ * reasons, or a watch it couldn't check.
+ */
 const RETRY_MS = 5000;
 
 /** Why Socket.IO says the socket dropped when the API closed it. */
@@ -28,7 +31,8 @@ type ConnectionUpdate =
 
 /**
  * What the API pushes about a draft being watched. Its `connected` comes
- * once the draft is watched again.
+ * once the draft is watched again. It also says `disconnected` when the API
+ * couldn't check a watch of the draft, until a watch asked again is answered.
  */
 export type DraftUpdate =
   /** The draft changed: here it is as it now is. */
@@ -73,22 +77,36 @@ export class DraftUpdates {
   private stopped = false;
 
   /**
-   * Watches draft `draftId` on subscribe, and again on every reconnect,
-   * until unsubscribed, and emits the draft's changes.
+   * Watches draft `draftId` on subscribe, and again on every reconnect and
+   * after the usual delay when the API couldn't check the watch, until
+   * unsubscribed, and emits the draft's changes.
    */
   watch(draftId: string): Observable<DraftUpdate> {
     return new Observable((subscriber) => {
       let watching = true;
+      /** The wait to ask again for a watch the API couldn't check. */
+      let retry: ReturnType<typeof setTimeout> | undefined;
+      const stopRetrying = () => clearTimeout(retry);
       // Socket.IO drops an unanswered acknowledgement when the socket drops,
       // and the reconnect asks again.
       const askToWatch = () =>
-        this.socket?.emit('watch', draftId, () => {
-          // Refused or not, catch up: a draft the viewer can't see 404s.
-          if (watching) subscriber.next({ type: 'connected' });
+        this.socket?.emit('watch', draftId, (result) => {
+          if (!watching) return;
+          if (result === 'unchecked') {
+            // Nothing of the draft is pushed until a watch is accepted.
+            subscriber.next({ type: 'disconnected' });
+            retry = setTimeout(() => {
+              if (this.socket?.connected) askToWatch();
+            }, RETRY_MS);
+          } else {
+            // Refused or not, catch up: a draft the viewer can't see 404s.
+            subscriber.next({ type: 'connected' });
+          }
         });
       const passOn = this.socketEvents.subscribe((event) => {
         switch (event.type) {
           case 'connect':
+            stopRetrying();
             askToWatch();
             break;
           case 'changed':
@@ -105,6 +123,7 @@ export class DraftUpdates {
       if (this.open().connected) askToWatch();
       return () => {
         watching = false;
+        stopRetrying();
         passOn.unsubscribe();
         const stillWatching = (this.watchers.get(draftId) ?? 1) - 1;
         if (stillWatching > 0) {

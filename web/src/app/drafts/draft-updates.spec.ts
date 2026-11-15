@@ -42,9 +42,14 @@ class FakeSocket {
     return this.emit.mock.calls.filter(([name]) => name === event).map(([, draftId]) => draftId);
   }
 
-  /** The API answers each request to watch so far with `result`. */
+  /** How many of the socket's requests the API has answered. */
+  private answered = 0;
+
+  /** The API answers each request to watch not yet answered with `result`. */
   answerWatches(result = 'watching') {
-    for (const [name, , ack] of this.emit.mock.calls) if (name === 'watch') ack(result);
+    const unanswered = this.emit.mock.calls.slice(this.answered);
+    this.answered = this.emit.mock.calls.length;
+    for (const [name, , ack] of unanswered) if (name === 'watch') ack(result);
   }
 }
 
@@ -123,6 +128,62 @@ describe('draft updates', () => {
     socket.answerWatches('refused');
 
     expect(received).toEqual([{ type: 'connected' }]);
+  });
+
+  describe('when the API couldn’t check the watch', () => {
+    beforeEach(() => {
+      socket.push('connect');
+      socket.answerWatches('unchecked');
+    });
+
+    it('says it is disconnected, and asks again after the usual delay', () => {
+      expect(received).toEqual([{ type: 'disconnected' }]);
+
+      vi.advanceTimersByTime(RETRY_MS - 1);
+      expect(socket.asked('watch')).toEqual(['draft-1']);
+      vi.advanceTimersByTime(1);
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-1']);
+    });
+
+    it('says it is connected once the API accepts the watch asked again', () => {
+      vi.advanceTimersByTime(RETRY_MS);
+
+      socket.answerWatches();
+
+      expect(received).toEqual([{ type: 'disconnected' }, { type: 'connected' }]);
+    });
+
+    it('goes on asking while the API can’t check it', () => {
+      vi.advanceTimersByTime(RETRY_MS);
+      socket.answerWatches('unchecked');
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-1', 'draft-1']);
+    });
+
+    it('asks nothing more once the draft is no longer watched', () => {
+      watching.unsubscribe();
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1']);
+    });
+
+    it('asks only once when the socket reconnects before the delay is up', () => {
+      socket.push('disconnect');
+      socket.push('connect');
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-1']);
+    });
+
+    it('asks again only for that draft', () => {
+      const { updatesOf } = alsoWatch('draft-2');
+      socket.answerWatches();
+      vi.advanceTimersByTime(RETRY_MS);
+
+      expect(socket.asked('watch')).toEqual(['draft-1', 'draft-2', 'draft-1']);
+      expect(updatesOf).toEqual([{ type: 'connected' }]);
+    });
   });
 
   it('asks to watch a draft straight away when the socket is already connected', () => {
@@ -453,6 +514,14 @@ describe('draft updates', () => {
 
       expect(own).toEqual([{ type: 'unauthorized' }]);
       expect(socket.connect).not.toHaveBeenCalled();
+    });
+
+    it('aren’t told disconnected when the API couldn’t check a watched draft', () => {
+      socket.push('connect');
+
+      socket.answerWatches('unchecked');
+
+      expect(own).toEqual([{ type: 'connected' }]);
     });
 
     it('ask nothing of the API once unsubscribed', () => {
