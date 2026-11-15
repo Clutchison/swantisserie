@@ -18,58 +18,56 @@
   </div>
 
   <div id="feedback-panel" role="tabpanel" [attr.aria-label]="selectedTab()">
-    @if (feedback.error()) {
-      <p class="error">Couldn't load the feedback. Try reloading the page.</p>
-    } @else if (feedback.isLoading() && !feedback.hasValue()) {
-      <app-loading-animation size="page">Loading…</app-loading-animation>
-    } @else if (feedback.hasValue()) {
-      <ul>
-        @for (item of feedback.value(); track item.id) {
-          <li>
-            <img class="avatar" [src]="item.sender.avatarUrl" alt="" width="32" height="32" />
-            <span class="name">{{ item.sender.name }}</span>
-            <time class="detail" [attr.datetime]="item.sentAt">{{
-              item.sentAt | date: 'medium'
-            }}</time>
-            <p class="message">{{ item.message }}</p>
-            <a class="page-path" [routerLink]="pageLink(item)">{{ item.pagePath }}</a>
-            @if ('reviewedBy' in item) {
-              <p class="review">
-                Reviewed by {{ item.reviewedBy.name }},
-                <time [attr.datetime]="item.reviewedAt">{{
-                  item.reviewedAt | date: 'medium'
-                }}</time>
-              </p>
-              <button
-                class="button secondary"
-                type="button"
-                [appSendsChange]="'mark unreviewed ' + item.id"
-                (click)="markUnreviewed(item)"
-              >
-                Mark unreviewed
-              </button>
-            } @else {
-              <button
-                class="button secondary"
-                type="button"
-                [appSendsChange]="'mark reviewed ' + item.id"
-                (click)="markReviewed(item)"
-              >
-                Mark reviewed
-              </button>
-            }
-            @if (problemAt(item); as problem) {
-              <p class="error" role="alert">{{ problem }}</p>
-            }
-          </li>
-        } @empty {
-          <li class="empty">
-            {{
-              selectedTab() === 'Reviewed' ? 'No reviewed feedback yet' : 'No feedback to review'
-            }}
-          </li>
-        }
-      </ul>
-    }
+    <app-load-block noun="the feedback">
+      <ng-template [appLoaded]="feedback" let-items>
+        <ul>
+          @for (item of items; track item.id) {
+            <li>
+              <img class="avatar" [src]="item.sender.avatarUrl" alt="" width="32" height="32" />
+              <span class="name">{{ item.sender.name }}</span>
+              <time class="detail" [attr.datetime]="item.sentAt">{{
+                item.sentAt | date: 'medium'
+              }}</time>
+              <p class="message">{{ item.message }}</p>
+              <a class="page-path" [routerLink]="pageLink(item)">{{ item.pagePath }}</a>
+              @if ('reviewedBy' in item) {
+                <p class="review">
+                  Reviewed by {{ item.reviewedBy.name }},
+                  <time [attr.datetime]="item.reviewedAt">{{
+                    item.reviewedAt | date: 'medium'
+                  }}</time>
+                </p>
+                <button
+                  class="button secondary"
+                  type="button"
+                  [appSendsChange]="'mark unreviewed ' + item.id"
+                  (click)="markUnreviewed(item)"
+                >
+                  Mark unreviewed
+                </button>
+              } @else {
+                <button
+                  class="button secondary"
+                  type="button"
+                  [appSendsChange]="'mark reviewed ' + item.id"
+                  (click)="markReviewed(item)"
+                >
+                  Mark reviewed
+                </button>
+              }
+              @if (problemAt(item); as problem) {
+                <p class="error" role="alert">{{ problem }}</p>
+              }
+            </li>
+          } @empty {
+            <li class="empty">
+              {{
+                selectedTab() === 'Reviewed' ? 'No reviewed feedback yet' : 'No feedback to review'
+              }}
+            </li>
+          }
+        </ul>
+      </ng-template>
+    </app-load-block>
   </div>
 </main>

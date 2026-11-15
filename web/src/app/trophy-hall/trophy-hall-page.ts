@@ -13,7 +13,7 @@ import { CardImageSource } from '../drafts/card-image-source';
 import { CardPreviews } from '../drafts/card-preview';
 import { Decklist } from '../drafts/decklist';
 import { DialogShell } from '../dialog-shell';
-import { LoadingAnimation } from '../loading/loading-animation';
+import { Loaded, LoadBlock } from '../loading/load-block';
 import { place } from '../record';
 import { poolSourceHeader, type PoolSourceHeader } from '../pool-source-header';
 import { TOURNAMENT_SUMMARY_HEADING, TournamentSummary } from './tournament-summary';
@@ -27,7 +27,7 @@ import { TOURNAMENT_SUMMARY_HEADING, TournamentSummary } from './tournament-summ
  */
 @Component({
   selector: 'app-trophy-hall-page',
-  imports: [Decklist, LoadingAnimation],
+  imports: [Decklist, LoadBlock, Loaded],
   // One Card preview for the page, whichever decklists are expanded.
   providers: [CardImageSource, CardPreviews],
   changeDetection: ChangeDetectionStrategy.OnPush,

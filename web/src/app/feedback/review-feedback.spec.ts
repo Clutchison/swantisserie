@@ -8,10 +8,12 @@ import {
   clickOn,
   expectAlertInItem,
   expectFocusOn,
+  expectLoadingAnimation,
   focusAndClick,
   followBack,
   http,
   listItemsIn,
+  loadingAnimation,
   openApp,
   openDialog,
   panel,
@@ -22,7 +24,6 @@ import {
   useApp,
 } from '../specs-harness';
 import { appAdminButton, answerAppVersion } from '../top-bar/specs-harness';
-import { expectLoadingAnimation, loadingAnimation } from '../drafts/specs/harness';
 import { answerDraft42NotFound, link } from './specs-harness';
 
 const fromAlice: FeedbackView = {
