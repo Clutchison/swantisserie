@@ -17,19 +17,20 @@ export class DraftPublisher {
 
   /**
    * Announces `events` on the draft's webhook, without waiting for Discord,
-   * and sends everyone viewing the draft how it now is. Returns the draft
-   * as sent, or null if there is no such draft.
+   * and sends everyone viewing the draft, and each of `alsoTell`, how it now
+   * is. Returns the draft as sent, or null if there is no such draft.
    */
   async publish(
     draftId: string,
     events: DraftEvent[],
+    alsoTell: string[] = [],
   ): Promise<DraftView | null> {
     // Committed by now, so a failed post can't undo the change.
     if (events.length > 0) void this.notifier.notify(draftId, events);
     const found = await this.reads.find(draftId);
     if (!found) return null;
     const draft = toDraftView(found);
-    this.gateway.changed(draft);
+    this.gateway.changed(draft, alsoTell);
     return draft;
   }
 
