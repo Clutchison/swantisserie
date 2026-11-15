@@ -68,9 +68,10 @@ export class PoolSnapshotService
   ) {}
 
   /**
-   * Picks up snapshots a previous process left unfinished. If that fails the
-   * app still starts: the drafts stay Running and are picked up next boot,
-   * or the organizer retries.
+   * Picks up snapshots a previous process left unfinished. If that fails,
+   * for all of them or for one draft's reset, the app still starts: those
+   * drafts stay Running and are picked up next boot, or the organizer
+   * retries.
    */
   async onApplicationBootstrap(): Promise<void> {
     try {
@@ -78,7 +79,15 @@ export class PoolSnapshotService
         where: { snapshotState: 'Running' },
         select: { id: true },
       });
-      for (const { id } of unfinished) void this.start(id);
+      for (const { id } of unfinished) {
+        // A PoolFrozenError lands here too: the snapshot completed meanwhile.
+        this.start(id).catch((err: unknown) => {
+          this.logger.error(
+            `Could not resume the pool snapshot for draft ${id}`,
+            err,
+          );
+        });
+      }
     } catch (err) {
       this.logger.error('Could not resume unfinished pool snapshots', err);
     }
