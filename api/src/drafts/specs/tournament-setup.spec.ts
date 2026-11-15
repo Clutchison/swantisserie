@@ -56,6 +56,7 @@ describe('tournament setup', () => {
         droppable: true,
         ready: false,
         seed: null,
+        reinstateRefusal: null,
       })),
       readyCount: { ready: 0, of: 2 },
       rounds: [],

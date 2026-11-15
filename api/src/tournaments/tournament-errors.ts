@@ -7,6 +7,12 @@ export class TournamentRefusedError extends Error {
   }
 }
 
+/** The refusal of a change made only while a tournament is playing, outside play. */
+export const NOT_PLAYING: TournamentRefusal = {
+  error: 'not-playing',
+  message: 'This tournament isn’t being played.',
+};
+
 /**
  * The refusal of taking a bot out of its tournament, by leaving, removal or
  * a drop, or of reinstating one: a bot stays in from setup to the end.

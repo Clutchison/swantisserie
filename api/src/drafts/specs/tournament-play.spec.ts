@@ -166,6 +166,30 @@ describe('reporting a match', () => {
   });
 });
 
+describe('who the tournament read says may report a match', () => {
+  it('names both players of an unreported match, and nobody once it is reported', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    const match = await matchOf(id, alice.id, bob.id);
+    expect(match.reportableBy).toEqual(match.players);
+
+    await reportWin(id, [alice.id, bob.id], [2, 0], bobCookie);
+
+    expect((await matchOf(id, alice.id, bob.id)).reportableBy).toEqual([]);
+  });
+
+  it('names nobody once the tournament is complete', async () => {
+    const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);
+    await reportWin(id, [alice.id, bob.id], [2, 0], bobCookie);
+
+    await completeTournament(id).expect(200);
+
+    const { rounds } = await tournamentView(id);
+    expect(
+      rounds.flatMap((round) => round.matches).map((m) => m.reportableBy),
+    ).toEqual([[], [], []]);
+  });
+});
+
 describe('standings', () => {
   it('rank by match points', async () => {
     const id = await playingTournament([aliceCookie, bobCookie, carolCookie]);

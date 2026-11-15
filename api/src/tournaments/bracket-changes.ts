@@ -1,60 +1,58 @@
-import { dependentBracketPlaces } from 'engine';
-import type { Transaction } from '../drafts/draft-shapes.js';
-import type { ChangeSteps } from './change-steps.js';
-import type { TournamentProgress } from './round-steps.js';
-import { bracketRoundCount } from './single-elimination.js';
-import { TournamentRefusedError } from './tournament-errors.js';
+import type { TournamentRefusal } from 'contract';
+import { dependentBracketPlaces, singleEliminationRoundCount } from 'engine';
+import type {
+  ChangeSteps,
+  ReinstateMatch,
+  ReinstateRow,
+} from './change-steps.js';
+import { hasEntry } from './tournament-matches.js';
 
 /**
  * Single elimination's change steps: a player can't be reinstated once a
  * forfeit or bye of theirs has fed a later match.
  */
 export const SINGLE_ELIMINATION_CHANGES: ChangeSteps = {
-  refuseReinstate: refuseBracketReinstate,
+  reinstateRefusal: bracketReinstateRefusal,
 };
 
 /**
- * Throws TournamentRefusedError if the dropped entry `entryId`'s last
- * match, or bye, was a forfeit or a bye that has fed the next tournament
- * round: its round is completed, or the next match it feeds is paired.
- * Their forfeit sent their opponent on, or nobody advanced from it, and
- * the bracket was paired so. A player out on a match they played can be
- * reinstated, which changes nothing in the bracket.
+ * Why the dropped entry `entryId` of the single elimination tournament
+ * `row` can't be reinstated: their last match, or bye, was a forfeit or a
+ * bye that has fed the next tournament round, as its round is completed or
+ * the next match it feeds is paired. Their forfeit sent their opponent on,
+ * or nobody advanced from it, and the bracket was paired so. Null for a
+ * player out on a match they played, whose reinstating changes nothing in
+ * the bracket, and while their forfeit or bye has fed nothing yet.
  */
-async function refuseBracketReinstate(
-  tx: Transaction,
-  tournament: TournamentProgress,
+function bracketReinstateRefusal(
+  row: ReinstateRow,
   entryId: string,
-) {
-  const last = await tx.match.findFirst({
-    where: {
-      tournamentId: tournament.id,
-      OR: [{ firstEntryId: entryId }, { secondEntryId: entryId }],
-    },
-    orderBy: { round: 'desc' },
-    select: {
-      round: true,
-      bracketPlace: true,
-      secondEntryId: true,
-      outcome: true,
-    },
-  });
-  if (!last) return;
+): TournamentRefusal | null {
+  const last = row.matches
+    .filter((match) => hasEntry(match, entryId))
+    .reduce<ReinstateMatch | null>(
+      (latest, match) =>
+        latest === null || match.round > latest.round ? match : latest,
+      null,
+    );
+  if (!last) return null;
   const bye = last.secondEntryId === null;
-  if (!bye && last.outcome !== 'Forfeit') return;
+  if (!bye && last.outcome !== 'Forfeit') return null;
   const [next] = dependentBracketPlaces(
     { round: last.round, bracketPlace: last.bracketPlace! },
-    await bracketRoundCount(tx, tournament.id),
+    singleEliminationRoundCount(row.entries.length),
   );
   const fedNext =
-    last.round <= tournament.lastCompletedRound ||
+    last.round <= row.lastCompletedRound ||
     (next !== undefined &&
-      (await tx.match.count({
-        where: { tournamentId: tournament.id, ...next },
-      })) > 0);
-  if (!fedNext) return;
-  throw new TournamentRefusedError({
+      row.matches.some(
+        (match) =>
+          match.round === next.round &&
+          match.bracketPlace === next.bracketPlace,
+      ));
+  if (!fedNext) return null;
+  return {
     error: 'paired-since-drop',
     message: `That player can’t be reinstated: their ${bye ? 'bye' : 'forfeit'} in tournament round ${last.round} has fed tournament round ${last.round + 1}.`,
-  });
+  };
 }

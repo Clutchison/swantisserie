@@ -9,6 +9,7 @@ import { DraftGoneError } from '../drafts/draft-errors.js';
 import { DraftLock } from '../drafts/draft-lock.js';
 import type { Transaction } from '../drafts/draft-shapes.js';
 import type { TournamentProgress } from './round-steps.js';
+import type { MatchPlayer } from './match-rules.js';
 import { droppable, ENTRY_OF_MATCH } from './tournament-matches.js';
 import {
   BOT_ENTRY,
@@ -16,6 +17,7 @@ import {
   notJoined,
   NoMatchError,
   NoTournamentError,
+  NOT_PLAYING,
   TournamentRefusedError,
 } from './tournament-errors.js';
 
@@ -68,10 +70,7 @@ export class TournamentLock {
    * TournamentRefusedError if it isn't playing.
    */
   inPlay<T>(draftId: string, change: TournamentChange<T>): Promise<T> {
-    return this.whileTournamentIn(draftId, 'Playing', change, {
-      error: 'not-playing',
-      message: 'This tournament isn’t being played.',
-    });
+    return this.whileTournamentIn(draftId, 'Playing', change, NOT_PLAYING);
   }
 
   /**
@@ -112,8 +111,8 @@ export class TournamentLock {
 
 /**
  * The tournament's match `matchId`, with its tournament round, and its
- * players' Discord user ids and whether each has dropped, in its player
- * order.
+ * players in its order: their Discord user ids, and whether each is a bot
+ * and has dropped.
  * Throws NoMatchError if it has no such match; a bye is no match.
  */
 export async function findMatch(
@@ -136,8 +135,13 @@ export async function findMatch(
     round: match.round,
     outcome: match.outcome,
     reportedById: match.reportedById,
-    players: [match.firstEntry.player.userId, match.secondEntry?.player.userId],
-    dropped: [match.firstEntry.dropped, !!match.secondEntry?.dropped],
+    players: [match.firstEntry, match.secondEntry!].map(
+      (entry): MatchPlayer => ({
+        userId: entry.player.userId,
+        bot: entry.player.user.isBot,
+        dropped: entry.dropped,
+      }),
+    ),
   };
 }
 

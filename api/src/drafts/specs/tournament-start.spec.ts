@@ -50,6 +50,7 @@ describe('starting a tournament', () => {
             outcome: { kind: 'Unreported' },
             reportedBy: null,
             confirmed: false,
+            reportableBy: [alice.id, bob.id],
             confirmableBy: [],
             clearLeaves: null,
           },
