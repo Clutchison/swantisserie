@@ -32,6 +32,22 @@ import {
 useDraftsApp();
 
 describe('pool snapshot', () => {
+  /**
+   * A pool query draft whose snapshot a previous process left Running.
+   * Written directly: no route leaves a snapshot running across a restart.
+   */
+  const leftRunning = (name: string, poolQuery: string) =>
+    app.get(PrismaService).draft.create({
+      data: {
+        name,
+        poolSourceKind: 'PoolQuery',
+        poolQuery,
+        picksPerPlayer: 40,
+        organizerId: alice.id,
+        snapshotState: 'Running',
+      },
+    });
+
   it('pages through the pool after creation, and the draft shows progress then the pool size', async () => {
     const query = snapshotQuery('t:dragon c:r');
     scryfallAnswers({
@@ -536,17 +552,7 @@ describe('pool snapshot', () => {
   it('resumes a snapshot a previous process left running', async () => {
     const query = snapshotQuery('c:r');
     scryfallAnswers({ [query]: page('Shock', 'Lightning Bolt') });
-    // Written directly: no route leaves a snapshot running across a restart.
-    const { id } = await app.get(PrismaService).draft.create({
-      data: {
-        name: 'Red',
-        poolSourceKind: 'PoolQuery',
-        poolQuery: 'c:r',
-        picksPerPlayer: 40,
-        organizerId: alice.id,
-        snapshotState: 'Running',
-      },
-    });
+    const { id } = await leftRunning('Red', 'c:r');
     await app.close();
 
     await startApp();
@@ -556,6 +562,66 @@ describe('pool snapshot', () => {
       cards: 2,
       total: 2,
     });
+  });
+
+  it('still starts when a snapshot it resumes can’t be reset, and resumes the others', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    onTestFinished(() => {
+      process.off('unhandledRejection', onUnhandled);
+    });
+    const errors = vi.spyOn(Logger.prototype, 'error').mockReturnValue();
+    scryfallAnswers({
+      [snapshotQuery('c:r')]: page('Shock'),
+      [snapshotQuery('c:g')]: page('Giant Growth'),
+    });
+    const drafts = [
+      await leftRunning('Red', 'c:r'),
+      await leftRunning('Green', 'c:g'),
+    ];
+    await app.close();
+    // The first transaction after the restart is the first resumed reset;
+    // nothing else at boot writes.
+    vi.spyOn(PrismaService.prototype, '$transaction').mockRejectedValueOnce(
+      new Error('Connection terminated unexpectedly'),
+    );
+
+    await startApp();
+
+    // One snapshot completes; the other stays Running for the next boot.
+    // Which is refused depends on the order the app reads them in.
+    const states = await vi.waitFor(
+      async () => {
+        const read = await Promise.all(
+          drafts.map(async ({ id }) => {
+            const res = await getDraft(id).expect(200);
+            return { id, snapshot: res.body.snapshot };
+          }),
+        );
+        const states = read.map(({ snapshot }) => snapshot.state as string);
+        expect(states.sort((a, b) => a.localeCompare(b))).toEqual([
+          'Complete',
+          'Running',
+        ]);
+        return read;
+      },
+      { timeout: 5_000 },
+    );
+    const resumed = states.find(({ snapshot }) => snapshot.state !== 'Running');
+    const refused = states.find(({ snapshot }) => snapshot.state === 'Running');
+    expect(resumed?.snapshot).toEqual({
+      state: 'Complete',
+      cards: 1,
+      total: 1,
+    });
+    expect(errors).toHaveBeenCalledWith(
+      expect.stringContaining(refused!.id),
+      expect.objectContaining({
+        message: 'Connection terminated unexpectedly',
+      }),
+    );
+    expect(unhandled).toEqual([]);
   });
 
   it('fails a cube draft’s snapshot that a previous process left running, as a cube’s pool is taken only at creation', async () => {
