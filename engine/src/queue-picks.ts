@@ -26,6 +26,8 @@ export function queuePicksBeforeAnotherPlayerPicks(
     { length: draft.players },
     (_, at) => ({
       queue: at === seat ? queue : [],
+      // The deck boards don't change which cards a queue picks.
+      sideboard: [],
       stealBehavior: 'PauseQueue',
       queuePaused: false,
     }),

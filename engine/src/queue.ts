@@ -15,6 +15,12 @@ import { currentTurn } from './turn.js';
  */
 export type StealBehavior = 'PauseQueue' | 'PickNext';
 
+/**
+ * A deck board, which the code calls a plan board (ADR 0018): the mainboard
+ * or the sideboard.
+ */
+export type PlanBoard = 'Mainboard' | 'Sideboard';
+
 /** A pick: the seat that made it and the pool card it picked. */
 export interface SeatPick {
   /** 0-based index into the seat order. */
@@ -37,13 +43,15 @@ export interface LostQueuedCard {
 }
 
 /**
- * A seat's queue state: its queued cards, in order, its steal behavior, and
- * whether it is queue paused. Cards are pool card ids unless `Card` says
- * otherwise.
+ * A seat's queue state: its queued cards, in order, which of them sit on
+ * the sideboard, its steal behavior, and whether it is queue paused. Cards
+ * are pool card ids.
  */
-export interface SeatQueue<Card = string> {
+export interface SeatQueue {
   /** The queued cards, in order. */
-  queue: readonly Card[];
+  queue: readonly string[];
+  /** The queued cards that sit on the sideboard; the rest sit on the mainboard. */
+  sideboard: readonly string[];
   /** What a card lost from the queue does to it. */
   stealBehavior: StealBehavior;
   /** Whether the queue is queue paused, making no queued picks. */
@@ -56,19 +64,27 @@ export interface QueueAfterPick extends SeatQueue {
   swapped?: Swap;
   /** The picked card, if this queue lost it: no copy was available for the queue. */
   lost?: LostQueuedCard;
+  /**
+   * In the picker's queue only, which every pick has: the deck board the
+   * pick lands on in their deck.
+   */
+  landsOn?: PlanBoard;
 }
 
 /**
  * What a pick does to `queues`, each seat's queue state, indexed by seat.
  * The queued card the pick accounts for, as `ownPickCopy` says, leaves the
  * picker's queue, so the queue doesn't pick a second copy; `plansAfterPick`
- * makes the same card the pick in the picker's plan. The copies are those
- * in `pool` that are not `picked`. In each other queue holding it, it is
- * swapped for a copy or lost, as `swapOrLose` says; swapped or lost, the
- * rest of the queue stays in order. A loss sets a queue picking queue
- * paused, unless its steal behavior is pick next. Nothing else changes a
- * queue's state. `picked` is the cards picked already, with or without
- * this one. Cards are pool card ids.
+ * makes the same card the pick in the picker's plan. The pick lands on that
+ * card's deck board, or the mainboard when it accounts for none, which the
+ * picker's queue gives as `landsOn`. The copies are those in `pool` that
+ * are not `picked`. In each other queue holding it, it is swapped for a
+ * copy or lost, as `swapOrLose` says; swapped or lost, the rest of the
+ * queue stays in order. A swapped-in copy takes the stolen copy's deck
+ * board. A loss sets a queue picking queue paused, unless its steal
+ * behavior is pick next. Nothing else changes a queue's state. `picked` is
+ * the cards picked already, with or without this one. Cards are pool card
+ * ids.
  */
 export function queuesAfterPick(
   pick: SeatPick,
@@ -76,36 +92,49 @@ export function queuesAfterPick(
   { pool, picked }: { pool: Pool; picked: readonly string[] },
 ): QueueAfterPick[] {
   const copies = availableCopies(pick.card, pool, picked);
-  return queues.map(({ queue, stealBehavior, queuePaused }, seat) => {
-    if (seat === pick.seat) {
-      const queued = ownPickCopy(queue, pick.card, copies);
-      return {
-        queue: queue.filter((card) => card !== queued),
-        stealBehavior,
-        queuePaused,
-      };
-    }
-    const { cards, swapped, lost } = swapOrLose(queue, pick.card, copies);
-    if (lost === undefined) {
+  return queues.map(
+    ({ queue, sideboard, stealBehavior, queuePaused }, seat) => {
+      if (seat === pick.seat) {
+        const queued = ownPickCopy(queue, pick.card, copies);
+        return {
+          queue: queue.filter((card) => card !== queued),
+          sideboard: sideboard.filter((card) => card !== queued),
+          stealBehavior,
+          queuePaused,
+          landsOn:
+            queued !== undefined && sideboard.includes(queued)
+              ? 'Sideboard'
+              : 'Mainboard',
+        };
+      }
+      const { cards, swapped, lost } = swapOrLose(queue, pick.card, copies);
+      if (lost === undefined) {
+        return {
+          queue: cards,
+          sideboard: swapped
+            ? sideboard.map((card) =>
+                card === swapped.out ? swapped.in : card,
+              )
+            : [...sideboard],
+          stealBehavior,
+          queuePaused,
+          ...(swapped && { swapped }),
+        };
+      }
+      const queueLoss: QueueLoss = queuePaused
+        ? 'StayedQueuePaused'
+        : stealBehavior === 'PickNext'
+          ? 'StayedQueuePicking'
+          : 'QueuePaused';
       return {
         queue: cards,
+        sideboard: sideboard.filter((card) => card !== lost),
         stealBehavior,
-        queuePaused,
-        ...(swapped && { swapped }),
+        queuePaused: queueLoss !== 'StayedQueuePicking',
+        lost: { card: lost, queueLoss },
       };
-    }
-    const queueLoss: QueueLoss = queuePaused
-      ? 'StayedQueuePaused'
-      : stealBehavior === 'PickNext'
-        ? 'StayedQueuePicking'
-        : 'QueuePaused';
-    return {
-      queue: cards,
-      stealBehavior,
-      queuePaused: queueLoss !== 'StayedQueuePicking',
-      lost: { card: lost, queueLoss },
-    };
-  });
+    },
+  );
 }
 
 /** A pick a queue makes, and what it does to every queue. */
@@ -140,9 +169,14 @@ export function nextQueuedPick(
   };
 }
 
-/** A queued card and its place in the queue: lowest first, not necessarily consecutive. */
-export interface QueuedCardAt {
+/** A queued card and the deck board it sits on. */
+export interface QueuedCopy {
   card: string;
+  board: PlanBoard;
+}
+
+/** A queued card, its deck board, and its place in the queue: lowest first, not necessarily consecutive. */
+export interface QueuedCardAt extends QueuedCopy {
   position: number;
 }
 
@@ -160,18 +194,23 @@ export interface QueuedCardAt {
  * positions come before them, so after as many as were ahead of them,
  * unless since reordered. Otherwise they come back at the front, in their
  * original order, ahead of anything queued since. A card both put back and
- * queued again since is held once, in the first of its two places.
+ * queued again since is held once, in the first of its two places, on the
+ * deck board it has there. Every card keeps its deck board, so a taken-out
+ * card goes back on the board it was on.
  */
 export function queueAfterUndo(
   queue: readonly QueuedCardAt[],
   takenOut: readonly QueuedCardAt[],
   { restKept }: { restKept: boolean },
-): string[] {
+): QueuedCopy[] {
   const at =
     restKept && takenOut.length > 0
       ? queue.filter((queued) => queued.position < takenOut[0].position).length
       : 0;
-  return [
-    ...new Set(queue.toSpliced(at, 0, ...takenOut).map(({ card }) => card)),
-  ];
+  const held = new Set<string>();
+  return queue.toSpliced(at, 0, ...takenOut).flatMap(({ card, board }) => {
+    if (held.has(card)) return [];
+    held.add(card);
+    return [{ card, board }];
+  });
 }

@@ -12,6 +12,7 @@ import {
   pointer,
   tap,
   queueOf,
+  queued,
   button,
   cardName,
   startDrag,
@@ -160,7 +161,7 @@ describe('card previews', () => {
 
     it('opens on names tabbed to in the Queue pane, but not while a drag is under way', async () => {
       const { page, fixture } = await openPicked({
-        queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
+        queue: queueOf({ cards: [queued(shock)] }),
       });
       // A button, as it opens its Card detail.
       const name = button(await openQueueSheet(fixture, page), 'Shock')!;

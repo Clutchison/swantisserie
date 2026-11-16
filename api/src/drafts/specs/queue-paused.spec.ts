@@ -536,7 +536,7 @@ describe('queue paused', () => {
 
       await pick(id, first).expect(200);
       expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
-        { poolCardId: second, name: 'Lightning Bolt' },
+        { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
         shock,
         spike,
       ]);

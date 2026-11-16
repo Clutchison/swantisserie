@@ -1,4 +1,4 @@
-import type { Pool, SeatQueue } from 'engine';
+import type { PlanBoard, Pool, SeatQueue } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { EVENT_PLAYER } from './draft-events.js';
 import { SEAT_ORDER, type Transaction } from './draft-shapes.js';
@@ -7,7 +7,17 @@ import { SEAT_ORDER, type Transaction } from './draft-shapes.js';
 export interface QueuedRow {
   poolCardId: string;
   position: number;
+  /** The deck board it sits on. */
+  board: PlanBoard;
 }
+
+/**
+ * A seat's queue state as a turn holds it: the engine's, with each queued
+ * card as its row, which holds its deck board.
+ */
+export type TurnQueue = Omit<SeatQueue, 'queue' | 'sideboard'> & {
+  queue: QueuedRow[];
+};
 
 const TURN_PLAYER = {
   id: true,
@@ -36,7 +46,7 @@ export interface TurnRead {
    * behavior, and whether it is queue paused, by the player or by a loss;
    * replaced after each pick.
    */
-  queues: SeatQueue<QueuedRow>[];
+  queues: TurnQueue[];
   /** Each player's planned cards, picked or not, by seat; replaced after each pick. */
   plans: string[][];
   /** The pool as the engine sees it, offering copies in id order. */
@@ -63,6 +73,9 @@ export function engineView({ queues, pool, picked }: TurnRead): {
     queues: queues.map(({ queue, ...state }) => ({
       ...state,
       queue: queue.map((queued) => queued.poolCardId),
+      sideboard: queue
+        .filter((queued) => queued.board === 'Sideboard')
+        .map((queued) => queued.poolCardId),
     })),
     context: { pool, picked },
   };
@@ -82,7 +95,7 @@ export async function readTurn(
       queuePaused: true,
       queue: {
         orderBy: { position: 'asc' },
-        select: { poolCardId: true, position: true },
+        select: { poolCardId: true, position: true, board: true },
       },
       // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and `TurnRead`'s plans keep only `poolCardId`.
       plan: {

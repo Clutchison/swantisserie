@@ -381,13 +381,14 @@ describe('unpicked cards in a plan', () => {
 
     const queued = (await queue(id, carolCookie).expect(200)).body;
     expect(queued.cards).toEqual([
-      { poolCardId: second, name: 'Lightning Bolt' },
-      { poolCardId: ids.Shock, name: 'Shock' },
+      { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+      { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
     ]);
     expect(queued.lost).toEqual([
       {
         poolCardId: first,
         name: 'Lightning Bolt',
+        board: 'Mainboard',
         queueLoss: 'QueuePaused',
       },
     ]);

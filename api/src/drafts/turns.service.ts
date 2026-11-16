@@ -351,7 +351,13 @@ export class TurnsService {
     // Worked out once, by the cascade or here, and persisted the same way.
     const { queues, plans } = effects ?? effectsOf(turnRead, seat, poolCardId);
     const playerIds = players.map((player) => player.id);
-    turnRead.plans = await recordPlanEffects(tx, made, playerIds, plans);
+    turnRead.plans = await recordPlanEffects(
+      tx,
+      made,
+      playerIds,
+      plans,
+      queues[seat].landsOn,
+    );
     turnRead.queues = await recordQueueEffects(
       tx,
       made,

@@ -264,7 +264,11 @@ describe('undo', () => {
       await undo(id, 1).expect(200);
 
       expect((await queue(id).expect(200)).body).toMatchObject({
-        cards: [shock, { poolCardId: second, name: 'Lightning Bolt' }, spike],
+        cards: [
+          shock,
+          { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+          spike,
+        ],
         lost: [],
       });
     });
@@ -282,7 +286,11 @@ describe('undo', () => {
 
     expect((await queue(id).expect(200)).body).toEqual({
       cards: [
-        { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
+        {
+          poolCardId: ids['Skewer the Critics'],
+          name: 'Skewer the Critics',
+          board: 'Mainboard',
+        },
       ],
       lost: [],
       stealBehavior: 'PauseQueue',
@@ -452,8 +460,8 @@ describe('undo', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [
-          { poolCardId: second, name: 'Lightning Bolt' },
-          { poolCardId: ids.Shock, name: 'Shock' },
+          { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+          { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
         ],
         lost: [],
         stealBehavior: 'PauseQueue',
@@ -485,7 +493,11 @@ describe('undo', () => {
       await undo(id, 3).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [{ poolCardId: second, name: 'Lightning Bolt' }, shock, spike],
+        cards: [
+          { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+          shock,
+          spike,
+        ],
         lost: [],
         stealBehavior: 'PickNext',
         queuePaused: false,
@@ -509,9 +521,9 @@ describe('undo', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [
-          { poolCardId: first, name: 'Lightning Bolt' },
-          { poolCardId: ids.Shock, name: 'Shock' },
-          { poolCardId: second, name: 'Lightning Bolt' },
+          { poolCardId: first, name: 'Lightning Bolt', board: 'Mainboard' },
+          { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
+          { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
         ],
         lost: [],
         stealBehavior: 'PauseQueue',

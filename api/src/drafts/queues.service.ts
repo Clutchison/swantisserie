@@ -1,11 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type { QueuedCardView, QueueView, StealBehavior } from 'contract';
+import type {
+  PlanBoard,
+  QueuedCardView,
+  QueueView,
+  StealBehavior,
+} from 'contract';
 import { currentTurn, draftSize } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftLock } from './draft-lock.js';
 import { DRAFT_SIZE_FIELDS, type Transaction } from './draft-shapes.js';
+import { DECK_LOCKED, isDeckLocked } from './locked-deck.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 import {
@@ -213,6 +219,42 @@ export class QueuesService {
   }
 
   /**
+   * Moves the user's queued copy `poolCardId` to the deck board `board`,
+   * which its pick then lands on; a no-op if it is there already. Its place
+   * in the queue stays as it is. Like a deck change, it is allowed whenever
+   * the deck may change, whatever the draft's state, and like other queue
+   * changes it takes the player's row lock and bumps no version, as the
+   * queue is private to the player. Throws QueueRefusedError while the deck
+   * is locked (`deck-locked`) or if the card isn't queued (`not-queued`),
+   * and NotAPlayerError if the user isn't in the draft.
+   */
+  async moveToBoard(
+    draftId: string,
+    userId: string,
+    poolCardId: string,
+    board: PlanBoard,
+  ): Promise<QueueView> {
+    return this.lock.forPlayer(draftId, userId, async (tx, locked) => {
+      if (!locked) throw new NotAPlayerError('queues');
+      const { playerId } = locked;
+      if (await isDeckLocked(tx, playerId)) {
+        throw new QueueRefusedError(DECK_LOCKED);
+      }
+      const { count } = await tx.queuedCard.updateMany({
+        where: { playerId, poolCardId },
+        data: { board },
+      });
+      if (count === 0) {
+        throw new QueueRefusedError({
+          error: 'not-queued',
+          message: 'That card isn’t in your queue.',
+        });
+      }
+      return this.read(tx, playerId);
+    });
+  }
+
+  /**
    * Stops listing the user's lost cards. An undo still restores them.
    * Throws QueueRefusedError once the draft is closed or complete, and
    * NotAPlayerError if the user isn't in the draft.
@@ -327,6 +369,7 @@ export class QueuesService {
       orderBy: { position: 'asc' },
       select: {
         poolCardId: true,
+        board: true,
         // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the queue reads only `name`.
         poolCard: {
           select: { name: true },
@@ -343,6 +386,7 @@ export class QueuesService {
       ],
       select: {
         poolCardId: true,
+        board: true,
         queueLoss: true,
         // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the notice reads only `poolCardId`.
         pick: {
@@ -372,7 +416,12 @@ export class QueuesService {
 
 function toQueuedCardView(card: {
   poolCardId: string;
+  board: PlanBoard;
   poolCard: { name: string };
 }): QueuedCardView {
-  return { poolCardId: card.poolCardId, name: card.poolCard.name };
+  return {
+    poolCardId: card.poolCardId,
+    name: card.poolCard.name,
+    board: card.board,
+  };
 }

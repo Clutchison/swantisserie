@@ -576,6 +576,18 @@ export function removeFromQueue(
   return draftsRequest('delete', `/${id}/queue/${poolCardId}`, cookie);
 }
 
+/** Moves a queued copy in the player's queue to the deck board `board`. */
+export function moveQueued(
+  id: string,
+  poolCardId: string,
+  board: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('put', `/${id}/queue/${poolCardId}/board`, cookie, {
+    board,
+  });
+}
+
 /** Adds the unpicked cards in the player's plan to the end of their queue. */
 export function queueUnpicked(id: string, body: unknown, cookie: string) {
   return draftsRequest('post', `/${id}/queue/unpicked`, cookie, body);
@@ -698,10 +710,14 @@ export const fourCards = [
   'Skewer the Critics',
 ];
 
-/** A queued card, named by any pool card id: each test's draft has its own. */
-export const queued = (name: string) => ({
+/**
+ * A queued card, named by any pool card id: each test's draft has its own.
+ * It sits on the mainboard unless `board` says otherwise.
+ */
+export const queued = (name: string, board: PlanBoard = 'Mainboard') => ({
   poolCardId: expect.any(String),
   name,
+  board,
 });
 export const shock = queued('Shock');
 export const bolt = queued('Lightning Bolt');

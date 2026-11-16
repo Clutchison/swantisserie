@@ -70,11 +70,12 @@ describe('queueing a plan’s unpicked cards', () => {
     const bolt = (poolCardId: string) => ({
       poolCardId,
       name: 'Lightning Bolt',
+      board: 'Mainboard',
     });
     expect(queued.body.cards).toEqual([
       bolt(second),
       bolt(first),
-      { poolCardId: ids.Shock, name: 'Shock' },
+      { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
     ]);
     expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual(
       queued.body.cards,
@@ -147,7 +148,7 @@ describe('queueing a plan’s unpicked cards', () => {
     ).expect(200);
 
     expect(queued.body.cards).toEqual([
-      { poolCardId: first, name: 'Lightning Bolt' },
+      { poolCardId: first, name: 'Lightning Bolt', board: 'Mainboard' },
     ]);
   });
 
@@ -222,7 +223,7 @@ describe('queueing a plan’s unpicked cards', () => {
     ).expect(200);
 
     expect(alicesQueue.body.cards).toEqual([
-      { poolCardId: ids.Shock, name: 'Shock' },
+      { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
     ]);
     await queueUnpicked(id, {}, carolCookie).expect(400);
     await queueUnpicked(id, { includeSideboard: 'yes' }, carolCookie).expect(
@@ -469,8 +470,12 @@ describe('queueing a plan’s unpicked cards', () => {
         carolCookie,
       ).expect(200);
       expect(queued.body.cards).toEqual([
-        { poolCardId: second, name: 'Lightning Bolt' },
-        { poolCardId: ids['Burst Lightning'], name: 'Burst Lightning' },
+        { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+        {
+          poolCardId: ids['Burst Lightning'],
+          name: 'Burst Lightning',
+          board: 'Mainboard',
+        },
       ]);
     });
 

@@ -354,10 +354,11 @@ export const withDoubleTurns = (pick: number, playerId: string): DraftFixture =>
 /** A pool card as a queue or a plan names it: by its id and name. */
 export type NamedPoolCard = Pick<PoolCardView, 'id' | 'name'>;
 
-/** A card as a queue lists it. */
+/** A card as a queue lists it, on the mainboard. */
 export const queued = (card: NamedPoolCard): QueuedCardView => ({
   poolCardId: card.id,
   name: card.name,
+  board: 'Mainboard',
 });
 
 /**

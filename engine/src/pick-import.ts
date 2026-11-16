@@ -1,5 +1,9 @@
 import { frontFace } from './card-faces.js';
+import type { CascadePick, CascadeSeat } from './cascade.js';
+import type { Pool } from './copies.js';
 import type { DraftSize } from './draft-size.js';
+import { plansAfterPick } from './plan.js';
+import { queuesAfterPick, type SeatQueue } from './queue.js';
 import {
   currentTurn,
   picksPerTurn,
@@ -296,4 +300,36 @@ export function readPickImport(
   }
   // Fewer picks than the draft allows, so there is a next turn.
   return { ok: true, columns, picks, next: currentTurn(size, picks.length)! };
+}
+
+/**
+ * What each of `picks`, a pick import's picks in pick order, does to every
+ * queue and plan, as a cascade gives its picks' effects: `seats` are each
+ * seat's queue state and plan before the import, indexed by seat. Each pick
+ * changes them, as `queuesAfterPick` and `plansAfterPick` say, before the
+ * next, so a copy swapped into a queue keeps the deck board of the one
+ * picked, and a later pick of it lands there. Cards are pool card ids, as
+ * in `pool`.
+ */
+export function pickImportEffects(
+  picks: readonly ImportedPick[],
+  seats: readonly CascadeSeat[],
+  pool: Pool,
+): CascadePick[] {
+  const picked: string[] = [];
+  let queues: readonly SeatQueue[] = seats;
+  let planned: readonly (readonly string[])[] = seats.map((seat) => seat.plan);
+  return picks.map(({ seat, poolCardId }) => {
+    const pick = { seat, card: poolCardId };
+    const context = { pool, picked };
+    const effects = {
+      pick,
+      queues: queuesAfterPick(pick, queues, context),
+      plans: plansAfterPick(pick, planned, context),
+    };
+    queues = effects.queues;
+    planned = effects.plans.map((after) => after.plan);
+    picked.push(poolCardId);
+    return effects;
+  });
 }

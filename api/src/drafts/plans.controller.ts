@@ -26,7 +26,7 @@ import {
   type SessionUser,
 } from '../auth/session.guard.js';
 import { isBasicLand } from './basic-lands.js';
-import { isPlanBoard } from './plan-boards.js';
+import { parsePlanBoard } from './plan-boards.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftLock } from './draft-lock.js';
@@ -216,15 +216,4 @@ function parseLand(land: string): BasicLand {
     } satisfies RequestProblem);
   }
   return land;
-}
-
-/** `value` as a plan board, from a body or a path, or a 400 if it isn't one. */
-function parsePlanBoard(value: unknown): PlanBoard {
-  if (!isPlanBoard(value)) {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Choose the mainboard or the sideboard.',
-    } satisfies RequestProblem);
-  }
-  return value;
 }
