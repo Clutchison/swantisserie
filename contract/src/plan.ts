@@ -6,12 +6,10 @@ export const PLAN_BOARDS = ['Mainboard', 'Sideboard'] as const;
 /** The part of a plan a card is on. */
 export type PlanBoard = (typeof PLAN_BOARDS)[number];
 
-/** A card in a plan. */
+/** A card in a plan: one of the player's picks. */
 export interface PlannedCardView {
   poolCardId: string;
   name: string;
-  /** Whether it is one of the player's picks, rather than an unpicked card they added. */
-  picked: boolean;
 }
 
 /** The basic lands, in the order the Basic lands modal and the api list them. */
@@ -35,14 +33,6 @@ export interface PlannedBasicView {
   board: PlanBoard;
   /** At least 1: a basic with no copies on a plan board isn't listed for it. */
   count: number;
-}
-
-/** An unpicked card lost from the plan: another player picked it when no other copy was available for the plan. */
-export interface LostCardView {
-  poolCardId: string;
-  name: string;
-  /** The id of the player who picked it: a `PlayerView.id`. */
-  pickedBy: string;
 }
 
 /** A plan's mainboard and sideboard, with their basic lands: what a deck holds. */
@@ -102,8 +92,6 @@ export interface PreferredPrintingProblem {
 
 /** The signed-in player's plan, which only they may see. */
 export interface PlanView extends PlanBoards {
-  /** What the Deck notice lists: the lost cards, in the order they went, until the player dismisses it. */
-  lost: LostCardView[];
   /** Whether the Ready notice shows: a deck change cleared the player's ready during the tournament's registration, and they haven't since dismissed it or marked themselves ready again, nor has registration ended, by Start or by cancelling the tournament. */
   readyNotice: boolean;
   /** The player's preferred printings, which their basic lands show. */

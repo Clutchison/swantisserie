@@ -57,7 +57,6 @@ import {
   boltAgain,
   cards,
   planned,
-  unpicked,
   planOf,
   openPlan,
   detailOpener,
@@ -94,7 +93,7 @@ describe('plan tab', () => {
     it('shows a horizontal card’s Card detail sideways', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards: [...cards, fireIce],
-        plan: planOf({ mainboard: [unpicked(fireIce)] }),
+        plan: planOf({ mainboard: [planned(fireIce)] }),
       });
       const plan = await openPlan(fixture, page);
 
@@ -174,39 +173,6 @@ describe('plan tab', () => {
       expect(detailOpener(plan, 'Swamp')).toBeDefined();
     });
 
-    it('opens a line of several unpicked copies on its first copy not in the queue', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-        cards,
-        plan: planOf({ mainboard: [unpicked(bolt), unpicked(boltAgain)] }),
-        queue: queueOf({ cards: [queued(shivan), queued(bolt)] }),
-      });
-      const plan = await openPlan(fixture, page);
-
-      detailOpener(plan, 'Lightning Bolt')!.click();
-      await fixture.whenStable();
-      button(openDialog()!, 'Add to queue')!.click();
-
-      const req = http.expectOne('/api/drafts/draft-1/queue');
-      expect(req.request.method).toBe('POST');
-      expect(req.request.body).toEqual({ poolCardId: boltAgain.id });
-    });
-
-    it('opens a line of several unpicked copies, none queued, on its first copy', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-        cards,
-        plan: planOf({ mainboard: [unpicked(bolt), unpicked(boltAgain)] }),
-      });
-      const plan = await openPlan(fixture, page);
-
-      detailOpener(plan, 'Lightning Bolt')!.click();
-      await fixture.whenStable();
-      button(openDialog()!, 'Add to queue')!.click();
-
-      expect(http.expectOne('/api/drafts/draft-1/queue').request.body).toEqual({
-        poolCardId: bolt.id,
-      });
-    });
-
     it('returns focus to the name that opened the Card detail once it closes', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
@@ -241,10 +207,10 @@ describe('plan tab', () => {
       expect(openDialog()).toBeNull();
     });
 
-    it('opens each queued copy of an unpicked card from its own line', async () => {
+    it('opens each queued copy of a card from its own line', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [unpicked(bolt), unpicked(boltAgain)] }),
+        plan: planOf({ mainboard: [planned(shivan)] }),
         queue: queueOf({ cards: [queued(boltAgain), queued(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
@@ -267,17 +233,6 @@ describe('plan tab', () => {
         await fixture.whenStable();
       }
     });
-
-    it('keeps its Move and Remove buttons', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-        cards,
-        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
-      });
-      const plan = await openPlan(fixture, page);
-
-      expect(button(plan, 'Move Lightning Bolt to the sideboard')).toBeDefined();
-      expect(button(plan, 'Remove Lightning Bolt from your deck')).toBeDefined();
-    });
   });
 
   describe('in stacks mode', () => {
@@ -290,10 +245,11 @@ describe('plan tab', () => {
       localStorage.clear();
     });
 
-    it('opens a card’s Card detail when it, or its Unpicked mark, is clicked', async () => {
+    it('opens a card’s Card detail when it, or its Queued badge, is clicked', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+        plan: planOf({ mainboard: [planned(shivan)] }),
+        queue: queueOf({ cards: [queued(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
 
@@ -305,8 +261,10 @@ describe('plan tab', () => {
 
       tap(
         [
-          ...detailOpener(plan, 'Lightning Bolt (unpicked)')!.querySelectorAll<HTMLElement>('*'),
-        ].find((mark) => text(mark) === 'Unpicked')!,
+          ...detailOpener(plan, 'Lightning Bolt (queued first)')!.querySelectorAll<HTMLElement>(
+            '*',
+          ),
+        ].find((mark) => text(mark) === '#1 Queued')!,
       );
       await fixture.whenStable();
       expect(previewImage()).toBeNull();
@@ -316,7 +274,7 @@ describe('plan tab', () => {
     it('moves a stacked card from its Card detail, which stays open', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+        plan: planOf({ mainboard: [planned(shivan), planned(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
       detailOpener(plan, 'Shivan Dragon')!.click();
@@ -326,7 +284,7 @@ describe('plan tab', () => {
       button(detail, 'Move to sideboard')!.click();
       const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
       expect(req.request.body).toEqual({ board: 'Sideboard' });
-      req.flush(planOf({ mainboard: [unpicked(bolt)], sideboard: [planned(shivan)] }));
+      req.flush(planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }));
       await fixture.whenStable();
 
       expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
@@ -340,7 +298,7 @@ describe('plan tab', () => {
       localStorage.setItem('plan-view', JSON.stringify({ mode: 'stacks', grouping: 'manaValue' }));
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+        plan: planOf({ mainboard: [planned(shivan), planned(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
       tap(detailOpener(group(plan, 'Mainboard stacks')!, 'Shivan Dragon')!);
@@ -350,7 +308,7 @@ describe('plan tab', () => {
       button(detail, 'Move to sideboard')!.click();
       const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
       expect(req.request.body).toEqual({ board: 'Sideboard' });
-      req.flush(planOf({ mainboard: [unpicked(bolt)], sideboard: [planned(shivan)] }));
+      req.flush(planOf({ mainboard: [planned(bolt)], sideboard: [planned(shivan)] }));
       await fixture.whenStable();
 
       expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
@@ -428,25 +386,30 @@ describe('plan tab', () => {
       );
     });
 
-    it('offers Move on a card but no Remove, which its Card detail offers', async () => {
+    it('offers Move on a queued card but no Remove, which its Card detail offers as Remove from queue', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+        plan: planOf({ mainboard: [planned(shivan)] }),
+        queue: queueOf({ cards: [queued(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
 
       expect(button(plan, 'Move Lightning Bolt to the sideboard')).toBeDefined();
       expect(button(plan, 'Remove Lightning Bolt from your deck')).toBeUndefined();
-      detailOpener(plan, 'Lightning Bolt (unpicked)')!.click();
+      detailOpener(plan, 'Lightning Bolt (queued first)')!.click();
       await fixture.whenStable();
-      expect(button(openDialog()!, 'Remove from Deck')).toBeDefined();
+      expect(button(openDialog()!, 'Remove from queue')).toBeDefined();
     });
   });
 
   describe('the Card detail', () => {
     /** Opens the Deck tab, in list mode, with `open` to open the Card detail of the card it names. */
-    async function openFromPlan(fields: Parameters<typeof drafting>[0], plan = planOf()) {
-      const opened = await openDraft(completeSnapshot, drafting(fields), { cards, plan });
+    async function openFromPlan(
+      fields: Parameters<typeof drafting>[0],
+      plan = planOf(),
+      queue = queueOf(),
+    ) {
+      const opened = await openDraft(completeSnapshot, drafting(fields), { cards, plan, queue });
       const tab = await openPlan(opened.fixture, opened.page);
       return {
         ...opened,
@@ -461,10 +424,11 @@ describe('plan tab', () => {
     /** Whether the Card detail's Pick is disabled. */
     const pickDisabled = (detail: HTMLElement) => button(detail, 'Pick')!.disabled;
 
-    it('offers queue changes, Move and Remove from Plan on an unpicked card off the player’s turn, a disabled Pick, and never Add to Deck', async () => {
+    it('offers Remove from queue and Move on a queued card off the player’s turn, and a disabled Pick', async () => {
       const { open } = await openFromPlan(
         { turn: bobsTurn },
-        planOf({ mainboard: [planned(shivan), unpicked(brightclimb)] }),
+        planOf({ mainboard: [planned(shivan)] }),
+        queueOf({ cards: [queued(brightclimb)] }),
       );
 
       const detail = await open('Brightclimb Pathway // Grimclimb Pathway');
@@ -472,8 +436,7 @@ describe('plan tab', () => {
       expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
         'Flip',
-        'Remove from Deck',
-        'Add to queue',
+        'Remove from queue',
         'Move to sideboard',
         'Pick',
       ]);
@@ -489,103 +452,22 @@ describe('plan tab', () => {
       expect(pickDisabled(detail)).toBe(true);
     });
 
-    it('offers Pick but no Add to queue on the player’s turn', async () => {
+    it('offers Pick, enabled, on a queued card on the player’s turn', async () => {
       const { open } = await openFromPlan(
         { turn: alicesTurn },
-        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+        planOf({ mainboard: [planned(brightclimb)] }),
+        queueOf({ cards: [queued(shivan)] }),
       );
 
       const detail = await open('Shivan Dragon');
 
-      expect(buttonOrder(detail, 'Pick')).toEqual([
-        'Close',
-        'Remove from Deck',
-        'Move to sideboard',
-        'Pick',
-      ]);
-      expect(pickDisabled(detail)).toBe(false);
-    });
-
-    it('adds the card to the end of the queue', async () => {
-      const { fixture, open } = await openFromPlan(
-        { turn: bobsTurn },
-        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
-      );
-      const detail = await open('Shivan Dragon');
-
-      button(detail, 'Add to queue')!.click();
-      const req = http.expectOne('/api/drafts/draft-1/queue');
-      expect(req.request.body).toEqual({ poolCardId: shivan.id });
-      req.flush(queueOf({ cards: [queued(shivan)] }));
-      await fixture.whenStable();
-
-      // Queued, the card shows as a queued card, the queue's to remove.
       expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
         'Remove from queue',
         'Move to sideboard',
         'Pick',
       ]);
-      expect(pickDisabled(detail)).toBe(true);
-    });
-
-    it('closes once the card is removed from the plan', async () => {
-      const { tab, open } = await openFromPlan(
-        { turn: bobsTurn },
-        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
-      );
-
-      button(await open('Shivan Dragon'), 'Remove from Deck')!.click();
-      const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
-      expect(req.request.method).toBe('DELETE');
-      req.flush(planOf({ mainboard: [planned(brightclimb)] }));
-      await vi.waitFor(() => expect(openDialog()).toBeNull());
-
-      expect(detailOpener(tab, 'Shivan Dragon')).toBeUndefined();
-      // Its name has gone with it, so focus goes to the first card's.
-      expect(document.activeElement).toBe(
-        detailOpener(tab, 'Brightclimb Pathway // Grimclimb Pathway'),
-      );
-    });
-
-    it('clears the Deck tab’s failure as Remove from Deck is sent, so only one shows', async () => {
-      const withUnpicked = planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] });
-      const { fixture, tab, open } = await openFromPlan({ turn: bobsTurn }, withUnpicked);
-      button(tab, `Move ${brightclimb.name} to the sideboard`)!.click();
-      http.expectOne(`/api/drafts/draft-1/plan/${brightclimb.id}`).flush(null, serverError);
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(withUnpicked);
-      await vi.waitFor(() => expect(alertIn(tab)).not.toBeNull());
-
-      button(await open('Shivan Dragon'), 'Remove from Deck')!.click();
-      await fixture.whenStable();
-      expect(alertIn(tab)).toBeNull();
-
-      http
-        .expectOne('/api/drafts/draft-1/plan/shivan-card')
-        .flush(planOf({ mainboard: [planned(brightclimb)] }));
-      await vi.waitFor(() => expect(openDialog()).toBeNull());
-      expect(alertIn(tab)).toBeNull();
-    });
-
-    it('stays open, saying so, when removing the card from the plan fails', async () => {
-      const { fixture, open } = await openFromPlan(
-        { turn: bobsTurn },
-        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
-      );
-      const detail = await open('Shivan Dragon');
-
-      button(detail, 'Remove from Deck')!.click();
-      http.expectOne('/api/drafts/draft-1/plan/shivan-card').flush(null, serverError);
-      // The plan is re-read, as it may have moved on.
-      (await vi.waitFor(() => http.expectOne('/api/drafts/draft-1/plan'))).flush(
-        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
-      );
-      await fixture.whenStable();
-
-      expect(openDialog()).toBe(detail);
-      expect(text(detail)).toContain(
-        "Couldn't remove the card from your deck. Try again in a moment.",
-      );
+      expect(pickDisabled(detail)).toBe(false);
     });
 
     it('moves the card to the sideboard, staying open and offering to move it back', async () => {
@@ -649,17 +531,17 @@ describe('plan tab', () => {
       expectNotBusy(button(detail, 'Move to sideboard')!);
     });
 
-    it('offers to move an unpicked card on the sideboard to the mainboard', async () => {
+    it('offers to move a card on the sideboard to the mainboard', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: bobsTurn },
-        planOf({ mainboard: [planned(brightclimb)], sideboard: [unpicked(shivan)] }),
+        planOf({ mainboard: [planned(brightclimb)], sideboard: [planned(shivan)] }),
       );
       const detail = await open('Shivan Dragon');
 
       button(detail, 'Move to mainboard')!.click();
       const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
       expect(req.request.body).toEqual({ board: 'Mainboard' });
-      req.flush(planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }));
+      req.flush(planOf({ mainboard: [planned(brightclimb), planned(shivan)] }));
       await fixture.whenStable();
 
       expect(button(detail, 'Move to sideboard')).toBeDefined();
@@ -721,20 +603,20 @@ describe('plan tab', () => {
     it('offers no Move when opened from the Pool tab', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+        plan: planOf(),
       });
 
       const shivanTile = tiles(page).findIndex((tile) => accessibleName(tile) === 'Shivan Dragon');
       const detail = await openDetail(fixture, page, shivanTile);
 
-      expect(button(detail, 'Remove from Deck')).toBeDefined();
       expect(button(detail, 'Move to sideboard')).toBeUndefined();
     });
 
-    it('stays open once the player picks the card, which is then a pick in the plan', async () => {
+    it('stays open once the player picks the queued card, which is then a pick in the plan', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: alicesTurn },
-        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+        planOf({ mainboard: [planned(brightclimb)] }),
+        queueOf({ cards: [queued(shivan)] }),
       );
       const detail = await open('Shivan Dragon');
 
@@ -755,10 +637,11 @@ describe('plan tab', () => {
       expect(detail.textContent).toContain('Picked by Alice');
     });
 
-    it('stays open, saying who picked it, once another player picks the card and it is lost', async () => {
-      const { fixture, tab, open } = await openFromPlan(
+    it('stays open, saying who picked it, once another player picks the queued card and it is lost', async () => {
+      const { fixture, open } = await openFromPlan(
         { turn: bobsTurn },
-        planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+        planOf({ mainboard: [planned(brightclimb)] }),
+        queueOf({ cards: [queued(shivan)] }),
       );
       const detail = await open('Shivan Dragon');
 
@@ -768,11 +651,8 @@ describe('plan tab', () => {
       });
       await flushPicks([pickOf({ playerId: bob.id, poolCardId: shivan.id })]);
       await flushQueueAndPlan(
-        queueOf(),
-        planOf({
-          mainboard: [planned(brightclimb)],
-          lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
-        }),
+        queueOf({ lost: [queued(shivan)] }),
+        planOf({ mainboard: [planned(brightclimb)] }),
       );
       await fixture.whenStable();
 
@@ -780,7 +660,6 @@ describe('plan tab', () => {
       expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Pick']);
       expect(pickDisabled(detail)).toBe(true);
       expect(detail.textContent).toContain('Picked by Bob');
-      expect(text(tab)).toContain('Lost to other players: Shivan Dragon (picked by Bob).');
     });
   });
 });

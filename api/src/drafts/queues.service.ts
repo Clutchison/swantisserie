@@ -12,8 +12,7 @@ import { NotAPlayerError } from './draft-errors.js';
 import { DraftLock } from './draft-lock.js';
 import { DRAFT_SIZE_FIELDS, type Transaction } from './draft-shapes.js';
 import { DECK_LOCKED, isDeckLocked } from './locked-deck.js';
-import { PLAN_ORDER } from './plans.service.js';
-import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
+import { leaveQueue } from './queue-order.js';
 import {
   checkStarted,
   queuePlayerOf,
@@ -123,39 +122,6 @@ export class QueuesService {
         });
       }
       await this.append(tx, playerId, [card.id]);
-    });
-  }
-
-  /**
-   * Adds the unpicked cards in the user's plan, the mainboard's and, if
-   * `includeSideboard`, the sideboard's, to the end of their queue in one
-   * go: first those with a queue order, in it; then the rest, the
-   * mainboard's then the sideboard's, each in the plan's order. Copies
-   * already queued stay where they are. Refused as `add` is, and throws
-   * NotAPlayerError if the user isn't in the draft.
-   */
-  async addUnpicked(
-    draftId: string,
-    userId: string,
-    includeSideboard: boolean,
-  ): Promise<QueueView> {
-    return this.change(draftId, userId, async (tx, playerId, state) => {
-      await this.checkCanAdd(tx, draftId, playerId, state);
-      const unpicked = await tx.plannedCard.findMany({
-        where: {
-          playerId,
-          pickId: null,
-          ...(includeSideboard ? {} : { board: 'Mainboard' }),
-        },
-        // Postgres orders enums as declared: the mainboard, then the sideboard.
-        orderBy: [...QUEUE_ORDER, { board: 'asc' }, ...PLAN_ORDER],
-        select: { poolCardId: true },
-      });
-      await this.append(
-        tx,
-        playerId,
-        unpicked.map((card) => card.poolCardId),
-      );
     });
   }
 

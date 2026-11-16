@@ -55,7 +55,6 @@ import { OTHER_PLAN_BOARD } from './plan-boards';
 import {
   basicCopies,
   basicCopyId,
-  kindOf,
   shownOn,
   withQueuedCards,
   heldOn,
@@ -70,12 +69,6 @@ import { PRINTING_PICKER_HEADING, PrintingPicker } from './printing-picker';
 import { besideIn } from './focus-beside';
 import { printingPickerReturnFocus } from './printing-picker-focus';
 import { TypeLetter } from './type-letter';
-import {
-  QUEUE_UNPICKED_HEADING,
-  QueueUnpickedDialog,
-  type QueueUnpickedResult,
-  unpickedToQueue,
-} from './queue-unpicked-dialog';
 import {
   gaps,
   type Grouping,
@@ -132,21 +125,20 @@ type RowKey = `move ${string}` | `remove ${string}`;
 
 /**
  * Where a failed change's message shows, by where the change came from: after
- * the Deck notice or the Ready notice whose Dismiss failed, inside the list
- * item of the row or stacked card whose button is found by the key, or after
- * the tools row, for the Queue unpicked dialog's result and a drag and drop.
+ * the Ready notice whose Dismiss failed, inside the list item of the row or
+ * stacked card whose button is found by the key, or after the tools row, for
+ * a drag and drop.
  */
-type ErrorPlace = 'deckNotice' | 'readyNotice' | 'tools' | RowKey;
+type ErrorPlace = 'readyNotice' | 'tools' | RowKey;
 
 /**
- * The draft view's Deck tab: the signed-in player's plan, as its mainboard
- * and sideboard, between which they move cards, and from which they remove
- * the unpicked cards they added; beside the plan's cards, dimmed with their
- * Queued badges, the queued cards before the Queue cutoff, each on its
- * queued copy's plan board, which a move changes; each card's Card detail,
- * to pick, queue or remove it from, or a basic land's Printing picker,
- * which opens on a locked deck too; the buttons that open the Queue unpicked
- * and Basic lands dialogs; and the Deck notice of their lost cards.
+ * The draft view's Deck tab: the signed-in player's plan, their picks and
+ * basic lands, as its mainboard and sideboard, between which they move
+ * cards; beside the plan's cards, dimmed with their Queued badges, the
+ * queued cards before the Queue cutoff, each on its queued copy's plan
+ * board, which a move changes; each card's Card detail, to pick, move or
+ * take out of the queue, or a basic land's Printing picker, which opens on
+ * a locked deck too; and the button that opens the Basic lands dialog.
  *
  * Each plan board shows as stacks of card images, grouped by mana value,
  * color or card type, or as a list of names. Where there's room for the wide
@@ -222,7 +214,7 @@ export class PlanTab {
   );
   /** The pool's cards by id, for the Card previews of the names here. */
   private readonly poolCardsById = this.store.poolCardsById;
-  /** Whether the draft is complete, so the plan holds no unpicked cards. */
+  /** Whether the draft is complete, so no picks are left and no queued card shows. */
   protected readonly draftComplete = this.store.draftComplete;
   /** Whether the deck is locked, as its player's tournament is playing: then it offers no edits. */
   protected readonly deckLocked = this.store.deckLocked;
@@ -230,12 +222,8 @@ export class PlanTab {
   protected readonly loading = this.store.plan.loading;
   /** The pool card ids of the cards in the signed-in player's queue. */
   private readonly queued = this.store.queued;
-  /** Whether Remove is offered for an unpicked card: for players in every draft state. */
-  protected readonly offerRemoveFromPlan = this.store.offerRemoveFromPlan;
-  /** Whether Queue unpicked is offered: as the queue allows adding, so never on the player's own turn. */
-  protected readonly offerQueueUnpicked = computed(
-    () => this.store.offerQueue() && !this.store.yourTurn(),
-  );
+  /** Whether a basic land's line offers Remove. */
+  protected readonly offerRemoveBasic = this.store.offerRemoveBasic;
 
   protected readonly changing = this.changes.changing;
   /** The latest change's failure, with where it came from; the next change clears it. */
@@ -245,7 +233,7 @@ export class PlanTab {
   protected readonly onDesktop = matching(DESKTOP_QUERY);
   /** The stacks area, the deck boards' row and stack headers, whose width stacks mode lays out by. */
   private readonly stacksArea = viewChild.required<ElementRef<HTMLElement>>('stacksArea');
-  /** The Deck tab's tools row: Queue unpicked, the modes and groupings, Add basics and Export. */
+  /** The Deck tab's tools row: the modes and groupings, Add basics and Export. */
   private readonly tools = viewChild.required<ElementRef<HTMLElement>>('tools');
   /**
    * Whether stacks mode has room for the wide layout, by the stacks area's
@@ -337,7 +325,8 @@ export class PlanTab {
     const shownPlan = this.shownPlan();
     const held = PLAN_BOARDS.map((planBoard) => {
       const cards = heldOn(shownPlan, planBoard);
-      return { planBoard, cards, picked: cards.filter((card) => card.picked).length };
+      const picked = cards.filter((card) => !card.queuePlace).length;
+      return { planBoard, cards, picked };
     });
     const hasPicks = held.some(({ picked }) => picked > 0);
     return held.map(({ planBoard, cards, picked }) => {
@@ -422,14 +411,8 @@ export class PlanTab {
   /** How many stacks the mainboard shows, for the stacks' shared width. */
   protected readonly mainboardStackCount = computed(() => this.mainboard().stacks.length);
 
-  /** The Queue unpicked dialog, while it's open. */
-  private queueing: DialogRef<QueueUnpickedResult, QueueUnpickedDialog> | null = null;
   /** The Basic lands dialog, while it's open. */
   private addingBasics: DialogRef<unknown, BasicLandsDialog> | null = null;
-  /** Whether Queue unpicked has anything to add, from either plan board. */
-  protected readonly anythingToQueue = computed(() =>
-    Object.values(unpickedToQueue(this.plan(), this.queued())).some((cards) => cards.length > 0),
-  );
 
   /** The keys of the rows and stacked cards on the plan boards, which a failure from one shows inside. */
   private readonly rowKeys = computed(() => {
@@ -449,7 +432,7 @@ export class PlanTab {
   /** Where the failure shows: where its change came from, or the tools for a row that has left its plan board. */
   private readonly errorPlace = computed((): ErrorPlace | null => {
     const place = this.error()?.place ?? null;
-    if (place === null || place === 'deckNotice' || place === 'readyNotice') return place;
+    if (place === null || place === 'readyNotice') return place;
     return place === 'tools' || this.rowKeys().has(place) ? place : 'tools';
   });
 
@@ -465,8 +448,6 @@ export class PlanTab {
     );
   }
 
-  /** Whether there are lost cards to note. */
-  protected readonly hasNotice = computed(() => this.plan().lost.length > 0);
   /** How many cards the exported sideboard holds, and Arena keeps, when Arena's import may cut it short. */
   protected readonly sideboardOverArenaCap = this.store.sideboardOverArenaCap;
   private readonly exportButtons = viewChild.required(ExportButtons);
@@ -474,23 +455,12 @@ export class PlanTab {
   /** The mainboard size below which a deck change clears ready, which the Ready notice names. */
   protected readonly minimumMainboard = MIN_MAINBOARD_CARDS;
 
-  /** A player's name, by their id; "another player" for one no longer in the draft. */
-  protected playerName(id: string): string {
-    return this.store.player(id).name;
-  }
-
   constructor() {
     // Without a ResizeObserver, as in some test environments, stacks mode lays out as the strip.
     onResize(
       () => this.stacksArea().nativeElement,
       ({ width }) => this.measured(width),
     );
-    // Queue unpicked stops being offered as the player's turn comes: close its
-    // dialog then, as Cancel does, so it can't come back by itself once the
-    // turn passes.
-    effect(() => {
-      if (!this.offerQueueUnpicked()) untracked(() => this.queueing?.close());
-    });
     // A locked deck takes no basics: close the Basic lands dialog as it locks,
     // as Cancel does, so it can't come back by itself once the deck unlocks.
     effect(() => {
@@ -658,7 +628,7 @@ export class PlanTab {
     const held = this.plan().basics.find(
       (basic) => basic.land === land && basic.board === planBoard,
     );
-    return { poolCardId: basicCopyId(planBoard, land, held?.count ?? 0), name: land, picked: true };
+    return { poolCardId: basicCopyId(planBoard, land, held?.count ?? 0), name: land, basic: land };
   }
 
   /**
@@ -680,26 +650,23 @@ export class PlanTab {
   }
 
   /**
-   * A line's name clicked: opens the Card detail of its first copy not in
-   * the queue, or else of its first copy, or a basic land's Printing
-   * picker, unless the click ends a drag.
+   * A line's name clicked: opens the Card detail of its first copy, or a
+   * basic land's Printing picker, unless the click ends a drag.
    */
   protected openLine(line: PlanLine, event: MouseEvent, planBoard: PlanBoard) {
     if (this.drag.endsDrag(event)) return;
     if (line.basic) return this.openPicker(line, line.basic, planBoard);
-    const queued = this.queued();
-    this.openDetail(line.poolCardIds.find((id) => !queued.has(id)) ?? line.poolCardId, null);
+    this.openDetail(line.poolCardId, null);
   }
 
   /**
    * Opens a pool card's Card detail, in place of any other. It offers what
-   * the Pool tab's does, but never Add to Deck, and its queue actions only
-   * while the card is unpicked in the plan or queued; and Move, unless the
-   * deck is locked, which moves the card as this tab's move buttons do, its
-   * failure shown in the Card detail, not here. It stays open once the card
-   * is picked, by the player or another, and closes once it's removed from
-   * the plan or the queue. Focus then goes back to what opened it, or else
-   * to the first card that opens one.
+   * the Pool tab's does, its queue actions only while the card is queued;
+   * and Move, unless the deck is locked, which moves the card as this tab's
+   * move buttons do, its failure shown in the Card detail, not here. It
+   * stays open once the card is picked, by the player or another, and
+   * closes once it's removed from the queue. Focus then goes back to what
+   * opened it, or else to the first card that opens one.
    */
   private openDetail(poolCardId: string, tilePlaceholder: string | null) {
     const card = this.poolCardsById().get(poolCardId);
@@ -707,28 +674,16 @@ export class PlanTab {
     if (!card) return;
     /** The card as the deck shows it, and the plan board it's on; null once it's on neither. */
     const shown = computed(() => shownOn(this.shownPlan(), poolCardId));
-    /** Whether the deck shows the card as a queued card, though the plan may hold it unpicked too. */
-    const shownQueued = computed(() => shown()?.card.queuePlace !== undefined);
-    // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Deck is offered only for an unpicked card.
-    const removable = () => this.offerRemoveFromPlan() && !this.deckLocked();
     const detail = this.cardDetails.open({
       card,
       actions: computed(() => ({
         pick: this.store.offerPick(),
-        queue:
-          this.store.offerQueue() &&
-          (this.store.planned().has(poolCardId) || this.queued().has(poolCardId)),
-        addToPlan: false,
-        // A card shown queued is the queue's to remove, though the plan may hold it unpicked too.
-        removeFromPlan: !shownQueued() && removable(),
+        queue: this.store.offerQueue() && this.queued().has(poolCardId),
       })),
       tilePlaceholder,
       injector: this.injector,
       closesOnPick: false,
-      removedFromPlan: () => detail.close(),
       removedFromQueue: () => detail.close(),
-      // One failure shows at a time, as for the tab's own changes.
-      planChangeSent: () => this.error.set(null),
       move: computed(() =>
         this.deckLocked()
           ? null
@@ -789,18 +744,17 @@ export class PlanTab {
   }
 
   /**
-   * Takes one copy of a line out of the plan: an unpicked card's, or a basic
-   * land's off `planBoard`. Should its line go, focus goes to the next. A
-   * failure shows inside the line's list item.
+   * Takes one copy of a basic land's line off `planBoard`; nothing for any
+   * other line. Should its line go, focus goes to the next. A failure shows
+   * inside the line's list item.
    */
   protected async removeLine(line: PlanLine, planBoard: PlanBoard) {
-    const { basic, poolCardId } = line;
+    const land = line.basic;
+    // Stryker disable next-line ConditionalExpression,BlockStatement: only a basic land's line has a Remove button.
+    if (!land) return false;
     const stays = this.leaving(line, planBoard);
     const made = await this.tryChange(
-      () =>
-        basic
-          ? this.planApi.removeBasic(this.draftId(), basic, planBoard)
-          : this.planApi.remove(this.draftId(), poolCardId),
+      () => this.planApi.removeBasic(this.draftId(), land, planBoard),
       this.removeKey(planBoard, line),
     );
     if (!made) stays();
@@ -812,16 +766,12 @@ export class PlanTab {
     return `Queued ${ordinalWords(place)}`;
   }
 
-  /** What a screen reader names a stacked card: its name, then whether it's unpicked or queued, as `Lightning Bolt (queued second)`. */
+  /** What a screen reader names a stacked card: its name, then whether it's queued, as `Lightning Bolt (queued second)`. */
   protected stackedName(card: PlanBoardCard) {
-    const kind = kindOf(card);
-    if (kind === 'queued')
-      return `${card.name} (${this.queuedName(card.queuePlace!).toLowerCase()})`;
-    return kind === 'unpicked' ? `${card.name} (unpicked)` : card.name;
+    return card.queuePlace
+      ? `${card.name} (${this.queuedName(card.queuePlace).toLowerCase()})`
+      : card.name;
   }
-
-  /** What a card on a plan board is, for the template: as `kindOf` says. */
-  protected readonly kindOf = kindOf;
 
   /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
   protected withBasics(lines: PlanLine[]) {
@@ -833,31 +783,9 @@ export class PlanTab {
     this.exportButtons().clearCopy();
   }
 
-  /** Stops the notice listing the lost cards. */
-  protected dismissNotice() {
-    return this.tryChange(() => this.planApi.dismissNotice(this.draftId()), 'deckNotice');
-  }
-
   /** Takes down the Ready notice. */
   protected dismissReadyNotice() {
     return this.tryChange(() => this.planApi.dismissReadyNotice(this.draftId()), 'readyNotice');
-  }
-
-  /**
-   * Opens the Queue unpicked dialog, leaving the sideboard out. Once it has
-   * sent, a refusal is said after the tools row, by where focus returns: to
-   * the button that opened it.
-   */
-  protected openQueueing() {
-    const queueing = this.dialogs.open<QueueUnpickedDialog, QueueUnpickedResult>(
-      QueueUnpickedDialog,
-      { labelledBy: QUEUE_UNPICKED_HEADING, injector: this.injector },
-    );
-    this.queueing = queueing;
-    queueing.closed.subscribe((result) => {
-      this.queueing = null;
-      if (result) this.error.set(result.error ? { message: result.error, place: 'tools' } : null);
-    });
   }
 
   /** Shows a failure's message at `place`. */
@@ -881,7 +809,7 @@ export class PlanTab {
    * Sends a change to the plan, or to a queued card's queued copy, through
    * the store's `send`, which shows what it answers with, unless another
    * change is in flight, clearing any failure shown. A refused change means
-   * the plan or queue has moved on, e.g. a card was lost: hands `failed` why;
+   * the plan or queue has moved on, e.g. a card was picked: hands `failed` why;
    * the store re-reads it. Answers whether the change was made. Focus is kept
    * as `Changes.send` keeps it, and a change made says `status`.
    */

@@ -46,7 +46,7 @@ function withPublicDecklists(
   return { ...base, publicDecklists: true };
 }
 
-/** A player's locked deck as the plan read gives it, without its Deck notice. */
+/** A player's locked deck as the plan read gives it, without its notices and printings. */
 async function deckOf(id: string, cookie: string) {
   const { mainboard, sideboard, basics } = (await plan(id, cookie).expect(200))
     .body as PlanView;
@@ -95,7 +95,6 @@ describe('decklists under public decklists', () => {
         {
           poolCardId: ids['Lightning Bolt'],
           name: 'Lightning Bolt',
-          picked: true,
         },
       ],
       basics: [{ land: 'Mountain', board: 'Mainboard', count: 40 }],
@@ -128,9 +127,7 @@ describe('decklists under public decklists', () => {
     ]);
     expect(served[2]).toEqual({
       playerId: botIds[0],
-      mainboard: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
-      ],
+      mainboard: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
       sideboard: [],
       basics: [],
       preferredPrintings: {},
@@ -316,9 +313,7 @@ describe('decklists without public decklists', () => {
       { playerId: bob.id, ...bobDeck, preferredPrintings: {} },
       {
         playerId: botIds[0],
-        mainboard: [
-          { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
-        ],
+        mainboard: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
         sideboard: [],
         basics: [],
         preferredPrintings: {},

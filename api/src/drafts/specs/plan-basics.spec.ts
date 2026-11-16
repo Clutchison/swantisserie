@@ -53,7 +53,6 @@ describe('basic lands in a plan', () => {
         { land: 'Plains', board: 'Mainboard', count: 1 },
         { land: 'Mountain', board: 'Mainboard', count: 2 },
       ],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -128,10 +127,9 @@ describe('basic lands in a plan', () => {
     const cleared = await clearBasics(id, carolCookie).expect(200);
 
     expect(cleared.body).toEqual({
-      mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
+      mainboard: [{ poolCardId: ids.Shock, name: 'Shock' }],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });

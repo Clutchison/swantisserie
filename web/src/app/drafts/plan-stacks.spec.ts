@@ -1,14 +1,16 @@
 import type { PlannedCardView, PoolCardView } from 'contract';
+import type { PlanBoardCard } from './plan-lines';
 import { describe, expect, it } from 'vitest';
 import { gaps, sideboardStack, type StackMove, stackKey, stacks } from './plan-stacks';
 import { card } from './specs/pool-tab-harness';
 
 describe('plan stacks', () => {
   const pool = (...cards: PoolCardView[]) => new Map(cards.map((c) => [c.id, c]));
-  const planned = (card: PoolCardView, picked = true): PlannedCardView => ({
+  /** A card on a plan board: a pick, or the queued card at `queuePlace`. */
+  const planned = (card: PoolCardView, queuePlace?: number): PlanBoardCard => ({
     poolCardId: card.id,
     name: card.name,
-    picked,
+    ...(queuePlace ? { queuePlace } : {}),
   });
   /** Each stack as `name: card, card`. */
   const named = (stacked: ReturnType<typeof stacks>) =>
@@ -224,13 +226,13 @@ describe('plan stacks', () => {
     ]);
   });
 
-  it('keeps whether each card is picked', () => {
+  it('keeps each queued card’s place in the queue', () => {
     const cards = [bolt, shivan];
-    const [stack] = stacks([planned(bolt, false), planned(shivan)], 'color', pool(...cards));
+    const [stack] = stacks([planned(bolt, 2), planned(shivan)], 'color', pool(...cards));
 
-    expect(stack.cards.map((c) => [c.poolCardId, c.picked])).toEqual([
-      ['bolt', false],
-      ['shivan', true],
+    expect(stack.cards.map((c) => [c.poolCardId, c.queuePlace])).toEqual([
+      ['bolt', 2],
+      ['shivan', undefined],
     ]);
   });
 
@@ -253,21 +255,21 @@ describe('plan stacks', () => {
 
     expect(
       sideboardStack(
-        cards.map((c) => planned(c, c !== bolt)),
+        cards.map((c) => planned(c, c === bolt ? 1 : undefined)),
         pool(...cards),
-      ).cards.map((c) => [c.name, c.picked]),
+      ).cards.map((c) => [c.name, c.queuePlace]),
     ).toEqual([
-      ['Lightning Bolt', false],
-      ['Air Elemental', true],
-      ['Shivan Dragon', true],
-      ['Ulamog, the Ceaseless Hunger', true],
-      ['Forest', true],
-      ['Mountain', true],
+      ['Lightning Bolt', 1],
+      ['Air Elemental', undefined],
+      ['Shivan Dragon', undefined],
+      ['Ulamog, the Ceaseless Hunger', undefined],
+      ['Forest', undefined],
+      ['Mountain', undefined],
     ]);
   });
 
   it('treats a card whose pool card is unknown as colorless, of mana value 0 and no type', () => {
-    const unknown: PlannedCardView = { poolCardId: 'gone', name: 'Gone Card', picked: true };
+    const unknown: PlannedCardView = { poolCardId: 'gone', name: 'Gone Card' };
 
     expect(named(stacks([unknown], 'manaValue', pool()))).toEqual(['0: Gone Card']);
     expect(named(stacks([unknown], 'color', pool()))).toEqual(['Colorless: Gone Card']);

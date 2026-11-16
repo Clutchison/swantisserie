@@ -344,8 +344,6 @@ export class QueuePane {
       actions: computed(() => ({
         pick: this.store.offerPick(),
         queue: this.store.offerQueue(),
-        addToPlan: this.store.offerAddToPlan(),
-        removeFromPlan: this.store.offerRemoveFromPlan(),
       })),
       tilePlaceholder: null,
       injector: this.injector,

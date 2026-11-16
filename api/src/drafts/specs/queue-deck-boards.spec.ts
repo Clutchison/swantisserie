@@ -35,7 +35,6 @@ useDraftsApp();
 const picked = (poolCardId: string, name: string) => ({
   poolCardId,
   name,
-  picked: true,
 });
 
 /** The player's deck: its mainboard and sideboard, as their plan lists them. */

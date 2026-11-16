@@ -3,7 +3,7 @@ import { countedLines } from './counted-lines';
 import { basicsOn, cardsOn, type PlanBoardsOf } from './plan-boards';
 
 /**
- * What an export is made of: a player's plan without its unpicked cards,
+ * What an export is made of: a player's plan, without the queued cards it shows,
  * as each plan board's picked cards (one entry per copy), and the basics of
  * both plan boards, each on its own.
  */

@@ -1,28 +1,18 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type { BasicLand, PlanBoard, PlanMoveRequest, PlanView, PoolCardRequest } from 'contract';
+import type { BasicLand, PlanBoard, PlanMoveRequest, PlanView } from 'contract';
 
 /** Changes to the signed-in player's plan, each answered with the plan as it now is. */
 @Injectable({ providedIn: 'root' })
 export class PlanApi {
   private readonly http = inject(HttpClient);
 
-  /** Adds an unpicked copy of a pool card to the mainboard. */
-  add(draftId: string, poolCardId: string): Observable<PlanView> {
-    return this.http.post<PlanView>(url(draftId), { poolCardId } satisfies PoolCardRequest);
-  }
-
   /** Moves a card in the plan to the mainboard or the sideboard. */
   move(draftId: string, poolCardId: string, planBoard: PlanBoard): Observable<PlanView> {
     return this.http.put<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`, {
       board: planBoard,
     } satisfies PlanMoveRequest);
-  }
-
-  /** Takes an unpicked card out of the plan. */
-  remove(draftId: string, poolCardId: string): Observable<PlanView> {
-    return this.http.delete<PlanView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
   }
 
   /** Adds one copy of a basic land to the mainboard. */
@@ -45,11 +35,6 @@ export class PlanApi {
   /** Takes every basic land out of the plan. */
   clearBasics(draftId: string): Observable<PlanView> {
     return this.http.delete<PlanView>(`${url(draftId)}/basics`);
-  }
-
-  /** Stops the Deck notice listing the lost cards. */
-  dismissNotice(draftId: string): Observable<PlanView> {
-    return this.http.delete<PlanView>(`${url(draftId)}/notice`);
   }
 
   /** Takes down the Ready notice. */

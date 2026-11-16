@@ -1,7 +1,7 @@
 @use './card-shape';
 @use '../../breakpoints' as bp;
 
-/* How far a card is darkened to set it apart: a picked card here, an unpicked one in the Deck tab's stacks. */
+/* How far a card is darkened to set it apart: a picked card here, a queued one in the Deck tab's stacks. */
 $dimmed-card: brightness(0.35);
 
 /* The Picked badge's avatar size, PlayerAvatar's default, which the Queued badge's place matches. */

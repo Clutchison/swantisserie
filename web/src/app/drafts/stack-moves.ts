@@ -2,7 +2,7 @@ import { linkedSignal, type Signal, signal } from '@angular/core';
 import type { PlannedCardView, PlanView } from 'contract';
 import { type Grouping, NO_MOVES, type StackMove, type StackMoves } from './plan-stacks';
 
-/** The plan as stack moves follow it: its mainboard's cards, and the pool card ids it holds anywhere else. */
+/** The plan as stack moves follow it: its mainboard's cards, and the pool card ids it shows anywhere else. */
 interface Followed {
   grouping: Grouping;
   mainboard: readonly PlannedCardView[];
@@ -13,8 +13,8 @@ interface Followed {
  * The Deck tab's stack moves, kept in its memory only: never stored, nor
  * sent, so no one else sees them. Changing the grouping wipes them all; a
  * card that leaves the mainboard loses its own, so it comes back in its own
- * stack, while the others stay through any deck change. A copy swapped in
- * for a planned card, by the copy rule, keeps that card's stack move.
+ * stack, while the others stay through any plan change. A copy swapped in
+ * for a queued card, by the copy rule, keeps that card's stack move.
  *
  * `mainboard` is the mainboard's cards, a basic land's copies included.
  */
@@ -27,7 +27,7 @@ export function stackMovesOf(
     source: () => ({
       grouping: grouping(),
       mainboard: mainboard(),
-      elsewhere: new Set([...plan().sideboard, ...plan().lost].map((card) => card.poolCardId)),
+      elsewhere: new Set(plan().sideboard.map((card) => card.poolCardId)),
     }),
     computation: (now, before) =>
       before && before.source.grouping === now.grouping
@@ -73,9 +73,9 @@ export function stackMovesOf(
  * a copy of it that came into the mainboard from outside the plan in its
  * place.
  *
- * A copy is found by name, the one identity a planned card carries to the
+ * A copy is found by name, the one identity a queued card carries to the
  * web: the api's copy rule matches copies by oracle id, and within a pool
- * only copies of one card share a name. A copy the player added by hand in
+ * only copies of one card share a name. A copy the player queued by hand in
  * the same update could take the move in the substitute's place, but it is
  * then the same card in the same stack.
  */

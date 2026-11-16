@@ -6,8 +6,8 @@ import {
 } from './decklist-json.js';
 
 const boards: PlanBoards = {
-  mainboard: [{ poolCardId: 'shock', name: 'Shock', picked: true }],
-  sideboard: [{ poolCardId: 'bolt', name: 'Lightning Bolt', picked: true }],
+  mainboard: [{ poolCardId: 'shock', name: 'Shock' }],
+  sideboard: [{ poolCardId: 'bolt', name: 'Lightning Bolt' }],
   basics: [
     { land: 'Mountain', board: 'Mainboard', count: 39 },
     { land: 'Island', board: 'Sideboard', count: 2 },
@@ -33,6 +33,18 @@ describe('a decklist snapshot', () => {
     ]);
   });
 
+  it('reads a snapshot kept while a deck could hold cards its player hadn’t picked, which says whether each card was picked', () => {
+    const json = {
+      mainboard: [{ poolCardId: 'shock', name: 'Shock', picked: true }],
+      sideboard: [],
+      basics: [],
+    };
+
+    expect(decodeDecklist(json).mainboard).toEqual([
+      { poolCardId: 'shock', name: 'Shock' },
+    ]);
+  });
+
   it('refuses a decklist that was never snapshotted', () => {
     expect(() => decodeDecklist(null)).toThrow(MalformedDecklistError);
   });
@@ -43,7 +55,7 @@ describe('a decklist snapshot', () => {
     [
       'a card without a name',
       {
-        mainboard: [{ poolCardId: 'shock', picked: true }],
+        mainboard: [{ poolCardId: 'shock' }],
         sideboard: [],
         basics: [],
       },

@@ -34,7 +34,7 @@ const shock = poolCardOf('shock', 'Shock');
 /** A deck of `card` and 39 Mountains, the way `playerId` locked it at Start. */
 const deckOf = (playerId: string, card = bolt): DecklistView => ({
   playerId,
-  mainboard: [{ poolCardId: card.id, name: card.name, picked: true }],
+  mainboard: [{ poolCardId: card.id, name: card.name }],
   sideboard: [],
   basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
   preferredPrintings: {},
