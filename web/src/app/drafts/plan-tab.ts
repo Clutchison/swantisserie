@@ -55,7 +55,6 @@ import { OTHER_PLAN_BOARD } from './plan-boards';
 import {
   basicCopies,
   basicCopyId,
-  kindOf,
   shownOn,
   withQueuedCards,
   heldOn,
@@ -223,8 +222,8 @@ export class PlanTab {
   protected readonly loading = this.store.plan.loading;
   /** The pool card ids of the cards in the signed-in player's queue. */
   private readonly queued = this.store.queued;
-  /** Whether a basic land's line offers Remove: to players, in every draft state. */
-  protected readonly offerRemoveBasic = this.store.joined;
+  /** Whether a basic land's line offers Remove. */
+  protected readonly offerRemoveBasic = this.store.offerRemoveBasic;
 
   protected readonly changing = this.changes.changing;
   /** The latest change's failure, with where it came from; the next change clears it. */
@@ -326,7 +325,7 @@ export class PlanTab {
     const shownPlan = this.shownPlan();
     const held = PLAN_BOARDS.map((planBoard) => {
       const cards = heldOn(shownPlan, planBoard);
-      const picked = cards.filter((card) => kindOf(card) !== 'queued').length;
+      const picked = cards.filter((card) => !card.queuePlace).length;
       return { planBoard, cards, picked };
     });
     const hasPicks = held.some(({ picked }) => picked > 0);
@@ -745,11 +744,14 @@ export class PlanTab {
   }
 
   /**
-   * Takes one copy of the basic land `land`, a line's, off `planBoard`.
-   * Should its line go, focus goes to the next. A failure shows inside the
-   * line's list item.
+   * Takes one copy of a basic land's line off `planBoard`; nothing for any
+   * other line. Should its line go, focus goes to the next. A failure shows
+   * inside the line's list item.
    */
-  protected async removeLine(line: PlanLine, land: BasicLand, planBoard: PlanBoard) {
+  protected async removeLine(line: PlanLine, planBoard: PlanBoard) {
+    const land = line.basic;
+    // Stryker disable next-line ConditionalExpression,BlockStatement: only a basic land's line has a Remove button.
+    if (!land) return false;
     const stays = this.leaving(line, planBoard);
     const made = await this.tryChange(
       () => this.planApi.removeBasic(this.draftId(), land, planBoard),

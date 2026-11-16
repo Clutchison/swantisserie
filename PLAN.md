@@ -83,7 +83,6 @@ Built in the app ([ADR 0002](docs/adr/0002-deckbuilding-in-the-app-as-a-plan.md)
 - Board counts show the total, queued cards included, and how many are picked; basic lands count as picked.
 - **Basic lands:** the Basic lands dialog (Add basics) shows how many of each of Plains, Island, Swamp, Mountain and Forest the mainboard holds, with an Add for each and Clear basics. They go on the mainboard and move like any card; a copy is taken out by its line's Remove or from its Printing picker.
 - The deck is editable in every draft state, except while a playing tournament has its deck locked ([ADR 0010](docs/adr/0010-everyone-joins-at-setup-and-decks-lock-at-start.md)). Completing the draft leaves the deck as it is: with no picks left, it shows no queued cards. Cancel removes the decks with the draft.
-- Decks used to hold cards their players added with Add to Deck without picking them. In every draft not yet complete when that ended, each player's added cards were queued at the end of their queue, each on the board it was on, in the order Queue unpicked used with Include sideboard on, skipping copies already queued; the added cards other players' picks had taken were forgotten, so an undo of a pick made before then won't bring one back.
 
 ### Organizer tools
 

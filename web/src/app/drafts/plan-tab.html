@@ -366,14 +366,14 @@
                     </button>
                   }
                   <!-- A basic land's line takes one copy off its plan board. -->
-                  @if (line.basic && offerRemoveBasic() && !deckLocked()) {
+                  @if (line.basic && offerRemoveBasic()) {
                     @let removeName = 'Remove ' + line.name + ' from your deck';
                     <button
                       class="button compact quiet line-action"
                       type="button"
                       [attr.aria-label]="removeName"
                       [title]="removeName"
-                      (click)="removeLine(line, line.basic, planBoard.name)"
+                      (click)="removeLine(line, planBoard.name)"
                       [appSendsChange]="removeKey(planBoard.name, line)"
                     >
                       <svg lucideTrash size="16"></svg>

@@ -16,10 +16,12 @@ const poolCard = (id: string, name: string, manaValue: number) =>
  * cards she added without picking them:
  *
  * - Giant Growth on the mainboard and Duress on the sideboard, which left
- *   her queue together most recently, Duress first;
+ *   her queue together most recently, Duress first, though on the other
+ *   board;
  * - Counterspell on the mainboard, which left her queue before them;
- * - Shivan Dragon, Ancestral Recall and Wrath of God on the mainboard,
- *   and Dark Ritual on the sideboard, none ever queued;
+ * - Shivan Dragon, Ancestral Recall, Wrath of God and Armageddon, of the
+ *   same mana value as Wrath of God, on the mainboard, and Dark Ritual on
+ *   the sideboard, none ever queued;
  * - Shock, queued, on the sideboard.
  *
  * Her lost card, Lava Spike, is listed on the Deck notice.
@@ -41,12 +43,13 @@ const draft = (id: string, state: string) => `
            ('${id}-p6', '${id}-alice', 'recall', NULL, 'Mainboard', true, NULL, NULL),
            ('${id}-p7', '${id}-alice', 'wrath', NULL, 'Mainboard', true, NULL, NULL),
            ('${id}-p8', '${id}-alice', 'ritual', NULL, 'Sideboard', true, NULL, NULL),
-           ('${id}-p9', '${id}-alice', 'shock', NULL, 'Sideboard', true, NULL, NULL);
+           ('${id}-p9', '${id}-alice', 'shock', NULL, 'Sideboard', true, NULL, NULL),
+           ('${id}-p10', '${id}-alice', 'z-armageddon', NULL, 'Mainboard', true, NULL, NULL);
   INSERT INTO "UnplannedCard" ("id", "pickId", "playerId", "poolCardId", "board")
     VALUES ('${id}-l1', '${id}-other-pick', '${id}-alice', 'spike', 'Mainboard');
 `;
 
-/** Every draft's pool: one card each. */
+/** The pool every draft below shares, one copy of each card, in draft 'd': the rows that refer to it needn't match. */
 const POOL = `
   INSERT INTO "PoolCard" ("id", "draftId", "scryfallId", "oracleId", "name", "set", "collectorNumber", "typeLine", "manaValue", "layout", "rarity", "faces", "images")
     VALUES ${[
@@ -59,6 +62,7 @@ const POOL = `
       poolCard('shivan', 'Shivan Dragon', 6),
       poolCard('recall', 'Ancestral Recall', 1),
       poolCard('wrath', 'Wrath of God', 4),
+      poolCard('z-armageddon', 'Armageddon', 4),
       poolCard('ritual', 'Dark Ritual', 1),
       poolCard('spike', 'Lava Spike', 1),
     ].join(', ')};
@@ -119,6 +123,8 @@ describe('the deck cards queued migration', () => {
         { poolCardId: 'growth', board: 'Mainboard' },
         { poolCardId: 'counterspell', board: 'Mainboard' },
         { poolCardId: 'recall', board: 'Mainboard' },
+        // The same mana value: by name, not by pool card id.
+        { poolCardId: 'z-armageddon', board: 'Mainboard' },
         { poolCardId: 'wrath', board: 'Mainboard' },
         { poolCardId: 'shivan', board: 'Mainboard' },
         { poolCardId: 'ritual', board: 'Sideboard' },
@@ -156,7 +162,7 @@ describe('the deck cards queued migration', () => {
       await applyMigration();
 
       for (const id of ['frozen', 'closed', 'lobby']) {
-        expect(await queue(db, `${id}-alice`)).toHaveLength(9);
+        expect(await queue(db, `${id}-alice`)).toHaveLength(10);
         expect(await deck(db, `${id}-alice`)).toEqual(['bolt']);
       }
       await db.close();
@@ -177,7 +183,7 @@ describe('the deck cards queued migration', () => {
         { poolCardId: 'opt', board: 'Mainboard' },
         { poolCardId: 'shock', board: 'Mainboard' },
       ]);
-      expect(await deck(db, 'complete-alice')).toHaveLength(9);
+      expect(await deck(db, 'complete-alice')).toHaveLength(10);
       expect(await lost(db, 'complete-alice')).toEqual([
         { poolCardId: 'spike' },
       ]);

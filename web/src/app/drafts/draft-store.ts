@@ -479,8 +479,8 @@ export class DraftStore implements TournamentViewer {
   );
   /**
    * What the signed-in player's exports are made of: their plan, each plan
-   * board's picks in pick order. A pick the plan
-   * doesn't have yet is on the mainboard, where every pick lands.
+   * board's picks in pick order. A pick the plan doesn't have yet is on the
+   * mainboard, where every pick lands.
    */
   readonly exportPlan = computed<ExportPlan<PoolCardView>>(() => {
     const { sideboard, basics } = this.plan.value();
@@ -589,6 +589,13 @@ export class DraftStore implements TournamentViewer {
     const draft = this.draft.value();
     return this.joined() && !!draft && hasTurn(draft);
   });
+  /**
+   * Offering taking a copy of a basic land off a plan board, from its line
+   * or its Printing picker: to players, in every draft state, but never on
+   * a locked deck. The api refuses anyone else with `not-a-player`, and a
+   * locked deck with `deck-locked`.
+   */
+  readonly offerRemoveBasic = computed(() => this.joined() && !this.deckLocked());
 
   /**
    * Whether a re-read failed after its read had loaded, so the page shows its

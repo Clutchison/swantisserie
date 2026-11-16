@@ -50,11 +50,11 @@ export class PlanRefusedError extends Error {
 /**
  * Players' plans: each player's private mainboard and sideboard, holding
  * every pick they've made and the basic lands they've added; the queued
- * cards a deck shows are the queue's. A plan never changes the draft, so it
+ * cards a plan shows are the queue's. A plan never changes the draft, so it
  * can be changed in any draft state, except that a deck can't be changed
  * at all while it is locked, from Start until its tournament is complete
- * or cancelled. Every write
- * to a plan's cards and basics throws PlanRefusedError (`deck-locked`) then.
+ * or cancelled. Every write to a plan's cards and basics throws
+ * PlanRefusedError (`deck-locked`) then.
  */
 @Injectable()
 export class PlansService {
@@ -229,8 +229,8 @@ export async function readPlanBoards(
   playerId: string,
 ): Promise<PlanBoards> {
   const planned = await tx.plannedCard.findMany({
-    // An undone pick of a card added to the deck (`PlannedCard.added`)
-    // before the deck showed the queue stays there without its pick, unshown.
+    // An undone pick of a card added to the plan (`PlannedCard.added`)
+    // before the plan showed the queue stays there without its pick, unshown.
     where: { playerId, pickId: { not: null } },
     orderBy: PLAN_ORDER,
     select: {

@@ -22,19 +22,6 @@ export interface PlanBoardCard extends PlannedCardView {
 }
 
 /**
- * What a card on a plan board is: a pick, a copy of a basic land, or a
- * queued card. A pick or a basic land's copy counts as picked; a queued card
- * is dimmed.
- */
-export type PlanBoardCardKind = 'picked' | 'basic' | 'queued';
-
-/** What `card` is, as `PlanBoardCardKind` names it. */
-export function kindOf(card: PlanBoardCard): PlanBoardCardKind {
-  if (card.queuePlace) return 'queued';
-  return card.basic ? 'basic' : 'picked';
-}
-
-/**
  * The deck as the Deck tab shows it: the plan, with the queued cards its
  * player's picks left can reach.
  */
@@ -102,9 +89,10 @@ export type MovedCard =
 export function lines(cards: PlanBoardCard[]): PlanLine[] {
   const byName = new Map<string, PlanLine>();
   for (const card of cards) {
-    const kind = kindOf(card);
     // Stryker disable next-line StringLiteral: with the prefix emptied, a queued card's key, its pool card id, stays distinct from the others, so lines and focus keys come out the same.
-    const key = kind === 'queued' ? `queued ${card.poolCardId}` : `${kind} ${card.name}`;
+    const key = card.queuePlace
+      ? `queued ${card.poolCardId}`
+      : `${card.basic ? 'basic' : 'picked'} ${card.name}`;
     const line = byName.get(key);
     if (line) {
       line.count++;

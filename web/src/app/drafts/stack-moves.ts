@@ -2,7 +2,7 @@ import { linkedSignal, type Signal, signal } from '@angular/core';
 import type { PlannedCardView, PlanView } from 'contract';
 import { type Grouping, NO_MOVES, type StackMove, type StackMoves } from './plan-stacks';
 
-/** The deck as stack moves follow it: its mainboard's cards, and the pool card ids it shows anywhere else. */
+/** The plan as stack moves follow it: its mainboard's cards, and the pool card ids it shows anywhere else. */
 interface Followed {
   grouping: Grouping;
   mainboard: readonly PlannedCardView[];
@@ -13,7 +13,7 @@ interface Followed {
  * The Deck tab's stack moves, kept in its memory only: never stored, nor
  * sent, so no one else sees them. Changing the grouping wipes them all; a
  * card that leaves the mainboard loses its own, so it comes back in its own
- * stack, while the others stay through any deck change. A copy swapped in
+ * stack, while the others stay through any plan change. A copy swapped in
  * for a queued card, by the copy rule, keeps that card's stack move.
  *
  * `mainboard` is the mainboard's cards, a basic land's copies included.
@@ -68,9 +68,9 @@ export function stackMovesOf(
 }
 
 /**
- * The stack moves `kept` once the deck goes from `was` to `now`: those of
- * cards still on the mainboard, and a card's that left the deck carried to
- * a copy of it that came into the mainboard from outside the deck in its
+ * The stack moves `kept` once the plan goes from `was` to `now`: those of
+ * cards still on the mainboard, and a card's that left the plan carried to
+ * a copy of it that came into the mainboard from outside the plan in its
  * place.
  *
  * A copy is found by name, the one identity a queued card carries to the

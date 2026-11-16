@@ -4,8 +4,9 @@
 -- order Queue unpicked used with Include sideboard on: first those with a
 -- queue order, the most recent departure first and each departure's cards
 -- as they sat; then the rest, the mainboard's before the sideboard's, each
--- in the deck's order (by mana value, then name). Each keeps its board as its queued copy's board. A copy
--- already queued stays where it is, on its own board.
+-- in the deck's order (by mana value, then name). Each keeps its board as
+-- its queued copy's board. A copy already queued stays where it is, on its
+-- own board.
 INSERT INTO "QueuedCard" ("id", "playerId", "poolCardId", "position", "board")
 SELECT
   gen_random_uuid()::text,
