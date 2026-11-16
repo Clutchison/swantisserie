@@ -84,7 +84,7 @@ Origin: #654.
 
 ### Hide help behind "How this works", never a notice
 
-_Judgement._ Help text a returning player doesn't need goes in a closed "How this works" section. Notices and warnings the player does need (a queue notice, a deck notice, the Deck lock reminder, a status note) stay outside it, always visible.
+_Judgement._ Help text a returning player doesn't need goes in a closed "How this works" section. Notices and warnings the player does need (a queue notice, the Ready notice, the Deck lock reminder, a status note) stay outside it, always visible.
 
 Why: a tab's content should come first, but hiding help must never hide a warning.
 

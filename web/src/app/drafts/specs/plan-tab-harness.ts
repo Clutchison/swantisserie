@@ -52,33 +52,23 @@ export const bolt = card({
 });
 export const boltAgain = card({ ...bolt, id: 'bolt-card-2' });
 export const cards = [shivan, brightclimb, bolt, boltAgain];
-export const planned = (card: NamedPoolCard, picked = true) => ({
-  poolCardId: card.id,
-  name: card.name,
-  picked,
-});
-export const unpicked = (card: NamedPoolCard) => planned(card, false);
+export const planned = (card: NamedPoolCard) => ({ poolCardId: card.id, name: card.name });
 /** As the API sorts it: by mana value, then name. */
 export const planOf = (fields: Partial<PlanView> = {}): PlanView => ({
   mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain), planned(shivan)],
   sideboard: [],
   basics: [],
-  lost: [],
   readyNotice: false,
   preferredPrintings: {},
   ...fields,
 });
 
-/** The names of the Deck tab's live regions: the Ready notice, the Deck notice and the note that the sideboard is over Arena's cap. */
+/** The names of the Deck tab's live regions: the Ready notice and the note that the sideboard is over Arena's cap. */
 export const READY_NOTICE = 'Ready notice';
-export const DECK_NOTICE = 'Deck notice';
 export const SIDEBOARD_CAP_NOTE = 'Sideboard over Arena’s cap';
 
 /** The Ready notice inside `root`, telling the player they are no longer ready: its status region while it holds the notice; null otherwise. */
 export const readyNotice = (root: HTMLElement) => filledStatusIn(root, READY_NOTICE);
-
-/** The Deck notice inside `root`, naming cards lost to other players: its status region while it holds the notice; null otherwise. */
-export const deckNotice = (root: HTMLElement) => filledStatusIn(root, DECK_NOTICE);
 
 /**
  * Focuses and presses `notice`'s Dismiss, runs `meanwhile` while the dismiss
@@ -145,8 +135,8 @@ export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixt
 
 /**
  * Each plan board's heading, and in list mode its lines as `count name`, as
- * a screen reader reads them: with ` (unpicked)` after a line marked
- * Unpicked, and a queued card's Queued badge after it, as ` (queued second)`.
+ * a screen reader reads them: with a queued card's Queued badge after it,
+ * as ` (queued second)`.
  */
 export function planBoards(plan: HTMLElement) {
   return PLAN_BOARDS.map((planBoard) => ({
@@ -157,7 +147,6 @@ export function planBoards(plan: HTMLElement) {
       const opener = line.querySelector('[aria-haspopup="dialog"]');
       return (
         `${said[0]} ${opener ? accessibleName(opener) : ''}` +
-        (said.includes('Unpicked') ? ' (unpicked)' : '') +
         (badge ? ` (${badge.toLowerCase()})` : '')
       );
     }),
@@ -170,7 +159,7 @@ const planBoardLines = (plan: HTMLElement, planBoard: PlanBoard) =>
     item.querySelector('[aria-haspopup="dialog"], [role="img"]'),
   );
 
-/** The control inside `root` that opens a plan card's Card detail, by its accessible name, as `Lightning Bolt (unpicked)` for a stacked unpicked card. */
+/** The control inside `root` that opens a plan card's Card detail, by its accessible name, as `Lightning Bolt (queued second)` for a stacked queued card. */
 export const detailOpener = (root: HTMLElement, name: string) =>
   [...root.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')].find(
     (control) => accessibleName(control) === name,
@@ -180,7 +169,7 @@ export const detailOpener = (root: HTMLElement, name: string) =>
 const stackedCards = (stack: Element) =>
   [...stack.querySelectorAll('[aria-haspopup="dialog"], [role="img"]')].map(accessibleName);
 
-/** The cards of the stack inside `root` named `name`, by their accessible names, with ` (unpicked)` after an unpicked card. */
+/** The cards of the stack inside `root` named `name`, by their accessible names, as `Lightning Bolt (queued second)` for a queued card. */
 export const stack = (root: HTMLElement, name: string) => stackedCards(namedList(root, name));
 
 /** Each plan board's stacks as `name: card, card`, by the names a screen reader gives them. */

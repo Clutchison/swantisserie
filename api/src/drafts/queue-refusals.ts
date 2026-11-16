@@ -65,10 +65,9 @@ const notStartedMessages: Record<LobbyQueueChange, string> = {
 };
 
 /**
- * Throws QueueRefusedError in the lobby, where adding to a queue (`queue`,
- * which Queue unpicked does too), pausing a queue or setting it picking
- * (`queue-paused`) and setting steal behavior (`steal-behavior`) wait for the
- * draft to start. The refusal is always `not-started`; its message names what
+ * Throws QueueRefusedError in the lobby, where adding to a queue (`queue`),
+ * pausing a queue or setting it picking (`queue-paused`) and setting steal
+ * behavior (`steal-behavior`) wait for the draft to start. The refusal is always `not-started`; its message names what
  * the player was doing. A queue already filled in the lobby is kept, and
  * cascades at the start.
  */

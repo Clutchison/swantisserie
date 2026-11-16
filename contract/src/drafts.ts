@@ -32,10 +32,7 @@ export type PoolSnapshotView = { cards: number } & (
 
 /** A guild member or bot who has joined a draft. */
 export interface PlayerView {
-  /**
-   * The player's Discord user id. Every `playerId` in the contract, and
-   * `LostCardView.pickedBy`, is one of these.
-   */
+  /** The player's Discord user id. Every `playerId` in the contract is one of these. */
   id: string;
   name: string;
   avatarUrl: string;

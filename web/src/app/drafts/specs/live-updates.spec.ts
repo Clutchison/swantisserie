@@ -278,7 +278,7 @@ describe('live updates', () => {
         queueOf({ lost: [queued(shivan)] }),
         {
           ...EMPTY_PLAN,
-          mainboard: [{ poolCardId: brightclimb.id, name: brightclimb.name, picked: true }],
+          mainboard: [{ poolCardId: brightclimb.id, name: brightclimb.name }],
         },
       ];
       older.forEach((req, i) => req.cancelled || req.flush(olderAnswers[i]));

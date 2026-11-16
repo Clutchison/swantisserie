@@ -7,7 +7,6 @@ import type {
   QueuedCardMoveRequest,
   QueueOrderRequest,
   QueuePausedRequest,
-  QueueUnpickedRequest,
   QueueView,
   StealBehavior,
   StealBehaviorRequest,
@@ -20,13 +19,6 @@ export class QueueApi {
 
   add(draftId: string, poolCardId: string): Observable<QueueView> {
     return this.http.post<QueueView>(url(draftId), { poolCardId } satisfies PoolCardRequest);
-  }
-
-  /** Adds the plan's unpicked cards to the end of the queue: the mainboard's, and the sideboard's if `includeSideboard`. */
-  addUnpicked(draftId: string, includeSideboard: boolean): Observable<QueueView> {
-    return this.http.post<QueueView>(`${url(draftId)}/unpicked`, {
-      includeSideboard,
-    } satisfies QueueUnpickedRequest);
   }
 
   remove(draftId: string, poolCardId: string): Observable<QueueView> {

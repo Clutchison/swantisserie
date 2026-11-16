@@ -22,6 +22,7 @@ import {
   card,
   plan,
   movePlanned,
+  draftsRequest,
   poolCardIds,
   waitForBotPicks,
 } from './harness.js';
@@ -43,7 +44,6 @@ describe('plan', () => {
       mainboard: [],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -55,19 +55,37 @@ describe('plan', () => {
 
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
         {
           poolCardId: ids['Skewer the Critics'],
           name: 'Skewer the Critics',
-          picked: true,
         },
       ],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
+  });
+
+  it('has no way to add a card no one has picked, take a card out, queue the deck’s cards, or dismiss a Deck notice: only queuing plans a card', async () => {
+    const id = await readyDraft([carolCookie, aliceCookie], 2, fourCards);
+    const ids = await poolCardIds(id);
+    await start(id).expect(200);
+
+    const shock = ids.Shock;
+    await draftsRequest('post', `/${id}/plan`, carolCookie, {
+      poolCardId: shock,
+    }).expect(404);
+    await draftsRequest('delete', `/${id}/plan/${shock}`, carolCookie).expect(
+      404,
+    );
+    await draftsRequest('post', `/${id}/queue/unpicked`, carolCookie, {
+      includeSideboard: true,
+    }).expect(404);
+    await draftsRequest('delete', `/${id}/plan/notice`, carolCookie).expect(
+      404,
+    );
   });
 
   it('lets a player move a card to the sideboard and back', async () => {
@@ -81,12 +99,10 @@ describe('plan', () => {
     const spike = {
       poolCardId: ids['Lava Spike'],
       name: 'Lava Spike',
-      picked: true,
     };
     const skewer = {
       poolCardId: ids['Skewer the Critics'],
       name: 'Skewer the Critics',
-      picked: true,
     };
 
     const moved = await movePlanned(
@@ -100,7 +116,6 @@ describe('plan', () => {
       mainboard: [skewer],
       sideboard: [spike],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -108,7 +123,6 @@ describe('plan', () => {
       mainboard: [skewer],
       sideboard: [spike],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -126,7 +140,6 @@ describe('plan', () => {
       mainboard: [spike, skewer],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -157,12 +170,9 @@ describe('plan', () => {
       400,
     );
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
-      mainboard: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
-      ],
+      mainboard: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -186,10 +196,9 @@ describe('plan', () => {
       [carol.id, alice.id, botId],
     ).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
-      mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
+      mainboard: [{ poolCardId: ids.Shock, name: 'Shock' }],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -198,7 +207,6 @@ describe('plan', () => {
       {
         poolCardId: ids['Lightning Bolt'],
         name: 'Lightning Bolt',
-        picked: true,
       },
     ]);
     await movePlanned(
@@ -223,12 +231,11 @@ describe('plan', () => {
 
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
       mainboard: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
-        { poolCardId: ids.Shock, name: 'Shock', picked: true },
+        { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
+        { poolCardId: ids.Shock, name: 'Shock' },
       ],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -272,23 +279,19 @@ describe('plan', () => {
     await undo(id, 4).expect(200);
 
     expect((await plan(id, carolCookie).expect(200)).body).toEqual({
-      mainboard: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
-      ],
+      mainboard: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
     // Picked again, it lands on the mainboard, not where it was.
     await pick(id, ids['Skewer the Critics'], carolCookie).expect(200);
     expect((await plan(id, carolCookie).expect(200)).body.mainboard).toEqual([
-      { poolCardId: ids['Lava Spike'], name: 'Lava Spike', picked: true },
+      { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
       {
         poolCardId: ids['Skewer the Critics'],
         name: 'Skewer the Critics',
-        picked: true,
       },
     ]);
   });
@@ -300,7 +303,6 @@ describe('plan', () => {
       mainboard: [],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -309,7 +311,6 @@ describe('plan', () => {
     const spike = {
       poolCardId: ids['Lava Spike'],
       name: 'Lava Spike',
-      picked: true,
     };
 
     await post(id, 'freeze').expect(200);
@@ -323,7 +324,6 @@ describe('plan', () => {
       mainboard: [],
       sideboard: [spike],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -339,7 +339,6 @@ describe('plan', () => {
       mainboard: [spike],
       sideboard: [],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });
@@ -357,7 +356,6 @@ describe('plan', () => {
       mainboard: [],
       sideboard: [spike],
       basics: [],
-      lost: [],
       readyNotice: false,
       preferredPrintings: {},
     });

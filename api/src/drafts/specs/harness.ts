@@ -588,11 +588,6 @@ export function moveQueued(
   });
 }
 
-/** Adds the unpicked cards in the player's plan to the end of their queue. */
-export function queueUnpicked(id: string, body: unknown, cookie: string) {
-  return draftsRequest('post', `/${id}/queue/unpicked`, cookie, body);
-}
-
 /** Posts to the draft's `action` route. */
 export function post(id: string, action: string, cookie = aliceCookie) {
   return draftsRequest('post', `/${id}/${action}`, cookie);
@@ -873,21 +868,6 @@ export function movePlanned(
   cookie: string,
 ) {
   return draftsRequest('put', `/${id}/plan/${poolCardId}`, cookie, { board });
-}
-
-/** Adds an unpicked copy of a pool card to the player's plan. */
-export function addToPlan(id: string, poolCardId: unknown, cookie: string) {
-  return draftsRequest('post', `/${id}/plan`, cookie, { poolCardId });
-}
-
-/** Takes an unpicked card out of the player's plan. */
-export function removeFromPlan(id: string, poolCardId: string, cookie: string) {
-  return draftsRequest('delete', `/${id}/plan/${poolCardId}`, cookie);
-}
-
-/** Dismisses the player's Deck notice. */
-export function dismissPlanNotice(id: string, cookie: string) {
-  return draftsRequest('delete', `/${id}/plan/notice`, cookie);
 }
 
 /** Dismisses the player's Ready notice. */

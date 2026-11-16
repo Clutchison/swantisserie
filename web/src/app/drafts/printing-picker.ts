@@ -74,10 +74,8 @@ export class PrintingPicker implements OnInit {
    */
   readonly removing = input<() => () => void>(() => () => undefined);
 
-  /** Whether Remove is offered: as for an unpicked card, to a player, never on a locked deck. */
-  protected readonly offerRemove = computed(
-    () => this.store.offerRemoveFromPlan() && !this.store.deckLocked(),
-  );
+  /** Whether Remove is offered: to a player, never on a locked deck. */
+  protected readonly offerRemove = computed(() => this.store.joined() && !this.store.deckLocked());
 
   protected readonly headingId = PRINTING_PICKER_HEADING;
   protected readonly largeImage = LARGE_IMAGE;

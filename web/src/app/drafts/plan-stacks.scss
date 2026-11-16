@@ -75,7 +75,7 @@ $stack-step: max(16%, 24px);
     margin-top: 0;
   }
 
-  /* An unpicked or queued card is dimmed: it isn't the player's yet, and may not be. Darkened rather than see-through, so the card under it doesn't show through. Only the card: its mark and buttons stay bright. */
+  /* A queued card is dimmed: it isn't the player's yet, and may not be. Darkened rather than see-through, so the card under it doesn't show through. Only the card: its mark and buttons stay bright. */
   .dimmed .card {
     filter: $dimmed-card;
   }

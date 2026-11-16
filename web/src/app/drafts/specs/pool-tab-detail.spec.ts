@@ -1,5 +1,4 @@
 import { TestBed } from '@angular/core/testing';
-import { EMPTY_PLAN } from '../drafts';
 import {
   useDraftsApp,
   openDraft,
@@ -47,7 +46,7 @@ import {
   searchFor,
   scrollWindowTo,
 } from './pool-tab-harness';
-import { apiImage, unpicked } from './plan-tab-harness';
+import { apiImage } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -117,26 +116,19 @@ describe('pool tab', () => {
     );
   });
 
-  it('offers Close, Flip, the deck and queue buttons, then Pick, on the player’s turn', async () => {
+  it('offers Close, Flip, the queue button, then Pick, on the player’s turn', async () => {
     const { fixture, page } = await openDraft(
       completeSnapshot,
       drafting({ turn: { pick: 1, round: 1, playerId: alice.id } }),
       {
         cards: [brightclimb, shivan],
         queue: queueOf({ cards: [queued(brightclimb)] }),
-        plan: { ...EMPTY_PLAN, mainboard: [unpicked(brightclimb)] },
       },
     );
 
     const detail = await openDetail(fixture, page, 0);
 
-    expect(buttonOrder(detail, 'Pick')).toEqual([
-      'Close',
-      'Flip',
-      'Remove from Deck',
-      'Remove from queue',
-      'Pick',
-    ]);
+    expect(buttonOrder(detail, 'Pick')).toEqual(['Close', 'Flip', 'Remove from queue', 'Pick']);
   });
 
   describe('focus', () => {

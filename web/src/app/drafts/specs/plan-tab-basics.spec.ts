@@ -69,7 +69,6 @@ describe('basic lands on the plan tab', () => {
     mainboard: [planned(bolt), planned(shivan)],
     sideboard: [],
     basics,
-    lost: [],
     readyNotice: false,
     preferredPrintings: {},
     ...fields,

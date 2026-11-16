@@ -13,18 +13,13 @@
     <svg lucidePlus size="16"></svg>
   }
 </ng-template>
-<!-- A card's mark, by what it is: a queued card's Queued badge, its place in the queue said as a screen reader reads it, or an unpicked card's Unpicked mark; none for a pick or a basic land. -->
+<!-- A card's mark: a queued card's Queued badge, its place in the queue said as a screen reader reads it; none for a pick or a basic land. -->
 <ng-template #cardMark let-card>
-  @switch (kindOf(card)) {
-    @case ('queued') {
-      <span class="mark queued">
-        <span aria-hidden="true">#{{ card.queuePlace }} Queued</span>
-        <span class="visually-hidden">{{ queuedName(card.queuePlace) }}</span>
-      </span>
-    }
-    @case ('unpicked') {
-      <span class="mark">Unpicked</span>
-    }
+  @if (card.queuePlace) {
+    <span class="mark queued">
+      <span aria-hidden="true">#{{ card.queuePlace }} Queued</span>
+      <span class="visually-hidden">{{ queuedName(card.queuePlace) }}</span>
+    </span>
   }
 </ng-template>
 <!-- A stacked card's image, or its name while its pool card is unknown, and its mark. -->
@@ -49,26 +44,6 @@
   <ng-container *ngTemplateOutlet="cardMark; context: { $implicit: card }" />
 </ng-template>
 <!-- Each notice's region is on the page before its notice, so a screen reader announces it. -->
-<div role="status" aria-label="Deck notice">
-  @if (hasNotice()) {
-    <div class="notice">
-      <p>
-        Lost to other players:
-        @for (card of plan().lost; track card.poolCardId; let last = $last) {
-          <strong
-            ><app-card-name [card]="poolCardsById().get(card.poolCardId)" [name]="card.name"
-          /></strong>
-          (picked by {{ playerName(card.pickedBy) }}){{ last ? '.' : ',' }}
-        }
-      </p>
-      <button class="button secondary" type="button" (click)="dismissNotice()" appSendsChange>
-        Dismiss
-      </button>
-    </div>
-  }
-</div>
-<!-- Each notice's failed Dismiss shows after its region, outside it, so it is said as an alert. -->
-<ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('deckNotice') }" />
 <div role="status" aria-label="Ready notice">
   @if (plan().readyNotice) {
     <div class="notice">
@@ -82,6 +57,7 @@
     </div>
   }
 </div>
+<!-- A failed Dismiss shows after the notice's region, outside it, so it is said as an alert. -->
 <ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('readyNotice') }" />
 <div role="status" aria-label="Sideboard over Arena’s cap">
   @if (sideboardOverArenaCap(); as over) {
@@ -105,8 +81,7 @@
         Your deck holds your picks and basic lands.
       } @else {
         Your queued cards show dimmed, as far as your picks left reach. A pick lands on the deck
-        board its queued copy was on, or else on your mainboard. An unpicked card you add is lost if
-        another player picks it and no other copy is available.
+        board its queued copy was on, or else on your mainboard.
       }
       Only you can see your deck. If it locks for a tournament, everyone who sees the draft can see
       its decklist, the deck as it was locked, once the tournament is complete, or from its start
@@ -115,19 +90,9 @@
   </details>
 }
 <app-deck-lock-reminder />
-<!-- The Deck tab's tools, in one row that wraps: Queue unpicked, Stacks or list, how the stacks group, Add basics and Export. -->
+<!-- The Deck tab's tools, in one row that wraps: Stacks or list, how the stacks group, Add basics and Export. -->
 <!-- Named as a group for screen readers, and for the alert after it. -->
 <div #tools class="mode-controls" role="group" aria-label="Deck tools">
-  @if (offerQueueUnpicked()) {
-    <button
-      class="button compact secondary"
-      type="button"
-      (click)="openQueueing()"
-      [disabled]="!anythingToQueue()"
-    >
-      Queue unpicked
-    </button>
-  }
   <div class="segmented" role="group" aria-label="Mode">
     <button
       class="button compact quiet"
@@ -167,7 +132,7 @@
   }
   <app-export-buttons />
 </div>
-<!-- A failure from the tools' Queue unpicked, from a drag and drop, or from a row that has since left its plan board. -->
+<!-- A failure from a drag and drop, or from a row that has since left its plan board. -->
 <ng-container *ngTemplateOutlet="failure; context: { $implicit: errorAt('tools') }" />
 <!-- A card dragged onto the other plan board moves there: in the wide stacks layout, or the list on desktop. In the wide stacks layout, one dragged onto another mainboard stack is a stack move into it. In stacks mode every stack is as wide as the others; the plan boards sit side by side where there's room, and narrower, they are one strip that scrolls sideways, the mainboard's stacks then the sideboard's. -->
 <div
@@ -283,7 +248,7 @@
                     @let cardLabel = stackedName(card);
                     <!-- A touch drag starts only after a hold, so a quick swipe still scrolls. -->
                     <li
-                      [class.dimmed]="!card.picked"
+                      [class.dimmed]="card.queuePlace"
                       cdkDrag
                       [cdkDragData]="card.poolCardId"
                       [cdkDragStartDelay]="drag.startDelay"
@@ -356,7 +321,7 @@
           <ul
             class="lines card-rows"
             [attr.aria-label]="planBoard.name"
-            [class.with-remove]="planBoard.picked < planBoard.count || withBasics(planBoard.lines)"
+            [class.with-remove]="withBasics(planBoard.lines)"
             [class.capped]="!showingStacks()"
             cdkDropList
             [cdkDropListData]="planBoard.dropTarget"
@@ -368,7 +333,7 @@
           >
             @for (line of planBoard.lines; track line.key) {
               <li
-                [class.dimmed]="!line.picked"
+                [class.dimmed]="line.queuePlace"
                 cdkDrag
                 [cdkDragData]="line.poolCardId"
                 cdkDragPreviewContainer="parent"
@@ -400,19 +365,15 @@
                       />
                     </button>
                   }
-                  <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
-                  @if (
-                    (kindOf(line) === 'basic' || kindOf(line) === 'unpicked') &&
-                    offerRemoveFromPlan() &&
-                    !deckLocked()
-                  ) {
+                  <!-- A basic land's line takes one copy off its plan board. -->
+                  @if (line.basic && offerRemoveBasic() && !deckLocked()) {
                     @let removeName = 'Remove ' + line.name + ' from your deck';
                     <button
                       class="button compact quiet line-action"
                       type="button"
                       [attr.aria-label]="removeName"
                       [title]="removeName"
-                      (click)="removeLine(line, planBoard.name)"
+                      (click)="removeLine(line, line.basic, planBoard.name)"
                       [appSendsChange]="removeKey(planBoard.name, line)"
                     >
                       <svg lucideTrash size="16"></svg>

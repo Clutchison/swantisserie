@@ -178,10 +178,9 @@ describe('card previews', () => {
     it('opens on list mode names, which are buttons there, tabbed to on the Deck tab', async () => {
       const { page, fixture } = await openPicked({
         plan: {
-          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name }],
           sideboard: [],
           basics: [],
-          lost: [],
           readyNotice: false,
           preferredPrintings: {},
         },
@@ -210,10 +209,9 @@ describe('card previews', () => {
       try {
         const { page, fixture } = await openPicked({
           plan: {
-            mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+            mainboard: [{ poolCardId: bolt.id, name: bolt.name }],
             sideboard: [],
             basics: [],
-            lost: [],
             readyNotice: false,
             preferredPrintings: {},
           },

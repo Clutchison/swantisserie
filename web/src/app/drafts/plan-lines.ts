@@ -10,10 +10,10 @@ import {
 import { basicsOn, cardsOn, type PlanBoardsOf } from './plan-boards';
 
 /**
- * A card on a plan board as the Deck tab shows it: a planned pool card, a
- * copy of a basic land, which counts as picked, or a queued card, which
- * isn't. A basic's `poolCardId` is no pool card's, but keys its card data in
- * the tab's `cardsById`.
+ * A card on a plan board as the Deck tab shows it: a pick, a copy of a
+ * basic land, which counts as picked, or a queued card, which isn't. A
+ * basic's `poolCardId` is no pool card's, but keys its card data in the
+ * tab's `cardsById`.
  */
 export interface PlanBoardCard extends PlannedCardView {
   basic?: BasicLand;
@@ -22,17 +22,16 @@ export interface PlanBoardCard extends PlannedCardView {
 }
 
 /**
- * What a card on a plan board is: a pick, an unpicked card the player added,
- * a copy of a basic land, or a queued card. A pick or a basic land's copy
- * counts as picked; the others are dimmed.
+ * What a card on a plan board is: a pick, a copy of a basic land, or a
+ * queued card. A pick or a basic land's copy counts as picked; a queued card
+ * is dimmed.
  */
-export type PlanBoardCardKind = 'picked' | 'unpicked' | 'basic' | 'queued';
+export type PlanBoardCardKind = 'picked' | 'basic' | 'queued';
 
 /** What `card` is, as `PlanBoardCardKind` names it. */
 export function kindOf(card: PlanBoardCard): PlanBoardCardKind {
   if (card.queuePlace) return 'queued';
-  if (card.basic) return 'basic';
-  return card.picked ? 'picked' : 'unpicked';
+  return card.basic ? 'basic' : 'picked';
 }
 
 /**
@@ -47,26 +46,20 @@ export interface ShownPlan extends PlanView {
 /**
  * The deck `plan` shows with the cards of `queue` that `reaches` says the
  * player's picks left reach, by their 0-based place in it: each plan
- * board's planned cards, then the reached queued cards on it, in queue
- * order, each with its place in the queue. A queued copy the plan also
- * holds as an unpicked card shows once, as the queued card on its own plan
- * board.
+ * board's picks, then the reached queued cards on it, in queue order, each
+ * with its place in the queue.
  */
 export function withQueuedCards(
   plan: PlanView,
   queue: readonly QueuedCardView[],
   reaches: (at: number) => boolean,
 ): ShownPlan {
-  const reached: PlanBoardCard[] = [];
-  const boards = new Map<string, PlanBoard>();
-  for (const [at, { poolCardId, name, board }] of queue.entries()) {
-    if (!reaches(at)) continue;
-    reached.push({ poolCardId, name, picked: false, queuePlace: at + 1 });
-    boards.set(poolCardId, board);
-  }
+  const reached = queue.flatMap(({ poolCardId, name, board }, at) =>
+    reaches(at) ? [{ card: { poolCardId, name, queuePlace: at + 1 }, board }] : [],
+  );
   const on = (planBoard: PlanBoard): PlanBoardCard[] => [
-    ...cardsOn(plan, planBoard).filter((card) => card.picked || !boards.has(card.poolCardId)),
-    ...reached.filter((card) => boards.get(card.poolCardId) === planBoard),
+    ...cardsOn(plan, planBoard),
+    ...reached.filter(({ board }) => board === planBoard).map(({ card }) => card),
   ];
   return { ...plan, mainboard: on('Mainboard'), sideboard: on('Sideboard') };
 }
@@ -83,7 +76,7 @@ export function shownOn(
   return null;
 }
 
-/** One line of a plan board: a card's picked copies, its unpicked ones, a basic land's, or one queued card, with how many the plan board holds. */
+/** One line of a plan board: a card's picked copies, a basic land's, or one queued card, with how many the plan board holds. */
 export interface PlanLine extends PlanBoardCard {
   /** How many copies the plan board holds. The line's `poolCardId` is its first copy's, which is the one a move or removal acts on. */
   count: number;
@@ -102,9 +95,9 @@ export type MovedCard =
   Pick<PlanBoardCard, 'poolCardId' | 'name' | 'basic' | 'queuePlace'> | PlanLine;
 
 /**
- * One line per distinct name, picked, unpicked and basic copies apart, in
- * the order each first appears, counting its copies; and one per queued
- * card, as each has its own place in the queue.
+ * One line per distinct name, picked and basic copies apart, in the order
+ * each first appears, counting its copies; and one per queued card, as each
+ * has its own place in the queue.
  */
 export function lines(cards: PlanBoardCard[]): PlanLine[] {
   const byName = new Map<string, PlanLine>();
@@ -133,7 +126,6 @@ export function basicCopies({ land, board, count }: PlannedBasicView): PlanBoard
   return Array.from({ length: count }, (_, copy) => ({
     poolCardId: basicCopyId(board, land, copy),
     name: land,
-    picked: true,
     basic: land,
   }));
 }

@@ -41,7 +41,6 @@ import {
   EMPTY_PLAN,
   EMPTY_QUEUE,
   hasTurn,
-  isActive,
   isRefusal,
   NO_POWERS,
   queueStateName,
@@ -473,22 +472,14 @@ export class DraftStore implements TournamentViewer {
   });
   /** The signed-in player's plan. */
   readonly plan = keptRead(this.planResource, EMPTY_PLAN);
-  /** Whether the draft is complete, which took the unpicked cards out of every plan. */
+  /** Whether the draft is complete: no picks are left, so no queued card shows in a deck. */
   readonly draftComplete = computed(
     // Stryker disable next-line OptionalChaining: the draft is undefined only before its first load, when a throw here would only error a read that the load re-runs.
     () => this.draft.value()?.state === 'Complete',
   );
-  /** The pool card ids of the unpicked cards in the signed-in player's plan, on either plan board. */
-  readonly planned = computed(() => {
-    const { mainboard, sideboard } = this.plan.value();
-    return new Set(
-      [...mainboard, ...sideboard].filter((card) => !card.picked).map((card) => card.poolCardId),
-    );
-  });
-
   /**
-   * What the signed-in player's exports are made of: their plan without its
-   * unpicked cards, each plan board's picks in pick order. A pick the plan
+   * What the signed-in player's exports are made of: their plan, each plan
+   * board's picks in pick order. A pick the plan
    * doesn't have yet is on the mainboard, where every pick lands.
    */
   readonly exportPlan = computed<ExportPlan<PoolCardView>>(() => {
@@ -598,21 +589,6 @@ export class DraftStore implements TournamentViewer {
     const draft = this.draft.value();
     return this.joined() && !!draft && hasTurn(draft);
   });
-  /**
-   * Offering adding to the plan: to players, while the draft is active. The
-   * api refuses anyone else with `not-a-player`, and a Complete or Closed
-   * draft with `draft-complete` or `draft-closed`.
-   */
-  readonly offerAddToPlan = computed(() => {
-    const draft = this.draft.value();
-    return this.joined() && !!draft && isActive(draft.state);
-  });
-  /**
-   * Offering removing an unpicked card from the plan: to players, in every
-   * draft state. The api refuses only someone who isn't a player, with
-   * `not-a-player`.
-   */
-  readonly offerRemoveFromPlan = this.joined;
 
   /**
    * Whether a re-read failed after its read had loaded, so the page shows its

@@ -1,4 +1,3 @@
-import type { Prisma } from '../generated/prisma/client.js';
 import type { Transaction } from './draft-shapes.js';
 import type { QueuedRow } from './turn-read.js';
 
@@ -36,12 +35,3 @@ export async function leaveQueue(
     });
   }
 }
-
-/**
- * Plan cards in queue order: those that left the queue most recently first,
- * and those that left together as they sat; then those never queued.
- */
-export const QUEUE_ORDER = [
-  { queueDeparture: { sort: 'desc', nulls: 'last' } },
-  { queuePosition: 'asc' },
-] satisfies Prisma.PlannedCardOrderByWithRelationInput[];

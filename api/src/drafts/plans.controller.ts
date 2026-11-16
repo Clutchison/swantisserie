@@ -31,7 +31,6 @@ import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftLock } from './draft-lock.js';
 import { DraftPublisher } from './draft-publisher.js';
-import { parseCard } from './parse-card.js';
 import { type PlanChange, PlansService } from './plans.service.js';
 
 /**
@@ -60,28 +59,7 @@ export class PlansController {
     return this.plans.plan(id, user.id);
   }
 
-  /** Adds an unpicked copy of a pool card to the mainboard. */
-  @Post()
-  @HttpCode(200)
-  async add(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-    @Body() body: unknown,
-  ): Promise<PlanView> {
-    const poolCardId = parseCard(body, 'Say which card to add.');
-    return this.change(user, id, () => this.plans.add(id, user.id, poolCardId));
-  }
-
-  /** Stops the Deck notice listing the lost cards. */
-  @Delete('notice')
-  async dismissNotice(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-  ): Promise<PlanView> {
-    return this.change(user, id, () => this.plans.dismissNotice(id, user.id));
-  }
-
-  /** Takes down the Ready notice. Declared before `:poolCardId`, which would match it. */
+  /** Takes down the Ready notice. */
   @Delete('ready-notice')
   async dismissReadyNotice(
     @CurrentUser() user: SessionUser,
@@ -122,7 +100,7 @@ export class PlansController {
     );
   }
 
-  /** Takes every basic land out of the plan. Declared before `:poolCardId`, which would match it. */
+  /** Takes every basic land out of the plan. */
   @Delete('basics')
   async clearBasics(
     @CurrentUser() user: SessionUser,
@@ -143,18 +121,6 @@ export class PlansController {
     const planBoard = parsePlanBoard(planBoardName);
     return this.change(user, id, () =>
       this.plans.removeBasic(id, user.id, basic, planBoard),
-    );
-  }
-
-  /** Takes an unpicked card out of the plan. Declared after `notice`, `ready-notice` and `basics`, which it would match. */
-  @Delete(':poolCardId')
-  async remove(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-    @Param('poolCardId') poolCardId: string,
-  ): Promise<PlanView> {
-    return this.change(user, id, () =>
-      this.plans.remove(id, user.id, poolCardId),
     );
   }
 
