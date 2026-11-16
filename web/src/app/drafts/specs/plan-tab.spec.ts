@@ -281,11 +281,8 @@ describe('plan tab', () => {
       }),
     );
     await vi.waitFor(() => expect(planBoards(plan)[1].heading).toBe('Sideboard 1 (1 picked)'));
-    // The second Lightning Bolt line is the unpicked one, so its button moves that copy.
-    const unpickedLine = [...plan.querySelectorAll('li.unpicked')].find((line) =>
-      line.textContent?.includes('Lightning Bolt'),
-    )!;
-    unpickedLine.querySelector<HTMLButtonElement>('button[aria-label^="Move"]')!.click();
+    // The Lightning Bolt line left on the mainboard is the unpicked one, so its button moves that copy.
+    button(plan, 'Move Lightning Bolt to the sideboard')!.click();
     expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card-2').request.body).toEqual({
       board: 'Sideboard',
     });

@@ -60,8 +60,8 @@ ul {
   }
 
   /* An unpicked or queued card is dimmed: it isn't the player's yet, and may not be. Lines don't overlap, so nothing shows through. */
-  .unpicked .count,
-  .unpicked app-card-name {
+  .dimmed .count,
+  .dimmed app-card-name {
     opacity: 0.6;
   }
 
@@ -111,14 +111,6 @@ ul {
 /* A failed change's message inside a line's or a stacked card's list item. */
 li > .error {
   margin: 0;
-  font-size: var(--font-size-sm);
-}
-
-.mark {
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--color-muted);
-  border-radius: 0.25rem;
-  color: var(--color-muted);
   font-size: var(--font-size-sm);
 }
 

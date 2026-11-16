@@ -51,10 +51,12 @@ import { PlanApi } from './plan-api';
 import { QueueApi } from './queue-api';
 import { ordinalWords } from '../record';
 import { onResize } from './resizes';
-import { cardsOn, OTHER_PLAN_BOARD } from './plan-boards';
+import { OTHER_PLAN_BOARD } from './plan-boards';
 import {
   basicCopies,
   basicCopyId,
+  kindOf,
+  shownOn,
   withQueuedCards,
   heldOn,
   lines,
@@ -207,17 +209,17 @@ export class PlanTab {
   /** The signed-in player's plan. */
   protected readonly plan = this.store.plan.value;
   /**
-   * The queued cards the deck shows: those before the Queue cutoff, while
-   * the queue is shown, queue paused too. None once the draft is complete,
-   * as no picks are left, nor while picks left isn't known.
+   * The deck the tab shows: the plan, with the queued cards before the Queue
+   * cutoff on their plan boards, while the queue is shown, queue paused too.
+   * None once the draft is complete, as no picks are left.
    */
-  private readonly reachedQueue = computed(() => {
-    const left = this.store.picksLeft();
-    if (!this.store.queueShown() || left === null) return [];
-    return this.store.queue.value().cards.slice(0, left);
-  });
-  /** The deck the tab shows: the plan, with the queued cards it shows on their plan boards. */
-  private readonly shownPlan = computed(() => withQueuedCards(this.plan(), this.reachedQueue()));
+  private readonly shownPlan = computed(() =>
+    withQueuedCards(
+      this.plan(),
+      this.store.queueShown() ? this.store.queue.value().cards : [],
+      (at) => !this.store.pastQueueCutoff(at),
+    ),
+  );
   /** The pool's cards by id, for the Card previews of the names here. */
   private readonly poolCardsById = this.store.poolCardsById;
   /** Whether the draft is complete, so the plan holds no unpicked cards. */
@@ -602,12 +604,12 @@ export class PlanTab {
     after: MovedCard,
     failed: (message: string) => void,
   ) {
-    const { basic, queued, poolCardId } = card;
+    const { basic, queuePlace, poolCardId } = card;
     const draftId = this.draftId();
     const stays = this.leaving(card, PLAN_BOARD_DISPLAY[planBoard].other);
     const made = await this.sendChange(
       () =>
-        queued
+        queuePlace
           ? this.store.changeQueue(this.queueApi.moveToBoard(draftId, poolCardId, planBoard))
           : this.store.changePlan(
               basic
@@ -704,15 +706,11 @@ export class PlanTab {
     // Stryker disable next-line ConditionalExpression: for an unknown pool card the mutant throws on card.name instead, so still nothing opens.
     if (!card) return;
     /** The card as the deck shows it, and the plan board it's on; null once it's on neither. */
-    const shown = computed(() => {
-      for (const planBoard of PLAN_BOARDS) {
-        const held = cardsOn(this.shownPlan(), planBoard).find(
-          (each) => each.poolCardId === poolCardId,
-        );
-        if (held) return { planBoard, held };
-      }
-      return null;
-    });
+    const shown = computed(() => shownOn(this.shownPlan(), poolCardId));
+    /** Whether the deck shows the card as a queued card, though the plan may hold it unpicked too. */
+    const shownQueued = computed(() => shown()?.card.queuePlace !== undefined);
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Deck is offered only for an unpicked card.
+    const removable = () => this.offerRemoveFromPlan() && !this.deckLocked();
     const detail = this.cardDetails.open({
       card,
       actions: computed(() => ({
@@ -721,8 +719,8 @@ export class PlanTab {
           this.store.offerQueue() &&
           (this.store.planned().has(poolCardId) || this.queued().has(poolCardId)),
         addToPlan: false,
-        // Stryker disable next-line ConditionalExpression,LogicalOperator: a deck locks only once the draft is complete, when the plan holds no unpicked cards, and Remove from Deck is offered only for an unpicked card.
-        removeFromPlan: this.offerRemoveFromPlan() && !this.deckLocked(),
+        // A card shown queued is the queue's to remove, though the plan may hold it unpicked too.
+        removeFromPlan: !shownQueued() && removable(),
       })),
       tilePlaceholder,
       injector: this.injector,
@@ -736,7 +734,7 @@ export class PlanTab {
           ? null
           : (planBoard: PlanBoard) =>
               this.moveFromDetail(
-                { poolCardId, name: card.name, queued: shown()?.held.queued },
+                { poolCardId, name: card.name, queuePlace: shown()?.card.queuePlace },
                 planBoard,
               ),
       ),
@@ -815,10 +813,15 @@ export class PlanTab {
   }
 
   /** What a screen reader names a stacked card: its name, then whether it's unpicked or queued, as `Lightning Bolt (queued second)`. */
-  protected stackedName({ name, picked, queued }: PlanBoardCard) {
-    if (queued) return `${name} (${this.queuedName(queued).toLowerCase()})`;
-    return picked ? name : `${name} (unpicked)`;
+  protected stackedName(card: PlanBoardCard) {
+    const kind = kindOf(card);
+    if (kind === 'queued')
+      return `${card.name} (${this.queuedName(card.queuePlace!).toLowerCase()})`;
+    return kind === 'unpicked' ? `${card.name} (unpicked)` : card.name;
   }
+
+  /** What a card on a plan board is, for the template: as `kindOf` says. */
+  protected readonly kindOf = kindOf;
 
   /** Whether any of a plan board's lines is a basic land's, which has a Remove button. */
   protected withBasics(lines: PlanLine[]) {

@@ -8,7 +8,6 @@ import {
   draft,
   http,
   updates,
-  panel,
   openDraft,
   flushPicks,
   flushQueueAndPlan,
@@ -40,7 +39,7 @@ import {
   openDetail,
   DECK_NOTE,
 } from './pool-tab-harness';
-import { openPlan } from './plan-tab-harness';
+import { openPlan, planBoards } from './plan-tab-harness';
 
 useDraftsApp();
 useTallScreen();
@@ -75,10 +74,10 @@ describe('pool tab', () => {
 
       button(detail, 'Close')!.click();
       const plan = await openPlan(fixture, page);
-      expect(plan.querySelector('.plan-board h3')?.textContent?.replace(/\s+/g, ' ').trim()).toBe(
-        'Mainboard 1 (0 picked)',
-      );
-      expect(plan.querySelector('li.unpicked .name')?.textContent?.trim()).toBe('Shivan Dragon');
+      expect(planBoards(plan)[0]).toEqual({
+        heading: 'Mainboard 1 (0 picked)',
+        lines: ['1 Shivan Dragon (unpicked)'],
+      });
     });
 
     it('says why an add was refused, and re-reads the plan and the draft', async () => {
@@ -338,8 +337,8 @@ describe('pool tab', () => {
       expect(button(detail, 'Remove from Deck')).toBeUndefined();
 
       button(detail, 'Close')!.click();
-      await openPlan(fixture, page);
-      expect(panel(page).querySelector('li.unpicked')).toBeNull();
+      const plan = await openPlan(fixture, page);
+      expect(planBoards(plan).flatMap((planBoard) => planBoard.lines)).toEqual([]);
     });
 
     it('stays focused and busy while a removal is on its way, sending it once, and hands focus to Add to Deck once it is made', async () => {

@@ -133,7 +133,25 @@ describe('queued cards on the Deck tab', () => {
     ]);
   });
 
-  it('shows a queued copy the deck also holds as an unpicked card once, as the queued card on its plan board', async () => {
+  it('shows no queued cards once the draft is complete, as no picks are left', async () => {
+    const { fixture, page } = await openDraft(
+      completeSnapshot,
+      drafting({ state: 'Complete', turn: null }),
+      {
+        cards,
+        plan: planOf({ mainboard: [planned(brightclimb)] }),
+        queue: queueOf({ cards: [queued(shivan)] }),
+      },
+    );
+    const plan = await openPlan(fixture, page);
+
+    expect(planBoards(plan)[0]).toEqual({
+      heading: 'Mainboard 1 (1 picked)',
+      lines: ['1 Brightclimb Pathway // Grimclimb Pathway'],
+    });
+  });
+
+  it('shows a queued copy the deck also holds as an unpicked card once, as the queued card on its deck board', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf({
@@ -153,7 +171,7 @@ describe('queued cards on the Deck tab', () => {
     ]);
   });
 
-  it('moves a queued card to the other plan board from its line’s move button', async () => {
+  it('moves a queued card to the other deck board from its line’s move button', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf({ mainboard: [planned(brightclimb)] }),
@@ -226,6 +244,22 @@ describe('queued cards on the Deck tab', () => {
         '1 Brightclimb Pathway // Grimclimb Pathway',
         '1 Lightning Bolt (queued first)',
       ]);
+    });
+
+    it('offers no Remove from Deck for a queued card the deck also holds as an unpicked card', async () => {
+      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+        cards,
+        plan: planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
+        queue: queueOf({ cards: [queued(shivan)] }),
+      });
+      const plan = await openPlan(fixture, page);
+      detailOpener(plan, 'Shivan Dragon')!.click();
+      await fixture.whenStable();
+      const detail = openDialog()!;
+
+      expect(button(detail, 'Remove from queue')).toBeDefined();
+      expect(button(detail, 'Remove from Deck')).toBeUndefined();
+      expect(button(detail, 'Add to Deck')).toBeUndefined();
     });
 
     it('offers Remove from queue only while the queue can change, and Move while the deck isn’t locked', async () => {

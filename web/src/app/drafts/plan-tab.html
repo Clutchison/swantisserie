@@ -13,14 +13,21 @@
     <svg lucidePlus size="16"></svg>
   }
 </ng-template>
-<!-- A queued card's Queued badge: its place in the queue, said as a screen reader reads it. -->
-<ng-template #queuedBadge let-place>
-  <span class="mark queued">
-    <span aria-hidden="true">#{{ place }} Queued</span>
-    <span class="visually-hidden">{{ queuedName(place) }}</span>
-  </span>
+<!-- A card's mark, by what it is: a queued card's Queued badge, its place in the queue said as a screen reader reads it, or an unpicked card's Unpicked mark; none for a pick or a basic land. -->
+<ng-template #cardMark let-card>
+  @switch (kindOf(card)) {
+    @case ('queued') {
+      <span class="mark queued">
+        <span aria-hidden="true">#{{ card.queuePlace }} Queued</span>
+        <span class="visually-hidden">{{ queuedName(card.queuePlace) }}</span>
+      </span>
+    }
+    @case ('unpicked') {
+      <span class="mark">Unpicked</span>
+    }
+  }
 </ng-template>
-<!-- A stacked card's image, or its name while its pool card is unknown, and its Unpicked mark or Queued badge. -->
+<!-- A stacked card's image, or its name while its pool card is unknown, and its mark. -->
 <ng-template #stackedCard let-card>
   @let poolCard = cardsById().get(card.poolCardId);
   <div class="card">
@@ -39,11 +46,7 @@
       <span class="placeholder">{{ card.name }}</span>
     }
   </div>
-  @if (card.queued) {
-    <ng-container *ngTemplateOutlet="queuedBadge; context: { $implicit: card.queued }" />
-  } @else if (!card.picked) {
-    <span class="mark">Unpicked</span>
-  }
+  <ng-container *ngTemplateOutlet="cardMark; context: { $implicit: card }" />
 </ng-template>
 <!-- Each notice's region is on the page before its notice, so a screen reader announces it. -->
 <div role="status" aria-label="Deck notice">
@@ -101,8 +104,8 @@
       @if (draftComplete()) {
         Your deck holds your picks and basic lands.
       } @else {
-        Your queued cards show dimmed, as far as your picks left reach. A pick lands on the board
-        its queued copy was on, or else on your mainboard. An unpicked card you add is lost if
+        Your queued cards show dimmed, as far as your picks left reach. A pick lands on the deck
+        board its queued copy was on, or else on your mainboard. An unpicked card you add is lost if
         another player picks it and no other copy is available.
       }
       Only you can see your deck. If it locks for a tournament, everyone who sees the draft can see
@@ -280,7 +283,7 @@
                     @let cardLabel = stackedName(card);
                     <!-- A touch drag starts only after a hold, so a quick swipe still scrolls. -->
                     <li
-                      [class.unpicked]="!card.picked"
+                      [class.dimmed]="!card.picked"
                       cdkDrag
                       [cdkDragData]="card.poolCardId"
                       [cdkDragStartDelay]="drag.startDelay"
@@ -365,7 +368,7 @@
           >
             @for (line of planBoard.lines; track line.key) {
               <li
-                [class.unpicked]="!line.picked"
+                [class.dimmed]="!line.picked"
                 cdkDrag
                 [cdkDragData]="line.poolCardId"
                 cdkDragPreviewContainer="parent"
@@ -381,13 +384,7 @@
                   (opened)="openLine(line, $event, planBoard.name)"
                 />
                 <span class="line-actions">
-                  @if (line.queued) {
-                    <ng-container
-                      *ngTemplateOutlet="queuedBadge; context: { $implicit: line.queued }"
-                    />
-                  } @else if (!line.picked) {
-                    <span class="mark">Unpicked</span>
-                  }
+                  <ng-container *ngTemplateOutlet="cardMark; context: { $implicit: line }" />
                   @if (!deckLocked()) {
                     @let moveName = 'Move ' + line.name + ' to the ' + planBoard.otherName;
                     <button
@@ -405,7 +402,7 @@
                   }
                   <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
                   @if (
-                    (line.basic || (!line.picked && !line.queued)) &&
+                    (kindOf(line) === 'basic' || kindOf(line) === 'unpicked') &&
                     offerRemoveFromPlan() &&
                     !deckLocked()
                   ) {

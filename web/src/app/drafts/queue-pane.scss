@@ -157,15 +157,6 @@ app-card-name {
   font-weight: 600;
 }
 
-/* A queued copy on the sideboard's mark, as the Deck tab marks an unpicked card. */
-.mark {
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--color-muted);
-  border-radius: 0.25rem;
-  color: var(--color-muted);
-  font-size: var(--font-size-sm);
-}
-
 .icon {
   display: inline-flex;
   justify-content: center;
