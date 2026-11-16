@@ -181,37 +181,33 @@ model PoolCard {
   queued          QueuedCard[]
   takenOutQueued  TakenOutQueuedCard[]
   planned         PlannedCard[]
-  lostPlanned     LostPlannedCard[]
 
   @@index([draftId])
 }
 
 /// A guild member or bot who has joined a draft.
 model Player {
-  id                 String               @id @default(uuid())
-  draftId            String
-  draft              Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
-  userId             String
-  user               User                 @relation(fields: [userId], references: [id])
-  joinedAt           DateTime             @default(now())
+  id              String               @id @default(uuid())
+  draftId         String
+  draft           Draft                @relation(fields: [draftId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User                 @relation(fields: [userId], references: [id])
+  joinedAt        DateTime             @default(now())
   /// Place in the seat order; null until the organizer sets it, which puts the player after every seated one, in join order. 0..n-1 once the draft has started.
-  seat               Int?
-  picks              Pick[]
+  seat            Int?
+  picks           Pick[]
   /// Bots have none.
-  queue              QueuedCard[]
-  takenOutQueued     TakenOutQueuedCard[]
+  queue           QueuedCard[]
+  takenOutQueued  TakenOutQueuedCard[]
   /// Private to the player, like their queue.
-  plan               PlannedCard[]
-  basics             PlannedBasic[]
-  lostPlanned        LostPlannedCard[]
+  plan            PlannedCard[]
+  basics          PlannedBasic[]
   /// The player's entry in the draft's tournament, if they have joined it.
-  tournamentEntry    TournamentEntry?
+  tournamentEntry TournamentEntry?
   /// Private to the player, like their queue. Bots have no queue, so it does nothing for them.
-  stealBehavior      StealBehavior        @default(PauseQueue)
+  stealBehavior   StealBehavior        @default(PauseQueue)
   /// Whether the player's queue is paused, making no queued picks; every queue starts picking. Private to the player, like their queue.
-  queuePaused        Boolean              @default(false)
-  /// The key of the player's latest departure from their queue, 0 before the first. Only ever goes up, so departures order by it, never by time.
-  lastQueueDeparture Int                  @default(0)
+  queuePaused     Boolean              @default(false)
 
   @@unique([draftId, userId])
   @@index([userId])
@@ -232,10 +228,8 @@ model Pick {
   createdAt      DateTime             @default(now())
   /// What undoing this pick puts back into queues.
   takenOutQueued TakenOutQueuedCard[]
-  /// Its place in its player's plan, which undoing it takes away unless the player added the card first.
+  /// Its place in its player's plan, which undoing it takes away.
   planned        PlannedCard?
-  /// What undoing this pick puts back into plans.
-  lostPlanned    LostPlannedCard[]
 
   @@unique([draftId, number])
   @@index([playerId])
@@ -247,22 +241,17 @@ enum PlanBoard {
   Sideboard
 }
 
-/// A card in a player's plan, on their mainboard or sideboard: one of their picks, or an unpicked pool card they added.
+/// A card in a player's plan, on their mainboard or sideboard: one of their picks. Its basic lands are PlannedBasic rows.
 model PlannedCard {
-  id             String    @id @default(uuid())
-  playerId       String
-  player         Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  poolCardId     String
-  poolCard       PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
-  /// The pick it is, if it is one; an unpicked card has none.
-  pickId         String?   @unique
-  pick           Pick?     @relation(fields: [pickId], references: [id], onDelete: SetNull)
-  board          PlanBoard @default(Mainboard)
-  /// Whether the player added it with Add to Plan: undoing a pick of it then leaves it in the plan, unpicked, rather than taking it out.
-  added          Boolean   @default(false)
-  /// Its queue order: the player's `lastQueueDeparture` when this copy last left their queue, and its `position` there then. Null until it first leaves, and for a card taken out of the plan and added back.
-  queueDeparture Int?
-  queuePosition  Int?
+  id         String    @id @default(uuid())
+  playerId   String
+  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  poolCardId String
+  poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  /// The pick it is. Undoing the pick takes the card out of the plan.
+  pickId     String?   @unique
+  pick       Pick?     @relation(fields: [pickId], references: [id], onDelete: SetNull)
+  board      PlanBoard @default(Mainboard)
 
   @@unique([playerId, poolCardId])
   @@index([poolCardId])
@@ -327,26 +316,6 @@ model BasicLandPrintingRefresh {
   id        Int      @id @default(1)
   /// When it started: a set released since then may hold printings not stored yet.
   startedAt DateTime
-}
-
-/// An unpicked card lost from a plan: another player picked it, and no other copy was available for the plan. Kept until that pick is undone, which puts it back.
-model LostPlannedCard {
-  id           String    @id @default(uuid())
-  pickId       String
-  pick         Pick      @relation(fields: [pickId], references: [id], onDelete: Cascade)
-  playerId     String
-  player       Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
-  poolCardId   String
-  poolCard     PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
-  /// The board it was on, which an undo puts it back on.
-  board        PlanBoard
-  /// Whether the Deck notice has stopped listing it: it was dismissed.
-  noticeHidden Boolean   @default(false)
-
-  @@unique([pickId, playerId])
-  @@index([playerId])
-  @@index([poolCardId])
-  @@map("UnplannedCard")
 }
 
 /// A card in a player's queue.

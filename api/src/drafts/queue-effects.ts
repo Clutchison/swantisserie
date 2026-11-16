@@ -5,7 +5,6 @@ import {
   queueAfterUndo,
 } from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
-import { leaveQueue } from './queue-order.js';
 import type { QueuedRow, TurnQueue } from './turn-read.js';
 
 /**
@@ -16,10 +15,9 @@ import type { QueuedRow, TurnQueue } from './turn-read.js';
  * in each other queue holding it, it is swapped for another copy or lost,
  * keeping the rest, and a loss may pause the queue. Lost cards, and the card
  * or copy that left the picker's queue, are kept against the pick, in queue
- * order and with their deck boards, so that undoing it can put them back,
- * and each records its queue order in the player's plan. A lost card also
- * records what its loss did to the queue, for the Queue notice and the
- * undo. A swapped copy stays swapped, on the same deck board: it is as good
+ * order and with their deck boards, so that undoing it can put them back.
+ * A lost card also records what its loss did to the queue, for the Queue
+ * notice and the undo. A swapped copy stays swapped, on the same deck board: it is as good
  * as the one picked. Returns each player's queue as it now is.
  */
 export async function recordQueueEffects(
@@ -47,7 +45,12 @@ export async function recordQueueEffects(
         ...kept,
       })),
     });
-    await leaveQueue(tx, playerId, leaving);
+    await tx.queuedCard.deleteMany({
+      where: {
+        playerId,
+        poolCardId: { in: leaving.map((queued) => queued.poolCardId) },
+      },
+    });
     now[seat] = now[seat].filter((queued) => !isOut(queued));
   }
   for (const [seat, { queue, swapped, lost }] of after.entries()) {
@@ -84,7 +87,9 @@ export async function recordQueueEffects(
         seat,
         now[seat]
           .map((queued) => queued.poolCardId)
-          .filter((poolCardId) => !queue.includes(poolCardId)),
+          .filter(
+            (poolCardId) => !queue.some(({ card }) => card === poolCardId),
+          ),
         { restKept: true, noticeHidden: true },
       );
     }
@@ -102,8 +107,6 @@ export async function recordQueueEffects(
  * queue picking again each queue the pick paused, leaving every other
  * queue's state alone. That includes the cards a pick made before pause
  * queue replaced clear queue cleared. Deleting the pick then forgets them.
- * Rewriting a queue this way is not a departure: no queue order is
- * recorded.
  */
 export async function restoreQueues(
   tx: Transaction,

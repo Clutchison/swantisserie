@@ -1,6 +1,6 @@
 # The deck shows the queue instead of holding unpicked cards
 
-Status: Accepted, not yet built (#981)
+Status: Accepted
 
 Amends 0002 and supersedes 0011. ADR 0002 let a [deck](../../GLOSSARY.md) hold pool cards no one had picked, added with Add to Deck, so a player could see the deck their picks were heading towards. Those cards had their own rules beside the queue's: the deck's own copy rule, a Deck notice for losses, a remembered queue order, and Queue unpicked to send them back to the queue. A player who meant to pick a card kept it in two lists that drifted apart, and the deck repeated, less completely, what the queue already said.
 

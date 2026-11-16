@@ -537,18 +537,17 @@ describe('pickImportEffects', () => {
       ],
       [
         {
-          queue: ['bolt-1', 'shock'],
+          queue: [
+            { card: 'bolt-1', board: 'Sideboard' },
+            { card: 'shock', board: 'Sideboard' },
+          ],
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          sideboard: ['bolt-1', 'shock'],
-          plan: [],
         },
         {
           queue: [],
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          sideboard: [],
-          plan: [],
         },
       ],
       bolts,

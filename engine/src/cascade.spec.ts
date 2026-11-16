@@ -1,36 +1,43 @@
 import { describe, expect, it } from 'vitest';
-import { cascade, type CascadeSeat } from './cascade.js';
-import type { StealBehavior } from './queue.js';
+import { cascade } from './cascade.js';
+import type { QueuedCopy, SeatQueue, StealBehavior } from './queue.js';
+
+/** Queued copies of `cards`, in order: those in `sideboard` on the sideboard, the rest on the mainboard. */
+function onBoards(
+  cards: readonly string[],
+  sideboard: readonly string[] = [],
+): QueuedCopy[] {
+  return cards.map((card) => ({
+    card,
+    board: sideboard.includes(card) ? 'Sideboard' : 'Mainboard',
+  }));
+}
 
 /**
- * A cascade's seats, one per queue in `queues`: on pause queue, with an
- * empty plan, the queue picking and nothing on the sideboard, unless
- * `stealBehaviors`, `plans`, `queuesPaused` or `sideboards` say otherwise for that seat.
+ * A cascade's seats, one per queue in `queues`: on pause queue, the queue
+ * picking and nothing on the sideboard, unless `stealBehaviors`,
+ * `queuesPaused` or `sideboards` say otherwise for that seat.
  */
 function seatsOf(
   queues: readonly (readonly string[])[],
   {
     stealBehaviors = [],
-    plans = [],
     queuesPaused = [],
     sideboards = [],
   }: {
     stealBehaviors?: readonly StealBehavior[];
-    plans?: readonly (readonly string[])[];
     queuesPaused?: readonly boolean[];
     sideboards?: readonly (readonly string[])[];
   } = {},
-): CascadeSeat[] {
+): SeatQueue[] {
   return queues.map((queue, seat) => ({
-    queue,
+    queue: onBoards(queue, sideboards[seat]),
     stealBehavior: stealBehaviors[seat] ?? 'PauseQueue',
-    plan: plans[seat] ?? [],
     queuePaused: queuesPaused[seat] ?? false,
-    sideboard: sideboards[seat] ?? [],
   }));
 }
 
-/** The picks a cascade makes with no plans, without their effects. */
+/** The picks a cascade makes, without their effects. */
 function picks(
   draft: Parameters<typeof cascade>[0],
   queues: readonly (readonly string[])[],
@@ -281,9 +288,8 @@ describe('cascade', () => {
         { seat: 0, card: 'spike' },
       ]);
       expect(made.at(-1)?.queues[1]).toMatchObject({
-        queue: ['bolt', 'skewer'],
+        queue: onBoards(['bolt', 'skewer']),
         queuePaused: true,
-        sideboard: [],
       });
     });
 
@@ -330,24 +336,20 @@ describe('cascade', () => {
               queue: [],
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              sideboard: [],
               landsOn: 'Mainboard',
             },
             {
-              queue: ['bolt-2', 'shock'],
+              queue: onBoards(['bolt-2', 'shock']),
               swapped: { out: 'bolt-1', in: 'bolt-2' },
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              sideboard: [],
             },
             {
               queue: [],
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              sideboard: [],
             },
           ],
-          plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
@@ -356,23 +358,19 @@ describe('cascade', () => {
               queue: [],
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              sideboard: [],
             },
             {
-              queue: ['shock'],
+              queue: onBoards(['shock']),
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              sideboard: [],
               landsOn: 'Mainboard',
             },
             {
               queue: [],
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              sideboard: [],
             },
           ],
-          plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
       ]);
     });
@@ -397,36 +395,6 @@ describe('cascade', () => {
       ]);
     });
 
-    it('gives each pick what it does to every plan, as the cascade saw them', () => {
-      // Seat 1's plan holds Shock unpicked, the only copy, which seat 0 takes.
-      const [first] = cascade(
-        { players: 2, picksPerPlayer: 1, doublePicks: 0, picked: [] },
-        seatsOf([['shock'], []], { plans: [['bolt-1'], ['bolt-1', 'shock']] }),
-        bolts,
-      );
-      expect(first.plans).toEqual([
-        { plan: ['bolt-1'] },
-        { plan: ['bolt-1'], lost: 'shock' },
-      ]);
-    });
-
-    it('swaps a planned copy into a plan that a pick earlier in the cascade changed', () => {
-      // Seat 1 plans both Bolts; seat 0 takes bolt-1, then seat 1 picks bolt-2.
-      expect(
-        cascade(
-          { players: 2, picksPerPlayer: 1, doublePicks: 0, picked: [] },
-          seatsOf([['bolt-1'], ['bolt-2']], { plans: [[], ['bolt-1']] }),
-          bolts,
-        ).map(({ plans }) => plans),
-      ).toEqual([
-        [
-          { plan: [] },
-          { plan: ['bolt-2'], swapped: { out: 'bolt-1', in: 'bolt-2' } },
-        ],
-        [{ plan: [] }, { plan: ['bolt-2'] }],
-      ]);
-    });
-
     it('gives a queue that loses a card under pause queue the rest it keeps, and says it paused it', () => {
       const [first] = cascade(
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
@@ -434,11 +402,10 @@ describe('cascade', () => {
         bolts,
       );
       expect(first.queues[1]).toEqual({
-        queue: ['bolt-1'],
+        queue: onBoards(['bolt-1']),
         lost: { card: 'shock', queueLoss: 'QueuePaused' },
         stealBehavior: 'PauseQueue',
         queuePaused: true,
-        sideboard: [],
       });
     });
 
@@ -451,11 +418,10 @@ describe('cascade', () => {
         bolts,
       );
       expect(first.queues[1]).toEqual({
-        queue: ['bolt-1'],
+        queue: onBoards(['bolt-1']),
         lost: { card: 'shock', queueLoss: 'StayedQueuePicking' },
         stealBehavior: 'PickNext',
         queuePaused: false,
-        sideboard: [],
       });
     });
   });

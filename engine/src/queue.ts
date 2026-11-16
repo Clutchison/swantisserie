@@ -42,16 +42,20 @@ export interface LostQueuedCard {
   queueLoss: QueueLoss;
 }
 
+/** A queued card and the deck board it sits on. */
+export interface QueuedCopy {
+  card: string;
+  board: PlanBoard;
+}
+
 /**
- * A seat's queue state: its queued cards, in order, which of them sit on
- * the sideboard, its steal behavior, and whether it is queue paused. Cards
- * are pool card ids.
+ * A seat's queue state: its queued copies, in order, each on its deck
+ * board, its steal behavior, and whether it is queue paused. Cards are pool
+ * card ids.
  */
 export interface SeatQueue {
-  /** The queued cards, in order. */
-  queue: readonly string[];
-  /** The queued cards that sit on the sideboard; the rest sit on the mainboard. */
-  sideboard: readonly string[];
+  /** The queued copies, in order. */
+  queue: readonly QueuedCopy[];
   /** What a card lost from the queue does to it. */
   stealBehavior: StealBehavior;
   /** Whether the queue is queue paused, making no queued picks. */
@@ -73,18 +77,17 @@ export interface QueueAfterPick extends SeatQueue {
 
 /**
  * What a pick does to `queues`, each seat's queue state, indexed by seat.
- * The queued card the pick accounts for, as `ownPickCopy` says, leaves the
- * picker's queue, so the queue doesn't pick a second copy; `plansAfterPick`
- * makes the same card the pick in the picker's plan. The pick lands on that
- * card's deck board, or the mainboard when it accounts for none, which the
- * picker's queue gives as `landsOn`. The copies are those in `pool` that
- * are not `picked`. In each other queue holding it, it is swapped for a
- * copy or lost, as `swapOrLose` says; swapped or lost, the rest of the
- * queue stays in order. A swapped-in copy takes the stolen copy's deck
- * board. A loss sets a queue picking queue paused, unless its steal
- * behavior is pick next. Nothing else changes a queue's state. `picked` is
- * the cards picked already, with or without this one. Cards are pool card
- * ids.
+ * The queued copy the pick accounts for, as `ownPickCopy` says, leaves the
+ * picker's queue, so the queue doesn't pick a second copy. The pick lands
+ * on that copy's deck board, or the mainboard when it accounts for none,
+ * which the picker's queue gives as `landsOn`. The copies are those in
+ * `pool` that are not `picked`. In each other queue holding it, it is
+ * swapped for a copy or lost, as `swapOrLose` says; swapped or lost, the
+ * rest of the queue stays in order. A swapped-in copy takes the stolen
+ * copy's deck board. A loss sets a queue picking queue paused, unless its
+ * steal behavior is pick next. Nothing else changes a queue's state.
+ * `picked` is the cards picked already, with or without this one. Cards are
+ * pool card ids.
  */
 export function queuesAfterPick(
   pick: SeatPick,
@@ -92,49 +95,37 @@ export function queuesAfterPick(
   { pool, picked }: { pool: Pool; picked: readonly string[] },
 ): QueueAfterPick[] {
   const copies = availableCopies(pick.card, pool, picked);
-  return queues.map(
-    ({ queue, sideboard, stealBehavior, queuePaused }, seat) => {
-      if (seat === pick.seat) {
-        const queued = ownPickCopy(queue, pick.card, copies);
-        return {
-          queue: queue.filter((card) => card !== queued),
-          sideboard: sideboard.filter((card) => card !== queued),
-          stealBehavior,
-          queuePaused,
-          landsOn:
-            queued !== undefined && sideboard.includes(queued)
-              ? 'Sideboard'
-              : 'Mainboard',
-        };
-      }
-      const { cards, swapped, lost } = swapOrLose(queue, pick.card, copies);
-      if (lost === undefined) {
-        return {
-          queue: cards,
-          sideboard: swapped
-            ? sideboard.map((card) =>
-                card === swapped.out ? swapped.in : card,
-              )
-            : [...sideboard],
-          stealBehavior,
-          queuePaused,
-          ...(swapped && { swapped }),
-        };
-      }
-      const queueLoss: QueueLoss = queuePaused
-        ? 'StayedQueuePaused'
-        : stealBehavior === 'PickNext'
-          ? 'StayedQueuePicking'
-          : 'QueuePaused';
+  return queues.map(({ queue, stealBehavior, queuePaused }, seat) => {
+    if (seat === pick.seat) {
+      const queued = ownPickCopy(queue, pick.card, copies);
       return {
-        queue: cards,
-        sideboard: sideboard.filter((card) => card !== lost),
+        queue: queue.filter((copy) => copy !== queued),
         stealBehavior,
-        queuePaused: queueLoss !== 'StayedQueuePicking',
-        lost: { card: lost, queueLoss },
+        queuePaused,
+        landsOn: queued?.board ?? 'Mainboard',
       };
-    },
-  );
+    }
+    const { list, swapped, lost } = swapOrLose(queue, pick.card, copies);
+    if (lost === undefined) {
+      return {
+        queue: list,
+        stealBehavior,
+        queuePaused,
+        ...(swapped && { swapped }),
+      };
+    }
+    const queueLoss: QueueLoss = queuePaused
+      ? 'StayedQueuePaused'
+      : stealBehavior === 'PickNext'
+        ? 'StayedQueuePicking'
+        : 'QueuePaused';
+    return {
+      queue: list,
+      stealBehavior,
+      queuePaused: queueLoss !== 'StayedQueuePicking',
+      lost: { card: lost, queueLoss },
+    };
+  });
 }
 
 /** A pick a queue makes, and what it does to every queue. */
@@ -160,19 +151,13 @@ export function nextQueuedPick(
   if (!turn) return undefined;
   const { queue, queuePaused } = queues[turn.seat];
   if (queuePaused) return undefined;
-  const card = queue.find((queued) => !draft.picked.includes(queued));
-  if (card === undefined) return undefined;
-  const pick = { seat: turn.seat, card };
+  const next = queue.find(({ card }) => !draft.picked.includes(card));
+  if (next === undefined) return undefined;
+  const pick = { seat: turn.seat, card: next.card };
   return {
     pick,
     queues: queuesAfterPick(pick, queues, { pool, picked: draft.picked }),
   };
-}
-
-/** A queued card and the deck board it sits on. */
-export interface QueuedCopy {
-  card: string;
-  board: PlanBoard;
 }
 
 /** A queued card, its deck board, and its place in the queue: lowest first, not necessarily consecutive. */

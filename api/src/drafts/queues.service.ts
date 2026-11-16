@@ -12,7 +12,6 @@ import { NotAPlayerError } from './draft-errors.js';
 import { DraftLock } from './draft-lock.js';
 import { DRAFT_SIZE_FIELDS, type Transaction } from './draft-shapes.js';
 import { DECK_LOCKED, isDeckLocked } from './locked-deck.js';
-import { leaveQueue } from './queue-order.js';
 import {
   checkStarted,
   queuePlayerOf,
@@ -161,8 +160,8 @@ export class QueuesService {
   }
 
   /**
-   * Takes the pool card `poolCardId` out of the user's queue, recording its
-   * queue order; a no-op if it isn't there. Throws QueueRefusedError once
+   * Takes the pool card `poolCardId` out of the user's queue; a no-op if it
+   * isn't there. Throws QueueRefusedError once
    * the draft is closed or complete, and NotAPlayerError if the user isn't
    * in the draft.
    */
@@ -172,15 +171,7 @@ export class QueuesService {
     poolCardId: string,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
-      const removed = await tx.queuedCard.findMany({
-        where: { playerId, poolCardId },
-        select: {
-          poolCardId: true,
-          // Stryker disable next-line BooleanLiteral: without it, the card's plan copy gets the new departure but keeps whatever queuePosition it had before, from an earlier departure or none, which is harmless only because a queue position only orders cards within one departure, and removing a card makes a departure of that one card alone.
-          position: true,
-        },
-      });
-      await leaveQueue(tx, playerId, removed);
+      await tx.queuedCard.deleteMany({ where: { playerId, poolCardId } });
     });
   }
 

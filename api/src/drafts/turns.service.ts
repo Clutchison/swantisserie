@@ -4,9 +4,7 @@ import {
   currentTurn,
   draftComplete,
   draftSize,
-  type PlanAfterPick,
   pickProblem,
-  plansAfterPick,
   type QueueAfterPick,
   queuePicksBeforeAnotherPlayerPicks,
   queuesAfterPick,
@@ -51,10 +49,9 @@ const PICK_LOG = {
 
 export type LoggedPick = Prisma.PickGetPayload<typeof PICK_LOG>;
 
-/** What a pick does to each queue and plan, by seat, as the engine works it out. */
+/** What a pick does to each queue, by seat, as the engine works it out. */
 interface PickEffects {
   queues: QueueAfterPick[];
-  plans: PlanAfterPick[];
 }
 
 /** A bot's turn: the pick it is to make in a draft. */
@@ -217,7 +214,7 @@ export class TurnsService {
         const picks = queuePicksBeforeAnotherPlayerPicks(
           { ...size, picked: context.picked },
           seat,
-          queues[seat].queue,
+          queues[seat].queue.map((queued) => queued.card),
           context.pool,
         );
         if (
@@ -265,17 +262,16 @@ export class TurnsService {
         ...queue,
         // A bot picks on its own timer, so the cascade sees its queue as empty.
         ...(players[seat].user.isBot && { queue: [] }),
-        plan: turnRead.plans[seat],
       })),
       context.pool,
     );
     const events: DraftEvent[] = [];
-    for (const { pick, queues, plans } of picks) {
+    for (const { pick, queues } of picks) {
       const { userId } = players[pick.seat];
       events.push(
         ...(await this.pickCard(draft, turnRead, userId, pick.card, {
           queued: true,
-          effects: { queues, plans },
+          effects: { queues },
         })),
       );
     }
@@ -349,19 +345,13 @@ export class TurnsService {
       select: MADE_PICK,
     });
     // Worked out once, by the cascade or here, and persisted the same way.
-    const { queues, plans } = effects ?? effectsOf(turnRead, seat, poolCardId);
-    const playerIds = players.map((player) => player.id);
-    turnRead.plans = await recordPlanEffects(
-      tx,
-      made,
-      playerIds,
-      plans,
-      queues[seat].landsOn,
-    );
+    const { queues } = effects ?? effectsOf(turnRead, seat, poolCardId);
+    // The engine gives it for the picker's queue, which every pick has.
+    await recordPlanEffects(tx, made, queues[seat].landsOn ?? 'Mainboard');
     turnRead.queues = await recordQueueEffects(
       tx,
       made,
-      playerIds,
+      players.map((player) => player.id),
       turnRead.queues,
       queues,
     );
@@ -385,9 +375,10 @@ export class TurnsService {
   }
 
   /**
-   * Undoes pick `number`, the draft's latest: its card returns to the pool,
-   * the cards it took out of queues and plans are restored, a queue it
-   * paused is set picking again, and the turn returns to its player.
+   * Undoes pick `number`, the draft's latest: its card returns to the pool
+   * and leaves its player's plan, the cards it took out of queues are
+   * restored, a queue it paused is set picking again, and the turn returns
+   * to its player.
    * No queued picks are made. Throws UndoRefusedError if it can't be undone.
    */
   async undo(draftId: string, number: number): Promise<DraftEvent[]> {
@@ -438,8 +429,8 @@ export class TurnsService {
 }
 
 /**
- * What the engine says `seat`'s pick of `poolCardId` does to each queue and
- * plan, from `turnRead`, the draft as the turn holds it before the pick.
+ * What the engine says `seat`'s pick of `poolCardId` does to each queue,
+ * from `turnRead`, the draft as the turn holds it before the pick.
  */
 function effectsOf(
   turnRead: TurnRead,
@@ -447,9 +438,7 @@ function effectsOf(
   poolCardId: string,
 ): PickEffects {
   const { queues, context } = engineView(turnRead);
-  const pick = { seat, card: poolCardId };
   return {
-    queues: queuesAfterPick(pick, queues, context),
-    plans: plansAfterPick(pick, turnRead.plans, context),
+    queues: queuesAfterPick({ seat, card: poolCardId }, queues, context),
   };
 }

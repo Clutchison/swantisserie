@@ -29,26 +29,32 @@ export function availableCopies(
     .map(([copy]) => copy);
 }
 
-/**
- * The card in a seat's own list, its queue or its plan, that its pick of
- * `card` accounts for: `card` itself if the list holds it, otherwise the
- * first of the list's cards that is one of `copies`, otherwise none.
- * `copies` is the card's available copies, as `availableCopies` offers them.
- */
-export function ownPickCopy(
-  list: readonly string[],
-  card: string,
-  copies: readonly string[],
-): string | undefined {
-  return list.includes(card)
-    ? card
-    : list.find((listed) => copies.includes(listed));
+/** An entry in a list of cards, such as a queued copy. */
+export interface Listed {
+  card: string;
 }
 
-/** A list of cards, queued or planned, after another player picks one it holds. */
-export interface SwappedOrLost {
-  /** The list's cards, in order. */
-  cards: string[];
+/**
+ * The entry in a seat's own queue that its pick of `card` accounts for:
+ * `card` itself if the queue holds it, otherwise the first of the queue's
+ * cards that is one of `copies`, otherwise none. `copies` is the card's
+ * available copies, as `availableCopies` offers them.
+ */
+export function ownPickCopy<T extends Listed>(
+  list: readonly T[],
+  card: string,
+  copies: readonly string[],
+): T | undefined {
+  return (
+    list.find((listed) => listed.card === card) ??
+    list.find((listed) => copies.includes(listed.card))
+  );
+}
+
+/** A list of cards, such as a queue, after another player picks one it holds. */
+export interface SwappedOrLost<T extends Listed> {
+  /** The list's entries, in order. */
+  list: T[];
   /** The picked card and the copy swapped in for it, in the same place. */
   swapped?: Swap;
   /** The picked card, if the list lost it: no copy was available for it. */
@@ -57,20 +63,26 @@ export interface SwappedOrLost {
 
 /**
  * What another player's pick of `card` does to a list holding it: the card
- * is swapped, in the same place, for the first of `copies` the list doesn't
- * hold; with no such copy, it is lost and leaves the list. A list that
- * doesn't hold the card comes back as it is. `copies` is the card's
- * available copies, as `availableCopies` offers them.
+ * is swapped, in the same place and keeping the rest of its entry, for the
+ * first of `copies` the list doesn't hold; with no such copy, it is lost
+ * and leaves the list. A list that doesn't hold the card comes back as it
+ * is. `copies` is the card's available copies, as `availableCopies` offers
+ * them.
  */
-export function swapOrLose(
-  list: readonly string[],
+export function swapOrLose<T extends Listed>(
+  list: readonly T[],
   card: string,
   copies: readonly string[],
-): SwappedOrLost {
-  const at = list.indexOf(card);
-  if (at === -1) return { cards: [...list] };
-  const copy = copies.find((copy) => !list.includes(copy));
+): SwappedOrLost<T> {
+  const at = list.findIndex((listed) => listed.card === card);
+  if (at === -1) return { list: [...list] };
+  const copy = copies.find(
+    (copy) => !list.some((listed) => listed.card === copy),
+  );
   return copy === undefined
-    ? { cards: list.toSpliced(at, 1), lost: card }
-    : { cards: list.with(at, copy), swapped: { out: card, in: copy } };
+    ? { list: list.toSpliced(at, 1), lost: card }
+    : {
+        list: list.with(at, { ...list[at], card: copy }),
+        swapped: { out: card, in: copy },
+      };
 }

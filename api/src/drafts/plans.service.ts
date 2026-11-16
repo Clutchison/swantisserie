@@ -229,9 +229,7 @@ export async function readPlanBoards(
   playerId: string,
 ): Promise<PlanBoards> {
   const planned = await tx.plannedCard.findMany({
-    // An undone pick of a card added to the plan (`PlannedCard.added`)
-    // before the plan showed the queue stays there without its pick, unshown.
-    where: { playerId, pickId: { not: null } },
+    where: { playerId },
     orderBy: PLAN_ORDER,
     select: {
       poolCardId: true,

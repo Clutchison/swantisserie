@@ -15,8 +15,6 @@ export { myStats } from './my-stats.js';
 export type { StatsTournament } from './my-stats.js';
 export { pickProblem } from './pick.js';
 export { pickImportEffects, readPickImport } from './pick-import.js';
-export { plansAfterPick } from './plan.js';
-export type { PlanAfterPick } from './plan.js';
 export { queueAfterUndo, queuesAfterPick } from './queue.js';
 export type {
   PlanBoard,
