@@ -15,7 +15,7 @@ export interface QueuedRow {
  * A seat's queue state as a turn holds it: the engine's, with each queued
  * card as its row, which holds its deck board.
  */
-export type TurnQueue = Omit<SeatQueue, 'queue' | 'sideboard'> & {
+export type TurnQueue = Omit<SeatQueue, 'queue'> & {
   queue: QueuedRow[];
 };
 
@@ -35,8 +35,8 @@ export type TurnPlayer = Prisma.PlayerGetPayload<{
  * the engine needs to check its picks and work out what they do. Each pick
  * the turn makes updates it as it updates the database, so a turn never
  * reads the draft again, however many picks its cascade makes. The
- * players, pool and names stay as read; the queues, plans and picked cards
- * change with each pick.
+ * players, pool and names stay as read; the queues and picked cards change
+ * with each pick.
  */
 export interface TurnRead {
   /** The players by seat; seats are 0..n-1 once started, so indexes are the engine's seats. */
@@ -47,8 +47,6 @@ export interface TurnRead {
    * replaced after each pick.
    */
   queues: TurnQueue[];
-  /** Each player's planned cards, picked or not, by seat; replaced after each pick. */
-  plans: string[][];
   /** The pool as the engine sees it, offering copies in id order. */
   readonly pool: Pool;
   /** Each pool card's name, by pool card id. */
@@ -64,7 +62,7 @@ export interface PickContext {
   picked: readonly string[];
 }
 
-/** The engine's view of the turn: each seat's queue state, with its queued pool card ids, and what it needs besides. */
+/** The engine's view of the turn: each seat's queue state, with its queued copies, and what it needs besides. */
 export function engineView({ queues, pool, picked }: TurnRead): {
   queues: SeatQueue[];
   context: PickContext;
@@ -72,10 +70,10 @@ export function engineView({ queues, pool, picked }: TurnRead): {
   return {
     queues: queues.map(({ queue, ...state }) => ({
       ...state,
-      queue: queue.map((queued) => queued.poolCardId),
-      sideboard: queue
-        .filter((queued) => queued.board === 'Sideboard')
-        .map((queued) => queued.poolCardId),
+      queue: queue.map(({ poolCardId, board }) => ({
+        card: poolCardId,
+        board,
+      })),
     })),
     context: { pool, picked },
   };
@@ -96,10 +94,6 @@ export async function readTurn(
       queue: {
         orderBy: { position: 'asc' },
         select: { poolCardId: true, position: true, board: true },
-      },
-      // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and `TurnRead`'s plans keep only `poolCardId`.
-      plan: {
-        select: { poolCardId: true },
       },
     },
   });
@@ -123,9 +117,6 @@ export async function readTurn(
       stealBehavior,
       queuePaused,
     })),
-    plans: players.map((player) =>
-      player.plan.map((planned) => planned.poolCardId),
-    ),
     pool: new Map(cards.map((card) => [card.id, card.oracleId])),
     names: new Map(cards.map((card) => [card.id, card.name])),
     picked: cards

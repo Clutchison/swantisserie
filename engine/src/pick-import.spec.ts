@@ -537,25 +537,27 @@ describe('pickImportEffects', () => {
       ],
       [
         {
-          queue: ['bolt-1', 'shock'],
+          queue: [
+            { card: 'bolt-1', board: 'Sideboard' },
+            { card: 'shock', board: 'Sideboard' },
+          ],
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          sideboard: ['bolt-1', 'shock'],
-          plan: [],
         },
         {
           queue: [],
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          sideboard: [],
-          plan: [],
         },
       ],
       bolts,
     );
 
-    expect(
-      effects.map(({ pick, queues }) => queues[pick.seat].landsOn),
-    ).toEqual(['Mainboard', 'Sideboard', 'Mainboard', 'Mainboard']);
+    expect(effects.map(({ landsOn }) => landsOn)).toEqual([
+      'Mainboard',
+      'Sideboard',
+      'Mainboard',
+      'Mainboard',
+    ]);
   });
 });

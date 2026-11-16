@@ -5,7 +5,6 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { PickImportRefusedError } from './draft-errors.js';
 import { checkInLobby, DraftLock } from './draft-lock.js';
 import { planPicks } from './plan-picks.js';
-import { leaveQueue } from './queue-order.js';
 import {
   DRAFT_SIZE_FIELDS,
   MADE_PICK,
@@ -115,19 +114,7 @@ export class PickImportService {
         // Stryker disable next-line ObjectLiteral: other drafts' picks change nothing in planPicks, as their cards are in no plan and have no copies in this draft's pool; and an empty select returns every scalar field, `MADE_PICK`'s included.
         await tx.pick.findMany({ where: { draftId }, select: MADE_PICK }),
       );
-      // Stryker disable next-line ObjectLiteral: other drafts' queued cards are never used, as each player's departure below takes only their own rows; and an empty select returns every scalar field, the three read included.
-      const queued = await tx.queuedCard.findMany({
-        // Stryker disable next-line ObjectLiteral: other drafts' queued cards are never used, as each player's departure below takes only their own rows.
-        where: { player: { draftId } },
-        select: { playerId: true, poolCardId: true, position: true },
-      });
-      for (const { id: playerId } of players) {
-        await leaveQueue(
-          tx,
-          playerId,
-          queued.filter((card) => card.playerId === playerId),
-        );
-      }
+      await tx.queuedCard.deleteMany({ where: { player: { draftId } } });
       await draft.moveTo('Frozen');
     });
   }

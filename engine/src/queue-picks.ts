@@ -25,9 +25,11 @@ export function queuePicksBeforeAnotherPlayerPicks(
   let queues: readonly SeatQueue[] = Array.from(
     { length: draft.players },
     (_, at) => ({
-      queue: at === seat ? queue : [],
       // The deck boards don't change which cards a queue picks.
-      sideboard: [],
+      queue:
+        at === seat
+          ? queue.map((card) => ({ card, board: 'Mainboard' as const }))
+          : [],
       stealBehavior: 'PauseQueue',
       queuePaused: false,
     }),
