@@ -7,13 +7,13 @@ import { SEAT_ORDER, type Transaction } from './draft-shapes.js';
 export interface QueuedRow {
   poolCardId: string;
   position: number;
-  /** The deck board it sits on. */
+  /** The plan board it sits on. */
   board: PlanBoard;
 }
 
 /**
  * A seat's queue state as a turn holds it: the engine's, with each queued
- * card as its row, which holds its deck board.
+ * card as its row, which holds its plan board.
  */
 export type TurnQueue = Omit<SeatQueue, 'queue'> & {
   queue: QueuedRow[];

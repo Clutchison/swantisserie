@@ -14,7 +14,7 @@ import {
   enqueue,
   queue,
   queued,
-  moveQueued,
+  moveToBoard,
   removeFromQueue,
   setSeats,
   setQueuePaused,
@@ -65,7 +65,7 @@ describe('a queued copy’s deck board', () => {
       queued('Lava Spike'),
     ]);
 
-    const moved = await moveQueued(id, ids.Shock, 'Sideboard').expect(200);
+    const moved = await moveToBoard(id, ids.Shock, 'Sideboard').expect(200);
 
     expect(moved.body.cards).toEqual([
       { poolCardId: ids.Shock, name: 'Shock', board: 'Sideboard' },
@@ -73,7 +73,7 @@ describe('a queued copy’s deck board', () => {
     ]);
     expect((await queue(id).expect(200)).body.cards).toEqual(moved.body.cards);
 
-    const back = await moveQueued(id, ids.Shock, 'Mainboard').expect(200);
+    const back = await moveToBoard(id, ids.Shock, 'Mainboard').expect(200);
 
     expect(back.body.cards).toEqual([queued('Shock'), queued('Lava Spike')]);
   });
@@ -83,7 +83,7 @@ describe('a queued copy’s deck board', () => {
     await enqueue(id, ids.Shock).expect(200);
     const before = (await getDraft(id).expect(200)).body as DraftView;
 
-    await moveQueued(id, ids.Shock, 'Sideboard').expect(200);
+    await moveToBoard(id, ids.Shock, 'Sideboard').expect(200);
 
     expect((await getDraft(id).expect(200)).body.version).toBe(before.version);
   });
@@ -92,14 +92,14 @@ describe('a queued copy’s deck board', () => {
     const { id, ids } = await draftOnBobsTurn();
     await enqueue(id, ids.Shock).expect(200);
 
-    const notQueued = await moveQueued(id, ids['Lava Spike'], 'Sideboard');
+    const notQueued = await moveToBoard(id, ids['Lava Spike'], 'Sideboard');
 
     expect(notQueued.status).toBe(409);
     expect(notQueued.body).toEqual({
       error: 'not-queued',
       message: 'That card isn’t in your queue.',
     });
-    const invalid = await moveQueued(id, ids.Shock, 'Maybeboard').expect(400);
+    const invalid = await moveToBoard(id, ids.Shock, 'Maybeboard').expect(400);
     expect(invalid.body).toEqual({
       error: 'invalid',
       message: 'Choose the mainboard or the sideboard.',
@@ -111,7 +111,7 @@ describe('a queued copy’s deck board', () => {
     const id = await playingTournament([aliceCookie, bobCookie]);
     const ids = await poolCardIds(id);
 
-    const locked = await moveQueued(id, ids.Shock, 'Sideboard').expect(409);
+    const locked = await moveToBoard(id, ids.Shock, 'Sideboard').expect(409);
 
     expect(locked.body).toEqual({
       error: 'deck-locked',
@@ -123,7 +123,7 @@ describe('a queued copy’s deck board', () => {
   it('is 403 for a user who isn’t in the draft', async () => {
     const { id, ids } = await draftOnBobsTurn();
 
-    await moveQueued(id, ids.Shock, 'Sideboard', await signIn(carol)).expect(
+    await moveToBoard(id, ids.Shock, 'Sideboard', await signIn(carol)).expect(
       403,
     );
   });
@@ -131,7 +131,7 @@ describe('a queued copy’s deck board', () => {
   it('starts a card taken out of the queue and queued again on the mainboard', async () => {
     const { id, ids } = await draftOnBobsTurn();
     await enqueue(id, ids.Shock).expect(200);
-    await moveQueued(id, ids.Shock, 'Sideboard').expect(200);
+    await moveToBoard(id, ids.Shock, 'Sideboard').expect(200);
     await removeFromQueue(id, ids.Shock).expect(200);
 
     const again = await enqueue(id, ids.Shock).expect(200);
@@ -144,7 +144,7 @@ describe('where a pick lands', () => {
   it('lands a card picked by hand on its queued copy’s deck board', async () => {
     const { id, ids, bobCookie } = await draftOnBobsTurn();
     await enqueue(id, ids.Shock).expect(200);
-    await moveQueued(id, ids.Shock, 'Sideboard').expect(200);
+    await moveToBoard(id, ids.Shock, 'Sideboard').expect(200);
     await setQueuePaused(id, true).expect(200);
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
@@ -166,7 +166,7 @@ describe('where a pick lands', () => {
     await setSeats(id, [bob.id, alice.id]).expect(200);
     await start(id).expect(200);
     await enqueue(id, second).expect(200);
-    await moveQueued(id, second, 'Sideboard').expect(200);
+    await moveToBoard(id, second, 'Sideboard').expect(200);
     await setQueuePaused(id, true).expect(200);
     const ids = await poolCardIds(id);
     await pick(id, ids.Shock, bobCookie).expect(200);
@@ -182,7 +182,7 @@ describe('where a pick lands', () => {
   it('lands a card the player didn’t queue on the mainboard, whatever another player’s queue says', async () => {
     const { id, ids, bobCookie } = await draftOnBobsTurn();
     await enqueue(id, ids['Lava Spike']).expect(200);
-    await moveQueued(id, ids['Lava Spike'], 'Sideboard').expect(200);
+    await moveToBoard(id, ids['Lava Spike'], 'Sideboard').expect(200);
 
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
@@ -196,7 +196,7 @@ describe('where a pick lands', () => {
     const { id, ids, bobCookie } = await draftOnBobsTurn();
     await enqueue(id, ids.Shock).expect(200);
     await enqueue(id, ids['Skewer the Critics']).expect(200);
-    await moveQueued(id, ids.Shock, 'Sideboard').expect(200);
+    await moveToBoard(id, ids.Shock, 'Sideboard').expect(200);
 
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
@@ -216,7 +216,7 @@ describe('where a pick lands', () => {
     await start(id).expect(200);
     await enqueue(id, ids.Shock, carolCookie).expect(200);
     await enqueue(id, first, carolCookie).expect(200);
-    await moveQueued(id, first, 'Sideboard', carolCookie).expect(200);
+    await moveToBoard(id, first, 'Sideboard', carolCookie).expect(200);
 
     await pick(id, first).expect(200);
 
@@ -231,7 +231,7 @@ describe('where a pick lands', () => {
     await addBot(id, await signIn(carol)).expect(201);
     // The bot picks at once at the start, so Alice queued in the lobby.
     await queueInLobby(id, alice, ids.Shock);
-    await moveQueued(id, ids.Shock, 'Sideboard').expect(200);
+    await moveToBoard(id, ids.Shock, 'Sideboard').expect(200);
     // The bot picks first: the first card by name, Lava Spike.
     vi.spyOn(Math, 'random').mockReturnValue(0);
     const draft = (await getDraft(id).expect(200)).body as DraftView;
@@ -257,7 +257,7 @@ describe('where a pick lands', () => {
     ]);
     const ids = await poolCardIds(id);
     await queueInLobby(id, alice, ids['Ash Golem']);
-    await moveQueued(id, ids['Ash Golem'], 'Sideboard').expect(200);
+    await moveToBoard(id, ids['Ash Golem'], 'Sideboard').expect(200);
 
     await importPicks(
       id,
@@ -278,7 +278,7 @@ describe('undoing a pick', () => {
     const { id, ids, bobCookie } = await draftOnBobsTurn();
     await enqueue(id, ids['Lava Spike']).expect(200);
     await enqueue(id, ids.Shock).expect(200);
-    await moveQueued(id, ids['Lava Spike'], 'Sideboard').expect(200);
+    await moveToBoard(id, ids['Lava Spike'], 'Sideboard').expect(200);
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
 
     await undo(id, 1).expect(200);
@@ -292,7 +292,7 @@ describe('undoing a pick', () => {
   it('puts the player’s own picked card back in the queue on its deck board, and out of the deck', async () => {
     const { id, ids, bobCookie } = await draftOnBobsTurn();
     await enqueue(id, ids.Shock).expect(200);
-    await moveQueued(id, ids.Shock, 'Sideboard').expect(200);
+    await moveToBoard(id, ids.Shock, 'Sideboard').expect(200);
     await setQueuePaused(id, true).expect(200);
     await pick(id, ids['Lava Spike'], bobCookie).expect(200);
     await pick(id, ids.Shock).expect(200);

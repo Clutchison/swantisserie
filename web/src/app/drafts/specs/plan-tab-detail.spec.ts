@@ -612,7 +612,7 @@ describe('plan tab', () => {
       expect(button(detail, 'Move to sideboard')).toBeUndefined();
     });
 
-    it('stays open once the player picks the queued card, which is then a pick in the plan', async () => {
+    it('stays open once the player picks the queued card, which is then a pick in the deck', async () => {
       const { fixture, open } = await openFromPlan(
         { turn: alicesTurn },
         planOf({ mainboard: [planned(brightclimb)] }),

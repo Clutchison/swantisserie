@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { queuePicksBeforeAnotherPlayerPicks } from './queue-picks.js';
+import { onBoards } from './queue.fixtures.js';
 
 // A pool holding one copy of each card.
 const singles = new Map(
@@ -12,7 +13,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 3, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         1,
-        ['shock', 'bolt', 'spike'],
+        onBoards(['shock', 'bolt', 'spike']),
         singles,
       ),
     ).toEqual(['bolt']);
@@ -23,7 +24,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 2, picksPerPlayer: 3, doublePicks: 0, picked: ['shock'] },
         1,
-        ['bolt', 'spike', 'skewer'],
+        onBoards(['bolt', 'spike', 'skewer']),
         singles,
       ),
     ).toEqual(['bolt', 'spike']);
@@ -34,7 +35,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 2, picksPerPlayer: 1, doublePicks: 0, picked: ['shock'] },
         1,
-        ['bolt', 'spike'],
+        onBoards(['bolt', 'spike']),
         singles,
       ),
     ).toEqual(['bolt']);
@@ -45,7 +46,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 2, picksPerPlayer: 2, doublePicks: 2, picked: [] },
         0,
-        ['shock', 'bolt', 'spike'],
+        onBoards(['shock', 'bolt', 'spike']),
         singles,
       ),
     ).toEqual(['shock', 'bolt']);
@@ -62,7 +63,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
           picked: ['shock', 'bolt'],
         },
         1,
-        ['spike', 'skewer', 'fireblast', 'lightning', 'chain'],
+        onBoards(['spike', 'skewer', 'fireblast', 'lightning', 'chain']),
         new Map(
           [
             'shock',
@@ -83,7 +84,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 2, picksPerPlayer: 2, doublePicks: 2, picked: ['shock'] },
         0,
-        ['bolt', 'spike'],
+        onBoards(['bolt', 'spike']),
         singles,
       ),
     ).toEqual(['bolt']);
@@ -94,7 +95,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         1,
-        ['bolt'],
+        onBoards(['bolt']),
         singles,
       ),
     ).toEqual([]);
@@ -105,7 +106,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 1, picksPerPlayer: 1, doublePicks: 0, picked: ['shock'] },
         0,
-        ['bolt'],
+        onBoards(['bolt']),
         singles,
       ),
     ).toEqual([]);
@@ -116,7 +117,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['shock'] },
         1,
-        ['shock'],
+        onBoards(['shock']),
         singles,
       ),
     ).toEqual([]);
@@ -132,7 +133,7 @@ describe('queuePicksBeforeAnotherPlayerPicks', () => {
       queuePicksBeforeAnotherPlayerPicks(
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: ['bolt'] },
         1,
-        ['shock-1', 'shock-2'],
+        onBoards(['shock-1', 'shock-2']),
         copies,
       ),
     ).toEqual(['shock-1', 'shock-2']);

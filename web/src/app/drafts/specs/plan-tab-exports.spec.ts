@@ -350,7 +350,7 @@ describe('Deck tab exports', () => {
           },
         },
       };
-      /** A queued card on each deck board, which the deck shows and its exports leave out. */
+      /** A queued card on each plan board, which the deck shows and its exports leave out. */
       const queue = {
         ...EMPTY_QUEUE,
         cards: [

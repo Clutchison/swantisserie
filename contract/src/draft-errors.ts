@@ -162,9 +162,9 @@ export interface QueueRefusal {
     | 'draft-closed'
     | 'your-turn'
     | 'queue-changed'
-    /** Moving a queued copy to a deck board: the card isn't in the player's queue. */
+    /** Moving a queued copy to a plan board: the card isn't in the player's queue. */
     | 'not-queued'
-    /** Moving a queued copy to a deck board: the player's deck is locked. */
+    /** Moving a queued copy to a plan board: the player's deck is locked. */
     | 'deck-locked'
     /**
      * Setting a queue picking on the player's own turn: the cards it would

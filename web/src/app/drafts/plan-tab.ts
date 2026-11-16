@@ -231,7 +231,7 @@ export class PlanTab {
 
   /** Whether the page is at the desktop layout, as it is resized. No `matchMedia` counts as mobile. */
   protected readonly onDesktop = matching(DESKTOP_QUERY);
-  /** The stacks area, the deck boards' row and stack headers, whose width stacks mode lays out by. */
+  /** The stacks area, the plan boards' row and stack headers, whose width stacks mode lays out by. */
   private readonly stacksArea = viewChild.required<ElementRef<HTMLElement>>('stacksArea');
   /** The Deck tab's tools row: the modes and groupings, Add basics and Export. */
   private readonly tools = viewChild.required<ElementRef<HTMLElement>>('tools');

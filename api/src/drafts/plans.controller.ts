@@ -12,21 +12,14 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import type {
-  BasicLand,
-  PlanBoard,
-  PlanMoveRequest,
-  PlanView,
-  RequestProblem,
-} from 'contract';
-import { bodyFields } from '../request-body.js';
+import type { BasicLand, PlanView, RequestProblem } from 'contract';
 import {
   CurrentUser,
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
 import { isBasicLand } from './basic-lands.js';
-import { parsePlanBoard } from './plan-boards.js';
+import { parsePlanBoard, parsePlanBoardBody } from './plan-boards.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftLock } from './draft-lock.js';
@@ -94,7 +87,7 @@ export class PlansController {
     @Body() body: unknown,
   ): Promise<PlanView> {
     const basic = parseLand(land);
-    const planBoard = parseBoard(body);
+    const planBoard = parsePlanBoardBody(body);
     return this.change(user, id, () =>
       this.plans.moveBasic(id, user.id, basic, planBoard),
     );
@@ -132,7 +125,7 @@ export class PlansController {
     @Param('poolCardId') poolCardId: string,
     @Body() body: unknown,
   ): Promise<PlanView> {
-    const planBoard = parseBoard(body);
+    const planBoard = parsePlanBoardBody(body);
     return this.change(user, id, () =>
       this.plans.move(id, user.id, poolCardId, planBoard),
     );
@@ -166,11 +159,6 @@ export class PlansController {
     }
     return plan;
   }
-}
-
-/** The plan board the body names to move to, or a 400 if it names none. */
-function parseBoard(body: unknown): PlanBoard {
-  return parsePlanBoard(bodyFields<PlanMoveRequest>(body).board);
 }
 
 /** The basic land named in the path, or a 400 if it isn't one. */

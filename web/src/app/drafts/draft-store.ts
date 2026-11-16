@@ -345,7 +345,7 @@ export class DraftStore implements TournamentViewer {
         picked: this.picks.value().map((pick) => pick.poolCardId),
       },
       seat,
-      cards.map((card) => card.poolCardId),
+      cards.map((card) => ({ card: card.poolCardId, board: card.board })),
       pool,
     );
     return picks.map((id) => cards.find((card) => card.poolCardId === id)!);

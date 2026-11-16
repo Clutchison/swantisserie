@@ -1,6 +1,6 @@
 import type { Pool } from './copies.js';
 import type { DraftPicks } from './pick.js';
-import { nextQueuedPick, type SeatQueue } from './queue.js';
+import { nextQueuedPick, type QueuedCopy, type SeatQueue } from './queue.js';
 import { currentTurn } from './turn.js';
 
 /**
@@ -11,12 +11,12 @@ import { currentTurn } from './turn.js';
  * turnaround its next turn too: up to four picks across double turns. None
  * unless it is `seat`'s turn. It needs no other seat's queue, so it names
  * none of the picks a cascade makes after another player's. Cards are pool
- * card ids, as in `queue`, `pool` and `draft.picked`.
+ * card ids, as in `queue`'s copies, `pool` and `draft.picked`.
  */
 export function queuePicksBeforeAnotherPlayerPicks(
   draft: DraftPicks,
   seat: number,
-  queue: readonly string[],
+  queue: readonly QueuedCopy[],
   pool: Pool,
 ): string[] {
   const picked = [...draft.picked];
@@ -25,11 +25,7 @@ export function queuePicksBeforeAnotherPlayerPicks(
   let queues: readonly SeatQueue[] = Array.from(
     { length: draft.players },
     (_, at) => ({
-      // The deck boards don't change which cards a queue picks.
-      queue:
-        at === seat
-          ? queue.map((card) => ({ card, board: 'Mainboard' as const }))
-          : [],
+      queue: at === seat ? queue : [],
       stealBehavior: 'PauseQueue',
       queuePaused: false,
     }),

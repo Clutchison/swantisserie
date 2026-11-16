@@ -16,7 +16,7 @@ import { currentTurn } from './turn.js';
 export type StealBehavior = 'PauseQueue' | 'PickNext';
 
 /**
- * A deck board, which the code calls a plan board (ADR 0018): the mainboard
+ * A plan board, which players see as a deck board (ADR 0018): the mainboard
  * or the sideboard.
  */
 export type PlanBoard = 'Mainboard' | 'Sideboard';
@@ -42,7 +42,7 @@ export interface LostQueuedCard {
   queueLoss: QueueLoss;
 }
 
-/** A queued card and the deck board it sits on. */
+/** A queued card and the plan board it sits on. */
 export interface QueuedCopy {
   card: string;
   board: PlanBoard;
@@ -74,7 +74,7 @@ export interface QueueAfterPick extends SeatQueue {
 export interface QueuesAfterPick {
   /** Each seat's queue state after the pick, indexed by seat. */
   queues: QueueAfterPick[];
-  /** The deck board the pick lands on in its picker's deck. */
+  /** The plan board the pick lands on in its picker's deck. */
   landsOn: PlanBoard;
 }
 
@@ -87,12 +87,12 @@ export interface PickEffects extends QueuesAfterPick {
  * What a pick does to `queues`, each seat's queue state, indexed by seat.
  * The queued copy the pick accounts for, as `ownPickCopy` says, leaves the
  * picker's queue, so the queue doesn't pick a second copy. The pick lands
- * on that copy's deck board, or the mainboard when it accounts for none,
+ * on that copy's plan board, or the mainboard when it accounts for none,
  * which the result gives as `landsOn`. The copies are those in
  * `pool` that are not `picked`. In each other queue holding it, it is
  * swapped for a copy or lost, as `swapOrLose` says; swapped or lost, the
  * rest of the queue stays in order. A swapped-in copy takes the stolen
- * copy's deck board. A loss sets a queue picking queue paused, unless its
+ * copy's plan board. A loss sets a queue picking queue paused, unless its
  * steal behavior is pick next. Nothing else changes a queue's state.
  * `picked` is the cards picked already, with or without this one. Cards are
  * pool card ids.
@@ -161,7 +161,7 @@ export function nextQueuedPick(
   };
 }
 
-/** A queued card, its deck board, and its place in the queue: lowest first, not necessarily consecutive. */
+/** A queued card, its plan board, and its place in the queue: lowest first, not necessarily consecutive. */
 export interface QueuedCardAt extends QueuedCopy {
   position: number;
 }
@@ -181,7 +181,7 @@ export interface QueuedCardAt extends QueuedCopy {
  * unless since reordered. Otherwise they come back at the front, in their
  * original order, ahead of anything queued since. A card both put back and
  * queued again since is held once, in the first of its two places, on the
- * deck board it has there. Every card keeps its deck board, so a taken-out
+ * plan board it has there. Every card keeps its plan board, so a taken-out
  * card goes back on the board it was on.
  */
 export function queueAfterUndo(

@@ -3,6 +3,7 @@ import {
   alice,
   completeSnapshot,
   drafting,
+  flushQueueAndPlan,
   openDraft,
   pickOf,
   queued,
@@ -165,6 +166,28 @@ describe('queued cards on the Deck tab', () => {
     await fixture.whenStable();
 
     expect(planBoards(plan)[1].lines).toEqual(['1 Shivan Dragon (queued first)']);
+  });
+
+  it('shows a queued card the player moved to the other deck board in another window once this one gains focus', async () => {
+    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
+      cards,
+      plan: planOf({ mainboard: [planned(brightclimb)] }),
+      queue: queueOf({ cards: [queued(shivan)] }),
+    });
+    const plan = await openPlan(fixture, page);
+    expect(planBoards(plan)[0].lines).toContain('1 Shivan Dragon (queued first)');
+
+    window.dispatchEvent(new Event('focus'));
+    await flushQueueAndPlan(
+      queueOf({ cards: [queuedOnSideboard(shivan)] }),
+      planOf({ mainboard: [planned(brightclimb)] }),
+    );
+    await fixture.whenStable();
+
+    expect(planBoards(plan)).toEqual([
+      { heading: 'Mainboard 1 (1 picked)', lines: ['1 Brightclimb Pathway // Grimclimb Pathway'] },
+      { heading: 'Sideboard 1 (0 picked)', lines: ['1 Shivan Dragon (queued first)'] },
+    ]);
   });
 
   describe('Card detail', () => {

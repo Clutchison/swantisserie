@@ -209,7 +209,7 @@ export class TurnsService {
         const picks = queuePicksBeforeAnotherPlayerPicks(
           { ...size, picked: context.picked },
           seat,
-          queues[seat].queue.map((queued) => queued.card),
+          queues[seat].queue,
           context.pool,
         );
         if (
@@ -298,7 +298,7 @@ export class TurnsService {
    * that is Drafting; `queued` if it was picked from their queue. It is
    * checked against `turnRead`, the draft as the turn holds it, which it then
    * changes as it changes the database. Its `effects` on queues, and the
-   * deck board it lands on, are worked out here, by the engine from `turnRead`, unless a cascade has
+   * plan board it lands on, are worked out here, by the engine from `turnRead`, unless a cascade has
    * worked them out already; either way they are persisted the same way.
    * Throws PickRefusedError if they can't, and NotAPlayerError, before the
    * engine's pick check, if the user has no seat.

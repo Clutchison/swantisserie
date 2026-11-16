@@ -12,7 +12,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import type {
-  QueuedCardMoveRequest,
   QueueOrderRequest,
   QueuePausedRequest,
   QueueView,
@@ -30,7 +29,7 @@ import { DraftAccess } from './draft-access.js';
 import { DraftChanges } from './draft-changes.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
-import { parsePlanBoard } from './plan-boards.js';
+import { parsePlanBoardBody } from './plan-boards.js';
 import { QueuesService } from './queues.service.js';
 import { isStealBehavior } from './steal-behaviors.js';
 import { TurnsService } from './turns.service.js';
@@ -133,7 +132,7 @@ export class QueuesController {
   }
 
   /**
-   * Moves a queued copy to a deck board, which its pick then lands on,
+   * Moves a queued copy to a plan board, which its pick then lands on,
    * leaving its place in the queue as it is.
    */
   @Put(':poolCardId/board')
@@ -143,7 +142,7 @@ export class QueuesController {
     @Param('poolCardId') poolCardId: string,
     @Body() body: unknown,
   ): Promise<QueueView> {
-    const board = parsePlanBoard(bodyFields<QueuedCardMoveRequest>(body).board);
+    const board = parsePlanBoardBody(body);
     return this.answer(user, id, () =>
       this.queues.moveToBoard(id, user.id, poolCardId, board),
     );

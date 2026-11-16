@@ -505,7 +505,7 @@ describe('queueAfterUndo', () => {
     ).toEqual(mainboard('shock', 'bolt', 'skewer'));
   });
 
-  it('puts each taken-out card back on the deck board it was on, keeping the boards of the cards queued now', () => {
+  it('puts each taken-out card back on the deck board it was on, keeping the deck boards of the cards queued now', () => {
     expect(
       queueAfterUndo(
         [at('shock', 0, 'Sideboard'), at('spike', 2)],

@@ -1,6 +1,13 @@
 import { BadRequestException } from '@nestjs/common';
-import { PLAN_BOARDS, type PlanBoard, type RequestProblem } from 'contract';
+import {
+  PLAN_BOARDS,
+  type PlanBoard,
+  type PlanMoveRequest,
+  type QueueMoveToBoardRequest,
+  type RequestProblem,
+} from 'contract';
 import { isOneOf } from '../one-of.js';
+import { bodyFields } from '../request-body.js';
 
 /** Whether `value` names a plan board. */
 export function isPlanBoard(value: unknown): value is PlanBoard {
@@ -16,6 +23,13 @@ export function parsePlanBoard(value: unknown): PlanBoard {
     } satisfies RequestProblem);
   }
   return value;
+}
+
+/** The plan board a move's body names to move to, or a 400 if it names none. */
+export function parsePlanBoardBody(body: unknown): PlanBoard {
+  return parsePlanBoard(
+    bodyFields<PlanMoveRequest | QueueMoveToBoardRequest>(body).board,
+  );
 }
 
 /** The plan board a card on `planBoard` moves to: the other one. */

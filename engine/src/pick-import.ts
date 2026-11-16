@@ -305,7 +305,7 @@ export function readPickImport(
  * queue, as a cascade gives its picks' effects: `seats` are each seat's
  * queue state before the import, indexed by seat. Each pick changes them,
  * as `queuesAfterPick` says, before the next, so a copy swapped into a
- * queue keeps the deck board of the one picked, and a later pick of it
+ * queue keeps the plan board of the one picked, and a later pick of it
  * lands there. Cards are pool card ids, as in `pool`.
  */
 export function pickImportEffects(

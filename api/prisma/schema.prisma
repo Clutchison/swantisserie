@@ -327,7 +327,7 @@ model QueuedCard {
   poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Order in the queue, lowest first; not necessarily consecutive.
   position   Int
-  /// The deck board it sits on, and its pick lands on: the mainboard when it is queued.
+  /// The plan board it sits on, and its pick lands on: the mainboard when it is queued.
   board      PlanBoard @default(Mainboard)
 
   @@unique([playerId, poolCardId])
@@ -345,7 +345,7 @@ model TakenOutQueuedCard {
   poolCard     PoolCard   @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Where it was in the queue, lowest first.
   position     Int
-  /// The deck board it sat on, which an undo puts it back on.
+  /// The plan board it sat on, which an undo puts it back on.
   board        PlanBoard  @default(Mainboard)
   /// Whether the Queue notice has stopped listing it: it was dismissed, or, before pause queue replaced clear queue, the card was queued again. Always true for a player's own picked card, or its queued copy, which the notice never lists: it was picked, not lost.
   noticeHidden Boolean    @default(false)

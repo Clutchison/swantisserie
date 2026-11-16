@@ -175,7 +175,7 @@ export class QueuesService {
   }
 
   /**
-   * Moves the user's queued copy `poolCardId` to the deck board `board`,
+   * Moves the user's queued copy `poolCardId` to the plan board `board`,
    * which its pick then lands on; a no-op if it is there already. Its place
    * in the queue stays as it is. Like a deck change, it is allowed whenever
    * the deck may change, whatever the draft's state, and like other queue

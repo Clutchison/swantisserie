@@ -35,7 +35,7 @@ describe('a plan becomes a deck when its draft completes', () => {
     bobCookie = await signIn(bob);
   });
 
-  it('leaves picks, boards and basics as they were when the last pick is made', async () => {
+  it('leaves picks, deck boards and basics as they were when the last pick is made', async () => {
     const id = await readyDraft([aliceCookie, bobCookie], 1, cards);
     const ids = await poolCardIds(id);
     await start(id).expect(200);

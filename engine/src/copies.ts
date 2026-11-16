@@ -60,7 +60,7 @@ export interface SwappedOrLost {
 
 /**
  * What another player's pick of `card` does to a queue holding it: the
- * card is swapped, in the same place and on the same deck board, for the
+ * card is swapped, in the same place and on the same plan board, for the
  * first of `copies` the queue doesn't hold; with no such copy, it is lost
  * and leaves the queue. A queue that doesn't hold the card comes back as it
  * is. `copies` is the card's available copies, as `availableCopies` offers

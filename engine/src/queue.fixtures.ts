@@ -1,4 +1,4 @@
-// Test-only queue builders, shared by the queue, copies and cascade specs.
+// Test-only queue builders, shared by the queue, queue picks, copies and cascade specs.
 // Production code doesn't import this module, and the engine's public entry
 // doesn't export it.
 import type { QueuedCopy } from './queue.js';

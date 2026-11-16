@@ -4,7 +4,7 @@ import type { Observable } from 'rxjs';
 import type {
   PoolCardRequest,
   PlanBoard,
-  QueuedCardMoveRequest,
+  QueueMoveToBoardRequest,
   QueueOrderRequest,
   QueuePausedRequest,
   QueueView,
@@ -29,7 +29,7 @@ export class QueueApi {
   moveToBoard(draftId: string, poolCardId: string, board: PlanBoard): Observable<QueueView> {
     return this.http.put<QueueView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}/board`, {
       board,
-    } satisfies QueuedCardMoveRequest);
+    } satisfies QueueMoveToBoardRequest);
   }
 
   /** Puts the queue's cards in this order, as their pool card ids. */

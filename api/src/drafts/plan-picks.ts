@@ -4,7 +4,7 @@ import { engineView, readTurn } from './turn-read.js';
 
 /**
  * Persists what a new pick, already made, does to plans: it joins its
- * player's plan on `landsOn`, the deck board the engine says it lands on.
+ * player's plan on `landsOn`, the plan board the engine says it lands on.
  * No other plan changes: a plan holds only picks and basic lands
  * (ADR 0020). Deleting the pick, as an undo does, takes it out again.
  */
@@ -27,7 +27,7 @@ export async function recordPlanEffects(
  * Does what each of `picks`, just made in the draft `draftId` and all its
  * picks, does to plans, in pick order. The draft is read once, and the
  * engine's `pickImportEffects` applies each pick to its queues in turn:
- * each lands on the deck board of the queued copy it accounts for in its
+ * each lands on the plan board of the queued copy it accounts for in its
  * picker's queue, as the picks before it left the queues, or on the
  * mainboard.
  */

@@ -16,7 +16,7 @@ import {
   dave,
   enqueue,
   fourCards,
-  moveQueued,
+  moveToBoard,
   pick,
   pickLogLines,
   poolCardIds,
@@ -151,7 +151,7 @@ describeRaces('queue changes against a cascade', () => {
 
     const [picked, moved] = await race(
       () => pick(id, ids['Lava Spike'], bobCookie),
-      () => moveQueued(id, ids['Skewer the Critics'], 'Sideboard'),
+      () => moveToBoard(id, ids['Skewer the Critics'], 'Sideboard'),
     );
 
     const { mainboard, sideboard } = await planOf(id, aliceCookie);

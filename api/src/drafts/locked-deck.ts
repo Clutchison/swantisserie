@@ -2,7 +2,7 @@ import type { Transaction } from './draft-shapes.js';
 
 /**
  * The refusal for a change to a locked deck, its cards, its basics or its
- * queued copies' deck boards, which each change's own error carries.
+ * queued copies' plan boards, which each change's own error carries.
  */
 export const DECK_LOCKED = {
   error: 'deck-locked',

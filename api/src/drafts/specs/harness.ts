@@ -576,8 +576,8 @@ export function removeFromQueue(
   return draftsRequest('delete', `/${id}/queue/${poolCardId}`, cookie);
 }
 
-/** Moves a queued copy in the player's queue to the deck board `board`. */
-export function moveQueued(
+/** Moves a queued copy in the player's queue to the plan board `board`. */
+export function moveToBoard(
   id: string,
   poolCardId: string,
   board: unknown,

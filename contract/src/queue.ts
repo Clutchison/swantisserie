@@ -5,7 +5,7 @@ export interface QueuedCardView {
   poolCardId: string;
   name: string;
   /**
-   * The deck board the queued copy sits on, and its pick lands on: the
+   * The plan board the queued copy sits on, and its pick lands on: the
    * mainboard when it is queued. For a lost card, the one it sat on.
    */
   board: PlanBoard;
@@ -58,8 +58,8 @@ export interface QueueOrderRequest {
   poolCardIds: string[];
 }
 
-/** The deck board to move a queued copy to. */
-export interface QueuedCardMoveRequest {
+/** The plan board to move a queued copy to. */
+export interface QueueMoveToBoardRequest {
   board: PlanBoard;
 }
 
