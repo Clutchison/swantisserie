@@ -13,7 +13,14 @@
     <svg lucidePlus size="16"></svg>
   }
 </ng-template>
-<!-- A stacked card's image, or its name while its pool card is unknown, and its Unpicked mark. -->
+<!-- A queued card's Queued badge: its place in the queue, said as a screen reader reads it. -->
+<ng-template #queuedBadge let-place>
+  <span class="mark queued">
+    <span aria-hidden="true">#{{ place }} Queued</span>
+    <span class="visually-hidden">{{ queuedName(place) }}</span>
+  </span>
+</ng-template>
+<!-- A stacked card's image, or its name while its pool card is unknown, and its Unpicked mark or Queued badge. -->
 <ng-template #stackedCard let-card>
   @let poolCard = cardsById().get(card.poolCardId);
   <div class="card">
@@ -32,7 +39,9 @@
       <span class="placeholder">{{ card.name }}</span>
     }
   </div>
-  @if (!card.picked) {
+  @if (card.queued) {
+    <ng-container *ngTemplateOutlet="queuedBadge; context: { $implicit: card.queued }" />
+  } @else if (!card.picked) {
     <span class="mark">Unpicked</span>
   }
 </ng-template>
@@ -92,8 +101,9 @@
       @if (draftComplete()) {
         Your deck holds your picks and basic lands.
       } @else {
-        Every pick lands on your mainboard. An unpicked card you add is lost if another player picks
-        it and no other copy is available.
+        Your queued cards show dimmed, as far as your picks left reach. A pick lands on the board
+        its queued copy was on, or else on your mainboard. An unpicked card you add is lost if
+        another player picks it and no other copy is available.
       }
       Only you can see your deck. If it locks for a tournament, everyone who sees the draft can see
       its decklist, the deck as it was locked, once the tournament is complete, or from its start
@@ -267,7 +277,7 @@
                 >
                   @for (card of stack.cards; track card.poolCardId) {
                     @let poolCard = cardsById().get(card.poolCardId);
-                    @let cardLabel = card.picked ? card.name : card.name + ' (unpicked)';
+                    @let cardLabel = stackedName(card);
                     <!-- A touch drag starts only after a hold, so a quick swipe still scrolls. -->
                     <li
                       [class.unpicked]="!card.picked"
@@ -371,7 +381,11 @@
                   (opened)="openLine(line, $event, planBoard.name)"
                 />
                 <span class="line-actions">
-                  @if (!line.picked) {
+                  @if (line.queued) {
+                    <ng-container
+                      *ngTemplateOutlet="queuedBadge; context: { $implicit: line.queued }"
+                    />
+                  } @else if (!line.picked) {
                     <span class="mark">Unpicked</span>
                   }
                   @if (!deckLocked()) {
@@ -390,7 +404,11 @@
                     </button>
                   }
                   <!-- A basic land's line takes one copy off its plan board, as an unpicked card's takes one out. -->
-                  @if ((line.basic || !line.picked) && offerRemoveFromPlan() && !deckLocked()) {
+                  @if (
+                    (line.basic || (!line.picked && !line.queued)) &&
+                    offerRemoveFromPlan() &&
+                    !deckLocked()
+                  ) {
                     @let removeName = 'Remove ' + line.name + ' from your deck';
                     <button
                       class="button compact quiet line-action"

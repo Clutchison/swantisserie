@@ -241,7 +241,7 @@ describe('plan tab', () => {
       expect(openDialog()).toBeNull();
     });
 
-    it('opens a line whose every copy is queued on its first copy', async () => {
+    it('opens each queued copy of an unpicked card from its own line', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf({ mainboard: [unpicked(bolt), unpicked(boltAgain)] }),
@@ -253,7 +253,7 @@ describe('plan tab', () => {
       await fixture.whenStable();
       button(openDialog()!, 'Remove from queue')!.click();
 
-      expect(http.expectOne('/api/drafts/draft-1/queue/bolt-card').request.method).toBe('DELETE');
+      expect(http.expectOne('/api/drafts/draft-1/queue/bolt-card-2').request.method).toBe('DELETE');
     });
 
     it('keeps its Move and Remove buttons', async () => {

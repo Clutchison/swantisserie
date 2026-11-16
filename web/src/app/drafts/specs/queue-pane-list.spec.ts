@@ -17,6 +17,7 @@ import {
   button,
   drafting,
   queued,
+  queuedOnSideboard,
   queueOf,
   pickOf,
   queuePane,
@@ -516,6 +517,17 @@ describe('Queue pane list', () => {
 
       await vi.waitFor(() => expect(document.activeElement).toBe(rowMenu(queue, 'Shivan Dragon')));
     });
+  });
+
+  it('marks a queued copy on the sideboard', async () => {
+    const { page } = await openDraft(completeSnapshot, drafting(), {
+      cards: [bolt, brightclimb, shivan],
+      queue: queueOf({ cards: [queued(bolt), queuedOnSideboard(shivan)] }),
+    });
+
+    const [first, second] = queueRowNames(queuePane(page));
+    expect(first).not.toContain('Sideboard');
+    expect(second).toMatch(/Shivan Dragon.*Sideboard/);
   });
 
   describe('the next-up card', () => {

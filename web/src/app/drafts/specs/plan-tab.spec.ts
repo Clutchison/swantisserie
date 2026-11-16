@@ -357,7 +357,7 @@ describe('plan tab', () => {
       plan: planOf({ mainboard: [planned(brightclimb)] }),
     });
     const plan = await openPlan(fixture, page);
-    const help = () => elementContaining(plan, 'Every pick lands on your mainboard.');
+    const help = () => elementContaining(plan, 'Your queued cards show dimmed');
 
     expect(disclosure(plan, 'How this works')!.open).toBe(false);
     expect(hiddenInClosedSection(help())).toBe(true);

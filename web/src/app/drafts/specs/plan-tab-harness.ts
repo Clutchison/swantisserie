@@ -136,17 +136,30 @@ export const expectInItemOf = (plan: HTMLElement, name: string) =>
 /** Opens the Deck tab and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');
 
-/** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a line marked Unpicked. */
+/**
+ * Each plan board's heading, and its lines as `count name`, with
+ * ` (unpicked)` after a line marked Unpicked, and a queued card's Queued
+ * badge as a screen reader says it, as ` (queued second)`.
+ */
 export function planBoards(plan: HTMLElement) {
   return [...plan.querySelectorAll('section')].map((planBoard) => ({
     heading: planBoard.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
-    lines: [...planBoard.querySelectorAll('li:not(.empty)')].map(
-      (line) =>
+    lines: [...planBoard.querySelectorAll('li:not(.empty)')].map((line) => {
+      const badge = queuedBadge(line);
+      return (
         `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}` +
-        (line.textContent?.includes('Unpicked') ? ' (unpicked)' : ''),
-    ),
+        (line.textContent?.includes('Unpicked') ? ' (unpicked)' : '') +
+        (badge ? ` (${badge.toLowerCase()})` : '')
+      );
+    }),
   }));
 }
+
+/** The Queued badge inside `root` as a screen reader says it, as `Queued second`; undefined without one. */
+const queuedBadge = (root: Element) =>
+  [...root.querySelectorAll('.visually-hidden')]
+    .map((hidden) => collapseWhitespace(hidden.textContent ?? ''))
+    .find((said) => said.startsWith('Queued '));
 
 /** The control inside `root` that opens a plan card's Card detail, by its accessible name, as `Lightning Bolt (unpicked)` for a stacked unpicked card. */
 export const detailOpener = (root: HTMLElement, name: string) =>
