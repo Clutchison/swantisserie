@@ -351,13 +351,15 @@ model LostPlannedCard {
 
 /// A card in a player's queue.
 model QueuedCard {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   playerId   String
-  player     Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player     Player    @relation(fields: [playerId], references: [id], onDelete: Cascade)
   poolCardId String
-  poolCard   PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Order in the queue, lowest first; not necessarily consecutive.
   position   Int
+  /// The deck board it sits on, and its pick lands on: the mainboard when it is queued.
+  board      PlanBoard @default(Mainboard)
 
   @@unique([playerId, poolCardId])
   @@index([poolCardId])
@@ -365,19 +367,21 @@ model QueuedCard {
 
 /// A taken-out queued card: one a pick took out of a player's queue, the card the player picked from their own queue or the queued copy of it that left instead, or, after another player's pick, the lost card, or a card it cleared under clear queue before pause queue replaced it. Kept until that pick is undone, which puts it back.
 model TakenOutQueuedCard {
-  id           String   @id @default(uuid())
+  id           String     @id @default(uuid())
   pickId       String
-  pick         Pick     @relation(fields: [pickId], references: [id], onDelete: Cascade)
+  pick         Pick       @relation(fields: [pickId], references: [id], onDelete: Cascade)
   playerId     String
-  player       Player   @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  player       Player     @relation(fields: [playerId], references: [id], onDelete: Cascade)
   poolCardId   String
-  poolCard     PoolCard @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
+  poolCard     PoolCard   @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// Where it was in the queue, lowest first.
   position     Int
+  /// The deck board it sat on, which an undo puts it back on.
+  board        PlanBoard  @default(Mainboard)
   /// Whether the Queue notice has stopped listing it: it was dismissed, or, before pause queue replaced clear queue, the card was queued again. Always true for a player's own picked card, or its queued copy, which the notice never lists: it was picked, not lost.
-  noticeHidden Boolean  @default(false)
+  noticeHidden Boolean    @default(false)
   /// Whether the rest of the queue stayed when this card was taken out, so an undo puts it back in its old place rather than at the front: for a lost card, whether anything else stayed queued, so false for the last card left in a queue; always true for a player's own picked card, or its queued copy; and false for a lost or cleared card under clear queue, before pause queue replaced it.
-  restKept     Boolean  @default(false)
+  restKept     Boolean    @default(false)
   /// For a lost card, what losing it did to the queue; an undo of a pick that paused the queue sets it queue picking again. Null for any other card, and for a card lost before pause queue replaced clear queue.
   queueLoss    QueueLoss?
 

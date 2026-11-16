@@ -672,8 +672,8 @@ describe('card previews', () => {
 
   describe('in the queue', () => {
     const queue: QueueView = queueOf({
-      cards: [{ poolCardId: shock.id, name: shock.name }],
-      lost: [{ poolCardId: bolt.id, name: bolt.name }],
+      cards: [queued(shock)],
+      lost: [queued(bolt)],
     });
 
     /**
@@ -724,7 +724,7 @@ describe('card previews', () => {
       chooseInOpenRowMenu('Shock', 'Remove');
       http
         .expectOne('/api/drafts/draft-1/queue/shock-card')
-        .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));
+        .flush(queueOf({ lost: [queued(bolt)] }));
       await vi.waitFor(() => expect(cardNames(queueList(sheet))).toEqual([]));
       await fixture.whenStable();
 

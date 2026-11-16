@@ -1,5 +1,12 @@
 import { frontFace } from './card-faces.js';
+import type { Pool } from './copies.js';
 import type { DraftSize } from './draft-size.js';
+import {
+  type DeckBoard,
+  landingBoard,
+  queuesAfterPick,
+  type SeatQueue,
+} from './queue.js';
 import {
   currentTurn,
   picksPerTurn,
@@ -296,4 +303,29 @@ export function readPickImport(
   }
   // Fewer picks than the draft allows, so there is a next turn.
   return { ok: true, columns, picks, next: currentTurn(size, picks.length)! };
+}
+
+/**
+ * The deck board each of `picks`, a pick import's picks in pick order,
+ * lands on, as `landingBoard` says, from `queues`, each seat's queue state
+ * before the import, indexed by seat. Each pick changes the queues as
+ * `queuesAfterPick` says before the next is placed, so a copy swapped into
+ * a queue keeps the board of the one picked. Cards are pool card ids, as in
+ * `pool`.
+ */
+export function pickImportBoards(
+  picks: readonly ImportedPick[],
+  queues: readonly SeatQueue[],
+  pool: Pool,
+): DeckBoard[] {
+  const picked: string[] = [];
+  let now = queues;
+  return picks.map(({ seat, poolCardId }) => {
+    const pick = { seat, card: poolCardId };
+    const context = { pool, picked };
+    const board = landingBoard(pick, now, context);
+    now = queuesAfterPick(pick, now, context);
+    picked.push(poolCardId);
+    return board;
+  });
 }

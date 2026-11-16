@@ -4,8 +4,8 @@ import type { StealBehavior } from './queue.js';
 
 /**
  * A cascade's seats, one per queue in `queues`: on pause queue, with an
- * empty plan and the queue picking, unless `stealBehaviors`, `plans` or
- * `queuesPaused` say otherwise for that seat.
+ * empty plan, the queue picking and nothing on the sideboard, unless
+ * `stealBehaviors`, `plans`, `queuesPaused` or `sideboards` say otherwise for that seat.
  */
 function seatsOf(
   queues: readonly (readonly string[])[],
@@ -13,10 +13,12 @@ function seatsOf(
     stealBehaviors = [],
     plans = [],
     queuesPaused = [],
+    sideboards = [],
   }: {
     stealBehaviors?: readonly StealBehavior[];
     plans?: readonly (readonly string[])[];
     queuesPaused?: readonly boolean[];
+    sideboards?: readonly (readonly string[])[];
   } = {},
 ): CascadeSeat[] {
   return queues.map((queue, seat) => ({
@@ -24,6 +26,7 @@ function seatsOf(
     stealBehavior: stealBehaviors[seat] ?? 'PauseQueue',
     plan: plans[seat] ?? [],
     queuePaused: queuesPaused[seat] ?? false,
+    sideboard: sideboards[seat] ?? [],
   }));
 }
 
@@ -280,6 +283,7 @@ describe('cascade', () => {
       expect(made.at(-1)?.queues[1]).toMatchObject({
         queue: ['bolt', 'skewer'],
         queuePaused: true,
+        sideboard: [],
       });
     });
 
@@ -321,31 +325,72 @@ describe('cascade', () => {
       ).toEqual([
         {
           pick: { seat: 0, card: 'bolt-1' },
+          board: 'Mainboard',
           queues: [
-            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
+            {
+              queue: [],
+              stealBehavior: 'PauseQueue',
+              queuePaused: false,
+              sideboard: [],
+            },
             {
               queue: ['bolt-2', 'shock'],
               swapped: { out: 'bolt-1', in: 'bolt-2' },
               stealBehavior: 'PauseQueue',
               queuePaused: false,
+              sideboard: [],
             },
-            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
+            {
+              queue: [],
+              stealBehavior: 'PauseQueue',
+              queuePaused: false,
+              sideboard: [],
+            },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
+          board: 'Mainboard',
           queues: [
-            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
+            {
+              queue: [],
+              stealBehavior: 'PauseQueue',
+              queuePaused: false,
+              sideboard: [],
+            },
             {
               queue: ['shock'],
               stealBehavior: 'PauseQueue',
               queuePaused: false,
+              sideboard: [],
             },
-            { queue: [], stealBehavior: 'PauseQueue', queuePaused: false },
+            {
+              queue: [],
+              stealBehavior: 'PauseQueue',
+              queuePaused: false,
+              sideboard: [],
+            },
           ],
           plans: [{ plan: [] }, { plan: [] }, { plan: [] }],
         },
+      ]);
+    });
+
+    it('says which deck board each pick lands on, keeping a swapped-in copy’s', () => {
+      // Seat 1 queued bolt-1 on its sideboard; seat 0 takes it, so seat 1
+      // queues bolt-2 there instead and picks it next.
+      expect(
+        cascade(
+          { players: 3, picksPerPlayer: 1, doublePicks: 0, picked: [] },
+          seatsOf([['bolt-1'], ['bolt-1', 'shock'], []], {
+            sideboards: [[], ['bolt-1']],
+          }),
+          bolts,
+        ).map(({ pick, board }) => ({ ...pick, board })),
+      ).toEqual([
+        { seat: 0, card: 'bolt-1', board: 'Mainboard' },
+        { seat: 1, card: 'bolt-2', board: 'Sideboard' },
       ]);
     });
 
@@ -390,6 +435,7 @@ describe('cascade', () => {
         lost: { card: 'shock', queueLoss: 'QueuePaused' },
         stealBehavior: 'PauseQueue',
         queuePaused: true,
+        sideboard: [],
       });
     });
 
@@ -406,6 +452,7 @@ describe('cascade', () => {
         lost: { card: 'shock', queueLoss: 'StayedQueuePicking' },
         stealBehavior: 'PickNext',
         queuePaused: false,
+        sideboard: [],
       });
     });
   });

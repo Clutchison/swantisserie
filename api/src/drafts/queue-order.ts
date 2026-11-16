@@ -13,7 +13,7 @@ import type { QueuedRow } from './turn-read.js';
 export async function leaveQueue(
   tx: Transaction,
   playerId: string,
-  leaving: readonly QueuedRow[],
+  leaving: readonly Pick<QueuedRow, 'poolCardId' | 'position'>[],
 ): Promise<void> {
   // Stryker disable next-line ConditionalExpression: an empty departure deletes nothing and stamps no plan card; it only uses up one value of the player's departure counter, which is only compared, never shown. This also hides the killed `→ true` twin: both mutate this one condition, so no rewrite can split them.
   if (leaving.length === 0) return;

@@ -14,14 +14,16 @@ export type { DraftSize } from './draft-size.js';
 export { myStats } from './my-stats.js';
 export type { StatsTournament } from './my-stats.js';
 export { pickProblem } from './pick.js';
-export { readPickImport } from './pick-import.js';
+export { pickImportBoards, readPickImport } from './pick-import.js';
 export { plansAfterPick } from './plan.js';
 export type { PlanAfterPick } from './plan.js';
-export { queueAfterUndo, queuesAfterPick } from './queue.js';
+export { landingBoard, queueAfterUndo, queuesAfterPick } from './queue.js';
 export type {
+  DeckBoard,
   QueueAfterPick,
   QueueLoss,
   QueuedCardAt,
+  QueuedCopy,
   SeatQueue,
   StealBehavior,
 } from './queue.js';

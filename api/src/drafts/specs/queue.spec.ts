@@ -66,8 +66,12 @@ describe('queue', () => {
 
     expect(added.body).toEqual({
       cards: [
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
-        { poolCardId: ids.Shock, name: 'Shock' },
+        {
+          poolCardId: ids['Lava Spike'],
+          name: 'Lava Spike',
+          board: 'Mainboard',
+        },
+        { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
       ],
       lost: [],
       stealBehavior: 'PauseQueue',
@@ -435,9 +439,13 @@ describe('queue', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [
-          { poolCardId: ids.Shock, name: 'Shock' },
-          { poolCardId: second, name: 'Lightning Bolt' },
-          { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
+          { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
+          { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+          {
+            poolCardId: ids['Lava Spike'],
+            name: 'Lava Spike',
+            board: 'Mainboard',
+          },
         ],
         lost: [],
         stealBehavior: 'PauseQueue',
@@ -457,8 +465,8 @@ describe('queue', () => {
       const added = await enqueue(id, first).expect(200);
 
       expect(added.body.cards).toEqual([
-        { poolCardId: second, name: 'Lightning Bolt' },
-        { poolCardId: first, name: 'Lightning Bolt' },
+        { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+        { poolCardId: first, name: 'Lightning Bolt', board: 'Mainboard' },
       ]);
     });
 
@@ -502,13 +510,14 @@ describe('queue', () => {
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [
-          { poolCardId: second, name: 'Lightning Bolt' },
-          { poolCardId: ids.Shock, name: 'Shock' },
+          { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+          { poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' },
         ],
         lost: [
           {
             poolCardId: first,
             name: 'Lightning Bolt',
+            board: 'Mainboard',
             queueLoss: 'QueuePaused',
           },
         ],
@@ -533,11 +542,12 @@ describe('queue', () => {
       await pick(id, first, bobCookie).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [{ poolCardId: ids.Shock, name: 'Shock' }],
+        cards: [{ poolCardId: ids.Shock, name: 'Shock', board: 'Mainboard' }],
         lost: [
           {
             poolCardId: first,
             name: 'Lightning Bolt',
+            board: 'Mainboard',
             queueLoss: 'QueuePaused',
           },
         ],
