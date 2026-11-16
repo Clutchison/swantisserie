@@ -3,6 +3,8 @@ import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
 import type {
   PoolCardRequest,
+  PlanBoard,
+  QueuedCardMoveRequest,
   QueueOrderRequest,
   QueuePausedRequest,
   QueueUnpickedRequest,
@@ -29,6 +31,13 @@ export class QueueApi {
 
   remove(draftId: string, poolCardId: string): Observable<QueueView> {
     return this.http.delete<QueueView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
+  }
+
+  /** Moves the queued copy `poolCardId` to `board` of the deck, keeping its place in the queue. */
+  moveToBoard(draftId: string, poolCardId: string, board: PlanBoard): Observable<QueueView> {
+    return this.http.put<QueueView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}/board`, {
+      board,
+    } satisfies QueuedCardMoveRequest);
   }
 
   /** Puts the queue's cards in this order, as their pool card ids. */

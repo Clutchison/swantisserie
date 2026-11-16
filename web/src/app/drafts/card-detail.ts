@@ -16,7 +16,7 @@ import {
   untracked,
   type WritableSignal,
 } from '@angular/core';
-import type { PlanBoard, PlannedCardView, PlanView, PoolCardView, QueueView } from 'contract';
+import type { PlanBoard, PlanView, PoolCardView, QueueView } from 'contract';
 import { forkJoin, type Observable, take } from 'rxjs';
 import { Changes, ChangeStatus, FocusKey, SendsChange } from '../changes';
 import { DialogShell } from '../dialog-shell';
@@ -83,10 +83,14 @@ export interface CardDetailOptions {
   ) => HTMLElement | null | undefined;
   /** Called once Remove from Deck has succeeded. */
   removedFromPlan?: () => void;
+  /** Called once Remove from queue has succeeded. */
+  removedFromQueue?: () => void;
   /** Called as Add to Deck or Remove from Deck is sent, so the host can clear a failure it shows. */
   planChangeSent?: () => void;
   /** How the host moves the card to a plan board while it offers Move, else null: see `CardDetail.move`. */
   move?: () => MoveToPlanBoard | null;
+  /** The plan board the host shows the card on, which Move moves it off: see `CardDetail.planBoard`. */
+  planBoard?: () => PlanBoard | null;
   /** Whether Move waits for another of the host's changes on its way: see `CardDetail.moveWaits`. */
   moveWaits?: () => boolean;
   /** Whether it closes once its card has been picked, as it does unless told otherwise. */
@@ -157,8 +161,10 @@ function openCardDetail(dialogs: DialogShell, options: CardDetailOptions) {
       inputBinding('tilePlaceholder', () => options.tilePlaceholder),
       inputBinding('closesOnPick', () => options.closesOnPick ?? true),
       inputBinding('move', options.move ?? (() => null)),
+      inputBinding('planBoard', options.planBoard ?? (() => null)),
       inputBinding('moveWaits', options.moveWaits ?? (() => false)),
       outputBinding('removedFromPlan', () => options.removedFromPlan?.()),
+      outputBinding('removedFromQueue', () => options.removedFromQueue?.()),
       outputBinding('planChangeSent', () => options.planChangeSent?.()),
     ],
     returnFocus: (opener, result) => options.returnFocus(result, opener),
@@ -211,6 +217,11 @@ export class CardDetail {
    */
   readonly move = input<MoveToPlanBoard | null>(null);
   /**
+   * The plan board its host shows the card on: a planned card's, or a
+   * queued card's on the Deck tab. Move moves it to the other; null for none.
+   */
+  readonly planBoard = input<PlanBoard | null>(null);
+  /**
    * Whether another of its host's changes is on its way, which its host
    * would drop a move sent meanwhile for: Move is busy, and ignores presses,
    * until it settles, as the host's own move buttons do.
@@ -219,6 +230,8 @@ export class CardDetail {
   readonly moveWaits = input(false);
   /** Remove from Deck has succeeded. */
   readonly removedFromPlan = output<void>();
+  /** Remove from queue has succeeded. */
+  readonly removedFromQueue = output<void>();
   /** Add to Deck or Remove from Deck has been sent. */
   readonly planChangeSent = output<void>();
 
@@ -232,12 +245,8 @@ export class CardDetail {
   protected readonly planned = this.store.planned;
   /** The plan board the card would move to, and its name as Move names it; null if the card is on neither. */
   protected readonly otherPlanBoard = computed(() => {
-    const id = this.card().id;
-    const { mainboard, sideboard } = this.store.plan.value();
-    const on = (cards: PlannedCardView[]) => cards.some((card) => card.poolCardId === id);
-    if (on(mainboard)) return OTHER_PLAN_BOARD.Mainboard;
-    if (on(sideboard)) return OTHER_PLAN_BOARD.Sideboard;
-    return null;
+    const planBoard = this.planBoard();
+    return planBoard && OTHER_PLAN_BOARD[planBoard];
   });
   /** Whether it's the signed-in player's turn, so Pick is enabled for available cards and Add to queue hidden. */
   protected readonly yourTurn = this.store.yourTurn;
@@ -325,13 +334,19 @@ export class CardDetail {
     }
   }
 
-  protected removeFromQueue() {
-    return this.changeQueue(
-      () => this.queueApi.remove(this.store.id(), this.card().id),
-      'Removed from your queue.',
-      "Couldn't remove the card from your queue. Try again in a moment.",
-      KEYS.addToQueue,
-    );
+  protected async removeFromQueue() {
+    if (
+      (await this.changeQueue(
+        () => this.queueApi.remove(this.store.id(), this.card().id),
+        'Removed from your queue.',
+        "Couldn't remove the card from your queue. Try again in a moment.",
+        KEYS.addToQueue,
+      )) &&
+      // It may have closed while the removal was on its way.
+      !this.destroyRef.destroyed
+    ) {
+      this.removedFromQueue.emit();
+    }
   }
 
   /**

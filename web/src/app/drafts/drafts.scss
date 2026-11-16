@@ -53,3 +53,12 @@
     grid-template-columns: var(--card-row-columns);
   }
 }
+
+/* A small outlined label on a card's row or image: the Deck tab's Unpicked mark and Queued badge, and the Queue pane's Sideboard mark. */
+.mark {
+  padding: 0 var(--space-xs);
+  border: 1px solid var(--color-muted);
+  border-radius: 0.25rem;
+  color: var(--color-muted);
+  font-size: var(--font-size-sm);
+}

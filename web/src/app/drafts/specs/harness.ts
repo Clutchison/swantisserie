@@ -361,6 +361,12 @@ export const queued = (card: NamedPoolCard): QueuedCardView => ({
   board: 'Mainboard',
 });
 
+/** A queued copy of `card` on the sideboard. */
+export const queuedOnSideboard = (card: NamedPoolCard): QueuedCardView => ({
+  ...queued(card),
+  board: 'Sideboard',
+});
+
 /**
  * An empty queue, queue picking, under pause queue, with `fields` changed. A
  * lost card says nothing of what its loss did to the queue, as one lost

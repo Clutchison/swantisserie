@@ -241,19 +241,31 @@ describe('plan tab', () => {
       expect(openDialog()).toBeNull();
     });
 
-    it('opens a line whose every copy is queued on its first copy', async () => {
+    it('opens each queued copy of an unpicked card from its own line', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf({ mainboard: [unpicked(bolt), unpicked(boltAgain)] }),
         queue: queueOf({ cards: [queued(boltAgain), queued(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
+      const boltLines = [...plan.querySelectorAll<HTMLElement>('[aria-haspopup="dialog"]')].filter(
+        (opener) => accessibleName(opener) === 'Lightning Bolt',
+      );
+      expect(boltLines).toHaveLength(2);
 
-      detailOpener(plan, 'Lightning Bolt')!.click();
-      await fixture.whenStable();
-      button(openDialog()!, 'Remove from queue')!.click();
-
-      expect(http.expectOne('/api/drafts/draft-1/queue/bolt-card').request.method).toBe('DELETE');
+      // Each line's Remove from queue removes its own queued copy: the first line's is queued first.
+      for (const [line, copy] of [
+        [boltLines[0], 'bolt-card-2'],
+        [boltLines[1], 'bolt-card'],
+      ] as const) {
+        line.click();
+        await fixture.whenStable();
+        button(openDialog()!, 'Remove from queue')!.click();
+        const req = http.expectOne(`/api/drafts/draft-1/queue/${copy}`);
+        expect(req.request.method).toBe('DELETE');
+        req.flush(queueOf({ cards: [queued(boltAgain), queued(bolt)] }));
+        await fixture.whenStable();
+      }
     });
 
     it('keeps its Move and Remove buttons', async () => {
@@ -507,9 +519,9 @@ describe('plan tab', () => {
       req.flush(queueOf({ cards: [queued(shivan)] }));
       await fixture.whenStable();
 
+      // Queued, the card shows as a queued card, the queue's to remove.
       expect(buttonOrder(detail, 'Pick')).toEqual([
         'Close',
-        'Remove from Deck',
         'Remove from queue',
         'Move to sideboard',
         'Pick',

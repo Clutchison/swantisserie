@@ -190,6 +190,12 @@
               [opensDetail]="true"
               (opened)="openDetail(card.poolCardId, $event)"
             />
+            <!-- A queued copy on the sideboard is marked: the player intends to pick it but not to play it. A cell on every row, so the row menus line up. -->
+            <span class="board">
+              @if (card.board === 'Sideboard') {
+                <span class="mark">Sideboard</span>
+              }
+            </span>
             @if (nextUp) {
               <span class="visually-hidden">, next up</span>
             }

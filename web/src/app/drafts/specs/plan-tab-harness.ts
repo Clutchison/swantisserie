@@ -2,7 +2,13 @@ import { CdkDrag, CdkDropList } from '@angular/cdk/drag-drop';
 import type { DebugElement } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import type { BasicLandPrintingsView, BasicLandPrintingView, PlanBoard, PlanView } from 'contract';
+import {
+  PLAN_BOARDS,
+  type BasicLandPrintingsView,
+  type BasicLandPrintingView,
+  type PlanBoard,
+  type PlanView,
+} from 'contract';
 import {
   byAriaLabel,
   collapseWhitespace,
@@ -19,6 +25,7 @@ import {
   button,
   comboboxOptions,
   editableCombobox,
+  findNamedList,
   headings,
   http,
   image,
@@ -136,17 +143,32 @@ export const expectInItemOf = (plan: HTMLElement, name: string) =>
 /** Opens the Deck tab and returns its panel. */
 export const openPlan = (fixture: AppFixture, page: HTMLElement) => openTab(fixture, page, 'Deck');
 
-/** Each plan board's heading, and its lines as `count name`, with ` (unpicked)` after a line marked Unpicked. */
+/**
+ * Each plan board's heading, and in list mode its lines as `count name`, as
+ * a screen reader reads them: with ` (unpicked)` after a line marked
+ * Unpicked, and a queued card's Queued badge after it, as ` (queued second)`.
+ */
 export function planBoards(plan: HTMLElement) {
-  return [...plan.querySelectorAll('section')].map((planBoard) => ({
-    heading: planBoard.querySelector('h3')?.textContent?.replace(/\s+/g, ' ').trim(),
-    lines: [...planBoard.querySelectorAll('li:not(.empty)')].map(
-      (line) =>
-        `${line.querySelector('.count')?.textContent?.trim()} ${line.querySelector('.name')?.textContent?.trim()}` +
-        (line.textContent?.includes('Unpicked') ? ' (unpicked)' : ''),
-    ),
+  return PLAN_BOARDS.map((planBoard) => ({
+    heading: accessibleName(planBoardHeading(plan, planBoard)!),
+    lines: planBoardLines(plan, planBoard).map((line) => {
+      const said = textRuns(line);
+      const badge = said.find((run) => run.startsWith('Queued '));
+      const opener = line.querySelector('[aria-haspopup="dialog"]');
+      return (
+        `${said[0]} ${opener ? accessibleName(opener) : ''}` +
+        (said.includes('Unpicked') ? ' (unpicked)' : '') +
+        (badge ? ` (${badge.toLowerCase()})` : '')
+      );
+    }),
   }));
 }
+
+/** The lines of the list inside `plan` named `planBoard`, each a card's list item; none while it shows no list. */
+const planBoardLines = (plan: HTMLElement, planBoard: PlanBoard) =>
+  [...(findNamedList(plan, planBoard)?.querySelectorAll('li') ?? [])].filter((item) =>
+    item.querySelector('[aria-haspopup="dialog"], [role="img"]'),
+  );
 
 /** The control inside `root` that opens a plan card's Card detail, by its accessible name, as `Lightning Bolt (unpicked)` for a stacked unpicked card. */
 export const detailOpener = (root: HTMLElement, name: string) =>
@@ -202,14 +224,16 @@ export const stackHeaderContents = (plan: HTMLElement) =>
   }));
 
 /**
- * The runs of text inside `element` outside any part hidden from a screen
- * reader, each with its whitespace collapsed, leaving out empty ones.
+ * The runs of text inside `element` outside any part of it hidden from a
+ * screen reader, each with its whitespace collapsed, leaving out empty ones.
  */
 function textRuns(element: Element) {
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
   const runs: string[] = [];
   while (walker.nextNode()) {
-    if (walker.currentNode.parentElement?.closest('[aria-hidden="true"]')) continue;
+    const hidden = walker.currentNode.parentElement?.closest('[aria-hidden="true"]');
+    // Only a part hidden inside `element`: a dialog open over the page hides all of it.
+    if (hidden && element.contains(hidden)) continue;
     runs.push(walker.currentNode.textContent ?? '');
   }
   return runs.map(collapseWhitespace).filter((run) => run !== '');
