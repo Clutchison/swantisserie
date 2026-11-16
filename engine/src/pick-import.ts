@@ -1,12 +1,9 @@
 import { frontFace } from './card-faces.js';
+import type { CascadePick, CascadeSeat } from './cascade.js';
 import type { Pool } from './copies.js';
 import type { DraftSize } from './draft-size.js';
-import {
-  type DeckBoard,
-  landingBoard,
-  queuesAfterPick,
-  type SeatQueue,
-} from './queue.js';
+import { plansAfterPick } from './plan.js';
+import { queuesAfterPick, type SeatQueue } from './queue.js';
 import {
   currentTurn,
   picksPerTurn,
@@ -306,26 +303,33 @@ export function readPickImport(
 }
 
 /**
- * The deck board each of `picks`, a pick import's picks in pick order,
- * lands on, as `landingBoard` says, from `queues`, each seat's queue state
- * before the import, indexed by seat. Each pick changes the queues as
- * `queuesAfterPick` says before the next is placed, so a copy swapped into
- * a queue keeps the board of the one picked. Cards are pool card ids, as in
- * `pool`.
+ * What each of `picks`, a pick import's picks in pick order, does to every
+ * queue and plan, as a cascade gives its picks' effects: `seats` are each
+ * seat's queue state and plan before the import, indexed by seat. Each pick
+ * changes them, as `queuesAfterPick` and `plansAfterPick` say, before the
+ * next, so a copy swapped into a queue keeps the deck board of the one
+ * picked, and a later pick of it lands there. Cards are pool card ids, as
+ * in `pool`.
  */
-export function pickImportBoards(
+export function pickImportEffects(
   picks: readonly ImportedPick[],
-  queues: readonly SeatQueue[],
+  seats: readonly CascadeSeat[],
   pool: Pool,
-): DeckBoard[] {
+): CascadePick[] {
   const picked: string[] = [];
-  let now = queues;
+  let queues: readonly SeatQueue[] = seats;
+  let planned: readonly (readonly string[])[] = seats.map((seat) => seat.plan);
   return picks.map(({ seat, poolCardId }) => {
     const pick = { seat, card: poolCardId };
     const context = { pool, picked };
-    const board = landingBoard(pick, now, context);
-    now = queuesAfterPick(pick, now, context);
+    const effects = {
+      pick,
+      queues: queuesAfterPick(pick, queues, context),
+      plans: plansAfterPick(pick, planned, context),
+    };
+    queues = effects.queues;
+    planned = effects.plans.map((after) => after.plan);
     picked.push(poolCardId);
-    return board;
+    return effects;
   });
 }

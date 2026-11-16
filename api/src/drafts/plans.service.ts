@@ -22,7 +22,7 @@ import {
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftLock } from './draft-lock.js';
 import type { Transaction } from './draft-shapes.js';
-import { isDeckLocked } from './locked-deck.js';
+import { DECK_LOCKED, isDeckLocked } from './locked-deck.js';
 import { otherPlanBoard } from './plan-boards.js';
 import { playersPreferredPrintings } from './preferred-printings.js';
 
@@ -339,11 +339,7 @@ export class PlansService {
       if (!locked) throw new NotAPlayerError('plans');
       const { playerId, state } = locked;
       if (deckWrite && (await isDeckLocked(tx, playerId))) {
-        throw new PlanRefusedError({
-          error: 'deck-locked',
-          message:
-            'Your deck is locked until this draft’s tournament is complete or cancelled.',
-        });
+        throw new PlanRefusedError(DECK_LOCKED);
       }
       await apply(tx, playerId, state);
       return {

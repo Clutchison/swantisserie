@@ -325,13 +325,13 @@ describe('cascade', () => {
       ).toEqual([
         {
           pick: { seat: 0, card: 'bolt-1' },
-          board: 'Mainboard',
           queues: [
             {
               queue: [],
               stealBehavior: 'PauseQueue',
               queuePaused: false,
               sideboard: [],
+              landsOn: 'Mainboard',
             },
             {
               queue: ['bolt-2', 'shock'],
@@ -351,7 +351,6 @@ describe('cascade', () => {
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
-          board: 'Mainboard',
           queues: [
             {
               queue: [],
@@ -364,6 +363,7 @@ describe('cascade', () => {
               stealBehavior: 'PauseQueue',
               queuePaused: false,
               sideboard: [],
+              landsOn: 'Mainboard',
             },
             {
               queue: [],
@@ -387,7 +387,10 @@ describe('cascade', () => {
             sideboards: [[], ['bolt-1']],
           }),
           bolts,
-        ).map(({ pick, board }) => ({ ...pick, board })),
+        ).map(({ pick, queues }) => ({
+          ...pick,
+          board: queues[pick.seat].landsOn,
+        })),
       ).toEqual([
         { seat: 0, card: 'bolt-1', board: 'Mainboard' },
         { seat: 1, card: 'bolt-2', board: 'Sideboard' },

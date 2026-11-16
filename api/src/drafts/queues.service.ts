@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftLock } from './draft-lock.js';
 import { DRAFT_SIZE_FIELDS, type Transaction } from './draft-shapes.js';
-import { isDeckLocked } from './locked-deck.js';
+import { DECK_LOCKED, isDeckLocked } from './locked-deck.js';
 import { PLAN_ORDER } from './plans.service.js';
 import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
 import {
@@ -238,11 +238,7 @@ export class QueuesService {
       if (!locked) throw new NotAPlayerError('queues');
       const { playerId } = locked;
       if (await isDeckLocked(tx, playerId)) {
-        throw new QueueRefusedError({
-          error: 'deck-locked',
-          message:
-            'Your deck is locked until this draft’s tournament is complete or cancelled.',
-        });
+        throw new QueueRefusedError(DECK_LOCKED);
       }
       const { count } = await tx.queuedCard.updateMany({
         where: { playerId, poolCardId },

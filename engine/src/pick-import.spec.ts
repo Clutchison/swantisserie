@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { pickImportBoards, readPickImport } from './pick-import.js';
+import { pickImportEffects, readPickImport } from './pick-import.js';
 
 /** A pool card whose id is its name, in lower case. */
 const card = (name: string) => ({ id: name.toLowerCase(), name });
@@ -515,7 +515,7 @@ describe('readPickImport', () => {
   });
 });
 
-describe('pickImportBoards', () => {
+describe('pickImportEffects', () => {
   // Two copies of Lightning Bolt and one each of Shock and Lava Spike.
   const bolts = new Map([
     ['bolt-1', 'Lightning Bolt'],
@@ -528,30 +528,34 @@ describe('pickImportBoards', () => {
     // Seat 0 queued bolt-1 and Shock on its sideboard. Seat 1 imports
     // bolt-1, so seat 0's queue holds bolt-2 there instead, which seat 0
     // then imports; Lava Spike was never queued, and seat 1 takes Shock.
+    const effects = pickImportEffects(
+      [
+        { number: 1, seat: 1, poolCardId: 'bolt-1' },
+        { number: 2, seat: 0, poolCardId: 'bolt-2' },
+        { number: 3, seat: 0, poolCardId: 'spike' },
+        { number: 4, seat: 1, poolCardId: 'shock' },
+      ],
+      [
+        {
+          queue: ['bolt-1', 'shock'],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+          sideboard: ['bolt-1', 'shock'],
+          plan: [],
+        },
+        {
+          queue: [],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+          sideboard: [],
+          plan: [],
+        },
+      ],
+      bolts,
+    );
+
     expect(
-      pickImportBoards(
-        [
-          { number: 1, seat: 1, poolCardId: 'bolt-1' },
-          { number: 2, seat: 0, poolCardId: 'bolt-2' },
-          { number: 3, seat: 0, poolCardId: 'spike' },
-          { number: 4, seat: 1, poolCardId: 'shock' },
-        ],
-        [
-          {
-            queue: ['bolt-1', 'shock'],
-            stealBehavior: 'PauseQueue',
-            queuePaused: false,
-            sideboard: ['bolt-1', 'shock'],
-          },
-          {
-            queue: [],
-            stealBehavior: 'PauseQueue',
-            queuePaused: false,
-            sideboard: [],
-          },
-        ],
-        bolts,
-      ),
+      effects.map(({ pick, queues }) => queues[pick.seat].landsOn),
     ).toEqual(['Mainboard', 'Sideboard', 'Mainboard', 'Mainboard']);
   });
 });

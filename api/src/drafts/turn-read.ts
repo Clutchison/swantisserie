@@ -1,4 +1,4 @@
-import type { DeckBoard, Pool, SeatQueue } from 'engine';
+import type { PlanBoard, Pool, SeatQueue } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
 import { EVENT_PLAYER } from './draft-events.js';
 import { SEAT_ORDER, type Transaction } from './draft-shapes.js';
@@ -8,7 +8,7 @@ export interface QueuedRow {
   poolCardId: string;
   position: number;
   /** The deck board it sits on. */
-  board: DeckBoard;
+  board: PlanBoard;
 }
 
 /**

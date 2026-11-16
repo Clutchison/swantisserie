@@ -2,7 +2,6 @@ import type { DraftPicks } from './pick.js';
 import { type PlanAfterPick, plansAfterPick } from './plan.js';
 import type { Pool } from './copies.js';
 import {
-  type DeckBoard,
   nextQueuedPick,
   type QueueAfterPick,
   type SeatPick,
@@ -15,8 +14,6 @@ export type QueuedPick = SeatPick;
 /** A pick a cascade makes, with what it does to every queue and plan. */
 export interface CascadePick {
   pick: QueuedPick;
-  /** The deck board the pick lands on, as `landingBoard` says. */
-  board: DeckBoard;
   /** Each seat's queue state after the pick, as `queuesAfterPick` says. */
   queues: QueueAfterPick[];
   /** Each seat's plan after the pick, as `plansAfterPick` says. */

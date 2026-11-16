@@ -2,10 +2,8 @@ import { Injectable } from '@nestjs/common';
 import {
   cascade,
   currentTurn,
-  type DeckBoard,
   draftComplete,
   draftSize,
-  landingBoard,
   type PlanAfterPick,
   pickProblem,
   plansAfterPick,
@@ -53,14 +51,10 @@ const PICK_LOG = {
 
 export type LoggedPick = Prisma.PickGetPayload<typeof PICK_LOG>;
 
-/**
- * What a pick does to each queue and plan, by seat, and the deck board it
- * lands on, as the engine works it out.
- */
+/** What a pick does to each queue and plan, by seat, as the engine works it out. */
 interface PickEffects {
   queues: QueueAfterPick[];
   plans: PlanAfterPick[];
-  board: DeckBoard;
 }
 
 /** A bot's turn: the pick it is to make in a draft. */
@@ -276,12 +270,12 @@ export class TurnsService {
       context.pool,
     );
     const events: DraftEvent[] = [];
-    for (const { pick, queues, plans, board } of picks) {
+    for (const { pick, queues, plans } of picks) {
       const { userId } = players[pick.seat];
       events.push(
         ...(await this.pickCard(draft, turnRead, userId, pick.card, {
           queued: true,
-          effects: { queues, plans, board },
+          effects: { queues, plans },
         })),
       );
     }
@@ -355,10 +349,15 @@ export class TurnsService {
       select: MADE_PICK,
     });
     // Worked out once, by the cascade or here, and persisted the same way.
-    const { queues, plans, board } =
-      effects ?? effectsOf(turnRead, seat, poolCardId);
+    const { queues, plans } = effects ?? effectsOf(turnRead, seat, poolCardId);
     const playerIds = players.map((player) => player.id);
-    turnRead.plans = await recordPlanEffects(tx, made, playerIds, plans, board);
+    turnRead.plans = await recordPlanEffects(
+      tx,
+      made,
+      playerIds,
+      plans,
+      queues[seat].landsOn,
+    );
     turnRead.queues = await recordQueueEffects(
       tx,
       made,
@@ -440,8 +439,7 @@ export class TurnsService {
 
 /**
  * What the engine says `seat`'s pick of `poolCardId` does to each queue and
- * plan, and the deck board it lands on, from `turnRead`, the draft as the
- * turn holds it before the pick.
+ * plan, from `turnRead`, the draft as the turn holds it before the pick.
  */
 function effectsOf(
   turnRead: TurnRead,
@@ -453,6 +451,5 @@ function effectsOf(
   return {
     queues: queuesAfterPick(pick, queues, context),
     plans: plansAfterPick(pick, turnRead.plans, context),
-    board: landingBoard(pick, queues, context),
   };
 }

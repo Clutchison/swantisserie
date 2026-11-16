@@ -1,8 +1,7 @@
 import {
-  type DeckBoard,
-  pickImportBoards,
+  pickImportEffects,
   type PlanAfterPick,
-  plansAfterPick,
+  type QueueAfterPick,
 } from 'engine';
 import type { MadePick, Transaction } from './draft-shapes.js';
 import { engineView, readTurn } from './turn-read.js';
@@ -10,20 +9,21 @@ import { engineView, readTurn } from './turn-read.js';
 /**
  * Persists `after`, what a new pick, already made, does to each plan, as
  * the engine works it out; `playerIds` are the players by seat, as `after`
- * is indexed. The pick lands on `board`, the deck board the engine's
- * `landingBoard` says, unless their plan holds it, or another unpicked copy
- * of it, which then becomes the pick where it is. In each other plan holding it unpicked, it is swapped for
- * another copy or lost; a lost card is kept against the pick, with its
- * board, so that undoing it can put it back, and listed on the Deck notice.
- * A swapped copy stays swapped: it is as good as the one picked.
- * Returns each player's planned cards, picked or not, as they now are.
+ * is indexed. The pick lands on `landsOn`, the deck board the engine gives
+ * as the picker's queue's `landsOn`, unless their plan holds it, or another
+ * unpicked copy of it, which then becomes the pick where it is. In each
+ * other plan holding it unpicked, it is swapped for another copy or lost; a
+ * lost card is kept against the pick, with its board, so that undoing it
+ * can put it back, and listed on the Deck notice. A swapped copy stays
+ * swapped: it is as good as the one picked. Returns each player's planned
+ * cards, picked or not, as they now are.
  */
 export async function recordPlanEffects(
   tx: Transaction,
   pick: MadePick,
   playerIds: readonly string[],
   after: readonly PlanAfterPick[],
-  board: DeckBoard,
+  landsOn: QueueAfterPick['landsOn'],
 ): Promise<string[][]> {
   for (const [seat, { plan, swapped, lost }] of after.entries()) {
     const playerId = playerIds[seat];
@@ -45,7 +45,8 @@ export async function recordPlanEffects(
             playerId,
             poolCardId: pick.poolCardId,
             pickId: pick.id,
-            board,
+            // The engine gives it for the picker's queue, which every pick has.
+            board: landsOn ?? 'Mainboard',
           },
         });
       }
@@ -74,10 +75,11 @@ export async function recordPlanEffects(
 
 /**
  * Does what each of `picks`, just made in the draft `draftId` and all its
- * picks, does to plans, in pick order. The draft is read once, and each
- * pick applied to it in turn, as the engine works out: each lands on the
- * deck board of the queued copy it accounts for in its picker's queue, as
- * the queues stood before the picks, or the mainboard.
+ * picks, does to plans, in pick order. The draft is read once, and the
+ * engine's `pickImportEffects` applies each pick to its queues and plans in
+ * turn: each lands on the deck board of the queued copy it accounts for in
+ * its picker's queue, as the picks before it left the queues, or on the
+ * mainboard.
  */
 export async function planPicks(
   tx: Transaction,
@@ -89,29 +91,26 @@ export async function planPicks(
   const playerIds = players.map((player) => player.id);
   // Stryker disable next-line ArrowFunction,ArithmeticOperator: a behaviour change the specs can't reach, not an equivalent mutant: picks are inserted in number order, imports included, and never updated while this read returns them, so the specs' database returns them in that order without the sort, but a real Postgres's vacuum can reorder rows. The pick import's `findMany` has no `orderBy` of its own.
   const inOrder = picks.toSorted((a, b) => a.number - b.number);
-  const boards = pickImportBoards(
+  const effects = pickImportEffects(
     inOrder.map((pick) => ({
       number: pick.number,
       seat: playerIds.indexOf(pick.playerId),
       poolCardId: pick.poolCardId,
     })),
-    engineView(turnRead).queues,
+    engineView(turnRead).queues.map((queue, seat) => ({
+      ...queue,
+      plan: plans[seat],
+    })),
     pool,
   );
-  let planned = plans;
-  // Stryker disable next-line ArrayDeclaration: a pool card id that doesn't exist, in the copy rule's picked list, excludes no copy.
-  const picked: string[] = [];
-  for (const [at, pick] of inOrder.entries()) {
-    const after = plansAfterPick(
-      {
-        seat: playerIds.indexOf(pick.playerId),
-        card: pick.poolCardId,
-      },
-      planned,
-      { pool, picked },
+  for (const [at, { pick, queues, plans: after }] of effects.entries()) {
+    await recordPlanEffects(
+      tx,
+      inOrder[at],
+      playerIds,
+      after,
+      queues[pick.seat].landsOn,
     );
-    planned = await recordPlanEffects(tx, pick, playerIds, after, boards[at]);
-    picked.push(pick.poolCardId);
   }
 }
 

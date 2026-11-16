@@ -1,9 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
-  type DeckBoard,
-  landingBoard,
   nextQueuedPick,
   type QueuedCardAt,
+  type PlanBoard,
   type QueuedCopy,
   queueAfterUndo,
   queuesAfterPick,
@@ -49,6 +48,7 @@ describe('queuesAfterPick', () => {
         stealBehavior: 'PauseQueue',
         queuePaused: false,
         sideboard: [],
+        landsOn: 'Mainboard',
       },
       {
         queue: [],
@@ -82,6 +82,7 @@ describe('queuesAfterPick', () => {
           stealBehavior: 'PauseQueue',
           queuePaused: false,
           sideboard: [],
+          landsOn: 'Mainboard',
         },
         {
           queue: [],
@@ -105,6 +106,7 @@ describe('queuesAfterPick', () => {
           stealBehavior: 'PauseQueue',
           queuePaused: false,
           sideboard: [],
+          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -122,6 +124,7 @@ describe('queuesAfterPick', () => {
           stealBehavior: 'PauseQueue',
           queuePaused: false,
           sideboard: [],
+          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -139,6 +142,7 @@ describe('queuesAfterPick', () => {
           stealBehavior: 'PauseQueue',
           queuePaused: false,
           sideboard: [],
+          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -159,6 +163,7 @@ describe('queuesAfterPick', () => {
           stealBehavior: 'PickNext',
           queuePaused: true,
           sideboard: [],
+          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -177,6 +182,7 @@ describe('queuesAfterPick', () => {
         stealBehavior: 'PauseQueue',
         queuePaused: false,
         sideboard: [],
+        landsOn: 'Mainboard',
       },
       {
         queue: ['spike', 'bolt-2', 'shock'],
@@ -202,6 +208,7 @@ describe('queuesAfterPick', () => {
         stealBehavior: 'PauseQueue',
         queuePaused: false,
         sideboard: [],
+        landsOn: 'Mainboard',
       },
       {
         queue: ['spike', 'shock'],
@@ -235,6 +242,7 @@ describe('queuesAfterPick', () => {
         stealBehavior: 'PauseQueue',
         queuePaused: false,
         sideboard: [],
+        landsOn: 'Mainboard',
       },
       {
         queue: ['spike', 'shock'],
@@ -273,6 +281,7 @@ describe('queuesAfterPick', () => {
         stealBehavior: 'PauseQueue',
         queuePaused: true,
         sideboard: [],
+        landsOn: 'Mainboard',
       },
       {
         queue: ['spike'],
@@ -336,44 +345,44 @@ describe('queuesAfterPick, with queued copies on the sideboard', () => {
   });
 });
 
-describe('landingBoard', () => {
+describe('queuesAfterPick, saying where the pick lands', () => {
   it('lands a pick on the sideboard when the picker queued it there', () => {
     expect(
-      landingBoard(
+      queuesAfterPick(
         { seat: 0, card: 'shock' },
         seatQueues([['shock', 'spike']], [{ sideboard: ['shock'] }]),
         { pool, picked: [] },
-      ),
+      )[0].landsOn,
     ).toBe('Sideboard');
   });
 
   it('lands a pick on the mainboard when the picker queued it there', () => {
     expect(
-      landingBoard(
+      queuesAfterPick(
         { seat: 0, card: 'shock' },
         seatQueues([['shock', 'spike']], [{ sideboard: ['spike'] }]),
         { pool, picked: [] },
-      ),
+      )[0].landsOn,
     ).toBe('Mainboard');
   });
 
   it('lands a pick on the deck board of the queued copy that leaves instead, when the queue holds only other copies', () => {
     expect(
-      landingBoard(
+      queuesAfterPick(
         { seat: 0, card: 'bolt-1' },
         seatQueues([['shock', 'bolt-2']], [{ sideboard: ['bolt-2'] }]),
         { pool, picked: [] },
-      ),
+      )[0].landsOn,
     ).toBe('Sideboard');
   });
 
   it('lands a card the picker didn’t queue on the mainboard, whatever another queue says', () => {
     expect(
-      landingBoard(
+      queuesAfterPick(
         { seat: 0, card: 'shock' },
         seatQueues([['spike'], ['shock']], [{}, { sideboard: ['shock'] }]),
         { pool, picked: [] },
-      ),
+      )[0].landsOn,
     ).toBe('Mainboard');
   });
 });
@@ -388,7 +397,6 @@ describe('nextQueuedPick', () => {
       ),
     ).toEqual({
       pick: { seat: 1, card: 'bolt-1' },
-      board: 'Mainboard',
       queues: [
         {
           queue: [],
@@ -402,6 +410,7 @@ describe('nextQueuedPick', () => {
           stealBehavior: 'PauseQueue',
           queuePaused: false,
           sideboard: [],
+          landsOn: 'Mainboard',
         },
       ],
     });
@@ -413,7 +422,7 @@ describe('nextQueuedPick', () => {
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         seatQueues([['shock', 'spike'], []], [{ sideboard: ['shock'] }]),
         pool,
-      )?.board,
+      )?.queues[0].landsOn,
     ).toBe('Sideboard');
   });
 
@@ -457,7 +466,7 @@ describe('nextQueuedPick', () => {
 function at(
   card: string,
   position: number,
-  board: DeckBoard = 'Mainboard',
+  board: PlanBoard = 'Mainboard',
 ): QueuedCardAt {
   return { card, position, board };
 }
