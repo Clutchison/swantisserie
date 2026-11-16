@@ -1,3 +1,5 @@
+import type { QueuedCopy } from './queue.js';
+
 /**
  * A draft's pool: each pool card's oracle id, keyed by pool card id. Copies
  * of a card share an oracle id. Copies are offered in this order.
@@ -29,60 +31,55 @@ export function availableCopies(
     .map(([copy]) => copy);
 }
 
-/** An entry in a list of cards, such as a queued copy. */
-export interface Listed {
-  card: string;
-}
-
 /**
- * The entry in a seat's own queue that its pick of `card` accounts for:
- * `card` itself if the queue holds it, otherwise the first of the queue's
- * cards that is one of `copies`, otherwise none. `copies` is the card's
- * available copies, as `availableCopies` offers them.
+ * The queued copy in a seat's own queue that its pick of `card` accounts
+ * for: `card` itself if the queue holds it, otherwise the first of the
+ * queue's copies that is one of `copies`, otherwise none. `copies` is the
+ * card's available copies, as `availableCopies` offers them.
  */
-export function ownPickCopy<T extends Listed>(
-  list: readonly T[],
+export function ownPickCopy(
+  queue: readonly QueuedCopy[],
   card: string,
   copies: readonly string[],
-): T | undefined {
+): QueuedCopy | undefined {
   return (
-    list.find((listed) => listed.card === card) ??
-    list.find((listed) => copies.includes(listed.card))
+    queue.find((queued) => queued.card === card) ??
+    queue.find((queued) => copies.includes(queued.card))
   );
 }
 
-/** A list of cards, such as a queue, after another player picks one it holds. */
-export interface SwappedOrLost<T extends Listed> {
-  /** The list's entries, in order. */
-  list: T[];
+/** A queue after another player picks a card it holds. */
+export interface SwappedOrLost {
+  /** The queued copies, in order. */
+  queue: QueuedCopy[];
   /** The picked card and the copy swapped in for it, in the same place. */
   swapped?: Swap;
-  /** The picked card, if the list lost it: no copy was available for it. */
+  /** The picked card, if the queue lost it: no copy was available for it. */
   lost?: string;
 }
 
 /**
- * What another player's pick of `card` does to a list holding it: the card
- * is swapped, in the same place and keeping the rest of its entry, for the
- * first of `copies` the list doesn't hold; with no such copy, it is lost
- * and leaves the list. A list that doesn't hold the card comes back as it
+ * What another player's pick of `card` does to a queue holding it: the
+ * card is swapped, in the same place and on the same deck board, for the
+ * first of `copies` the queue doesn't hold; with no such copy, it is lost
+ * and leaves the queue. A queue that doesn't hold the card comes back as it
  * is. `copies` is the card's available copies, as `availableCopies` offers
  * them.
  */
-export function swapOrLose<T extends Listed>(
-  list: readonly T[],
+export function swapOrLose(
+  queue: readonly QueuedCopy[],
   card: string,
   copies: readonly string[],
-): SwappedOrLost<T> {
-  const at = list.findIndex((listed) => listed.card === card);
-  if (at === -1) return { list: [...list] };
+): SwappedOrLost {
+  const at = queue.findIndex((queued) => queued.card === card);
+  if (at === -1) return { queue: [...queue] };
   const copy = copies.find(
-    (copy) => !list.some((listed) => listed.card === copy),
+    (copy) => !queue.some((queued) => queued.card === copy),
   );
   return copy === undefined
-    ? { list: list.toSpliced(at, 1), lost: card }
+    ? { queue: queue.toSpliced(at, 1), lost: card }
     : {
-        list: list.with(at, { ...list[at], card: copy }),
+        queue: queue.with(at, { ...queue[at], card: copy }),
         swapped: { out: card, in: copy },
       };
 }

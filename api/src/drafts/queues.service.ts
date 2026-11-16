@@ -161,9 +161,8 @@ export class QueuesService {
 
   /**
    * Takes the pool card `poolCardId` out of the user's queue; a no-op if it
-   * isn't there. Throws QueueRefusedError once
-   * the draft is closed or complete, and NotAPlayerError if the user isn't
-   * in the draft.
+   * isn't there. Throws QueueRefusedError once the draft is closed or
+   * complete, and NotAPlayerError if the user isn't in the draft.
    */
   async remove(
     draftId: string,

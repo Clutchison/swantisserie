@@ -8,6 +8,7 @@ import {
   queuesAfterPick,
   type SeatQueue,
 } from './queue.js';
+import { onBoards } from './queue.fixtures.js';
 
 // Two copies of Lightning Bolt and one of Shock, keyed by pool card id.
 const pool = new Map([
@@ -16,17 +17,6 @@ const pool = new Map([
   ['shock', 'Shock'],
   ['spike', 'Lava Spike'],
 ]);
-
-/** Queued copies of `cards`, in order: those in `sideboard` on the sideboard, the rest on the mainboard. */
-function onBoards(
-  cards: readonly string[],
-  sideboard: readonly string[] = [],
-): QueuedCopy[] {
-  return cards.map((card) => ({
-    card,
-    board: sideboard.includes(card) ? 'Sideboard' : 'Mainboard',
-  }));
-}
 
 /**
  * Each seat's queue state, one per queue in `queues`: on pause queue and
@@ -57,13 +47,12 @@ describe('queuesAfterPick', () => {
         { seat: 0, card: 'shock' },
         seatQueues([['shock', 'spike'], []]),
         { pool, picked: [] },
-      ),
+      ).queues,
     ).toEqual([
       {
         queue: onBoards(['spike']),
         stealBehavior: 'PauseQueue',
         queuePaused: false,
-        landsOn: 'Mainboard',
       },
       {
         queue: [],
@@ -89,13 +78,12 @@ describe('queuesAfterPick', () => {
           { seat: 0, card: 'bolt-1' },
           seatQueues([['shock', 'bolt-2', 'spike'], []]),
           { pool, picked: [] },
-        ),
+        ).queues,
       ).toEqual([
         {
           queue: onBoards(['shock', 'spike']),
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          landsOn: 'Mainboard',
         },
         {
           queue: [],
@@ -111,13 +99,12 @@ describe('queuesAfterPick', () => {
           { seat: 0, card: 'bolt-2' },
           seatQueues([['bolt-1', 'shock', 'bolt-2']]),
           { pool, picked: [] },
-        ),
+        ).queues,
       ).toEqual([
         {
           queue: onBoards(['bolt-1', 'shock']),
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -128,13 +115,12 @@ describe('queuesAfterPick', () => {
           { seat: 0, card: 'bolt-1' },
           seatQueues([['shock', 'bolt-3', 'bolt-2']]),
           { pool: threeBolts, picked: [] },
-        ),
+        ).queues,
       ).toEqual([
         {
           queue: onBoards(['shock', 'bolt-2']),
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -145,13 +131,12 @@ describe('queuesAfterPick', () => {
           { seat: 0, card: 'bolt-1' },
           seatQueues([['bolt-2', 'shock']]),
           { pool, picked: ['bolt-2'] },
-        ),
+        ).queues,
       ).toEqual([
         {
           queue: onBoards(['bolt-2', 'shock']),
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -165,13 +150,12 @@ describe('queuesAfterPick', () => {
             [{ queuePaused: true, stealBehavior: 'PickNext' }],
           ),
           { pool, picked: [] },
-        ),
+        ).queues,
       ).toEqual([
         {
           queue: onBoards(['shock']),
           stealBehavior: 'PickNext',
           queuePaused: true,
-          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -183,13 +167,12 @@ describe('queuesAfterPick', () => {
         { seat: 0, card: 'bolt-1' },
         seatQueues([[], ['spike', 'bolt-1', 'shock']]),
         { pool, picked: [] },
-      ),
+      ).queues,
     ).toEqual([
       {
         queue: [],
         stealBehavior: 'PauseQueue',
         queuePaused: false,
-        landsOn: 'Mainboard',
       },
       {
         queue: onBoards(['spike', 'bolt-2', 'shock']),
@@ -207,13 +190,12 @@ describe('queuesAfterPick', () => {
         { seat: 0, card: 'bolt-1' },
         seatQueues([[], ['spike', 'bolt-1', 'shock'], ['shock']]),
         { pool, picked: ['bolt-2'] },
-      ),
+      ).queues,
     ).toEqual([
       {
         queue: [],
         stealBehavior: 'PauseQueue',
         queuePaused: false,
-        landsOn: 'Mainboard',
       },
       {
         queue: onBoards(['spike', 'shock']),
@@ -238,13 +220,12 @@ describe('queuesAfterPick', () => {
           [{}, { stealBehavior: 'PickNext' }],
         ),
         { pool, picked: ['bolt-2'] },
-      ),
+      ).queues,
     ).toEqual([
       {
         queue: [],
         stealBehavior: 'PauseQueue',
         queuePaused: false,
-        landsOn: 'Mainboard',
       },
       {
         queue: onBoards(['spike', 'shock']),
@@ -274,13 +255,12 @@ describe('queuesAfterPick', () => {
           ],
         ),
         { pool, picked: ['bolt-2'] },
-      ),
+      ).queues,
     ).toEqual([
       {
         queue: [],
         stealBehavior: 'PauseQueue',
         queuePaused: true,
-        landsOn: 'Mainboard',
       },
       {
         queue: onBoards(['spike']),
@@ -308,7 +288,7 @@ describe('queuesAfterPick, with queued copies on the sideboard', () => {
           [{}, { sideboard: ['bolt-1', 'shock'] }],
         ),
         { pool, picked: [] },
-      )[1],
+      ).queues[1],
     ).toMatchObject({
       queue: onBoards(['spike', 'bolt-2', 'shock'], ['bolt-2', 'shock']),
     });
@@ -320,12 +300,14 @@ describe('queuesAfterPick, with queued copies on the sideboard', () => {
         { seat: 0, card: 'bolt-1' },
         seatQueues([[], ['bolt-1', 'shock']], [{}, { sideboard: ['shock'] }]),
         { pool, picked: [] },
-      )[1],
+      ).queues[1],
     ).toMatchObject({ queue: onBoards(['bolt-2', 'shock'], ['shock']) });
   });
 
   it('takes a lost card, and the picker’s card that left, off the sideboard', () => {
-    const [picker, loser] = queuesAfterPick(
+    const {
+      queues: [picker, loser],
+    } = queuesAfterPick(
       { seat: 0, card: 'shock' },
       seatQueues(
         [
@@ -348,7 +330,7 @@ describe('queuesAfterPick, saying where the pick lands', () => {
         { seat: 0, card: 'shock' },
         seatQueues([['shock', 'spike']], [{ sideboard: ['shock'] }]),
         { pool, picked: [] },
-      )[0].landsOn,
+      ).landsOn,
     ).toBe('Sideboard');
   });
 
@@ -358,7 +340,7 @@ describe('queuesAfterPick, saying where the pick lands', () => {
         { seat: 0, card: 'shock' },
         seatQueues([['shock', 'spike']], [{ sideboard: ['spike'] }]),
         { pool, picked: [] },
-      )[0].landsOn,
+      ).landsOn,
     ).toBe('Mainboard');
   });
 
@@ -368,7 +350,7 @@ describe('queuesAfterPick, saying where the pick lands', () => {
         { seat: 0, card: 'bolt-1' },
         seatQueues([['shock', 'bolt-2']], [{ sideboard: ['bolt-2'] }]),
         { pool, picked: [] },
-      )[0].landsOn,
+      ).landsOn,
     ).toBe('Sideboard');
   });
 
@@ -378,7 +360,7 @@ describe('queuesAfterPick, saying where the pick lands', () => {
         { seat: 0, card: 'shock' },
         seatQueues([['spike'], ['shock']], [{}, { sideboard: ['shock'] }]),
         { pool, picked: [] },
-      )[0].landsOn,
+      ).landsOn,
     ).toBe('Mainboard');
   });
 });
@@ -404,9 +386,9 @@ describe('nextQueuedPick', () => {
           queue: onBoards(['bolt-2', 'spike']),
           stealBehavior: 'PauseQueue',
           queuePaused: false,
-          landsOn: 'Mainboard',
         },
       ],
+      landsOn: 'Mainboard',
     });
   });
 
@@ -416,7 +398,7 @@ describe('nextQueuedPick', () => {
         { players: 2, picksPerPlayer: 2, doublePicks: 0, picked: [] },
         seatQueues([['shock', 'spike'], []], [{ sideboard: ['shock'] }]),
         pool,
-      )?.queues[0].landsOn,
+      )?.landsOn,
     ).toBe('Sideboard');
   });
 

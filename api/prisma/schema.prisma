@@ -249,8 +249,8 @@ model PlannedCard {
   poolCardId String
   poolCard   PoolCard  @relation(fields: [poolCardId], references: [id], onDelete: Cascade)
   /// The pick it is. Undoing the pick takes the card out of the plan.
-  pickId     String?   @unique
-  pick       Pick?     @relation(fields: [pickId], references: [id], onDelete: SetNull)
+  pickId     String    @unique
+  pick       Pick      @relation(fields: [pickId], references: [id], onDelete: Cascade)
   board      PlanBoard @default(Mainboard)
 
   @@unique([playerId, poolCardId])

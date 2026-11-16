@@ -5,9 +5,9 @@ import {
   draftComplete,
   draftSize,
   pickProblem,
-  type QueueAfterPick,
   queuePicksBeforeAnotherPlayerPicks,
   queuesAfterPick,
+  type QueuesAfterPick,
   TURN_STATES,
 } from 'engine';
 import type { Prisma } from '../generated/prisma/client.js';
@@ -25,7 +25,7 @@ import {
 } from './draft-events.js';
 import { DraftLock, type LockedDraft } from './draft-lock.js';
 import { DRAFT_SIZE_FIELDS, MADE_PICK, SEAT_ORDER } from './draft-shapes.js';
-import { recordPlanEffects, restorePlans } from './plan-picks.js';
+import { recordPlanEffects } from './plan-picks.js';
 import { recordQueueEffects, restoreQueues } from './queue-effects.js';
 import {
   checkStarted,
@@ -48,11 +48,6 @@ const PICK_LOG = {
 } satisfies Prisma.PickFindManyArgs;
 
 export type LoggedPick = Prisma.PickGetPayload<typeof PICK_LOG>;
-
-/** What a pick does to each queue, by seat, as the engine works it out. */
-interface PickEffects {
-  queues: QueueAfterPick[];
-}
 
 /** A bot's turn: the pick it is to make in a draft. */
 export interface BotTurn {
@@ -266,12 +261,12 @@ export class TurnsService {
       context.pool,
     );
     const events: DraftEvent[] = [];
-    for (const { pick, queues } of picks) {
+    for (const { pick, ...effects } of picks) {
       const { userId } = players[pick.seat];
       events.push(
         ...(await this.pickCard(draft, turnRead, userId, pick.card, {
           queued: true,
-          effects: { queues },
+          effects,
         })),
       );
     }
@@ -302,8 +297,8 @@ export class TurnsService {
    * The user picks the pool card `poolCardId` on their turn, in a draft
    * that is Drafting; `queued` if it was picked from their queue. It is
    * checked against `turnRead`, the draft as the turn holds it, which it then
-   * changes as it changes the database. Its `effects` on queues and plans
-   * are worked out here, by the engine from `turnRead`, unless a cascade has
+   * changes as it changes the database. Its `effects` on queues, and the
+   * deck board it lands on, are worked out here, by the engine from `turnRead`, unless a cascade has
    * worked them out already; either way they are persisted the same way.
    * Throws PickRefusedError if they can't, and NotAPlayerError, before the
    * engine's pick check, if the user has no seat.
@@ -318,7 +313,7 @@ export class TurnsService {
       effects,
     }: {
       queued: boolean;
-      effects?: PickEffects;
+      effects?: QueuesAfterPick;
     },
   ): Promise<DraftEvent[]> {
     const { tx, id: draftId } = draft;
@@ -345,9 +340,9 @@ export class TurnsService {
       select: MADE_PICK,
     });
     // Worked out once, by the cascade or here, and persisted the same way.
-    const { queues } = effects ?? effectsOf(turnRead, seat, poolCardId);
-    // The engine gives it for the picker's queue, which every pick has.
-    await recordPlanEffects(tx, made, queues[seat].landsOn ?? 'Mainboard');
+    const { queues, landsOn } =
+      effects ?? effectsOf(turnRead, seat, poolCardId);
+    await recordPlanEffects(tx, made, landsOn);
     turnRead.queues = await recordQueueEffects(
       tx,
       made,
@@ -413,7 +408,7 @@ export class TurnsService {
           });
         }
         await restoreQueues(tx, latest.id);
-        await restorePlans(tx, latest.id);
+        // Deleting the pick takes it out of its player's plan too.
         await tx.pick.delete({ where: { id: latest.id } });
         return [
           {
@@ -430,15 +425,14 @@ export class TurnsService {
 
 /**
  * What the engine says `seat`'s pick of `poolCardId` does to each queue,
- * from `turnRead`, the draft as the turn holds it before the pick.
+ * and where it lands, from `turnRead`, the draft as the turn holds it
+ * before the pick.
  */
 function effectsOf(
   turnRead: TurnRead,
   seat: number,
   poolCardId: string,
-): PickEffects {
+): QueuesAfterPick {
   const { queues, context } = engineView(turnRead);
-  return {
-    queues: queuesAfterPick({ seat, card: poolCardId }, queues, context),
-  };
+  return queuesAfterPick({ seat, card: poolCardId }, queues, context);
 }

@@ -4,9 +4,9 @@ import { engineView, readTurn } from './turn-read.js';
 
 /**
  * Persists what a new pick, already made, does to plans: it joins its
- * player's plan on `landsOn`, the deck board the engine gives as the
- * picker's queue's `landsOn`. No other plan changes: a plan holds only
- * picks and basic lands (ADR 0020).
+ * player's plan on `landsOn`, the deck board the engine says it lands on.
+ * No other plan changes: a plan holds only picks and basic lands
+ * (ADR 0020). Deleting the pick, as an undo does, takes it out again.
  */
 export async function recordPlanEffects(
   tx: Transaction,
@@ -49,23 +49,7 @@ export async function planPicks(
     engineView(turnRead).queues,
     turnRead.pool,
   );
-  for (const [at, { pick, queues }] of effects.entries()) {
-    // The engine gives it for the picker's queue, which every pick has.
-    await recordPlanEffects(
-      tx,
-      inOrder[at],
-      queues[pick.seat].landsOn ?? 'Mainboard',
-    );
+  for (const [at, { landsOn }] of effects.entries()) {
+    await recordPlanEffects(tx, inOrder[at], landsOn);
   }
-}
-
-/**
- * Takes the pick out of its player's plan. The caller deletes the pick
- * straight after.
- */
-export async function restorePlans(
-  tx: Transaction,
-  pickId: string,
-): Promise<void> {
-  await tx.plannedCard.deleteMany({ where: { pickId } });
 }

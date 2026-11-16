@@ -553,8 +553,11 @@ describe('pickImportEffects', () => {
       bolts,
     );
 
-    expect(
-      effects.map(({ pick, queues }) => queues[pick.seat].landsOn),
-    ).toEqual(['Mainboard', 'Sideboard', 'Mainboard', 'Mainboard']);
+    expect(effects.map(({ landsOn }) => landsOn)).toEqual([
+      'Mainboard',
+      'Sideboard',
+      'Mainboard',
+      'Mainboard',
+    ]);
   });
 });

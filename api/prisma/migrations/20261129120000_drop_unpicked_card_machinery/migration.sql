@@ -7,6 +7,12 @@
 -- its deck without its pick, unshown; it goes too.
 DELETE FROM "PlannedCard" WHERE "pickId" IS NULL;
 
+-- Every deck card is now a pick, and undoing the pick takes it out of the
+-- deck.
+ALTER TABLE "PlannedCard" ALTER COLUMN "pickId" SET NOT NULL;
+ALTER TABLE "PlannedCard" DROP CONSTRAINT "PlannedCard_pickId_fkey";
+ALTER TABLE "PlannedCard" ADD CONSTRAINT "PlannedCard_pickId_fkey" FOREIGN KEY ("pickId") REFERENCES "Pick"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
 DROP TABLE "UnplannedCard";
 
 ALTER TABLE "PlannedCard"

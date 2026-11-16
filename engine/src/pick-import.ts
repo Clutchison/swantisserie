@@ -1,8 +1,7 @@
 import { frontFace } from './card-faces.js';
-import type { CascadePick } from './cascade.js';
 import type { Pool } from './copies.js';
 import type { DraftSize } from './draft-size.js';
-import { queuesAfterPick, type SeatQueue } from './queue.js';
+import { type PickEffects, queuesAfterPick, type SeatQueue } from './queue.js';
 import {
   currentTurn,
   picksPerTurn,
@@ -313,14 +312,14 @@ export function pickImportEffects(
   picks: readonly ImportedPick[],
   seats: readonly SeatQueue[],
   pool: Pool,
-): CascadePick[] {
+): PickEffects[] {
   const picked: string[] = [];
   let queues: readonly SeatQueue[] = seats;
   return picks.map(({ seat, poolCardId }) => {
     const pick = { seat, card: poolCardId };
     const effects = {
       pick,
-      queues: queuesAfterPick(pick, queues, { pool, picked }),
+      ...queuesAfterPick(pick, queues, { pool, picked }),
     };
     queues = effects.queues;
     picked.push(poolCardId);

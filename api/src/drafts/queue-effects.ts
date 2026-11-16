@@ -17,8 +17,9 @@ import type { QueuedRow, TurnQueue } from './turn-read.js';
  * or copy that left the picker's queue, are kept against the pick, in queue
  * order and with their deck boards, so that undoing it can put them back.
  * A lost card also records what its loss did to the queue, for the Queue
- * notice and the undo. A swapped copy stays swapped, on the same deck board: it is as good
- * as the one picked. Returns each player's queue as it now is.
+ * notice and the undo. A swapped copy stays swapped, on the same deck
+ * board: it is as good as the one picked. Returns each player's queue as it
+ * now is.
  */
 export async function recordQueueEffects(
   tx: Transaction,

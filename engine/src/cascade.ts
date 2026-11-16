@@ -1,16 +1,6 @@
 import type { DraftPicks } from './pick.js';
 import type { Pool } from './copies.js';
-import {
-  nextQueuedPick,
-  type QueuedPickEffects,
-  type SeatQueue,
-} from './queue.js';
-
-/**
- * A pick a cascade makes, with what it does to every queue, including, in
- * the picker's, the deck board it lands on.
- */
-export type CascadePick = QueuedPickEffects;
+import { nextQueuedPick, type PickEffects, type SeatQueue } from './queue.js';
 
 /**
  * The picks a cascade makes, each with its effects: one after another, the
@@ -28,10 +18,10 @@ export function cascade(
   draft: DraftPicks,
   seats: readonly SeatQueue[],
   pool: Pool,
-): CascadePick[] {
+): PickEffects[] {
   const picked = [...draft.picked];
   let queues: readonly SeatQueue[] = seats;
-  const picks: CascadePick[] = [];
+  const picks: PickEffects[] = [];
   for (;;) {
     const next = nextQueuedPick({ ...draft, picked }, queues, pool);
     if (!next) return picks;

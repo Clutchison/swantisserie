@@ -17,9 +17,11 @@ export { pickProblem } from './pick.js';
 export { pickImportEffects, readPickImport } from './pick-import.js';
 export { queueAfterUndo, queuesAfterPick } from './queue.js';
 export type {
+  PickEffects,
   PlanBoard,
   QueueAfterPick,
   QueueLoss,
+  QueuesAfterPick,
   QueuedCardAt,
   QueuedCopy,
   SeatQueue,

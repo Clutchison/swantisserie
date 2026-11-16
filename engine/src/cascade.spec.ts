@@ -1,17 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { cascade } from './cascade.js';
-import type { QueuedCopy, SeatQueue, StealBehavior } from './queue.js';
-
-/** Queued copies of `cards`, in order: those in `sideboard` on the sideboard, the rest on the mainboard. */
-function onBoards(
-  cards: readonly string[],
-  sideboard: readonly string[] = [],
-): QueuedCopy[] {
-  return cards.map((card) => ({
-    card,
-    board: sideboard.includes(card) ? 'Sideboard' : 'Mainboard',
-  }));
-}
+import { onBoards } from './queue.fixtures.js';
+import type { SeatQueue, StealBehavior } from './queue.js';
 
 /**
  * A cascade's seats, one per queue in `queues`: on pause queue, the queue
@@ -336,7 +326,6 @@ describe('cascade', () => {
               queue: [],
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              landsOn: 'Mainboard',
             },
             {
               queue: onBoards(['bolt-2', 'shock']),
@@ -350,6 +339,7 @@ describe('cascade', () => {
               queuePaused: false,
             },
           ],
+          landsOn: 'Mainboard',
         },
         {
           pick: { seat: 1, card: 'bolt-2' },
@@ -363,7 +353,6 @@ describe('cascade', () => {
               queue: onBoards(['shock']),
               stealBehavior: 'PauseQueue',
               queuePaused: false,
-              landsOn: 'Mainboard',
             },
             {
               queue: [],
@@ -371,6 +360,7 @@ describe('cascade', () => {
               queuePaused: false,
             },
           ],
+          landsOn: 'Mainboard',
         },
       ]);
     });
@@ -385,10 +375,7 @@ describe('cascade', () => {
             sideboards: [[], ['bolt-1']],
           }),
           bolts,
-        ).map(({ pick, queues }) => ({
-          ...pick,
-          board: queues[pick.seat].landsOn,
-        })),
+        ).map(({ pick, landsOn }) => ({ ...pick, board: landsOn })),
       ).toEqual([
         { seat: 0, card: 'bolt-1', board: 'Mainboard' },
         { seat: 1, card: 'bolt-2', board: 'Sideboard' },
