@@ -1,0 +1,30 @@
+# issue_hud's committed repo settings, written by ih init. Commit this file.
+
+[branches]
+# A ticket's branch name: {n} stands for the issue number.
+ticket = "ST-{n}"
+# Where a ticket's branch merges: "parent" means its parent spec's branch
+# under the convention above (ST-7 for a ticket of #7). Commented out,
+# tickets merge straight into the main branch.
+integration = "parent"
+# How tickets land on their integration branch: "merge" or "squash".
+# Commented out, either counts, and merging a PR uses what GitHub allows.
+# merge_method = "squash"
+# The repo's main branch.
+main = "main"
+
+[runs]
+# A script, relative to the repo's root, run in each new agent run's
+# worktree before its session starts, with IH_WORKTREE, IH_ISSUE,
+# IH_PORT_BASE and IH_PORT_COUNT set.
+# setup_script = "scripts/setup-worktree"
+# Claude Code permission rules unattended runs may use without asking.
+# allow = ["Bash(go test:*)"]
+# Unattended runs' permission mode: "acceptEdits" (the default) or "auto",
+# where Claude Code, not you, approves commands it can't analyse.
+# permission_mode = "auto"
+# Hosts unattended runs may reach beyond GitHub's, which are always allowed.
+# hosts = ["proxy.golang.org"]
+# Paths unattended runs may write to beyond their worktree: absolute or
+# under ~/, optionally ending in /**.
+# write_paths = ["~/.cache/go-build"]
