@@ -24,7 +24,7 @@ import {
   start,
   poolCardIds,
   addBot,
-  addToPlan,
+  addBasic,
   registerWebhook,
   cancelDraft,
   announcementsSettled,
@@ -49,7 +49,7 @@ describe('cancel', () => {
     const ids = await poolCardIds(id);
     // A queue already filled in the lobby.
     await queueInLobby(id, alice, ids.Shock);
-    await addToPlan(id, ids['Lightning Bolt'], aliceCookie).expect(200);
+    await addBasic(id, 'Mountain', aliceCookie).expect(200);
     await addBot(id, await signIn(carol)).expect(201);
 
     await cancelDraft(id).expect(204);
@@ -58,7 +58,7 @@ describe('cancel', () => {
     expect(await prisma.poolCard.count()).toBe(0);
     expect(await prisma.player.count()).toBe(0);
     expect(await prisma.queuedCard.count()).toBe(0);
-    expect(await prisma.plannedCard.count()).toBe(0);
+    expect(await prisma.plannedBasic.count()).toBe(0);
     expect(await prisma.user.count({ where: { isBot: true } })).toBe(0);
     expect(await prisma.user.count({ where: { id: alice.id } })).toBe(1);
   });

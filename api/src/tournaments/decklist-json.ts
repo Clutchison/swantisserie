@@ -56,17 +56,20 @@ export function decodeDecklist(json: Prisma.JsonValue | null): PlanBoards {
   };
 }
 
-const encodeCard = ({ poolCardId, name, picked }: PlannedCardView) => ({
+const encodeCard = ({ poolCardId, name }: PlannedCardView) => ({
   poolCardId,
   name,
-  picked,
 });
 
+// A snapshot kept while a deck could hold cards its player hadn’t picked
+// also says whether each was picked, which no one reads now.
 const decodeCard = ({
   poolCardId,
   name,
-  picked,
-}: PlannedCardView): PlannedCardView => ({ poolCardId, name, picked });
+}: PlannedCardView): PlannedCardView => ({
+  poolCardId,
+  name,
+});
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -83,8 +86,7 @@ function isCard(value: unknown): value is PlannedCardView {
   return (
     isObject(value) &&
     typeof value.poolCardId === 'string' &&
-    typeof value.name === 'string' &&
-    typeof value.picked === 'boolean'
+    typeof value.name === 'string'
   );
 }
 

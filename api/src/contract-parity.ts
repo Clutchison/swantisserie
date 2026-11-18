@@ -17,6 +17,7 @@ import type {
 import type {
   BracketSide as EngineBracketSide,
   MatchOutcome as EngineMatchOutcome,
+  PlanBoard as EnginePlanBoard,
   QueueLoss as EngineQueueLoss,
   StealBehavior as EngineStealBehavior,
   SwissRoundOption as EngineSwissRoundOption,
@@ -44,6 +45,7 @@ export type ContractMatchesSchema = [
   Expect<Within<TurnDraftState, Schema.DraftState>>,
   Expect<Same<TurnState, TurnDraftState>>,
   Expect<Same<PlanBoard, Schema.PlanBoard>>,
+  Expect<Same<EnginePlanBoard, Schema.PlanBoard>>,
   Expect<Same<Platform, Schema.Platform>>,
   Expect<Same<PoolSnapshotState, Schema.PoolSnapshotState>>,
   // Each contract kind is stored as its own schema kind, and every schema kind is one.

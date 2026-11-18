@@ -1,7 +1,6 @@
 import type { PlanView } from 'contract';
 import {
   useDraftsApp,
-  bob,
   http,
   openDraft,
   completeSnapshot,
@@ -13,18 +12,15 @@ import {
   type AppFixture,
 } from './harness';
 import { alertIn, comesBefore, onlyAlert, serverError, statusIn } from '../../specs-harness';
-import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
+import { useTallScreen, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
   boltAgain,
   cards,
-  deckNotice,
-  DECK_NOTICE,
   expectByTools,
   expectInItemOf,
   planned,
-  unpicked,
   planOf,
   openPlan,
   planBoards,
@@ -37,12 +33,12 @@ useDraftsApp();
 useTallScreen();
 
 const SHIVAN_URL = '/api/drafts/draft-1/plan/shivan-card';
-const NOTICE_URL = '/api/drafts/draft-1/plan/notice';
+const READY_NOTICE_URL = '/api/drafts/draft-1/plan/ready-notice';
 const MOVE_SHIVAN = 'Move Shivan Dragon to the sideboard';
-/** A plan whose Deck notice names Shivan Dragon, lost to Bob. */
-const withLost = planOf({
+/** A plan whose Ready notice shows. */
+const withReadyNotice = planOf({
   mainboard: [planned(brightclimb), planned(bolt), planned(boltAgain)],
-  lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
+  readyNotice: true,
 });
 
 /** Opens the Deck tab of a drafting draft on Bob's turn, the plan `plan`. */
@@ -117,46 +113,45 @@ describe('the Deck tab’s failed changes', () => {
   });
 
   it('shows a failed Remove inside that line’s list item', async () => {
-    const withUnpicked = planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] });
-    const { fixture, plan } = await openPlanOf(withUnpicked);
-    const remove = 'Remove Shivan Dragon from your deck';
+    const withForest = planOf({
+      mainboard: [planned(brightclimb)],
+      basics: [{ land: 'Forest', board: 'Mainboard', count: 1 }],
+    });
+    const { fixture, plan } = await openPlanOf(withForest);
+    const remove = 'Remove Forest from your deck';
 
     button(plan, remove)!.click();
-    await failed(fixture, SHIVAN_URL, { reread: withUnpicked, answer: null, init: serverError });
+    await failed(fixture, '/api/drafts/draft-1/plan/basics/Forest/Mainboard', {
+      reread: withForest,
+      answer: null,
+      init: serverError,
+    });
 
     expect(text(onlyAlert(plan))).toBe("Couldn't change your deck. Try again in a moment.");
     expectInItemOf(plan, remove);
   });
 
-  it('shows a failed Dismiss of the Deck notice after that notice, before the Ready notice', async () => {
-    const { fixture, plan } = await openPlanOf(withLost);
-
-    button(deckNotice(plan)!, 'Dismiss')!.click();
-    await failed(fixture, NOTICE_URL, { reread: withLost, answer: null, init: serverError });
-
-    const alert = onlyAlert(plan);
-    expect(comesBefore(statusIn(plan, { name: DECK_NOTICE })!, alert)).toBe(true);
-    expect(statusIn(plan, { name: DECK_NOTICE })!.contains(alert)).toBe(false);
-    expect(comesBefore(alert, statusIn(plan, { name: READY_NOTICE })!)).toBe(true);
-  });
-
   it('clears the reason a change was refused once one is made', async () => {
-    const { fixture, plan } = await openPlanOf(withLost);
+    const { fixture, plan } = await openPlanOf(withReadyNotice);
     button(plan, 'Move Lightning Bolt to the sideboard')!.click();
-    await failed(fixture, '/api/drafts/draft-1/plan/bolt-card', { reread: withLost });
+    await failed(fixture, '/api/drafts/draft-1/plan/bolt-card', { reread: withReadyNotice });
     await vi.waitFor(() => expect(alertIn(plan)).not.toBeNull());
 
     // A failure from another place takes its place: only one shows.
-    button(deckNotice(plan)!, 'Dismiss')!.click();
-    await failed(fixture, NOTICE_URL, { reread: withLost, answer: null, init: serverError });
-    expect(comesBefore(onlyAlert(plan), statusIn(plan, { name: READY_NOTICE })!)).toBe(true);
+    button(plan, 'Dismiss')!.click();
+    await failed(fixture, READY_NOTICE_URL, {
+      reread: withReadyNotice,
+      answer: null,
+      init: serverError,
+    });
+    expect(comesBefore(statusIn(plan, { name: READY_NOTICE })!, onlyAlert(plan))).toBe(true);
 
     button(plan, 'Move Lightning Bolt to the sideboard')!.click();
     http.expectOne('/api/drafts/draft-1/plan/bolt-card').flush(
       planOf({
         mainboard: [planned(brightclimb), planned(boltAgain)],
         sideboard: [planned(bolt)],
-        lost: withLost.lost,
+        readyNotice: true,
       }),
     );
     await fixture.whenStable();

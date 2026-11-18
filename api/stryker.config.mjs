@@ -73,7 +73,6 @@ export default {
     'src/drafts/turn-read.ts',
     'src/drafts/plan-picks.ts',
     'src/drafts/queue-clearing.ts',
-    'src/drafts/queue-order.ts',
   ],
   // Every api spec boots the whole app, so the dry run runs nearly every spec
   // file, one after another on Stryker's single vitest worker. Its measured

@@ -22,6 +22,8 @@ import {
   flushQueueAndPlan,
   pickOf,
   queueOf,
+  queued,
+  queuedOnSideboard,
   alice,
   bob,
 } from './harness';
@@ -34,7 +36,6 @@ import {
   boltAgain,
   cards,
   planned,
-  unpicked,
   planOf,
   openPlan,
   planBoards,
@@ -90,9 +91,10 @@ describe('plan tab', () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf({
-          mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)],
+          mainboard: [planned(brightclimb), planned(bolt)],
           sideboard: [planned(shivan)],
         }),
+        queue: queueOf({ cards: [queued(boltAgain)] }),
       });
       const plan = await openPlan(fixture, page);
 
@@ -101,7 +103,7 @@ describe('plan tab', () => {
       expect(pressed(plan, 'Mana value')).toBe('true');
       expect(stacksOf(plan)).toEqual([
         [
-          '1: Lightning Bolt, Lightning Bolt (unpicked)',
+          '1: Lightning Bolt, Lightning Bolt (queued first)',
           'Lands: Brightclimb Pathway // Grimclimb Pathway',
         ],
         ['Sideboard: Shivan Dragon'],
@@ -117,12 +119,13 @@ describe('plan tab', () => {
         cards,
         plan: planOf({
           mainboard: [planned(bolt)],
-          sideboard: [planned(brightclimb), planned(shivan), unpicked(boltAgain)],
+          sideboard: [planned(brightclimb), planned(shivan)],
         }),
+        queue: queueOf({ cards: [queuedOnSideboard(boltAgain)] }),
       });
       const plan = await openPlan(fixture, page);
       const sideboard = [
-        'Sideboard: Lightning Bolt (unpicked), Shivan Dragon, Brightclimb Pathway // Grimclimb Pathway',
+        'Sideboard: Lightning Bolt (queued first), Shivan Dragon, Brightclimb Pathway // Grimclimb Pathway',
       ];
 
       expect(stacksOf(plan)).toEqual([['1: Lightning Bolt'], sideboard]);
@@ -235,12 +238,12 @@ describe('plan tab', () => {
     it('does nothing with a card dropped once it has left the plan', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(shivan), unpicked(bolt)] }),
+        plan: planOf({ mainboard: [planned(shivan), planned(bolt)] }),
       });
       const plan = await openPlan(fixture, page);
       const boltDrag = dragOf(dropListNamed(fixture, '1'), 'Lightning Bolt');
 
-      // Bolt is lost while it is being dragged.
+      // Bolt's pick is undone while it is being dragged.
       button(plan, 'Move Shivan Dragon to the sideboard')!.click();
       http
         .expectOne('/api/drafts/draft-1/plan/shivan-card')
@@ -275,18 +278,19 @@ describe('plan tab', () => {
       expect(planBoards(plan)[0].lines).toHaveLength(3);
     });
 
-    describe('a stacked card’s Unpicked mark', () => {
-      /** Opens stacks mode with an unpicked Lightning Bolt, and returns its mark, on fake timers. */
+    describe('a stacked card’s Queued badge', () => {
+      /** Opens stacks mode with Lightning Bolt queued, and returns its badge as shown, on fake timers. */
       async function openMark() {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
-          plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt)] }),
+          plan: planOf({ mainboard: [planned(brightclimb)] }),
+          queue: queueOf({ cards: [queued(bolt)] }),
         });
         const plan = await openPlan(fixture, page);
         vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
-        const card = detailOpener(plan, 'Lightning Bolt (unpicked)')!;
+        const card = detailOpener(plan, 'Lightning Bolt (queued first)')!;
         const mark = [...card.querySelectorAll<HTMLElement>('*')].find(
-          (element) => text(element) === 'Unpicked',
+          (element) => text(element) === '#1 Queued',
         )!;
         return { mark, image: card.querySelector('img')! };
       }
@@ -339,7 +343,7 @@ describe('plan tab', () => {
       it('stays shown, undimmed outside the card, and part of the dragged card', async () => {
         const { mark } = await openMark();
 
-        expect(mark.textContent?.trim()).toBe('Unpicked');
+        expect(mark.textContent?.trim()).toBe('#1 Queued');
         expect(mark.closest('.card')).toBeNull();
         expect(mark.closest('.cdk-drag')).toBe(mark.closest('li'));
       });
@@ -384,9 +388,10 @@ describe('plan tab', () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
         plan: planOf({
-          mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)],
+          mainboard: [planned(brightclimb), planned(bolt)],
           sideboard: [planned(shivan)],
         }),
+        queue: queueOf({ cards: [queued(boltAgain)] }),
       });
       const plan = await openPlan(fixture, page);
       expect(pressed(plan, 'List')).toBe('true');
@@ -396,14 +401,14 @@ describe('plan tab', () => {
       await fixture.whenStable();
 
       expect(pressed(plan, 'Mana value')).toBe('true');
-      expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Lightning Bolt (unpicked)']);
+      expect(stack(plan, '1')).toEqual(['Lightning Bolt', 'Lightning Bolt (queued first)']);
       expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway']);
       expect(stack(plan, 'Sideboard')).toEqual(['Shivan Dragon']);
       expect(heading(plan, '1 2')).toBeDefined();
 
       toggleButton(plan, 'Type')!.click();
       await fixture.whenStable();
-      expect(stack(plan, 'Instant')).toEqual(['Lightning Bolt', 'Lightning Bolt (unpicked)']);
+      expect(stack(plan, 'Instant')).toEqual(['Lightning Bolt', 'Lightning Bolt (queued first)']);
     });
 
     it('opens as it was last left, on any screen', async () => {
@@ -616,9 +621,8 @@ describe('plan tab', () => {
       it('follow another player’s pick of a card on the mainboard, which leaves its stack', async () => {
         const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
           cards,
-          plan: planOf({
-            mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain), planned(shivan)],
-          }),
+          plan: planOf({ mainboard: [planned(brightclimb), planned(bolt), planned(shivan)] }),
+          queue: queueOf({ cards: [queued(boltAgain)] }),
         });
         const plan = await openPlan(fixture, page);
         expect(stackHeaders(plan)).toEqual(['1, 2 cards (current)', '6, 1 card', 'Lands, 1 card']);
@@ -631,11 +635,8 @@ describe('plan tab', () => {
         });
         await flushPicks([pickOf({ playerId: bob.id, poolCardId: boltAgain.id })]);
         await flushQueueAndPlan(
-          queueOf(),
-          planOf({
-            mainboard: [planned(brightclimb), planned(bolt), planned(shivan)],
-            lost: [{ poolCardId: boltAgain.id, name: boltAgain.name, pickedBy: bob.id }],
-          }),
+          queueOf({ lost: [queued(boltAgain)] }),
+          planOf({ mainboard: [planned(brightclimb), planned(bolt), planned(shivan)] }),
         );
         await fixture.whenStable();
 

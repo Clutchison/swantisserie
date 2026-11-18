@@ -109,8 +109,6 @@ export class PoolTab {
   private readonly actions = computed(() => ({
     pick: this.store.offerPick(),
     queue: this.store.offerQueue(),
-    addToPlan: this.store.offerAddToPlan(),
-    removeFromPlan: this.store.offerRemoveFromPlan(),
   }));
 
   /** The pool search typed into the search box. */

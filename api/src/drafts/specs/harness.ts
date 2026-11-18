@@ -576,9 +576,16 @@ export function removeFromQueue(
   return draftsRequest('delete', `/${id}/queue/${poolCardId}`, cookie);
 }
 
-/** Adds the unpicked cards in the player's plan to the end of their queue. */
-export function queueUnpicked(id: string, body: unknown, cookie: string) {
-  return draftsRequest('post', `/${id}/queue/unpicked`, cookie, body);
+/** Moves a queued copy in the player's queue to the plan board `board`. */
+export function moveToBoard(
+  id: string,
+  poolCardId: string,
+  board: unknown,
+  cookie = aliceCookie,
+) {
+  return draftsRequest('put', `/${id}/queue/${poolCardId}/board`, cookie, {
+    board,
+  });
 }
 
 /** Posts to the draft's `action` route. */
@@ -698,10 +705,14 @@ export const fourCards = [
   'Skewer the Critics',
 ];
 
-/** A queued card, named by any pool card id: each test's draft has its own. */
-export const queued = (name: string) => ({
+/**
+ * A queued card, named by any pool card id: each test's draft has its own.
+ * It sits on the mainboard unless `board` says otherwise.
+ */
+export const queued = (name: string, board: PlanBoard = 'Mainboard') => ({
   poolCardId: expect.any(String),
   name,
+  board,
 });
 export const shock = queued('Shock');
 export const bolt = queued('Lightning Bolt');
@@ -857,21 +868,6 @@ export function movePlanned(
   cookie: string,
 ) {
   return draftsRequest('put', `/${id}/plan/${poolCardId}`, cookie, { board });
-}
-
-/** Adds an unpicked copy of a pool card to the player's plan. */
-export function addToPlan(id: string, poolCardId: unknown, cookie: string) {
-  return draftsRequest('post', `/${id}/plan`, cookie, { poolCardId });
-}
-
-/** Takes an unpicked card out of the player's plan. */
-export function removeFromPlan(id: string, poolCardId: string, cookie: string) {
-  return draftsRequest('delete', `/${id}/plan/${poolCardId}`, cookie);
-}
-
-/** Dismisses the player's Deck notice. */
-export function dismissPlanNotice(id: string, cookie: string) {
-  return draftsRequest('delete', `/${id}/plan/notice`, cookie);
 }
 
 /** Dismisses the player's Ready notice. */

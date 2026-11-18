@@ -146,13 +146,9 @@ export async function planOf(id: string, cookie: string) {
   return (await plan(id, cookie).expect(200)).body as PlanView;
 }
 
-/**
- * The cards on the player's mainboard, by name, marking those unpicked.
- */
+/** The cards on the player's mainboard, by name. */
 export async function mainboard(id: string, cookie: string) {
-  return (await planOf(id, cookie)).mainboard.map(
-    (card) => `${card.name}${card.picked ? '' : ' (unpicked)'}`,
-  );
+  return (await planOf(id, cookie)).mainboard.map((card) => card.name);
 }
 
 /** The player's queue, and what its Queue notice lists, by name. */

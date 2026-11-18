@@ -219,7 +219,7 @@ The part of a draft's page that shows a draft's picks as a grid: a column for ea
 _Avoid_: Picks page, draft board, pick grid
 
 **Queue**:
-A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold; otherwise the card is lost, and the player's steal behavior decides what happens to the rest of the queue. When the player picks a card themselves, the card leaves their queue; if the queue holds only other copies of it, the first available one leaves instead, so the queue doesn't pick a second copy.
+A player's private, ordered list of cards to pick automatically when their turn comes. A player can queue several copies of a card. When another player picks a queued copy, the queue holds another copy in its place if one is available that the queue doesn't already hold; otherwise the card is lost, and the player's steal behavior decides what happens to the rest of the queue. When the player picks a card themselves, the card leaves their queue; if the queue holds only other copies of it, the first available one leaves instead, so the queue doesn't pick a second copy. Each queued copy sits on a deck board, the mainboard when it is queued, and the player's deck shows it there while their picks left can reach it.
 _Avoid_: Wishlist, preload list, autopick list
 
 **Queue paused**:
@@ -235,20 +235,16 @@ A run of queued picks that fire one after another because each next player also 
 _Avoid_: Chain, auto-run
 
 **Lost**:
-Describes a queued card, or an unpicked card in a deck, that another player picked first when no other copy of it was available for that queue or deck: every copy left was picked or already in it.
+Describes a queued card that another player picked first when no other copy of it was available for that queue: every copy left was picked or already in it.
 _Avoid_: Sniped, taken, removed (that is the player taking a card out by hand)
 
 **Copy rule**:
-What happens when another player picks a queued card, or an unpicked card in a deck: the queue or deck holds, in its place, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none. The player's own pick of a copy takes a queued copy out of their queue instead (see Queue).
+What happens when another player picks a queued card: the queue holds, in its place and on the same deck board, the first available copy of that card in the pool's order that it doesn't already hold, and the card is lost only when there is none. The player's own pick of a copy takes a queued copy out of their queue instead (see Queue).
 _Avoid_: Swap rule, substitution
 
 **Taken out**:
-Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or the queued copy of it that left instead, or, after another player's pick, the lost card. An undo of that pick puts every taken-out card back.
+Describes a queued card that a pick took out of a player's queue: the card the player picked from their own queue, or the queued copy of it that left instead, or, after another player's pick, the lost card. An undo of that pick puts every taken-out card back, on the deck board it was on.
 _Avoid_: Unqueued, removed (that is the player taking a card out by hand), taken (that is a lost card alone)
-
-**Departure**:
-Cards leaving a player's queue together: the cards one pick took out of it, a card the player took out by hand, or everything in it when a pick import empties it. Departures are ordered by when they happened; an undo putting taken-out cards back is not one.
-_Avoid_: Removal (that is the player taking a card out by hand), exit, drop
 
 **Steal behavior**:
 A player's setting, for one draft, for what a lost card does to the rest of their queue, which stays in order either way: **pause queue**, where it is set to queue paused, or **pick next**, where it stays as it was: queue picking, so their next available queued card is picked on their turn, or queue paused, if it already was. Players start on pause queue and can change it while the draft is drafting or frozen.
@@ -271,7 +267,7 @@ The Queue pane where there isn't room for it beside the tabs, raised over them f
 _Avoid_: Queue drawer, queue modal, queue popup, Queue tab
 
 **Queued badge**:
-The mark on a card in the Pool tab that the viewer has queued, showing its place in their queue.
+The mark on a card in the Pool tab or the Deck tab that the viewer has queued, showing its place in their queue.
 _Avoid_: Queue badge, queued label, Picked badge (that is a picked card's)
 
 **Queue cutoff**:
@@ -283,42 +279,34 @@ The note in the Queue pane naming a player's lost cards, and saying what each lo
 _Avoid_: Alert, warning, notification
 
 **Undo**:
-The organizer taking back a draft's latest pick, while it is drafting or frozen. The card returns to the pool, every card that pick took out of a queue goes back, including the picked card to its picker's own queue and a lost card, a queue that pick paused is set picking again, any unpicked card it took out of a deck goes back, and the turn returns to the player who picked it. An undo makes no queued picks.
+The organizer taking back a draft's latest pick, while it is drafting or frozen. The card returns to the pool, every card that pick took out of a queue goes back, including the picked card to its picker's own queue and a lost card, a queue that pick paused is set picking again, and the turn returns to the player who picked it. An undo makes no queued picks.
 _Avoid_: Revert, rollback, take-back
 
 **Arena export**:
-A player's deck, without its unpicked cards, as text that MTG Arena's deck import accepts, each card named the way Arena names it. Only Arena drafts offer it.
+A player's deck, without its queued cards, as text that MTG Arena's deck import accepts, each card named the way Arena names it. Only Arena drafts offer it.
 _Avoid_: Decklist, Arena import (that is what the player does with it)
 
 **MTGO export**:
-A player's deck, without its unpicked cards, as text that Magic Online's deck import accepts, each card named the way MTGO names it. Only MTGO drafts offer it.
+A player's deck, without its queued cards, as text that Magic Online's deck import accepts, each card named the way MTGO names it. Only MTGO drafts offer it.
 _Avoid_: Decklist, MTGO import (that is what the player does with it)
 
 **Moxfield export**:
-A player's deck, without its unpicked cards, as text that Moxfield's bulk edit accepts, each card named with its snapshotted printing.
+A player's deck, without its queued cards, as text that Moxfield's bulk edit accepts, each card named with its snapshotted printing.
 _Avoid_: Decklist, Moxfield import (that is what the player does with it)
 
 ## Deck
 
 **Deck**:
-A player's private mainboard and sideboard for one draft, from its start. It holds every pick they made, plus any basic lands and, until the draft completes, any unpicked pool cards they add: completing the draft takes every unpicked card out.
-_Avoid_: Plan, Deck Planner, deck plan, decklist (that is a deck as others see it), list, maybeboard
+A player's private mainboard and sideboard for one draft, from its start. It holds every pick they made and any basic lands, and shows their queued cards, each on its deck board, as far as their picks left can reach: the cards they intend to pick.
+_Avoid_: Plan, Deck Planner, deck plan, decklist (that is a deck as others see it), list, maybeboard, unpicked card (a queued card is what a deck shows instead)
 
 **Mainboard**:
-The part of a player's deck they intend to play. Each new pick lands in it.
+The part of a player's deck they intend to play. Each new pick lands in it, unless the card was a queued copy on the sideboard.
 _Avoid_: Main deck, maindeck, board (alone)
 
 **Sideboard**:
 The part of a player's deck holding cards they don't intend to play.
 _Avoid_: Maybeboard, bench, board (alone)
-
-**Unpicked card**:
-A pool card in a player's deck that no one has picked: the player added it from the Pool tab, and it stays until they take it out, pick it, another player picks it when no other copy is available for the deck, or the draft completes.
-_Avoid_: Maybe, wishlist card, placeholder, proxy
-
-**Queue order**:
-The order a player's deck remembers its cards in, from where each sat in their queue at its latest departure: the most recent departure's cards first, and each departure's cards in the order they sat. When the deck's unpicked cards are queued, they go in this order, ahead of those never queued. A card taken out of the deck, by the player or by a loss, loses its place, even if an undo puts it back.
-_Avoid_: Saved order, queue memory, previous order, remembered queue order
 
 **Basic land**:
 A Plains, Island, Swamp, Mountain or Forest in a player's deck, added one copy at a time onto the mainboard. Like any card, a copy moves between the deck boards, and the player can take it out of their deck. It is never a pool card: a pool leaves the basic lands out, so no one picks one, it is never queued, and no pick or undo changes it. It counts as picked. Neither a snow-covered basic nor Wastes is one: each can be a pool card.
@@ -347,10 +335,6 @@ _Avoid_: Plan board, board (alone; that is the Board tab), zone, section
 **Deck tab**:
 The part of a draft's page where a player builds their deck and copies its exports, from the draft's start to long after it completes.
 _Avoid_: Plan tab, Export tab, deckbuilder, Deck Planner
-
-**Deck notice**:
-The note on the Deck tab naming a player's lost unpicked cards and who picked each. It builds up until the player dismisses it, and an undo takes off what that pick added.
-_Avoid_: Plan notice, alert, queue notice (that is the queue's)
 
 **Stacks mode**:
 The way of showing a deck as stacks of overlapping card images, so a player sees their curve at a glance: the mainboard as a grouping's stacks, then the sideboard as one stack, in one row.

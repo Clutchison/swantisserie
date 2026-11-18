@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readPickImport } from './pick-import.js';
+import { pickImportEffects, readPickImport } from './pick-import.js';
 
 /** A pool card whose id is its name, in lower case. */
 const card = (name: string) => ({ id: name.toLowerCase(), name });
@@ -511,6 +511,53 @@ describe('readPickImport', () => {
       'Ash Golem appears more than once.',
       'Unknown Card isn’t in this draft’s pool.',
       'The file has 3 picks, but the draft allows 2.',
+    ]);
+  });
+});
+
+describe('pickImportEffects', () => {
+  // Two copies of Lightning Bolt and one each of Shock and Lava Spike.
+  const bolts = new Map([
+    ['bolt-1', 'Lightning Bolt'],
+    ['bolt-2', 'Lightning Bolt'],
+    ['shock', 'Shock'],
+    ['spike', 'Lava Spike'],
+  ]);
+
+  it('says which deck board each imported pick lands on, from its picker’s queue as the picks before it left it', () => {
+    // Seat 0 queued bolt-1 and Shock on its sideboard. Seat 1 imports
+    // bolt-1, so seat 0's queue holds bolt-2 there instead, which seat 0
+    // then imports; Lava Spike was never queued, and seat 1 takes Shock.
+    const effects = pickImportEffects(
+      [
+        { number: 1, seat: 1, poolCardId: 'bolt-1' },
+        { number: 2, seat: 0, poolCardId: 'bolt-2' },
+        { number: 3, seat: 0, poolCardId: 'spike' },
+        { number: 4, seat: 1, poolCardId: 'shock' },
+      ],
+      [
+        {
+          queue: [
+            { card: 'bolt-1', board: 'Sideboard' },
+            { card: 'shock', board: 'Sideboard' },
+          ],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+        },
+        {
+          queue: [],
+          stealBehavior: 'PauseQueue',
+          queuePaused: false,
+        },
+      ],
+      bolts,
+    );
+
+    expect(effects.map(({ landsOn }) => landsOn)).toEqual([
+      'Mainboard',
+      'Sideboard',
+      'Mainboard',
+      'Mainboard',
     ]);
   });
 });

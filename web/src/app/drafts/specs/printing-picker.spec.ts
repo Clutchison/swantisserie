@@ -111,7 +111,6 @@ describe('the Printing picker', () => {
     mainboard: [planned(bolt), planned(shivan)],
     sideboard: [],
     basics: [{ land: 'Island', board: 'Mainboard', count: 2 }],
-    lost: [],
     readyNotice: false,
     preferredPrintings: {},
     ...fields,

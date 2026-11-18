@@ -268,8 +268,8 @@ describe('close and reopen', () => {
   it('makes the queue read-only while closed, keeping it on show', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, closed, {
       queue: queueOf({
-        cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }],
-        lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt' }],
+        cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon', board: 'Mainboard' }],
+        lost: [{ poolCardId: 'bolt-card', name: 'Lightning Bolt', board: 'Mainboard' }],
       }),
     });
 
@@ -289,7 +289,9 @@ describe('close and reopen', () => {
       completeSnapshot,
       { ...underway, state, turn },
       {
-        queue: queueOf({ cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon' }] }),
+        queue: queueOf({
+          cards: [{ poolCardId: 'shivan-card', name: 'Shivan Dragon', board: 'Mainboard' }],
+        }),
       },
     );
 

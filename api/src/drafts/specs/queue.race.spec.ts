@@ -4,6 +4,7 @@ import {
   aliceThenBob,
   answered,
   describeRaces,
+  planOf,
   queueOf,
   race,
   raceBehindLongCommit,
@@ -15,6 +16,7 @@ import {
   dave,
   enqueue,
   fourCards,
+  moveToBoard,
   pick,
   pickLogLines,
   poolCardIds,
@@ -141,6 +143,39 @@ describeRaces('queue changes against a cascade', () => {
       queue: await queueOf(id, aliceCookie),
     });
     expect(picked.status).toBe(200);
+  });
+
+  it('moves a queued copy to the sideboard before the cascade picks it there, or is refused once the cascade has picked it', async () => {
+    const { id, ids } = await bobsSecondTurn();
+    await enqueue(id, ids['Skewer the Critics']).expect(200);
+
+    const [picked, moved] = await race(
+      () => pick(id, ids['Lava Spike'], bobCookie),
+      () => moveToBoard(id, ids['Skewer the Critics'], 'Sideboard'),
+    );
+
+    const { mainboard, sideboard } = await planOf(id, aliceCookie);
+    expect([
+      {
+        moved: 200,
+        mainboard: ['Shock'],
+        sideboard: ['Skewer the Critics'],
+      },
+      {
+        moved: '409 not-queued',
+        mainboard: ['Shock', 'Skewer the Critics'],
+        sideboard: [],
+      },
+    ]).toContainEqual({
+      moved: answered(moved),
+      mainboard: mainboard.map((card) => card.name),
+      sideboard: sideboard.map((card) => card.name),
+    });
+    expect(picked.status).toBe(200);
+    expect(await pickLogLines(id)).toEqual([
+      ...throughBobsSecond,
+      'Alice: Skewer the Critics',
+    ]);
   });
 
   it('queues a card once a cascade committing after Prisma’s default timeout has picked', async () => {

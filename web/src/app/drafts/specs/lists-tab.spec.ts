@@ -67,10 +67,10 @@ const decklists: DecklistView[] = [
   {
     playerId: alice.id,
     mainboard: [
-      { poolCardId: bolt.id, name: bolt.name, picked: true },
-      { poolCardId: 'bolt-2', name: bolt.name, picked: true },
+      { poolCardId: bolt.id, name: bolt.name },
+      { poolCardId: 'bolt-2', name: bolt.name },
     ],
-    sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
+    sideboard: [{ poolCardId: shock.id, name: shock.name }],
     basics: [
       { land: 'Island', board: 'Mainboard', count: 2 },
       { land: 'Mountain', board: 'Mainboard', count: 36 },
@@ -80,7 +80,7 @@ const decklists: DecklistView[] = [
   },
   {
     playerId: bob.id,
-    mainboard: [{ poolCardId: spike.id, name: spike.name, picked: true }],
+    mainboard: [{ poolCardId: spike.id, name: spike.name }],
     sideboard: [],
     basics: [
       { land: 'Mountain', board: 'Mainboard', count: 39 },

@@ -84,11 +84,18 @@ describe('cascade', () => {
     });
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     expect((await queue(id, bobCookie).expect(200)).body).toEqual({
-      cards: [{ poolCardId: ids['Lava Spike'], name: 'Lava Spike' }],
+      cards: [
+        {
+          poolCardId: ids['Lava Spike'],
+          name: 'Lava Spike',
+          board: 'Mainboard',
+        },
+      ],
       lost: [
         {
           poolCardId: ids.Shock,
           name: 'Shock',
+          board: 'Mainboard',
           queueLoss: 'QueuePaused',
         },
       ],
@@ -128,9 +135,20 @@ describe('cascade', () => {
       'Bob: Skewer the Critics',
     ]);
     expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-      cards: [{ poolCardId: ids['Play with Fire'], name: 'Play with Fire' }],
+      cards: [
+        {
+          poolCardId: ids['Play with Fire'],
+          name: 'Play with Fire',
+          board: 'Mainboard',
+        },
+      ],
       lost: [
-        { poolCardId: ids.Shock, name: 'Shock', queueLoss: 'QueuePaused' },
+        {
+          poolCardId: ids.Shock,
+          name: 'Shock',
+          board: 'Mainboard',
+          queueLoss: 'QueuePaused',
+        },
       ],
       stealBehavior: 'PauseQueue',
       queuePaused: true,
@@ -168,7 +186,11 @@ describe('cascade', () => {
         'Bob: Lightning Bolt',
       ]);
       expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
-        { poolCardId: ids['Lava Spike'], name: 'Lava Spike' },
+        {
+          poolCardId: ids['Lava Spike'],
+          name: 'Lava Spike',
+          board: 'Mainboard',
+        },
       ]);
     });
 
@@ -211,7 +233,13 @@ describe('cascade', () => {
     expect(await pickLogLines(id)).toEqual(['Alice: Shock']);
     // Alice's own pick leaves the rest of her queue in place.
     expect((await queue(id).expect(200)).body).toEqual({
-      cards: [{ poolCardId: ids['Lightning Bolt'], name: 'Lightning Bolt' }],
+      cards: [
+        {
+          poolCardId: ids['Lightning Bolt'],
+          name: 'Lightning Bolt',
+          board: 'Mainboard',
+        },
+      ],
       lost: [],
       stealBehavior: 'PauseQueue',
       queuePaused: false,
@@ -250,12 +278,17 @@ describe('cascade', () => {
       ]);
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
         cards: [
-          { poolCardId: ids['Skewer the Critics'], name: 'Skewer the Critics' },
+          {
+            poolCardId: ids['Skewer the Critics'],
+            name: 'Skewer the Critics',
+            board: 'Mainboard',
+          },
         ],
         lost: [
           {
             poolCardId: ids['Lightning Bolt'],
             name: 'Lightning Bolt',
+            board: 'Mainboard',
             queueLoss: 'QueuePaused',
           },
         ],
@@ -315,7 +348,7 @@ describe('cascade', () => {
     await pick(id, queuedCopy).expect(200);
 
     expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual([
-      { poolCardId: firstLeft, name: 'Lightning Bolt' },
+      { poolCardId: firstLeft, name: 'Lightning Bolt', board: 'Mainboard' },
     ]);
     await pick(id, ids.Shock, bobCookie).expect(200);
 

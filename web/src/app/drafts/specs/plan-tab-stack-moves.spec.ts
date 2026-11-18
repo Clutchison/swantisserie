@@ -18,6 +18,7 @@ import {
   flushQueueAndPlan,
   pickOf,
   queueOf,
+  queued,
   alice,
   bob,
   type AppFixture,
@@ -29,7 +30,6 @@ import {
   boltAgain,
   cards,
   planned,
-  unpicked,
   planOf,
   openPlan,
   detailOpener,
@@ -293,10 +293,11 @@ describe('Deck tab stack moves', () => {
     expect(stack(plan, 'Lands')).toEqual(['Brightclimb Pathway // Grimclimb Pathway', 'Forest']);
   });
 
-  it('keeps the stack move of an unpicked card another player picks, on the copy that takes its place', async () => {
+  it('keeps the stack move of a queued card another player picks, on the copy the queue holds in its place', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), planned(shivan)] }),
+      plan: planOf({ mainboard: [planned(brightclimb), planned(shivan)] }),
+      queue: queueOf({ cards: [queued(bolt)] }),
     });
     const plan = await openPlan(fixture, page);
     await stackMoved(fixture, 'Lightning Bolt', '1', '6');
@@ -307,13 +308,13 @@ describe('Deck tab stack moves', () => {
     });
     await flushPicks([pickOf({ playerId: bob.id, poolCardId: bolt.id })]);
     await flushQueueAndPlan(
-      queueOf(),
-      planOf({ mainboard: [planned(brightclimb), unpicked(boltAgain), planned(shivan)] }),
+      queueOf({ cards: [queued(boltAgain)] }),
+      planOf({ mainboard: [planned(brightclimb), planned(shivan)] }),
     );
     await fixture.whenStable();
 
     expect(stacksOf(plan)[0]).toEqual([
-      '6: Lightning Bolt (unpicked), Shivan Dragon',
+      '6: Lightning Bolt (queued first), Shivan Dragon',
       'Lands: Brightclimb Pathway // Grimclimb Pathway',
     ]);
   });

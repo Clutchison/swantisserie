@@ -12,6 +12,7 @@ import {
   pointer,
   tap,
   queueOf,
+  queued,
   button,
   cardName,
   startDrag,
@@ -160,7 +161,7 @@ describe('card previews', () => {
 
     it('opens on names tabbed to in the Queue pane, but not while a drag is under way', async () => {
       const { page, fixture } = await openPicked({
-        queue: queueOf({ cards: [{ poolCardId: shock.id, name: shock.name }] }),
+        queue: queueOf({ cards: [queued(shock)] }),
       });
       // A button, as it opens its Card detail.
       const name = button(await openQueueSheet(fixture, page), 'Shock')!;
@@ -177,10 +178,9 @@ describe('card previews', () => {
     it('opens on list mode names, which are buttons there, tabbed to on the Deck tab', async () => {
       const { page, fixture } = await openPicked({
         plan: {
-          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name }],
           sideboard: [],
           basics: [],
-          lost: [],
           readyNotice: false,
           preferredPrintings: {},
         },
@@ -209,10 +209,9 @@ describe('card previews', () => {
       try {
         const { page, fixture } = await openPicked({
           plan: {
-            mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+            mainboard: [{ poolCardId: bolt.id, name: bolt.name }],
             sideboard: [],
             basics: [],
-            lost: [],
             readyNotice: false,
             preferredPrintings: {},
           },

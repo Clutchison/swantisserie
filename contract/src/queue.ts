@@ -1,7 +1,14 @@
+import type { PlanBoard } from './plan.js';
+
 /** A card in a queue, or lost from one. */
 export interface QueuedCardView {
   poolCardId: string;
   name: string;
+  /**
+   * The plan board the queued copy sits on, and its pick lands on: the
+   * mainboard when it is queued. For a lost card, the one it sat on.
+   */
+  board: PlanBoard;
 }
 
 /**
@@ -51,9 +58,9 @@ export interface QueueOrderRequest {
   poolCardIds: string[];
 }
 
-/** Whether queuing the plan's unpicked cards takes the sideboard's too. */
-export interface QueueUnpickedRequest {
-  includeSideboard: boolean;
+/** The plan board to move a queued copy to. */
+export interface QueueMoveToBoardRequest {
+  board: PlanBoard;
 }
 
 /** The steal behavior a player sets for their queue. */

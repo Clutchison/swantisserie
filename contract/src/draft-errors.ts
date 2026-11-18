@@ -162,6 +162,10 @@ export interface QueueRefusal {
     | 'draft-closed'
     | 'your-turn'
     | 'queue-changed'
+    /** Moving a queued copy to a plan board: the card isn't in the player's queue. */
+    | 'not-queued'
+    /** Moving a queued copy to a plan board: the player's deck is locked. */
+    | 'deck-locked'
     /**
      * Setting a queue picking on the player's own turn: the cards it would
      * pick before another player picks aren't those they confirmed.
@@ -173,18 +177,10 @@ export interface QueueRefusal {
 /** Why a plan can't be changed; sent to the player as is. */
 export interface PlanRefusal {
   error:
-    /** The card isn't in the player's plan: its pick was undone, or it was lost. */
+    /** The card isn't in the player's plan: its pick was undone. */
     | 'not-in-plan'
-    /** The card is one of the player's picks, so it can't be removed from the plan. */
-    | 'a-pick'
-    | 'not-in-pool'
-    | 'already-picked'
-    /** Every available copy of the card is in the plan already. */
-    | 'no-copies-left'
     /** The plan holds MOST_BASICS copies of the basic land already, across both plan boards. */
     | 'most-basics'
-    | 'draft-complete'
-    | 'draft-closed'
     /** The player has joined a tournament that is playing, which locks their deck. */
     | 'deck-locked';
   message: string;

@@ -12,26 +12,18 @@ import {
   UseFilters,
   UseGuards,
 } from '@nestjs/common';
-import type {
-  BasicLand,
-  PlanBoard,
-  PlanMoveRequest,
-  PlanView,
-  RequestProblem,
-} from 'contract';
-import { bodyFields } from '../request-body.js';
+import type { BasicLand, PlanView, RequestProblem } from 'contract';
 import {
   CurrentUser,
   SessionGuard,
   type SessionUser,
 } from '../auth/session.guard.js';
 import { isBasicLand } from './basic-lands.js';
-import { isPlanBoard } from './plan-boards.js';
+import { parsePlanBoard, parsePlanBoardBody } from './plan-boards.js';
 import { DraftAccess } from './draft-access.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { DraftLock } from './draft-lock.js';
 import { DraftPublisher } from './draft-publisher.js';
-import { parseCard } from './parse-card.js';
 import { type PlanChange, PlansService } from './plans.service.js';
 
 /**
@@ -60,28 +52,7 @@ export class PlansController {
     return this.plans.plan(id, user.id);
   }
 
-  /** Adds an unpicked copy of a pool card to the mainboard. */
-  @Post()
-  @HttpCode(200)
-  async add(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-    @Body() body: unknown,
-  ): Promise<PlanView> {
-    const poolCardId = parseCard(body, 'Say which card to add.');
-    return this.change(user, id, () => this.plans.add(id, user.id, poolCardId));
-  }
-
-  /** Stops the Deck notice listing the lost cards. */
-  @Delete('notice')
-  async dismissNotice(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-  ): Promise<PlanView> {
-    return this.change(user, id, () => this.plans.dismissNotice(id, user.id));
-  }
-
-  /** Takes down the Ready notice. Declared before `:poolCardId`, which would match it. */
+  /** Takes down the Ready notice. */
   @Delete('ready-notice')
   async dismissReadyNotice(
     @CurrentUser() user: SessionUser,
@@ -116,13 +87,13 @@ export class PlansController {
     @Body() body: unknown,
   ): Promise<PlanView> {
     const basic = parseLand(land);
-    const planBoard = parseBoard(body);
+    const planBoard = parsePlanBoardBody(body);
     return this.change(user, id, () =>
       this.plans.moveBasic(id, user.id, basic, planBoard),
     );
   }
 
-  /** Takes every basic land out of the plan. Declared before `:poolCardId`, which would match it. */
+  /** Takes every basic land out of the plan. */
   @Delete('basics')
   async clearBasics(
     @CurrentUser() user: SessionUser,
@@ -146,18 +117,6 @@ export class PlansController {
     );
   }
 
-  /** Takes an unpicked card out of the plan. Declared after `notice`, `ready-notice` and `basics`, which it would match. */
-  @Delete(':poolCardId')
-  async remove(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-    @Param('poolCardId') poolCardId: string,
-  ): Promise<PlanView> {
-    return this.change(user, id, () =>
-      this.plans.remove(id, user.id, poolCardId),
-    );
-  }
-
   /** Moves a card in the plan to the mainboard or the sideboard. */
   @Put(':poolCardId')
   async move(
@@ -166,7 +125,7 @@ export class PlansController {
     @Param('poolCardId') poolCardId: string,
     @Body() body: unknown,
   ): Promise<PlanView> {
-    const planBoard = parseBoard(body);
+    const planBoard = parsePlanBoardBody(body);
     return this.change(user, id, () =>
       this.plans.move(id, user.id, poolCardId, planBoard),
     );
@@ -202,11 +161,6 @@ export class PlansController {
   }
 }
 
-/** The plan board the body names to move to, or a 400 if it names none. */
-function parseBoard(body: unknown): PlanBoard {
-  return parsePlanBoard(bodyFields<PlanMoveRequest>(body).board);
-}
-
 /** The basic land named in the path, or a 400 if it isn't one. */
 function parseLand(land: string): BasicLand {
   if (!isBasicLand(land)) {
@@ -216,15 +170,4 @@ function parseLand(land: string): BasicLand {
     } satisfies RequestProblem);
   }
   return land;
-}
-
-/** `value` as a plan board, from a body or a path, or a 400 if it isn't one. */
-function parsePlanBoard(value: unknown): PlanBoard {
-  if (!isPlanBoard(value)) {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Choose the mainboard or the sideboard.',
-    } satisfies RequestProblem);
-  }
-  return value;
 }

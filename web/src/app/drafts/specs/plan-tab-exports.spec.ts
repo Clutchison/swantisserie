@@ -190,18 +190,13 @@ describe('Deck tab exports', () => {
       return writeText.mock.lastCall?.[0];
     }
 
-    it('offers Export last in the tools row, after Queue unpicked and Add basics', async () => {
-      const unpicked = { poolCardId: 'brainstorm-card', name: 'Brainstorm', picked: false };
-      const opened = await openPlanWith(
-        picks,
-        {},
-        { plan: { ...EMPTY_PLAN, mainboard: [unpicked] } },
-      );
+    it('offers Export last in the tools row, after Add basics', async () => {
+      const opened = await openPlanWith(picks);
       toggleButton(planPanel(opened.page), 'Stacks')!.click();
       await opened.fixture.whenStable();
 
       // Only the row's action buttons: the mode and Group by toggles have no order to keep.
-      const actions = ['Queue unpicked', 'Add basics', 'Export'];
+      const actions = ['Add basics', 'Export'];
       expect(
         buttonOrder(planPanel(opened.page), 'Export').filter((name) => actions.includes(name)),
       ).toEqual(actions);
@@ -321,26 +316,23 @@ describe('Deck tab exports', () => {
       ];
       /**
        * Bolt and a Shock on the mainboard with basics, Opt, the other Shock
-       * and two Plains on the sideboard, and an unpicked card on each. Its
-       * player prefers Kaldheim's Island #395, which no export names.
+       * and two Plains on the sideboard. Its player prefers Kaldheim's
+       * Island #395, which no export names.
        */
       const plan: PlanView = {
         mainboard: [
-          { poolCardId: 'bolt-card', name: 'Lightning Bolt', picked: true },
-          { poolCardId: 'shock-card', name: 'Shock', picked: true },
-          { poolCardId: 'brainstorm-card', name: 'Brainstorm', picked: false },
+          { poolCardId: 'bolt-card', name: 'Lightning Bolt' },
+          { poolCardId: 'shock-card', name: 'Shock' },
         ],
         sideboard: [
-          { poolCardId: 'opt-card', name: 'Opt', picked: true },
-          { poolCardId: 'shock-card-2', name: 'Shock', picked: true },
-          { poolCardId: 'duress-card', name: 'Duress', picked: false },
+          { poolCardId: 'opt-card', name: 'Opt' },
+          { poolCardId: 'shock-card-2', name: 'Shock' },
         ],
         basics: [
           { land: 'Island', board: 'Mainboard', count: 8 },
           { land: 'Mountain', board: 'Mainboard', count: 7 },
           { land: 'Plains', board: 'Sideboard', count: 2 },
         ],
-        lost: [],
         readyNotice: false,
         preferredPrintings: {
           Island: {
@@ -358,15 +350,17 @@ describe('Deck tab exports', () => {
           },
         },
       };
-      /** `plan` as a complete draft or a locked deck holds it: without its unpicked cards. */
-      const deck: PlanView = {
-        ...plan,
-        mainboard: plan.mainboard.filter((card) => card.picked),
-        sideboard: plan.sideboard.filter((card) => card.picked),
+      /** A queued card on each plan board, which the deck shows and its exports leave out. */
+      const queue = {
+        ...EMPTY_QUEUE,
+        cards: [
+          { poolCardId: 'brainstorm-card', name: 'Brainstorm', board: 'Mainboard' as const },
+          { poolCardId: 'duress-card', name: 'Duress', board: 'Sideboard' as const },
+        ],
       };
 
-      it('copies it for Arena: the mainboard and its basics, then the sideboard and its basics, without unpicked cards', async () => {
-        const opened = await openPlanWith(yourPicks, {}, { plan });
+      it('copies it for Arena: the mainboard and its basics, then the sideboard and its basics, without queued cards', async () => {
+        const opened = await openPlanWith(yourPicks, {}, { plan, queue });
 
         expect(await copyFor(opened)).toBe(
           'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock\n2 Plains',
@@ -389,12 +383,8 @@ describe('Deck tab exports', () => {
         );
       });
 
-      it('copies a complete draft’s deck, which holds no unpicked cards', async () => {
-        const opened = await openPlanWith(
-          yourPicks,
-          { state: 'Complete', turn: null },
-          { plan: deck },
-        );
+      it('copies a complete draft’s deck', async () => {
+        const opened = await openPlanWith(yourPicks, { state: 'Complete', turn: null }, { plan });
 
         expect(await copyFor(opened)).toBe(
           'Deck\n1 Shock\n1 Lightning Bolt\n8 Island\n7 Mountain\n\nSideboard\n1 Opt\n1 Shock\n2 Plains',
@@ -404,7 +394,7 @@ describe('Deck tab exports', () => {
       it('copies a locked deck, as its player’s tournament is playing', async () => {
         const tournament = playing();
         const opened = await openPlanWith(yourPicks, withTournament(tournament, threePlayers), {
-          plan: deck,
+          plan,
           tournament,
         });
         expect(text(planPanel(opened.page))).toContain('Your deck is locked');
@@ -491,7 +481,6 @@ describe('Deck tab exports', () => {
             sideboard: sideboardPicks.map(({ card }) => ({
               poolCardId: card.id,
               name: card.name,
-              picked: true,
             })),
           };
           return { sideboardPicks, yours };

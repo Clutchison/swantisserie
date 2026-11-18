@@ -34,18 +34,14 @@ import {
   hiddenInClosedSection,
   toggleDisclosure,
 } from './disclosure-harness';
-import { emptyStatusIn, expectFocusOn, statusIn, watchChanges } from '../../specs-harness';
+import { statusIn } from '../../specs-harness';
 import { useTallScreen, shivan, brightclimb } from './pool-tab-harness';
 import {
   bobsTurn,
   bolt,
   boltAgain,
   cards,
-  deckNotice,
-  DECK_NOTICE,
-  pressDismiss,
   planned,
-  unpicked,
   planOf,
   openPlan,
   planPanel,
@@ -193,8 +189,9 @@ describe('plan tab', () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
       plan: planOf({
-        mainboard: [planned(brightclimb), unpicked(shivan)],
+        mainboard: [planned(brightclimb), planned(shivan)],
         sideboard: [planned(bolt)],
+        basics: [{ land: 'Forest', board: 'Mainboard', count: 1 }],
       }),
     });
     const plan = await openPlan(fixture, page);
@@ -217,138 +214,23 @@ describe('plan tab', () => {
       text: '',
       tooltip: 'Move Lightning Bolt to the mainboard',
     });
-    expect(shown('Remove Shivan Dragon from your deck')).toEqual({
+    expect(shown('Remove Forest from your deck')).toEqual({
       icon: ['lucide-trash'],
       text: '',
-      tooltip: 'Remove Shivan Dragon from your deck',
+      tooltip: 'Remove Forest from your deck',
     });
   });
 
-  it('dims unpicked cards, marks them, counts them apart and offers to remove them', async () => {
+  it('offers no Queue unpicked and no Deck notice: the deck holds only picks and basic lands', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf({
-        mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain), unpicked(shivan)],
-        sideboard: [],
-      }),
+      plan: planOf({ mainboard: [planned(brightclimb)] }),
     });
     const plan = await openPlan(fixture, page);
 
-    expect(planBoards(plan)).toEqual([
-      {
-        heading: 'Mainboard 4 (2 picked)',
-        lines: [
-          '1 Brightclimb Pathway // Grimclimb Pathway',
-          '1 Lightning Bolt',
-          '1 Lightning Bolt (unpicked)',
-          '1 Shivan Dragon (unpicked)',
-        ],
-      },
-      { heading: 'Sideboard 0 (0 picked)', lines: [] },
-    ]);
-    // Styles hide the mark on a narrow screen, which jsdom can't apply; a screen reader still reads it.
-    const shivanLine = [...plan.querySelectorAll('li')].find((line) =>
-      accessibleName(line).includes('Shivan Dragon'),
-    )!;
-    expect(accessibleName(shivanLine)).toContain('Unpicked');
-    expect(
-      button(plan, 'Remove Brightclimb Pathway // Grimclimb Pathway from your deck'),
-    ).toBeUndefined();
-
-    button(plan, 'Remove Shivan Dragon from your deck')!.click();
-    const req = http.expectOne('/api/drafts/draft-1/plan/shivan-card');
-    expect(req.request.method).toBe('DELETE');
-    req.flush(planOf({ mainboard: [planned(brightclimb), planned(bolt), unpicked(boltAgain)] }));
-    await vi.waitFor(() =>
-      expect(planBoards(plan)[0]).toEqual({
-        heading: 'Mainboard 3 (2 picked)',
-        lines: [
-          '1 Brightclimb Pathway // Grimclimb Pathway',
-          '1 Lightning Bolt',
-          '1 Lightning Bolt (unpicked)',
-        ],
-      }),
-    );
-
-    // An unpicked card moves like a pick.
-    button(plan, 'Move Lightning Bolt to the sideboard')!.click();
-    const move = http.expectOne('/api/drafts/draft-1/plan/bolt-card');
-    expect(move.request.body).toEqual({ board: 'Sideboard' });
-    move.flush(
-      planOf({
-        mainboard: [planned(brightclimb), unpicked(boltAgain)],
-        sideboard: [planned(bolt)],
-      }),
-    );
-    await vi.waitFor(() => expect(planBoards(plan)[1].heading).toBe('Sideboard 1 (1 picked)'));
-    // The second Lightning Bolt line is the unpicked one, so its button moves that copy.
-    const unpickedLine = [...plan.querySelectorAll('li.unpicked')].find((line) =>
-      line.textContent?.includes('Lightning Bolt'),
-    )!;
-    unpickedLine.querySelector<HTMLButtonElement>('button[aria-label^="Move"]')!.click();
-    expect(http.expectOne('/api/drafts/draft-1/plan/bolt-card-2').request.body).toEqual({
-      board: 'Sideboard',
-    });
-  });
-
-  it('notes lost cards, with who picked them, until dismissed', async () => {
-    const carol = { ...bob, id: 'carol', name: 'Carol', isBot: true };
-    const { fixture, page } = await openDraft(
-      completeSnapshot,
-      drafting({ turn: bobsTurn, players: [alicePlayer, bob, carol] }),
-      {
-        cards,
-        plan: planOf({
-          mainboard: [planned(brightclimb)],
-          lost: [
-            { poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id },
-            { poolCardId: bolt.id, name: bolt.name, pickedBy: carol.id },
-          ],
-        }),
-      },
-    );
-    const plan = await openPlan(fixture, page);
-
-    const note = deckNotice(plan)!;
-    expect(text(note)).toBe(
-      'Lost to other players: Shivan Dragon (picked by Bob), Lightning Bolt (picked by Carol). Dismiss',
-    );
-
-    button(note, 'Dismiss')!.click();
-    const req = http.expectOne('/api/drafts/draft-1/plan/notice');
-    expect(req.request.method).toBe('DELETE');
-    req.flush(planOf({ mainboard: [planned(brightclimb)] }));
-    await vi.waitFor(() => expect(deckNotice(plan)).toBeNull());
-  });
-
-  it('puts the Deck notice into its region, there and empty before an unpicked card in the deck is lost, and says it once', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }),
-    });
-    const plan = await openPlan(fixture, page);
-    const region = emptyStatusIn(plan, DECK_NOTICE);
-    const withLoss = planOf({
-      mainboard: [planned(brightclimb)],
-      lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
-    });
-    /** The draft changes, and the plan re-read is `answer`. */
-    const changed = async (version: number) => {
-      updates.events.next({ type: 'changed', draft: draft(drafting({ turn: bobsTurn, version })) });
-      await flushPicks([]);
-      await flushQueueAndPlan(EMPTY_QUEUE, withLoss);
-      await fixture.whenStable();
-    };
-
-    await changed(1);
-
-    expect(statusIn(plan, { name: DECK_NOTICE })).toBe(region);
-    expect(text(region)).toBe('Lost to other players: Shivan Dragon (picked by Bob). Dismiss');
-
-    // A later change re-reads the plan, its notice the same: the region is left alone.
-    const changes = watchChanges(region);
-    await changed(2);
-    expect(changes()).toEqual([]);
+    expect(button(plan, 'Queue unpicked')).toBeUndefined();
+    expect(statusIn(plan, { name: 'Deck notice' })).toBeNull();
+    expect(text(plan)).not.toContain('Unpicked');
   });
 
   it('hides its help in a closed "How this works" section until opened', async () => {
@@ -357,7 +239,7 @@ describe('plan tab', () => {
       plan: planOf({ mainboard: [planned(brightclimb)] }),
     });
     const plan = await openPlan(fixture, page);
-    const help = () => elementContaining(plan, 'Every pick lands on your mainboard.');
+    const help = () => elementContaining(plan, 'Your queued cards show dimmed');
 
     expect(disclosure(plan, 'How this works')!.open).toBe(false);
     expect(hiddenInClosedSection(help())).toBe(true);
@@ -367,35 +249,15 @@ describe('plan tab', () => {
     expect(hiddenInClosedSection(help())).toBe(false);
   });
 
-  it('shows the Deck notice and the Ready notice while "How this works" is closed', async () => {
+  it('shows the Ready notice while "How this works" is closed', async () => {
     const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
       cards,
-      plan: planOf({
-        mainboard: [planned(brightclimb)],
-        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
-        readyNotice: true,
-      }),
+      plan: planOf({ mainboard: [planned(brightclimb)], readyNotice: true }),
     });
     const plan = await openPlan(fixture, page);
 
     expect(disclosure(plan, 'How this works')!.open).toBe(false);
-    expect(hiddenInClosedSection(elementContaining(plan, 'Lost to other players'))).toBe(false);
     expect(hiddenInClosedSection(elementContaining(plan, 'You’re no longer ready'))).toBe(false);
-  });
-
-  it('still notes a lost card whose picker is no longer among the players', async () => {
-    const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-      cards,
-      plan: planOf({
-        mainboard: [planned(brightclimb)],
-        lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: 'gone' }],
-      }),
-    });
-    const plan = await openPlan(fixture, page);
-
-    expect(text(deckNotice(plan)!)).toBe(
-      'Lost to other players: Shivan Dragon (picked by another player). Dismiss',
-    );
   });
 
   it('says so while the deck loads', async () => {
@@ -451,18 +313,21 @@ describe('plan tab', () => {
   });
 
   it.each(['Lobby', 'Frozen', 'Closed', 'Complete'] as const)(
-    'can be changed while the draft is %s, unpicked cards included, as the api never refuses removing one for the draft’s state',
+    'can be changed while the draft is %s, basic lands included, as the api never refuses removing one for the draft’s state',
     async (state) => {
       const { fixture, page } = await openDraft(
         completeSnapshot,
         { players: [alicePlayer, bob], state },
-        { cards, plan: planOf({ sideboard: [unpicked(boltAgain)] }) },
+        {
+          cards,
+          plan: planOf({ basics: [{ land: 'Forest', board: 'Sideboard', count: 1 }] }),
+        },
       );
       const plan = await openPlan(fixture, page);
 
       expect(button(plan, 'Move Shivan Dragon to the sideboard')!.disabled).toBe(false);
-      expect(planBoards(plan)[1].lines).toEqual(['1 Lightning Bolt (unpicked)']);
-      expect(button(plan, 'Remove Lightning Bolt from your deck')!.disabled).toBe(false);
+      expect(planBoards(plan)[1].lines).toEqual(['1 Forest']);
+      expect(button(plan, 'Remove Forest from your deck')!.disabled).toBe(false);
     },
   );
 
@@ -541,58 +406,58 @@ describe('plan tab', () => {
     it('keeps focus on a line’s Remove as one of its several copies goes', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), unpicked(boltAgain)] }),
+        plan: planOf({
+          mainboard: [planned(brightclimb)],
+          basics: [{ land: 'Forest', board: 'Mainboard', count: 2 }],
+        }),
       });
       const plan = await openPlan(fixture, page);
-      const remove = button(plan, 'Remove Lightning Bolt from your deck')!;
+      const remove = button(plan, 'Remove Forest from your deck')!;
 
       remove.focus();
       remove.click();
-      http
-        .expectOne('/api/drafts/draft-1/plan/bolt-card')
-        .flush(planOf({ mainboard: [planned(brightclimb), unpicked(boltAgain)] }));
-      await vi.waitFor(() => expect(planBoards(plan)[0].lines).toHaveLength(2));
+      http.expectOne('/api/drafts/draft-1/plan/basics/Forest/Mainboard').flush(
+        planOf({
+          mainboard: [planned(brightclimb)],
+          basics: [{ land: 'Forest', board: 'Mainboard', count: 1 }],
+        }),
+      );
+      await vi.waitFor(() =>
+        expect(planBoards(plan)[0].lines).toEqual([
+          '1 Brightclimb Pathway // Grimclimb Pathway',
+          '1 Forest',
+        ]),
+      );
       await fixture.whenStable();
 
-      expect(document.activeElement).toBe(button(plan, 'Remove Lightning Bolt from your deck'));
+      expect(document.activeElement).toBe(button(plan, 'Remove Forest from your deck'));
     });
 
     it('moves focus to the next line once removing a card’s last copy takes its line', async () => {
       const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
         cards,
-        plan: planOf({ mainboard: [planned(brightclimb), unpicked(bolt), unpicked(shivan)] }),
-      });
-      const plan = await openPlan(fixture, page);
-
-      button(plan, 'Remove Lightning Bolt from your deck')!.focus();
-      button(plan, 'Remove Lightning Bolt from your deck')!.click();
-      http
-        .expectOne('/api/drafts/draft-1/plan/bolt-card')
-        .flush(planOf({ mainboard: [planned(brightclimb), unpicked(shivan)] }));
-
-      await vi.waitFor(() =>
-        expect(document.activeElement).toBe(button(plan, 'Move Shivan Dragon to the sideboard')),
-      );
-    });
-
-    it('moves focus to the nearest control after the Deck notice’s Dismiss once it settles', async () => {
-      const { fixture, page } = await openDraft(completeSnapshot, drafting({ turn: bobsTurn }), {
-        cards,
         plan: planOf({
           mainboard: [planned(brightclimb)],
-          lost: [{ poolCardId: shivan.id, name: shivan.name, pickedBy: bob.id }],
+          basics: [
+            { land: 'Island', board: 'Mainboard', count: 1 },
+            { land: 'Forest', board: 'Mainboard', count: 1 },
+          ],
         }),
       });
       const plan = await openPlan(fixture, page);
 
-      await pressDismiss(
-        fixture,
-        deckNotice(plan)!,
-        '/api/drafts/draft-1/plan/notice',
-        planOf({ mainboard: [planned(brightclimb)] }),
+      button(plan, 'Remove Island from your deck')!.focus();
+      button(plan, 'Remove Island from your deck')!.click();
+      http.expectOne('/api/drafts/draft-1/plan/basics/Island/Mainboard').flush(
+        planOf({
+          mainboard: [planned(brightclimb)],
+          basics: [{ land: 'Forest', board: 'Mainboard', count: 1 }],
+        }),
       );
 
-      await vi.waitFor(() => expectFocusOn(plan, `Move ${brightclimb.name} to the sideboard`));
+      await vi.waitFor(() =>
+        expect(document.activeElement).toBe(button(plan, 'Move Forest to the sideboard')),
+      );
     });
   });
 });

@@ -418,7 +418,7 @@ describe('the Trophy Hall', () => {
 
     expect(row.decklist).toEqual({
       playerId: alice.id,
-      mainboard: [{ poolCardId: ids.Shock, name: 'Shock', picked: true }],
+      mainboard: [{ poolCardId: ids.Shock, name: 'Shock' }],
       sideboard: [],
       basics: [{ land: 'Mountain', board: 'Mainboard', count: 39 }],
       preferredPrintings: {

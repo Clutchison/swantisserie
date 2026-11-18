@@ -14,10 +14,10 @@ const shock = poolCardOf('shock', 'Shock');
 const alices: DecklistView = {
   playerId: 'alice',
   mainboard: [
-    { poolCardId: bolt.id, name: bolt.name, picked: true },
-    { poolCardId: 'bolt-2', name: bolt.name, picked: true },
+    { poolCardId: bolt.id, name: bolt.name },
+    { poolCardId: 'bolt-2', name: bolt.name },
   ],
-  sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
+  sideboard: [{ poolCardId: shock.id, name: shock.name }],
   basics: [
     { land: 'Island', board: 'Mainboard', count: 2 },
     { land: 'Mountain', board: 'Mainboard', count: 36 },

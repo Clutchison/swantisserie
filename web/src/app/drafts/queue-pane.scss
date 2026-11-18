@@ -104,9 +104,9 @@
   }
 }
 
-/* The position, cost, name and row menu. */
+/* The position, cost, name, sideboard mark and row menu. */
 .queue {
-  --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
+  --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto auto;
   margin: 0;
   padding: 0;
   list-style: none;

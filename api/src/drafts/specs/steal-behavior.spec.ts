@@ -287,7 +287,9 @@ describe('steal behavior', () => {
       await pick(id, first).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body).toEqual({
-        cards: [{ poolCardId: second, name: 'Lightning Bolt' }],
+        cards: [
+          { poolCardId: second, name: 'Lightning Bolt', board: 'Mainboard' },
+        ],
         lost: [],
         stealBehavior: 'PauseQueue',
         queuePaused: false,
@@ -574,7 +576,11 @@ describe('steal behavior', () => {
       await undo(id, 1).expect(200);
 
       expect((await queue(id, carolCookie).expect(200)).body.cards).toEqual(
-        cards.map((name) => ({ poolCardId: ids[name], name })),
+        cards.map((name) => ({
+          poolCardId: ids[name],
+          name,
+          board: 'Mainboard',
+        })),
       );
     });
 

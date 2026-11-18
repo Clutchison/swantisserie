@@ -3,9 +3,10 @@ import { inject, Injectable } from '@angular/core';
 import type { Observable } from 'rxjs';
 import type {
   PoolCardRequest,
+  PlanBoard,
+  QueueMoveToBoardRequest,
   QueueOrderRequest,
   QueuePausedRequest,
-  QueueUnpickedRequest,
   QueueView,
   StealBehavior,
   StealBehaviorRequest,
@@ -20,15 +21,15 @@ export class QueueApi {
     return this.http.post<QueueView>(url(draftId), { poolCardId } satisfies PoolCardRequest);
   }
 
-  /** Adds the plan's unpicked cards to the end of the queue: the mainboard's, and the sideboard's if `includeSideboard`. */
-  addUnpicked(draftId: string, includeSideboard: boolean): Observable<QueueView> {
-    return this.http.post<QueueView>(`${url(draftId)}/unpicked`, {
-      includeSideboard,
-    } satisfies QueueUnpickedRequest);
-  }
-
   remove(draftId: string, poolCardId: string): Observable<QueueView> {
     return this.http.delete<QueueView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}`);
+  }
+
+  /** Moves the queued copy `poolCardId` to `board` of the deck, keeping its place in the queue. */
+  moveToBoard(draftId: string, poolCardId: string, board: PlanBoard): Observable<QueueView> {
+    return this.http.put<QueueView>(`${url(draftId)}/${encodeURIComponent(poolCardId)}/board`, {
+      board,
+    } satisfies QueueMoveToBoardRequest);
   }
 
   /** Puts the queue's cards in this order, as their pool card ids. */

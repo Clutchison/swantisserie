@@ -14,7 +14,6 @@ import {
 import type {
   QueueOrderRequest,
   QueuePausedRequest,
-  QueueUnpickedRequest,
   QueueView,
   RequestProblem,
   StealBehavior,
@@ -30,6 +29,7 @@ import { DraftAccess } from './draft-access.js';
 import { DraftChanges } from './draft-changes.js';
 import { DraftErrorsFilter } from './draft-errors.filter.js';
 import { parseCard } from './parse-card.js';
+import { parsePlanBoardBody } from './plan-boards.js';
 import { QueuesService } from './queues.service.js';
 import { isStealBehavior } from './steal-behaviors.js';
 import { TurnsService } from './turns.service.js';
@@ -68,23 +68,6 @@ export class QueuesController {
     const poolCardId = parseCard(body, 'Say which card to queue.');
     return this.answer(user, id, () =>
       this.queues.add(id, user.id, poolCardId),
-    );
-  }
-
-  /**
-   * Adds the plan's unpicked cards to the end of the queue: the
-   * mainboard's, and the sideboard's if asked.
-   */
-  @Post('unpicked')
-  @HttpCode(200)
-  async addUnpicked(
-    @CurrentUser() user: SessionUser,
-    @Param('id') id: string,
-    @Body() body: unknown,
-  ): Promise<QueueView> {
-    const includeSideboard = parseIncludeSideboard(body);
-    return this.answer(user, id, () =>
-      this.queues.addUnpicked(id, user.id, includeSideboard),
     );
   }
 
@@ -148,6 +131,23 @@ export class QueuesController {
     });
   }
 
+  /**
+   * Moves a queued copy to a plan board, which its pick then lands on,
+   * leaving its place in the queue as it is.
+   */
+  @Put(':poolCardId/board')
+  async moveToBoard(
+    @CurrentUser() user: SessionUser,
+    @Param('id') id: string,
+    @Param('poolCardId') poolCardId: string,
+    @Body() body: unknown,
+  ): Promise<QueueView> {
+    const board = parsePlanBoardBody(body);
+    return this.answer(user, id, () =>
+      this.queues.moveToBoard(id, user.id, poolCardId, board),
+    );
+  }
+
   /** Stops the Queue notice listing the lost cards. */
   @Delete('notice')
   async dismissNotice(
@@ -194,18 +194,6 @@ function parseOrder(body: unknown): string[] {
     } satisfies RequestProblem);
   }
   return poolCardIds;
-}
-
-/** Whether to queue the sideboard's unpicked cards too, or a 400 if it isn't said. */
-function parseIncludeSideboard(body: unknown): boolean {
-  const { includeSideboard } = bodyFields<QueueUnpickedRequest>(body);
-  if (typeof includeSideboard !== 'boolean') {
-    throw new BadRequestException({
-      error: 'invalid',
-      message: 'Say whether to include the sideboard.',
-    } satisfies RequestProblem);
-  }
-  return includeSideboard;
 }
 
 /**

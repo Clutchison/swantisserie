@@ -417,10 +417,9 @@ describe('card previews', () => {
           cards: [fireIce],
           picks: [pick(1, fireIce)],
           plan: {
-            mainboard: [{ poolCardId: fireIce.id, name: fireIce.name, picked: true }],
+            mainboard: [{ poolCardId: fireIce.id, name: fireIce.name }],
             sideboard: [],
             basics: [],
-            lost: [],
             readyNotice: false,
             preferredPrintings: {},
           },
@@ -482,10 +481,9 @@ describe('card previews', () => {
     async function openPlanList() {
       const opened = await openPicked({
         plan: {
-          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name }],
           sideboard: [],
           basics: [],
-          lost: [],
           readyNotice: false,
           preferredPrintings: {},
         },
@@ -533,10 +531,9 @@ describe('card previews', () => {
     it('shows on plan rows when the mouse rests on them', async () => {
       const { page, fixture } = await openPicked({
         plan: {
-          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name }],
           sideboard: [],
           basics: [],
-          lost: [],
           readyNotice: false,
           preferredPrintings: {},
         },
@@ -550,14 +547,13 @@ describe('card previews', () => {
       expect(previewImage()?.getAttribute('src')).toBe(image('normal', 'bolt-id'));
     });
 
-    /** Opens the Deck tab with Lightning Bolt on the mainboard, Shock on the sideboard, and Bolt lost. */
+    /** Opens the Deck tab with Lightning Bolt on the mainboard and Shock on the sideboard. */
     async function openBoltPlan() {
       const opened = await openPicked({
         plan: {
-          mainboard: [{ poolCardId: bolt.id, name: bolt.name, picked: true }],
-          sideboard: [{ poolCardId: shock.id, name: shock.name, picked: true }],
+          mainboard: [{ poolCardId: bolt.id, name: bolt.name }],
+          sideboard: [{ poolCardId: shock.id, name: shock.name }],
           basics: [],
-          lost: [{ poolCardId: bolt.id, name: bolt.name, pickedBy: bob.id }],
           readyNotice: false,
           preferredPrintings: {},
         },
@@ -578,16 +574,6 @@ describe('card previews', () => {
           ]),
         ),
       ).toEqual([[['Lightning Bolt', ['one red mana']]], [['Shock', ['one red mana']]]]);
-    });
-
-    it('shows mana costs inline in the Deck notice', async () => {
-      const { page } = await openBoltPlan();
-
-      const notice = panel(page).querySelector<HTMLElement>('.notice')!;
-      expect(costBefore(notice.querySelector<HTMLElement>('strong .name')!)).toEqual([
-        'one red mana',
-      ]);
-      expect(notice.querySelector('.card-rows')).toBeNull();
     });
 
     it('shows no mana costs on stacks’ card images', async () => {
@@ -611,7 +597,6 @@ describe('card previews', () => {
           mainboard: [],
           sideboard: [],
           basics: [{ land: 'Swamp', board: 'Mainboard', count: 2 }],
-          lost: [],
           readyNotice: false,
           preferredPrintings,
         },
@@ -672,8 +657,8 @@ describe('card previews', () => {
 
   describe('in the queue', () => {
     const queue: QueueView = queueOf({
-      cards: [{ poolCardId: shock.id, name: shock.name }],
-      lost: [{ poolCardId: bolt.id, name: bolt.name }],
+      cards: [queued(shock)],
+      lost: [queued(bolt)],
     });
 
     /**
@@ -724,7 +709,7 @@ describe('card previews', () => {
       chooseInOpenRowMenu('Shock', 'Remove');
       http
         .expectOne('/api/drafts/draft-1/queue/shock-card')
-        .flush(queueOf({ lost: [{ poolCardId: bolt.id, name: bolt.name }] }));
+        .flush(queueOf({ lost: [queued(bolt)] }));
       await vi.waitFor(() => expect(cardNames(queueList(sheet))).toEqual([]));
       await fixture.whenStable();
 

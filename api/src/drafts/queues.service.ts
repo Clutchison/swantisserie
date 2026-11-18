@@ -1,13 +1,17 @@
 import { Injectable } from '@nestjs/common';
-import type { QueuedCardView, QueueView, StealBehavior } from 'contract';
+import type {
+  PlanBoard,
+  QueuedCardView,
+  QueueView,
+  StealBehavior,
+} from 'contract';
 import { currentTurn, draftSize } from 'engine';
 import type { DraftState } from '../generated/prisma/client.js';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { NotAPlayerError } from './draft-errors.js';
 import { DraftLock } from './draft-lock.js';
 import { DRAFT_SIZE_FIELDS, type Transaction } from './draft-shapes.js';
-import { PLAN_ORDER } from './plans.service.js';
-import { leaveQueue, QUEUE_ORDER } from './queue-order.js';
+import { DECK_LOCKED, isDeckLocked } from './locked-deck.js';
 import {
   checkStarted,
   queuePlayerOf,
@@ -121,39 +125,6 @@ export class QueuesService {
   }
 
   /**
-   * Adds the unpicked cards in the user's plan, the mainboard's and, if
-   * `includeSideboard`, the sideboard's, to the end of their queue in one
-   * go: first those with a queue order, in it; then the rest, the
-   * mainboard's then the sideboard's, each in the plan's order. Copies
-   * already queued stay where they are. Refused as `add` is, and throws
-   * NotAPlayerError if the user isn't in the draft.
-   */
-  async addUnpicked(
-    draftId: string,
-    userId: string,
-    includeSideboard: boolean,
-  ): Promise<QueueView> {
-    return this.change(draftId, userId, async (tx, playerId, state) => {
-      await this.checkCanAdd(tx, draftId, playerId, state);
-      const unpicked = await tx.plannedCard.findMany({
-        where: {
-          playerId,
-          pickId: null,
-          ...(includeSideboard ? {} : { board: 'Mainboard' }),
-        },
-        // Postgres orders enums as declared: the mainboard, then the sideboard.
-        orderBy: [...QUEUE_ORDER, { board: 'asc' }, ...PLAN_ORDER],
-        select: { poolCardId: true },
-      });
-      await this.append(
-        tx,
-        playerId,
-        unpicked.map((card) => card.poolCardId),
-      );
-    });
-  }
-
-  /**
    * Puts the user's queue in the order of `poolCardIds`, which must list each
    * queued card once; throws QueueChangedError if it doesn't. Throws
    * QueueRefusedError once the draft is closed or complete, and
@@ -189,10 +160,9 @@ export class QueuesService {
   }
 
   /**
-   * Takes the pool card `poolCardId` out of the user's queue, recording its
-   * queue order; a no-op if it isn't there. Throws QueueRefusedError once
-   * the draft is closed or complete, and NotAPlayerError if the user isn't
-   * in the draft.
+   * Takes the pool card `poolCardId` out of the user's queue; a no-op if it
+   * isn't there. Throws QueueRefusedError once the draft is closed or
+   * complete, and NotAPlayerError if the user isn't in the draft.
    */
   async remove(
     draftId: string,
@@ -200,15 +170,43 @@ export class QueuesService {
     poolCardId: string,
   ): Promise<QueueView> {
     return this.change(draftId, userId, async (tx, playerId) => {
-      const removed = await tx.queuedCard.findMany({
+      await tx.queuedCard.deleteMany({ where: { playerId, poolCardId } });
+    });
+  }
+
+  /**
+   * Moves the user's queued copy `poolCardId` to the plan board `board`,
+   * which its pick then lands on; a no-op if it is there already. Its place
+   * in the queue stays as it is. Like a deck change, it is allowed whenever
+   * the deck may change, whatever the draft's state, and like other queue
+   * changes it takes the player's row lock and bumps no version, as the
+   * queue is private to the player. Throws QueueRefusedError while the deck
+   * is locked (`deck-locked`) or if the card isn't queued (`not-queued`),
+   * and NotAPlayerError if the user isn't in the draft.
+   */
+  async moveToBoard(
+    draftId: string,
+    userId: string,
+    poolCardId: string,
+    board: PlanBoard,
+  ): Promise<QueueView> {
+    return this.lock.forPlayer(draftId, userId, async (tx, locked) => {
+      if (!locked) throw new NotAPlayerError('queues');
+      const { playerId } = locked;
+      if (await isDeckLocked(tx, playerId)) {
+        throw new QueueRefusedError(DECK_LOCKED);
+      }
+      const { count } = await tx.queuedCard.updateMany({
         where: { playerId, poolCardId },
-        select: {
-          poolCardId: true,
-          // Stryker disable next-line BooleanLiteral: without it, the card's plan copy gets the new departure but keeps whatever queuePosition it had before, from an earlier departure or none, which is harmless only because a queue position only orders cards within one departure, and removing a card makes a departure of that one card alone.
-          position: true,
-        },
+        data: { board },
       });
-      await leaveQueue(tx, playerId, removed);
+      if (count === 0) {
+        throw new QueueRefusedError({
+          error: 'not-queued',
+          message: 'That card isn’t in your queue.',
+        });
+      }
+      return this.read(tx, playerId);
     });
   }
 
@@ -327,6 +325,7 @@ export class QueuesService {
       orderBy: { position: 'asc' },
       select: {
         poolCardId: true,
+        board: true,
         // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `name` included, and the queue reads only `name`.
         poolCard: {
           select: { name: true },
@@ -343,6 +342,7 @@ export class QueuesService {
       ],
       select: {
         poolCardId: true,
+        board: true,
         queueLoss: true,
         // Stryker disable next-line ObjectLiteral: an empty relation select returns every scalar field, `poolCardId` included, and the notice reads only `poolCardId`.
         pick: {
@@ -372,7 +372,12 @@ export class QueuesService {
 
 function toQueuedCardView(card: {
   poolCardId: string;
+  board: PlanBoard;
   poolCard: { name: string };
 }): QueuedCardView {
-  return { poolCardId: card.poolCardId, name: card.poolCard.name };
+  return {
+    poolCardId: card.poolCardId,
+    name: card.poolCard.name,
+    board: card.board,
+  };
 }

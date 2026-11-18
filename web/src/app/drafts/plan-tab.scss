@@ -26,7 +26,7 @@ h3 {
   }
 }
 
-/* The Deck tab's tools: Queue unpicked, then Stacks or list and how the stacks group, each a row of toggles with the chosen one pressed, then Add basics and Copy. It wraps on a narrow screen. */
+/* The Deck tab's tools: Stacks or list and how the stacks group, each a row of toggles with the chosen one pressed, then Add basics and Copy. It wraps on a narrow screen. */
 .mode-controls {
   display: flex;
   flex-wrap: wrap;
@@ -40,7 +40,7 @@ ul {
   list-style: none;
 }
 
-/* The count, cost, name, and what's after: an unpicked card's mark, and the buttons. */
+/* The count, cost, name, and what's after: a queued card's Queued badge, and the buttons. */
 .lines {
   --card-row-columns: auto [cost] max-content [name] minmax(0, 1fr) auto;
   container-type: inline-size;
@@ -59,9 +59,9 @@ ul {
     font-weight: 600;
   }
 
-  /* An unpicked card is dimmed: it isn't the player's yet, and may not be. Lines don't overlap, so nothing shows through. */
-  .unpicked .count,
-  .unpicked app-card-name {
+  /* A queued card is dimmed: it isn't the player's yet, and may not be. Lines don't overlap, so nothing shows through. */
+  .dimmed .count,
+  .dimmed app-card-name {
     opacity: 0.6;
   }
 
@@ -94,7 +94,7 @@ ul {
 
 /*
  * A line keeps to one row at every width: where the panel is narrow, its name gives up the width
- * and is cut off. There, the Unpicked mark is hidden but still read by screen readers, as the
+ * and is cut off. There, the Queued badge is hidden but still read by screen readers, as the
  * dimmed line already marks it on screen. A class in the template can't follow the container
  * query, so this includes the mixin behind the global .visually-hidden.
  */
@@ -114,12 +114,11 @@ li > .error {
   font-size: var(--font-size-sm);
 }
 
-.mark {
-  padding: 0 var(--space-xs);
-  border: 1px solid var(--color-muted);
-  border-radius: 0.25rem;
-  color: var(--color-muted);
-  font-size: var(--font-size-sm);
+/* A queued card's Queued badge, in the accent the Pool tab's Queued badge uses. */
+.mark.queued {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  white-space: nowrap;
 }
 
 .count {
